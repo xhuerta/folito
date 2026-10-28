@@ -3,6 +3,21 @@
 Everything below was run on Linux (Swift 6.0.3, Docker 29) from `Packages/ReaderCore`. Unit tests (`swift test`) need
 nothing external; the checks in this document are gated by environment variables and skip when not configured.
 
+## 0. What runs where
+
+| Suite | Where | Command / job | Executed |
+|---|---|---|---|
+| ReaderCore unit tests | Linux (`linux.yml`) and macOS (`macos.yml`, `swift test`) | `swift test` in `Packages/ReaderCore` | 164 (14 skipped: env-gated) |
+| KOSync integration | Linux, service container | job `kosync-integration` (`KOSYNC_TEST_URL`) | see section 1 |
+| iOS app tests (`WristReaderTests`: LogicTests, TypographySyncTests) | macOS runner, iPhone simulator | `xcodebuild test -scheme WristReader` | 12 |
+| watchOS app tests (`WristReaderWatchTests`: LogicTests, TypographyDictionaryTests) | macOS runner, Apple Watch simulator | `xcodebuild test -scheme WristReaderWatch` | 39 |
+
+The macOS job uploads `ios-tests.xcresult` / `watch-tests.xcresult` as artifacts and prints a per-case summary.
+Notes on the watch bundle: the watch app's `PRODUCT_NAME` is `WristReader`, so `TEST_HOST`/`BUNDLE_LOADER` are set
+explicitly in `project.yml`; the app also sets `WKRunsIndependentlyOfCompanionApp` so it can be installed on a watch
+simulator without a paired iPhone (otherwise the test host fails to launch: "Unknown application display identifier").
+Locally on a Mac: `xcodegen generate && xcodebuild test -project WristReader.xcodeproj -scheme WristReaderWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 10 (46mm)' CODE_SIGNING_ALLOWED=NO`.
+
 ## 1. Real KOSync server (koreader-sync-server)
 
 - Server: the original `koreader/kosync` image (OpenResty + Redis), see `scripts/kosync-server/` (compose file + README).

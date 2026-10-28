@@ -20,6 +20,16 @@ jobs:
         with:
           xcode-version: latest-stable
 
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swift-package-manager
+            SourcePackages
+            Packages/ReaderCore/.build
+          key: spm-${{ runner.os }}-${{ hashFiles('Packages/ReaderCore/Package.swift', 'Packages/ReaderCore/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-
+
       - name: Install XcodeGen
         run: brew install xcodegen
 
@@ -30,40 +40,77 @@ jobs:
         working-directory: Packages/ReaderCore
         run: swift test
 
-      - name: Build iOS app (simulator)
+      - name: Test iOS app (simulator)
         run: |
-          xcodebuild build \
+          set -o pipefail
+          UDID=$(xcrun simctl list devices available -j | python3 -c "
+          import json,sys
+          d=json.load(sys.stdin)['devices']
+          c=[x for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone')]
+          print(c[-1]['udid'] if c else '')")
+          echo "iOS simulator: $UDID"
+          [ -n "$UDID" ] || { xcrun simctl list devices available; exit 1; }
+          rm -rf ios-tests.xcresult
+          xcodebuild test \
             -project WristReader.xcodeproj \
             -scheme WristReader \
-            -destination 'generic/platform=iOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO
+            -destination "id=$UDID" \
+            -clonedSourcePackagesDirPath SourcePackages \
+            -resultBundlePath ios-tests.xcresult \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee ios-tests.log
 
-      - name: Build watchOS app (simulator)
+      - name: iOS test summary
+        if: always()
         run: |
-          xcodebuild build \
+          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:" ios-tests.log || true
+          xcrun xcresulttool get test-results summary --path ios-tests.xcresult || true
+
+      - name: Upload iOS xcresult
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-tests-xcresult
+          path: ios-tests.xcresult
+
+      - name: Test watchOS app (simulator)
+        run: |
+          set -o pipefail
+          UDID=$(xcrun simctl list devices available -j | python3 -c "
+          import json,sys
+          d=json.load(sys.stdin)['devices']
+          c=[x for k,v in d.items() if 'watchOS' in k for x in v if x['name'].startswith('Apple Watch')]
+          print(c[-1]['udid'] if c else '')")
+          if [ -z "$UDID" ]; then
+            RT=$(xcrun simctl list runtimes available -j | python3 -c "
+          import json,sys
+          r=[x['identifier'] for x in json.load(sys.stdin)['runtimes'] if x['identifier'].split('.')[-1].startswith('watchOS')]
+          print(r[-1] if r else '')")
+            DT=$(xcrun simctl list devicetypes -j | python3 -c "
+          import json,sys
+          t=[x['identifier'] for x in json.load(sys.stdin)['devicetypes'] if 'Apple-Watch' in x['identifier']]
+          print(t[-1] if t else '')")
+            echo "creating watch simulator: $DT / $RT"
+            UDID=$(xcrun simctl create "CI Watch" "$DT" "$RT")
+          fi
+          echo "watchOS simulator: $UDID"
+          rm -rf watch-tests.xcresult
+          xcodebuild test \
             -project WristReader.xcodeproj \
             -scheme WristReaderWatch \
-            -destination 'generic/platform=watchOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO
+            -destination "id=$UDID" \
+            -clonedSourcePackagesDirPath SourcePackages \
+            -resultBundlePath watch-tests.xcresult \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee watch-tests.log
 
-      - name: Compile iOS unit tests
+      - name: watchOS test summary
+        if: always()
         run: |
-          xcodebuild build-for-testing \
-            -project WristReader.xcodeproj \
-            -scheme WristReader \
-            -destination 'generic/platform=iOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO
+          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:" watch-tests.log || true
+          xcrun xcresulttool get test-results summary --path watch-tests.xcresult || true
 
-      # The watch app has no usable test host (WKApplication, no XCTest host app), so the test bundle
-      # cannot link; we only require that it compiles (any compiler error fails the step).
-      - name: Compile watchOS unit tests
-        run: |
-          set +e
-          xcodebuild build-for-testing \
-            -project WristReader.xcodeproj \
-            -scheme WristReaderWatch \
-            -destination 'generic/platform=watchOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO \
-            TEST_HOST= BUNDLE_LOADER= 2>&1 | tee watch-tests.log
-          if grep -E "error:" watch-tests.log | grep -v "linker command failed"; then exit 1; fi
-          grep -q "Compiling.*TypographyDictionaryTests.swift\|TypographyDictionaryTests.swift" watch-tests.log
+      - name: Upload watchOS xcresult
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: watch-tests-xcresult
+          path: watch-tests.xcresult

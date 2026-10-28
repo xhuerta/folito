@@ -103,6 +103,9 @@ targets:
         CFBundleDisplayName: WristReader
         WKApplication: true
         WKCompanionAppBundleIdentifier: $(WR_BUNDLE_ID)
+        # Required for the app to be installable on a watch simulator that has no paired iPhone
+        # (CI unit tests host); also valid for the app itself, which syncs over the network on its own.
+        WKRunsIndependentlyOfCompanionApp: true
         # ATS (#9): https stays the default. NSAllowsLocalNetworking lets plain http:// reach
         # local-network servers (IP addresses, *.local, dotless host names) without disabling ATS
         # elsewhere. For a self-hosted server on a public host name served over http, add a
@@ -149,6 +152,10 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(WR_BUNDLE_ID).watchtests
+        # The watch app's PRODUCT_NAME is WristReader (not the target name), so XcodeGen's default
+        # TEST_HOST (.../WristReaderWatch.app/WristReaderWatch) does not exist; point at the real product.
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/WristReader.app/WristReader
+        BUNDLE_LOADER: $(TEST_HOST)
         GENERATE_INFOPLIST_FILE: YES
 
 schemes:
