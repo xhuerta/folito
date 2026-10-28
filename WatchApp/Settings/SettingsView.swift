@@ -7,7 +7,8 @@ struct SettingsView: View {
     @EnvironmentObject private var typography: TypographyModel
     @AppStorage(ReaderSettings.showSyncInfoKey) private var showSyncInfo = true
     @AppStorage(ReaderSettings.tapToLookUpKey) private var tapToLookUp = true
-    @State private var serverStatus = "Not checked"
+    /// Result of the last "Check server" (nil: not checked).
+    @State private var connection: SyncCoordinator.ConnectionResult?
     @State private var checking = false
     @State private var confirmReset = false
     @State private var confirmRemove = false
@@ -15,15 +16,13 @@ struct SettingsView: View {
     var body: some View {
         List {
             Section("Reading") {
-                Stepper(value: typography.binding(\.fontSize), in: ReaderTypography.fontSizeRange, step: 1) {
-                    Text("Text size \(Int(typography.value.fontSize))")
-                }
+                TextSizeStepper()
                 NavigationLink("Typography") { TypographyEditorView() }
-                if sync.isConfigured { Toggle("Show sync info", isOn: $showSyncInfo) }
+                if sync.isConfigured { Toggle("Show Sync Status", isOn: $showSyncInfo) }
             }
             Section {
-                Toggle("Tap paragraph to look up", isOn: $tapToLookUp)
-                Button("Clear dictionary cache") { env.dictionaryCache.removeAll() }
+                Toggle("Tap Paragraph to Look Up", isOn: $tapToLookUp)
+                Button("Clear Dictionary Cache") { env.dictionaryCache.removeAll() }
             } header: {
                 Text("Dictionary")
             } footer: {
@@ -31,38 +30,47 @@ struct SettingsView: View {
             }
             Section {
                 if sync.isConfigured {
-                    Text(CredentialsStore.username ?? "").font(.footnote).foregroundStyle(.secondary)
+                    if let user = CredentialsStore.username, !user.isEmpty {
+                        LabeledContent("Account", value: user)
+                    }
                     Button {
                         Task { await check() }
                     } label: {
                         HStack {
-                            Text("Check server")
-                            if checking { Spacer(); ProgressView() }
+                            Text("Check Server")
+                            if checking {
+                                Spacer()
+                                ProgressView().accessibilityLabel(Text("Checking"))
+                            }
                         }
                     }
                     .disabled(checking)
-                    Text(serverStatus).font(.footnote).foregroundStyle(.secondary)
+                    Text(WatchMessages.connection(connection))
+                        .font(.footnote).foregroundStyle(.secondary)
                     if sync.hasPending {
-                        Text("Progress waiting to sync").font(.footnote).foregroundStyle(.orange)
+                        Label("Progress waiting to sync", systemImage: "clock.arrow.circlepath")
+                            .font(.footnote)
                     }
-                    Button("Remove credentials", role: .destructive) { confirmRemove = true }
+                    Button("Remove Credentials", role: .destructive) { confirmRemove = true }
                 } else {
                     Text("Sync is optional and off. Reading works fully offline. To sync progress with a KOReader-compatible server, set it up in the iPhone app.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             } header: {
-                Text("Progress sync (optional)")
+                Text("Progress Sync (Optional)")
             }
             Section {
                 Button("Reset", role: .destructive) { confirmReset = true }
+            } footer: {
+                Text("Resets settings, reading positions and the sync login. Books are kept.")
             }
         }
         .navigationTitle("Settings")
         .confirmationDialog("Remove the sync login from this watch? Books and reading positions are kept.",
                             isPresented: $confirmRemove, titleVisibility: .visible) {
-            Button("Remove credentials", role: .destructive) {
+            Button("Remove Credentials", role: .destructive) {
                 env.removeSyncCredentials()
-                serverStatus = "Not checked"
+                connection = nil
             }
             Button("Cancel", role: .cancel) {}
         }
@@ -76,12 +84,6 @@ struct SettingsView: View {
     private func check() async {
         checking = true
         defer { checking = false }
-        switch await sync.testConnection() {
-        case .ok: serverStatus = "Connected"
-        case .unauthorized: serverStatus = "Wrong username or password"
-        case .offline: serverStatus = "Offline"
-        case .notConfigured: serverStatus = "Not configured"
-        case .failed: serverStatus = "Server error"
-        }
+        connection = await sync.testConnection()
     }
 }
