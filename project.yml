@@ -33,6 +33,7 @@ targets:
       - path: iOSApp
         excludes:
           - Tests/**
+          - UITests/**
           - Info.plist
       # SwiftUI code compiled into both apps (typography rendering, block text).
       - path: Shared
@@ -154,6 +155,21 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: $(WR_BUNDLE_ID).tests
         GENERATE_INFOPLIST_FILE: YES
 
+  # Automated accessibility audits (XCUIApplication.performAccessibilityAudit, iOS 17+). Launches the app with
+  # -UITesting / -UITestingSeedSampleBook (handled in Debug builds only). See docs/ACCESSIBILITY.md.
+  WristReaderUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: iOSApp/UITests
+    dependencies:
+      - target: WristReader
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(WR_BUNDLE_ID).uitests
+        TEST_TARGET_NAME: WristReader
+        GENERATE_INFOPLIST_FILE: YES
+
   WristReaderWatchTests:
     type: bundle.unit-test
     platform: watchOS
@@ -183,6 +199,7 @@ schemes:
       config: Debug
       targets:
         - WristReaderTests
+        - WristReaderUITests
     profile:
       config: Release
     archive:

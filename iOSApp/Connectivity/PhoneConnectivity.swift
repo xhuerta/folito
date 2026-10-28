@@ -42,12 +42,10 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
         session.activate()
     }
 
-    var statusText: String {
-        guard WCSession.isSupported() else { return "Not supported" }
-        if activationState != .activated { return "Activating…" }
-        if !isPaired { return "No watch paired" }
-        if !isWatchAppInstalled { return "Watch app not installed" }
-        return isReachable ? "Watch reachable" : "Watch not reachable (transfers are queued)"
+    /// What the Library screen shows about the watch (see `WatchStatus`).
+    var status: WatchStatus {
+        WatchStatus(supported: WCSession.isSupported(), activation: activationState, paired: isPaired,
+                    appInstalled: isWatchAppInstalled, reachable: isReachable)
     }
 
     // MARK: Sending

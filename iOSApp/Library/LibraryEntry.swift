@@ -20,7 +20,10 @@ struct LibraryEntry: Codable, Identifiable, Equatable, Sendable {
 enum BookDisplay {
     static func author(from authors: [String]) -> String {
         let cleaned = authors.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
-        return cleaned.isEmpty ? "Unknown author" : cleaned.joined(separator: ", ")
+        guard !cleaned.isEmpty else {
+            return String(localized: "Unknown author", comment: "Shown when an EPUB lists no author")
+        }
+        return cleaned.joined(separator: ", ")
     }
 
     static func title(_ raw: String, fallbackFileName: String) -> String {
