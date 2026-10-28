@@ -26,3 +26,36 @@ jobs:
       - name: Test ReaderCore
         working-directory: Packages/ReaderCore
         run: swift test
+
+  kosync-integration:
+    runs-on: ubuntu-latest
+    container: swift:6.0
+    services:
+      kosync:
+        image: koreader/kosync:latest
+        ports:
+          - 17200:17200
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: Packages/ReaderCore/.build
+          key: spm-${{ runner.os }}-${{ hashFiles('Packages/ReaderCore/Package.swift', 'Packages/ReaderCore/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-
+
+      - name: Wait for KOSync server
+        run: |
+          apt-get update -qq && apt-get install -y -qq curl >/dev/null
+          for i in $(seq 1 60); do
+            curl -fs -H 'Accept: application/vnd.koreader.v1+json' http://kosync:17200/healthcheck | grep -q OK && exit 0
+            sleep 2
+          done
+          echo "server did not become healthy"; exit 1
+
+      - name: Integration tests against real koreader-sync-server
+        working-directory: Packages/ReaderCore
+        env:
+          KOSYNC_TEST_URL: http://kosync:17200
+        run: swift test --filter KOSync

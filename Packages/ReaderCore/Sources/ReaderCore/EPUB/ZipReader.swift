@@ -7,6 +7,20 @@ import ZIPFoundation
 struct ZipReader {
     static let maxEntryCount = 20_000
     static let maxEntrySize: UInt64 = 64 * 1024 * 1024
+    /// Cap on the sum of all decompressed bytes handed out by one reader (guards against many medium-sized bombs).
+    static let maxTotalSize: UInt64 = 256 * 1024 * 1024
+
+    private final class Budget: @unchecked Sendable {
+        private let lock = NSLock()
+        private var used: UInt64 = 0
+        func consume(_ n: UInt64, limit: UInt64) -> Bool {
+            lock.lock(); defer { lock.unlock() }
+            used &+= n
+            return used <= limit
+        }
+    }
+    private let budget = Budget()
+    private let maxTotalSize: UInt64
 
     private let archive: Archive
     private let entries: [String: Entry]
@@ -14,8 +28,9 @@ struct ZipReader {
 
     private let maxEntrySize: UInt64
 
-    init(url: URL, maxEntrySize: UInt64 = ZipReader.maxEntrySize) throws {
+    init(url: URL, maxEntrySize: UInt64 = ZipReader.maxEntrySize, maxTotalSize: UInt64 = ZipReader.maxTotalSize) throws {
         self.maxEntrySize = maxEntrySize
+        self.maxTotalSize = maxTotalSize
         let archive: Archive
         do {
             archive = try Archive(url: url, accessMode: .read)
@@ -77,6 +92,7 @@ struct ZipReader {
         } catch {
             throw EPUBError.invalidArchive
         }
+        guard budget.consume(UInt64(out.count), limit: maxTotalSize) else { throw EPUBError.archiveTooLarge }
         return out
     }
 }

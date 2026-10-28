@@ -86,11 +86,20 @@ final class BlockExtractor: XMLEventHandler {
         "script", "style", "head", "svg", "math", "object", "audio", "video", "canvas", "noscript", "template",
     ]
 
+    private static let invisible: CharacterSet = {
+        var set = CharacterSet.whitespacesAndNewlines
+        set.insert(charactersIn: "\u{00A0}\u{200B}\u{200C}\u{200D}\u{2060}\u{FEFF}\u{00AD}")
+        return set
+    }()
+
     private(set) var blocks: [RawBlock] = []
     private var stack: [Frame] = []
     private var inBody = false
     private var bodyDone = false
     private var skipDepth = 0
+    /// Elements nested deeper than `maxDepth` are flattened into their ancestor (keeps paths and memory bounded).
+    static let maxDepth = 256
+    private var transparentDepth = 0
     private var boldDepth = 0
     private var italicDepth = 0
 
@@ -103,6 +112,7 @@ final class BlockExtractor: XMLEventHandler {
             return
         }
         if skipDepth > 0 { skipDepth += 1; return }
+        if transparentDepth > 0 || stack.count > Self.maxDepth { transparentDepth += 1; return }
         let parent = stack[stack.count - 1]
         let index = (parent.childCounts[name] ?? 0) + 1
         parent.childCounts[name] = index  // counted over ALL element siblings, as crengine does
@@ -123,6 +133,7 @@ final class BlockExtractor: XMLEventHandler {
     func endElement(_ name: String) {
         guard inBody else { return }
         if skipDepth > 0 { skipDepth -= 1; return }
+        if transparentDepth > 0 { transparentDepth -= 1; return }
         guard stack.count > 1 else {
             // closing </body>
             if name == "body" { finish() }
@@ -153,6 +164,11 @@ final class BlockExtractor: XMLEventHandler {
 
     private func flush(_ frame: Frame) {
         guard !frame.buffer.isEmpty else { return }
+        // Blocks that only hold invisible characters (e.g. `<td>&nbsp;</td>` spacer cells) are dropped.
+        guard frame.buffer.text.unicodeScalars.contains(where: { !Self.invisible.contains($0) }) else {
+            frame.buffer = TextAccumulator()
+            return
+        }
         blocks.append(RawBlock(text: frame.buffer.text, style: frame.style, spans: frame.buffer.spans, path: frame.path))
         frame.buffer = TextAccumulator()
     }

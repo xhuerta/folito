@@ -257,6 +257,9 @@ enum LenientXMLReader {
         "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr",
     ]
 
+    /// Elements nested deeper than this are dropped by the lenient reader.
+    static let maxDepth = 256
+
     private static let autoClosing: Set<String> = ["p", "li", "dt", "dd", "tr", "td", "th", "option"]
 
     static func run(_ input: String, handler: XMLEventHandler) {
@@ -264,6 +267,7 @@ enum LenientXMLReader {
         var i = 0
         var open: [String] = []
         var text = String.UnicodeScalarView()
+        let commentOpen = Array("<!--".unicodeScalars), cdataOpen = Array("<![CDATA[".unicodeScalars)
 
         func flush() {
             if !text.isEmpty {
@@ -271,12 +275,17 @@ enum LenientXMLReader {
                 text = String.UnicodeScalarView()
             }
         }
+        func matches(_ p: [Unicode.Scalar], at k: Int) -> Bool {
+            guard k >= 0, k + p.count <= s.count else { return false }
+            for (o, c) in p.enumerated() where s[k + o] != c { return false }
+            return true
+        }
         func find(_ pattern: String, from: Int) -> Int? {
             let p = Array(pattern.unicodeScalars)
-            guard s.count >= p.count else { return nil }
+            guard !p.isEmpty, s.count >= p.count else { return nil }
             var k = from
             while k <= s.count - p.count {
-                if Array(s[k..<(k + p.count)]) == p { return k }
+                if s[k] == p[0], matches(p, at: k) { return k }
                 k += 1
             }
             return nil
@@ -293,9 +302,9 @@ enum LenientXMLReader {
             let n = s[i + 1]
             if n == "!" || n == "?" {
                 flush()
-                if find("<!--", from: i) == i {
+                if matches(commentOpen, at: i) {
                     i = (find("-->", from: i + 4)).map { $0 + 3 } ?? s.count
-                } else if find("<![CDATA[", from: i) == i {
+                } else if matches(cdataOpen, at: i) {
                     let end = find("]]>", from: i + 9) ?? s.count
                     handler.characters(String(String.UnicodeScalarView(s[(i + 9)..<min(end, s.count)])))
                     i = min(end + 3, s.count)
@@ -350,6 +359,9 @@ enum LenientXMLReader {
                 let normalized = XMLNames.element(String(name))
                 if autoClosing.contains(normalized), open.last == normalized {
                     handler.endElement(open.removeLast())  // HTML: <p>a<p>b closes the first <p>
+                }
+                if open.count >= Self.maxDepth, !selfClosing, !voidElements.contains(normalized) {
+                    continue  // pathological nesting: drop the tag (its end tag then matches nothing)
                 }
                 handler.startElement(normalized, attributes: XMLNames.attributes(attrs))
                 if selfClosing || voidElements.contains(normalized) {
@@ -418,10 +430,15 @@ final class XMLNode {
 final class XMLTreeBuilder: XMLEventHandler {
     let root = XMLNode(name: "#document", attributes: [:])
     private var current: XMLNode
+    private var depth = 0
+    private var transparent = 0   // elements beyond maxDepth are flattened into their ancestor
+    static let maxDepth = 128
 
     init() { current = root }
 
     func startElement(_ name: String, attributes: [String: String]) {
+        if transparent > 0 || depth >= Self.maxDepth { transparent += 1; return }
+        depth += 1
         let node = XMLNode(name: name, attributes: attributes)
         node.parent = current
         current.children.append(node)
@@ -429,6 +446,8 @@ final class XMLTreeBuilder: XMLEventHandler {
     }
 
     func endElement(_ name: String) {
+        if transparent > 0 { transparent -= 1; return }
+        depth -= 1
         if let p = current.parent { current = p }
     }
 
