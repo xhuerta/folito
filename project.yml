@@ -2,6 +2,7 @@ name: WristReader
 
 options:
   bundleIdPrefix: com.example
+  developmentLanguage: en
   deploymentTarget:
     iOS: "16.0"
     watchOS: "9.0"
@@ -18,8 +19,6 @@ settings:
   base:
     SWIFT_VERSION: "5.9"
     CODE_SIGN_STYLE: Automatic
-    MARKETING_VERSION: "0.1.0"
-    CURRENT_PROJECT_VERSION: "1"
     ENABLE_USER_SCRIPT_SANDBOXING: YES
 
 packages:
@@ -45,7 +44,16 @@ targets:
     info:
       path: GeneratedInfo/iOS-Info.plist
       properties:
-        CFBundleDisplayName: WristReader
+        CFBundleDisplayName: $(WR_APP_NAME)
+        CFBundleDevelopmentRegion: en
+        CFBundleLocalizations: [en, es]
+        LSApplicationCategoryType: public.app-category.books
+        # Only HTTPS (OS-provided TLS) and an MD5 hash used as the KOSync protocol's auth key: exempt.
+        # See docs/EXPORT_COMPLIANCE.md.
+        ITSAppUsesNonExemptEncryption: false
+        # The user may point the app at a KOSync server on their LAN (IP / .local host).
+        # The localized text lives in Resources/{en,es}.lproj/InfoPlist.strings.
+        NSLocalNetworkUsageDescription: WristReader connects to your own KOReader sync server on your local network to sync your reading progress.
         UILaunchScreen: {}
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
@@ -60,8 +68,6 @@ targets:
         #       NSExceptionAllowsInsecureHTTPLoads: true
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
-        UIFileSharingEnabled: true
-        LSSupportsOpeningDocumentsInPlace: true
         CFBundleDocumentTypes:
           - CFBundleTypeName: EPUB Document
             CFBundleTypeRole: Viewer
@@ -84,6 +90,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: $(WR_BUNDLE_ID)
         PRODUCT_NAME: WristReader
         TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         GENERATE_INFOPLIST_FILE: NO
 
   WristReaderWatch:
@@ -100,7 +108,11 @@ targets:
     info:
       path: GeneratedInfo/Watch-Info.plist
       properties:
-        CFBundleDisplayName: WristReader
+        CFBundleDisplayName: $(WR_APP_NAME)
+        CFBundleDevelopmentRegion: en
+        CFBundleLocalizations: [en, es]
+        ITSAppUsesNonExemptEncryption: false
+        NSLocalNetworkUsageDescription: WristReader connects to your own KOReader sync server on your local network to sync your reading progress.
         WKApplication: true
         WKCompanionAppBundleIdentifier: $(WR_BUNDLE_ID)
         # Required for the app to be installable on a watch simulator that has no paired iPhone
@@ -123,6 +135,8 @@ targets:
         PRODUCT_MODULE_NAME: WristReaderWatch
         SDKROOT: watchos
         TARGETED_DEVICE_FAMILY: "4"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         SKIP_INSTALL: YES
         GENERATE_INFOPLIST_FILE: NO
 
