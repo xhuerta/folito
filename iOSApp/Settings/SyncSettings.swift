@@ -21,9 +21,11 @@ enum SyncSettingsValidator {
         let s = server.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard s.hasPrefix("http://"), let host = URL(string: s)?.host else { return nil }
         if isLocalHost(host) {
-            return "http:// is not encrypted. Acceptable on your home network only; the sync password hash and your reading progress travel in clear."
+            return String(localized: "http:// is not encrypted. Use it only on your home network: the sync password hash and your reading progress are sent in clear.",
+                          comment: "Warning under the server URL field")
         }
-        return "iOS blocks http:// to internet hosts (App Transport Security), so this will fail. Use https://, or a local address (IP, .local or a name without dots)."
+        return String(localized: "iOS blocks http:// connections to internet hosts, so this will fail. Use https://, or a local address (IP address, .local or a name without dots).",
+                      comment: "Warning under the server URL field")
     }
 
     /// Hosts that `NSAllowsLocalNetworking` lets through over http: IP literals, `.local`, dotless names.
@@ -34,20 +36,22 @@ enum SyncSettingsValidator {
         return parts.count == 4 && parts.allSatisfy { UInt8($0) != nil }
     }
 
-    static func message(for error: Error) -> String {
-        if let u = error as? URLError, u.code == .appTransportSecurityRequiresSecureConnection {
-            return "iOS blocked the plain http:// connection. Use https://, or a local-network address."
-        }
-        guard let e = error as? KOSyncError else { return error.localizedDescription }
-        switch e {
-        case .unauthorized: return "Wrong username or password."
-        case .userExists: return "That username is already registered."
-        case .offline: return "Server unreachable."
-        case .notFound: return "Server did not recognise the request (check the URL)."
-        case .server(let status): return "Server error (HTTP \(status))."
-        case .invalidResponse: return "Unexpected server response."
-        case .notImplemented: return "Not implemented."
-        }
+    static func message(for error: Error) -> String { UserFacingError.syncMessage(for: error) }
+}
+
+/// Result of the last action in the Sync screen, shown inline and announced to VoiceOver.
+struct SyncStatus: Equatable {
+    enum Kind: Equatable { case success, failure, info }
+    let kind: Kind
+    let text: String
+
+    static func success(_ text: String) -> SyncStatus { SyncStatus(kind: .success, text: text) }
+    static func failure(_ text: String) -> SyncStatus { SyncStatus(kind: .failure, text: text) }
+    static func info(_ text: String) -> SyncStatus { SyncStatus(kind: .info, text: text) }
+
+    static var missingFields: SyncStatus {
+        .failure(String(localized: "Enter your username and password. Leave the server URL empty to use the default server.",
+                        comment: "Sync form validation message"))
     }
 }
 
@@ -57,7 +61,7 @@ final class SyncSettings: ObservableObject {
     @Published var server: String
     @Published var username: String
     @Published var password: String
-    @Published var status: String?
+    @Published var status: SyncStatus?
     @Published var isBusy = false
     /// Sync is ON only when valid credentials are saved in the Keychain. The prefilled default server
     /// or unsaved text in the form never counts.
@@ -106,7 +110,7 @@ final class SyncSettings: ObservableObject {
 
     func save() {
         guard let c = SyncSettingsValidator.credentials(server: server, user: username, password: password) else {
-            status = "Enter server, username and password."; return
+            status = .missingFields; return
         }
         do {
             try keychain.set(c.serverURL.absoluteString, account: "server")
@@ -117,10 +121,12 @@ final class SyncSettings: ObservableObject {
             defaults.set(max(Int(Date().timeIntervalSince1970), previous + 1), forKey: Self.stampKey)
             defaults.removeObject(forKey: Self.clearedKey)
             isSyncOn = true
-            status = "Sync is on. The login is sent to the watch now, or as soon as the watch app is installed."
+            status = .success(String(localized: "Sync is on. The login is sent to your Apple Watch now, or as soon as the watch app is installed.",
+                                     comment: "Sync status after saving"))
             onSave?(c)
         } catch {
-            status = "Keychain error: \(error)"
+            status = .failure(String(localized: "The login couldn’t be saved to this iPhone’s Keychain. Restart your iPhone and try again.",
+                                     comment: "Sync status when the Keychain write fails"))
         }
     }
 
@@ -134,24 +140,29 @@ final class SyncSettings: ObservableObject {
         username = ""
         password = ""
         isSyncOn = false
-        status = "Sync is off. Credentials were removed from this iPhone and the watch."
+        status = .info(String(localized: "Sync is off. Your login was removed from this iPhone and your Apple Watch.",
+                              comment: "Sync status after turning sync off"))
         onTurnOff?()
     }
 
-    func testConnection() { run("Connection OK.") { try await $0.authorize() } }
-
-    func createAccount() { run("Account created.") { try await $0.createUser() } }
+    // No "create account" action: accounts are created on the sync server itself. KOSync has no
+    // account-deletion endpoint, and App Review guideline 5.1.1(v) requires in-app deletion for any
+    // account an app creates.
+    func testConnection() {
+        run(String(localized: "Connected. The server accepted your username and password.",
+                   comment: "Sync status after a successful connection test")) { try await $0.authorize() }
+    }
 
     private func run(_ success: String, _ op: @escaping (KOSyncClientProtocol) async throws -> Void) {
         guard let c = SyncSettingsValidator.credentials(server: server, user: username, password: password) else {
-            status = "Enter server, username and password."; return
+            status = .missingFields; return
         }
         isBusy = true
         status = nil
         let client = clientFactory(c)
         Task {
-            do { try await op(client); status = success }
-            catch { status = SyncSettingsValidator.message(for: error) }
+            do { try await op(client); status = .success(success) }
+            catch { status = .failure(SyncSettingsValidator.message(for: error)) }
             isBusy = false
         }
     }
