@@ -60,4 +60,5 @@ jobs:
             -project WristReader.xcodeproj \
             -scheme WristReaderWatch \
             -destination 'generic/platform=watchOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO \
+            TEST_HOST= BUNDLE_LOADER=
