@@ -149,6 +149,10 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(WR_BUNDLE_ID).watchtests
+        # The watch app's PRODUCT_NAME is WristReader (not the target name), so XcodeGen's default
+        # TEST_HOST (.../WristReaderWatch.app/WristReaderWatch) does not exist; point at the real product.
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/WristReader.app/WristReader
+        BUNDLE_LOADER: $(TEST_HOST)
         GENERATE_INFOPLIST_FILE: YES
 
 schemes:
