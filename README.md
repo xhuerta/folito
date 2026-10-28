@@ -9,7 +9,7 @@ La sincronización es **opcional**; no hace falta ninguna cuenta (ni de Readest 
 1. Importa tus EPUB en la app del iPhone (botón +, o "Abrir en WristReader" desde Archivos o el menú Compartir). Se envían solos al reloj.
 2. Lee en el reloj. La posición se guarda en el propio reloj y todo funciona sin conexión.
 3. Sin usuario y contraseña guardados, la app no hace ninguna petición de sincronización ni muestra avisos o indicadores de sync. La única función que usa la red por iniciativa tuya es la consulta de diccionario.
-4. Si más adelante quieres sincronizar, ve a la pestaña *Sync* del iPhone (ver más abajo). Puedes desactivarla cuando quieras con *Turn off sync and remove credentials*, que borra las credenciales del iPhone y del reloj y vacía el progreso pendiente (también desde Ajustes del reloj → *Remove credentials*).
+4. Si más adelante quieres sincronizar, ve en el iPhone a *Settings › Progress Sync* (ver más abajo). Puedes desactivarla cuando quieras con *Turn Off Sync and Remove Login*, que borra las credenciales del iPhone y del reloj y vacía el progreso pendiente (también desde Ajustes del reloj → *Remove credentials*).
 
 ## Arquitectura
 
@@ -101,7 +101,7 @@ No se usa `NSAllowsArbitraryLoads`.
 
 ## Tipografía configurable
 
-En el reloj (menú del lector, icono de lista → *Typography*, o Ajustes) y en la app del iPhone (pestaña *Reading*, con vista previa en vivo) puedes cambiar: familia tipográfica (SF, serif/New York, redondeada, monoespaciada), tamaño, interlineado, márgenes, separación entre párrafos, alineación (izquierda/centrada), negrita, escala de los títulos, espaciado entre letras y tema (oscuro, tenue, sepia, alto contraste), además de varios *presets* y "Reset to defaults".
+En el reloj (menú del lector, icono de lista → *Typography*, o Ajustes) y en la app del iPhone (pestaña *Reading*, con vista previa en vivo) puedes cambiar: familia tipográfica (SF, serif/New York, redondeada, monoespaciada), tamaño, interlineado, márgenes, separación entre párrafos, alineación (izquierda/centrada), negrita, escala de los títulos, espaciado entre letras y tema (oscuro, tenue, sepia, alto contraste), además de varios *presets* y "Reset to defaults". En el reloj, *Match System Text Size* hace que el tamaño del libro siga el tamaño de texto del sistema.
 
 - Los cambios hechos en el iPhone se envían al reloj por el canal de ajustes (`updateApplicationContext`) y los del reloj se publican al iPhone. Gana el **último cambio** (por marca de tiempo). Ver [docs/WATCH_CONNECTIVITY.md](docs/WATCH_CONNECTIVITY.md).
 - Al cambiar un ajuste el lector mantiene el bloque actual como ancla; las fuentes se calculan una vez por cambio y el texto con estilo se guarda en caché por bloque, por lo que el `LazyVStack` no se reconstruye entero.
