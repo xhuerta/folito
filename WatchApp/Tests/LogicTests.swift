@@ -50,14 +50,26 @@ final class FlatBookTests: XCTestCase {
     }
 }
 
-final class VisibleTrackerTests: XCTestCase {
-    func testTopIsMinimumVisible() {
-        var t = VisibleTracker()
-        XCTAssertNil(t.top)
-        t.appeared(5); t.appeared(3); t.appeared(4)
-        XCTAssertEqual(t.top, 3)
-        t.disappeared(3)
-        XCTAssertEqual(t.top, 4)
+final class VisibleBlockResolverTests: XCTestCase {
+    private func f(_ minY: CGFloat, _ maxY: CGFloat) -> BlockFrame { BlockFrame(minY: minY, maxY: maxY) }
+
+    func testNoFramesMeansNoPosition() {
+        XCTAssertNil(VisibleBlockResolver.topIndex(frames: [:]))
+    }
+
+    func testTopIsFirstBlockWhoseBottomIsBelowViewportTop() {
+        // Blocks 3 and 4 are laid out above the viewport (lazy buffer), 5 is partly scrolled off.
+        let frames = [3: f(-300, -200), 4: f(-190, -100), 5: f(-90, 40), 6: f(50, 120), 7: f(130, 400)]
+        XCTAssertEqual(VisibleBlockResolver.topIndex(frames: frames), 5)
+    }
+
+    func testBlockJustTouchingTopEdgeIsNotCounted() {
+        let frames = [1: f(-50, 2), 2: f(10, 90)]
+        XCTAssertEqual(VisibleBlockResolver.topIndex(frames: frames), 2)
+    }
+
+    func testOnlyOffscreenFramesGiveNil() {
+        XCTAssertNil(VisibleBlockResolver.topIndex(frames: [1: f(-100, -10)]))
     }
 }
 
@@ -88,30 +100,53 @@ final class BlockTextTests: XCTestCase {
     }
 }
 
-final class PendingProgressStoreTests: XCTestCase {
-    private func store() -> PendingProgressStore {
-        let d = UserDefaults(suiteName: "test.\(UUID().uuidString)")!
-        return PendingProgressStore(defaults: d)
+final class SyncCoordinatorTests: XCTestCase {
+    private final class Recorder: KOSyncClientProtocol, @unchecked Sendable {
+        let lock = NSLock()
+        var pushed: [KOSyncProgress] = []
+        func authorize() async throws {}
+        func createUser() async throws {}
+        func fetchProgress(document: String) async throws -> KOSyncProgress? { nil }
+        func pushProgress(_ p: KOSyncProgress) async throws { lock.lock(); pushed.append(p); lock.unlock() }
     }
 
-    func testUpsertKeepsLatestPerDocument() {
-        let s = store()
-        s.upsert(KOSyncProgress(document: "a", progress: "p1", percentage: 0.1, device_id: "d", timestamp: 1))
-        s.upsert(KOSyncProgress(document: "a", progress: "p2", percentage: 0.2, device_id: "d", timestamp: 2))
-        s.upsert(KOSyncProgress(document: "b", progress: "p", percentage: 0.5, device_id: "d", timestamp: 3))
-        XCTAssertEqual(s.all().map(\.progress), ["p2", "p"])
+    private func defaults() -> UserDefaults { UserDefaults(suiteName: "test.\(UUID().uuidString)")! }
+
+    @MainActor
+    func testUnconfiguredReportsStayQueuedAndDiscardClearsThem() async throws {
+        let d = defaults()
+        let sync = SyncCoordinator(defaults: d, credentials: { nil })
+        sync.report(document: "a", xpointer: "/p1", percentage: 0.1, immediately: true)
+        sync.report(document: "b", xpointer: "/p2", percentage: 0.2, immediately: false)
+        try await Task.sleep(nanoseconds: 300_000_000)
+        XCTAssertEqual(sync.pendingCount, 2)
+        XCTAssertTrue(sync.hasPending)
+        sync.discard(document: "a")
+        try await Task.sleep(nanoseconds: 300_000_000)
+        XCTAssertEqual(sync.pendingCount, 1)
+        XCTAssertNotNil(d.data(forKey: SyncCoordinator.queueKey))
     }
 
-    func testRemoveOnlyIfUnchanged() {
-        let s = store()
-        let old = KOSyncProgress(document: "a", progress: "p1", percentage: 0.1, device_id: "d", timestamp: 1)
-        s.upsert(old)
-        let newer = KOSyncProgress(document: "a", progress: "p2", percentage: 0.2, device_id: "d", timestamp: 2)
-        s.upsert(newer)
-        s.remove(old)
-        XCTAssertEqual(s.all(), [newer])
-        s.remove(newer)
-        XCTAssertTrue(s.isEmpty)
+    @MainActor
+    func testImmediateReportIsPushedAndQueueEmptied() async throws {
+        let rec = Recorder()
+        let creds = KOSyncCredentials(username: "u", password: "p")
+        let sync = SyncCoordinator(defaults: defaults(), credentials: { creds }, makeClient: { _ in rec })
+        sync.report(document: "a", xpointer: "/p1", percentage: 0.1, immediately: true)
+        try await Task.sleep(nanoseconds: 500_000_000)
+        XCTAssertEqual(rec.pushed.map(\.document), ["a"])
+        XCTAssertEqual(sync.pendingCount, 0)
+    }
+
+    @MainActor
+    func testLegacyPendingStoreIsMigrated() async throws {
+        let d = defaults()
+        let legacy = ["a": KOSyncProgress(document: "a", progress: "/p", percentage: 0.4, device_id: "d", timestamp: 1)]
+        d.set(try JSONEncoder().encode(legacy), forKey: SyncCoordinator.legacyKey)
+        let sync = SyncCoordinator(defaults: d, credentials: { nil })
+        try await Task.sleep(nanoseconds: 300_000_000)
+        XCTAssertEqual(sync.pendingCount, 1)
+        XCTAssertNil(d.data(forKey: SyncCoordinator.legacyKey))
     }
 }
 
@@ -137,20 +172,25 @@ final class MiscLogicTests: XCTestCase {
         XCTAssertEqual(SyncErrorClassifier.status(for: URLError(.badServerResponse)), .error)
     }
 
-    func testPermanentRejection() {
-        XCTAssertTrue(SyncErrorClassifier.isPermanentRejection(KOSyncError.server(status: 403)))
-        XCTAssertFalse(SyncErrorClassifier.isPermanentRejection(KOSyncError.server(status: 429)))
-        XCTAssertFalse(SyncErrorClassifier.isPermanentRejection(KOSyncError.server(status: 502)))
-        XCTAssertFalse(SyncErrorClassifier.isPermanentRejection(KOSyncError.unauthorized))
-        XCTAssertFalse(SyncErrorClassifier.isPermanentRejection(KOSyncError.offline))
-    }
-
     func testDeleteMessageSchema() {
         // Shape sent by the iPhone (WatchSchema.deleteBook) and the legacy shape.
         XCTAssertEqual(ConnectivityReceiver.deleteHash(from: ["type": "delete_book", "documentHash": "abc"]), "abc")
         XCTAssertEqual(ConnectivityReceiver.deleteHash(from: ["delete_book": "abc"]), "abc")
         XCTAssertNil(ConnectivityReceiver.deleteHash(from: ["type": "settings", "documentHash": "abc"]))
         XCTAssertNil(ConnectivityReceiver.deleteHash(from: ["type": "delete_book"]))
+    }
+
+    func testSettingsStampPolicy() {
+        XCTAssertTrue(ConnectivityReceiver.shouldApplySettings(incomingStamp: nil, lastApplied: 50))
+        XCTAssertTrue(ConnectivityReceiver.shouldApplySettings(incomingStamp: 51, lastApplied: 50))
+        XCTAssertFalse(ConnectivityReceiver.shouldApplySettings(incomingStamp: 50, lastApplied: 50))
+        XCTAssertFalse(ConnectivityReceiver.shouldApplySettings(incomingStamp: 10, lastApplied: 50))
+    }
+
+    func testLibraryContext() {
+        let c = ConnectivityReceiver.libraryContext(hashes: ["b", "a"])
+        XCTAssertEqual(c["type"] as? String, "library")
+        XCTAssertEqual(c["hashes"] as? [String], ["a", "b"])
     }
 
     func testSafeName() {

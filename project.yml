@@ -49,6 +49,15 @@ targets:
           UIApplicationSupportsMultipleScenes: false
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
+        # ATS (#9): https stays the default. NSAllowsLocalNetworking lets plain http:// reach
+        # local-network servers (IP addresses, *.local, dotless host names) without disabling ATS
+        # elsewhere. For a self-hosted server on a public host name served over http, add a
+        # per-domain exception (see README, "Servidor HTTP (ATS)"), e.g.:
+        #   NSExceptionDomains:
+        #     sync.example.org:
+        #       NSExceptionAllowsInsecureHTTPLoads: true
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
         CFBundleDocumentTypes:
@@ -91,6 +100,15 @@ targets:
         CFBundleDisplayName: WristReader
         WKApplication: true
         WKCompanionAppBundleIdentifier: $(WR_BUNDLE_ID)
+        # ATS (#9): https stays the default. NSAllowsLocalNetworking lets plain http:// reach
+        # local-network servers (IP addresses, *.local, dotless host names) without disabling ATS
+        # elsewhere. For a self-hosted server on a public host name served over http, add a
+        # per-domain exception (see README, "Servidor HTTP (ATS)"), e.g.:
+        #   NSExceptionDomains:
+        #     sync.example.org:
+        #       NSExceptionAllowsInsecureHTTPLoads: true
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(WR_BUNDLE_ID).watchkitapp

@@ -77,6 +77,19 @@ public actor SyncQueue {
         startWorker(initialDelay: config.debounce)
     }
 
+    /// Forgets the pending entry of one document (e.g. the book was deleted).
+    public func remove(document: String) {
+        guard items.removeValue(forKey: document) != nil else { return }
+        persist()
+    }
+
+    /// Forgets every pending entry and stops the worker.
+    public func removeAll() {
+        cancel()
+        items.removeAll()
+        persist()
+    }
+
     /// Starts delivery of anything restored from disk.
     public func resume() { if !items.isEmpty { startWorker(initialDelay: 0) } }
 

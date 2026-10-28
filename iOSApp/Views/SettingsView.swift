@@ -11,6 +11,10 @@ struct SettingsView: View {
                 TextField("Username", text: $settings.username)
                     .textInputAutocapitalization(.never).autocorrectionDisabled()
                 SecureField("Password", text: $settings.password)
+                if let warning = settings.insecureWarning {
+                    Label(warning, systemImage: "exclamationmark.triangle.fill")
+                        .font(.footnote).foregroundStyle(.orange)
+                }
             }
             Section {
                 Button("Save & send to watch") { settings.save() }

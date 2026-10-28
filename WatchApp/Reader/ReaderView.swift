@@ -14,6 +14,7 @@ struct ReaderView: View {
     @AppStorage(ReaderSettings.fontSizeKey) private var fontSize = ReaderSettings.defaultFontSize
     @AppStorage(ReaderSettings.showSyncInfoKey) private var showSyncInfo = true
     @State private var showMenu = false
+    private static let scrollSpace = "reader.scroll"
 
     init(model: ReaderViewModel) {
         _model = StateObject(wrappedValue: model)
@@ -26,8 +27,12 @@ struct ReaderView: View {
                     ForEach(0..<model.flat.count, id: \.self) { index in
                         BlockView(block: model.flat.blocks[index], fontSize: ReaderSettings.clampFontSize(fontSize))
                             .id(index)
-                            .onAppear { model.blockAppeared(index) }
-                            .onDisappear { model.blockDisappeared(index) }
+                            .background(
+                                GeometryReader { geo in
+                                    let f = geo.frame(in: .named(Self.scrollSpace))
+                                    Color.clear.preference(key: BlockFramesKey.self,
+                                                           value: [index: BlockFrame(minY: f.minY, maxY: f.maxY)])
+                                })
                     }
                     if model.flat.isEmpty {
                         Text("This book has no text.").foregroundStyle(.secondary)
@@ -35,6 +40,8 @@ struct ReaderView: View {
                 }
                 .padding(.horizontal, 4)
             }
+            .coordinateSpace(name: Self.scrollSpace)
+            .onPreferenceChange(BlockFramesKey.self) { model.blockFramesChanged($0) }
             .onChange(of: model.jumpRequest) { request in
                 guard let request else { return }
                 DispatchQueue.main.async {
@@ -80,6 +87,15 @@ struct ReaderView: View {
                 model.reportProgress(immediately: false)
             }
         }
+    }
+}
+
+/// Collects the frames of the blocks the `LazyVStack` currently has instantiated. Views that are
+/// discarded stop contributing, so the dictionary only holds on-screen blocks plus a small buffer.
+struct BlockFramesKey: PreferenceKey {
+    static var defaultValue: [Int: BlockFrame] = [:]
+    static func reduce(value: inout [Int: BlockFrame], nextValue: () -> [Int: BlockFrame]) {
+        value.merge(nextValue()) { _, new in new }
     }
 }
 

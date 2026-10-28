@@ -98,6 +98,22 @@ final class LibraryStore: ObservableObject {
         save()
     }
 
+    /// Aligns `sentToWatch` with what the watch reports it stores (it may have been reinstalled, or the
+    /// user deleted a book there). Books whose transfer is still in flight are left untouched.
+    func reconcile(watchHashes: Set<String>, inFlight: Set<String>) {
+        var changed = false
+        for i in entries.indices where !inFlight.contains(entries[i].documentHash) {
+            let onWatch = watchHashes.contains(entries[i].documentHash)
+            if entries[i].sentToWatch != onWatch { entries[i].sentToWatch = onWatch; changed = true }
+        }
+        if changed { save() }
+    }
+
+    /// Books the watch has not confirmed, with their payload files.
+    var unsentBooks: [(entry: LibraryEntry, fileURL: URL)] {
+        entries.filter { !$0.sentToWatch }.map { ($0, fileURL(for: $0)) }
+    }
+
     // MARK: Persistence
 
     private func load() {

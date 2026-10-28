@@ -21,7 +21,6 @@ final class ReaderViewModel: ObservableObject {
 
     let startIndex: Int
 
-    private var tracker = VisibleTracker()
     /// While true (initial restore / programmatic jumps) scroll callbacks do not overwrite the saved position.
     private var isRestoring = true
     private var restoreTask: Task<Void, Never>?
@@ -54,18 +53,10 @@ final class ReaderViewModel: ObservableObject {
 
     // MARK: Visibility / persistence
 
-    func blockAppeared(_ index: Int) {
-        tracker.appeared(index)
-        visibleChanged()
-    }
-
-    func blockDisappeared(_ index: Int) {
-        tracker.disappeared(index)
-        visibleChanged()
-    }
-
-    private func visibleChanged() {
-        guard !isRestoring, let top = tracker.top, top != currentIndex else { return }
+    /// Receives the frames of the currently instantiated blocks (scroll-view coordinate space).
+    func blockFramesChanged(_ frames: [Int: BlockFrame]) {
+        guard !isRestoring, let top = VisibleBlockResolver.topIndex(frames: frames),
+              top != currentIndex, top < flat.count else { return }
         currentIndex = top
         persistCurrent()
     }

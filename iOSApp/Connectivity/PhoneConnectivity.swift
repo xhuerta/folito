@@ -1,5 +1,6 @@
 import Foundation
 import WatchConnectivity
+import ReaderCore
 
 /// WCSession wrapper for the phone side.
 final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
@@ -13,6 +14,19 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
 
     /// Called on the main queue when a book transfer finishes successfully.
     var onTransferFinished: ((String) -> Void)?
+    /// Saved sync settings to mirror on the watch (nil when not configured). Read on the main queue.
+    var settingsProvider: (() -> WatchSettings?)?
+    /// Books not yet confirmed on the watch, with their payload files. Read on the main queue.
+    var unsentBooksProvider: (() -> [(entry: LibraryEntry, fileURL: URL)])?
+    /// The watch reported the hashes of the books it currently stores.
+    var onWatchLibrary: ((Set<String>) -> Void)?
+
+    struct WatchSettings: Equatable {
+        var server: String
+        var user: String
+        var password: String
+        var stamp: Int
+    }
 
     private var session: WCSession? { WCSession.isSupported() ? WCSession.default : nil }
 
@@ -32,10 +46,18 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
 
     // MARK: Sending
 
+    /// True when the session is active and the watch app can receive data.
+    private var canSend: Bool {
+        guard let session else { return false }
+        return session.activationState == .activated && session.isPaired && session.isWatchAppInstalled
+    }
+
     func send(book entry: LibraryEntry, fileURL: URL, formatVersion: Int) {
         guard let session, session.activationState == .activated else {
             lastError = "Watch session is not active."; return
         }
+        // Not installed yet: the book stays unsent and `syncWatchState()` sends it once the watch app appears.
+        guard canSend else { return }
         guard !outstandingHashes.contains(entry.documentHash) else { return }
         session.transferFile(fileURL, metadata: WatchSchema.bookMetadata(for: entry, formatVersion: formatVersion))
         outstandingHashes.insert(entry.documentHash)
@@ -46,10 +68,24 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
         refreshOutstanding()
     }
 
-    func sendSettings(server: String, user: String, password: String) {
-        guard let session, session.activationState == .activated else { return }
-        // transferUserInfo is queued and delivered in order, even if the watch app is not running.
-        session.transferUserInfo(WatchSchema.settingsInfo(server: server, user: user, password: password))
+    /// Mirrors the settings with `updateApplicationContext`: latest-state semantics, so only the newest
+    /// settings are delivered (also to a watch app installed later), unlike a queue of userInfo transfers.
+    func sendSettings(_ settings: WatchSettings) {
+        guard canSend, let session else { return }
+        let info = WatchSchema.settingsInfo(server: settings.server, user: settings.user,
+                                            password: settings.password, stamp: settings.stamp)
+        do { try session.updateApplicationContext(info) }
+        catch { lastError = "Could not send settings: \(error.localizedDescription)" }
+    }
+
+    /// Brings the watch up to date: current settings and every book it has not confirmed. Idempotent;
+    /// called on activation, watch state / reachability changes, app foreground and watch library reports.
+    func syncWatchState() {
+        guard canSend else { return }
+        if let settings = settingsProvider?() { sendSettings(settings) }
+        for (entry, url) in unsentBooksProvider?() ?? [] {
+            send(book: entry, fileURL: url, formatVersion: ProcessedBook.currentFormatVersion)
+        }
     }
 
     func sendDelete(hash: String) {
@@ -78,6 +114,13 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
             self.refreshFlags(session)
             self.refreshOutstanding()
             if let error { self.lastError = error.localizedDescription }
+            if state == .activated {
+                // The watch may already have published its library while we were not running.
+                if let hashes = WatchSchema.libraryHashes(from: session.receivedApplicationContext) {
+                    self.onWatchLibrary?(hashes)
+                }
+                self.syncWatchState()
+            }
         }
     }
 
@@ -86,11 +129,25 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
     func sessionDidDeactivate(_ session: WCSession) { session.activate() }
 
     func sessionWatchStateDidChange(_ session: WCSession) {
-        DispatchQueue.main.async { self.refreshFlags(session) }
+        DispatchQueue.main.async {
+            self.refreshFlags(session)
+            self.syncWatchState() // e.g. isWatchAppInstalled just became true
+        }
     }
 
     func sessionReachabilityDidChange(_ session: WCSession) {
-        DispatchQueue.main.async { self.refreshFlags(session) }
+        DispatchQueue.main.async {
+            self.refreshFlags(session)
+            if session.isReachable { self.syncWatchState() }
+        }
+    }
+
+    func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
+        guard let hashes = WatchSchema.libraryHashes(from: applicationContext) else { return }
+        DispatchQueue.main.async {
+            self.onWatchLibrary?(hashes)
+            self.syncWatchState()
+        }
     }
 
     func session(_ session: WCSession, didFinish fileTransfer: WCSessionFileTransfer, error: Error?) {
