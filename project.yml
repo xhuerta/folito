@@ -1,2 +1,158 @@
 name: WristReader
-# Filled in by the Build/CI task.
+
+options:
+  bundleIdPrefix: com.example
+  deploymentTarget:
+    iOS: "16.0"
+    watchOS: "9.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: false
+
+# Defaults live in Config/Base.xcconfig; per-developer overrides (DEVELOPMENT_TEAM,
+# unique bundle ids) go in the gitignored Config/Local.xcconfig.
+configFiles:
+  Debug: Config/Base.xcconfig
+  Release: Config/Base.xcconfig
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+
+packages:
+  ReaderCore:
+    path: Packages/ReaderCore
+
+targets:
+  WristReader:
+    type: application
+    platform: iOS
+    sources:
+      - path: iOSApp
+        excludes:
+          - Tests/**
+    dependencies:
+      - package: ReaderCore
+      # Embeds the watch app into the iPhone app bundle.
+      - target: WristReaderWatch
+        embed: true
+    info:
+      path: GeneratedInfo/iOS-Info.plist
+      properties:
+        CFBundleDisplayName: WristReader
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: EPUB Document
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
+              - org.idpf.epub-container
+        UTImportedTypeDeclarations:
+          - UTTypeIdentifier: org.idpf.epub-container
+            UTTypeDescription: EPUB Document
+            UTTypeConformsTo:
+              - public.data
+              - public.composite-content
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - epub
+              public.mime-type:
+                - application/epub+zip
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(WR_BUNDLE_ID)
+        PRODUCT_NAME: WristReader
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: NO
+
+  WristReaderWatch:
+    type: application
+    platform: watchOS
+    sources:
+      - path: WatchApp
+        excludes:
+          - Tests/**
+    dependencies:
+      - package: ReaderCore
+    # Single-target watchOS app (no WatchKit extension) paired with the iOS app.
+    info:
+      path: GeneratedInfo/Watch-Info.plist
+      properties:
+        CFBundleDisplayName: WristReader
+        WKApplication: true
+        WKCompanionAppBundleIdentifier: $(WR_BUNDLE_ID)
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(WR_BUNDLE_ID).watchkitapp
+        PRODUCT_NAME: WristReader
+        SDKROOT: watchos
+        TARGETED_DEVICE_FAMILY: "4"
+        SKIP_INSTALL: YES
+        GENERATE_INFOPLIST_FILE: NO
+
+  WristReaderTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: iOSApp/Tests
+        optional: true
+    dependencies:
+      - target: WristReader
+      - package: ReaderCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(WR_BUNDLE_ID).tests
+        GENERATE_INFOPLIST_FILE: YES
+
+  WristReaderWatchTests:
+    type: bundle.unit-test
+    platform: watchOS
+    sources:
+      - path: WatchApp/Tests
+        optional: true
+    dependencies:
+      - target: WristReaderWatch
+      - package: ReaderCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(WR_BUNDLE_ID).watchtests
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  WristReader:
+    build:
+      targets:
+        WristReader: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - WristReaderTests
+    profile:
+      config: Release
+    archive:
+      config: Release
+  WristReaderWatch:
+    build:
+      targets:
+        WristReaderWatch: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - WristReaderWatchTests
+    profile:
+      config: Release
+    archive:
+      config: Release
