@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Un lector de EPUB para Apple Watch con sincronización del progreso de lectura.">
+<meta name="description" content="Un lector de EPUB para Apple Watch. Funciona sin cuenta; la sincronización del progreso es opcional.">
 <meta name="color-scheme" content="light dark">
 <title>Soporte - WristReader</title>
 <link rel="stylesheet" href="../style.css">
@@ -17,18 +17,23 @@
 <main id="main">
 <h1>Soporte</h1>
 <p>Preguntas, errores o sugerencias: <a href="mailto:[CONTACT_EMAIL]">[CONTACT_EMAIL]</a>. Indica la versión de iOS y watchOS y, si el problema es de sincronización, qué software de servidor usas. No envíes nunca tu contraseña.</p>
-<h2>Primeros pasos</h2>
+<h2>Primeros pasos (sin cuenta)</h2>
 <ol>
-<li>Instala WristReader en el iPhone; la app del reloj se instala desde la app Watch del iPhone. Abre la app del iPhone una vez para que se configure el reloj.</li>
-<li>Importa un <code>.epub</code>: pulsa + en la app, o abre el archivo desde Archivos / el menú Compartir y elige WristReader. El libro se envía al reloj.</li>
-<li>Para sincronizar el progreso, abre <em>Sync</em> en la app del iPhone, introduce la URL del servidor KOReader Sync, usuario y contraseña, y pulsa <em>Save &amp; send to watch</em> y <em>Test connection</em>.</li>
+<li>Instala WristReader en el iPhone; la app del reloj se instala desde la app Watch del iPhone (o automáticamente). Abre la app del iPhone una vez para que se configure el reloj.</li>
+<li>Importa un <code>.epub</code> tuyo o uno gratuito de dominio público: pulsa <em>Import EPUB</em> (+) en la biblioteca, o abre el archivo desde Archivos o el menú Compartir y elige WristReader. El libro se envía al reloj.</li>
+<li>Abre WristReader en el reloj y elige el libro. Tu página se guarda en el reloj y la lectura funciona sin conexión.</li>
 </ol>
+<h2>Opcional: sincroniza tu página con otros lectores</h2>
+<p>La sincronización está desactivada por defecto y solo sirve para continuar el mismo libro en KOReader u otra app que use el protocolo KOReader Sync. En el iPhone abre <em>Settings › Progress Sync</em>, introduce la URL del servidor y el usuario y la contraseña de una cuenta que ya tengas en ese servidor (créala en el propio servidor, por ejemplo en KOReader en <em>Tools › Progress sync › Register</em>; WristReader no crea cuentas), pulsa <em>Save and Turn On Sync</em> y después <em>Test Connection</em>. El inicio de sesión se envía al reloj para que sincronice por sí mismo.</p>
+<p>Para dejar de sincronizar, pulsa <em>Turn Off Sync and Remove Login</em>: se borra el inicio de sesión del iPhone y del reloj; tus libros y posiciones se conservan.</p>
 <h2>Preguntas frecuentes</h2>
 <dl>
+<dt>¿Necesito una cuenta?</dt><dd>No. Importar y leer no requiere ninguna cuenta. La sincronización es opcional y usa un servidor que eliges tú; el desarrollador no opera ningún servidor.</dd>
 <dt>¿Qué servidores funcionan?</dt><dd>Cualquier servidor compatible con KOReader Sync (kosync), incluido el servidor público de KOReader y los autoalojados. La app no proporciona servidor.</dd>
 <dt>El progreso no coincide en KOReader o Readest.</dt><dd>Debe ser el mismo archivo EPUB, sin modificar, en todos los dispositivos. En Readest elige el método de coincidencia <em>File Content</em>; en KOReader, <em>Binary</em>.</dd>
-<dt>Mi servidor http:// no conecta.</dt><dd>iOS bloquea http plano hacia hosts de internet. Usa https o una dirección de red local.</dd>
-<dt>La consulta de palabras dice sin conexión o no encontrada.</dt><dd>Necesita red y usa Wiktionary (edición en inglés); las definiciones salen en inglés.</dd>
+<dt>Mi servidor http:// no conecta.</dt><dd>iOS bloquea http plano hacia hosts de internet. Usa https o una dirección de red local (iOS pide permiso de red local la primera vez).</dd>
+<dt>La consulta de palabras dice sin conexión o no encontrada.</dt><dd>Necesita red y usa Wiktionary (edición en inglés) y, para palabras en inglés que no estén allí, dictionaryapi.dev; las definiciones salen en inglés.</dd>
+<dt>Accesibilidad</dt><dd>Las apps de iPhone y reloj admiten VoiceOver y tamaños de texto grandes (Dynamic Type), respetan el modo oscuro, Aumentar contraste y Texto en negrita, y no usan animaciones propias. En el reloj, los temas de lectura cumplen los contrastes WCAG y <em>Typography › Match System Text Size</em> hace que el texto del libro siga el tamaño de texto del reloj.</dd>
 <dt>¿Admite libros con DRM?</dt><dd>No.</dd>
 </dl>
 <p><a href="privacy.html">Política de privacidad</a></p>

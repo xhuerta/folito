@@ -16,44 +16,56 @@ No incluyas «KOReader», «Readest», «Kindle», «Apple» ni otras marcas de 
 
 ## Texto promocional (≤ 170)
 
-`Lee tus propios EPUB en la muñeca y mantén tu página sincronizada con servidores KOReader Sync.` (95)
+`Lee tus propios EPUB en la muñeca, sin cuenta. Opcional: mantén tu página sincronizada con apps compatibles con KOReader Sync.` (126)
 
 ## Descripción
 
 ```
-WristReader es un lector de EPUB para Apple Watch. Importa tus propios libros en el iPhone, léelos en la muñeca y mantén sincronizada tu posición de lectura.
+WristReader es un lector de EPUB para Apple Watch. Usa tus propios libros: impórtalos en el iPhone y léelos en la muñeca. No hace falta ninguna cuenta.
 
 LEE EN LA MUÑECA
-• Importa archivos .epub desde Archivos, el menú Compartir o el botón de importar de la app; se envían a tu reloj.
-• Desplázate con la corona digital, salta entre capítulos desde la lista de capítulos y mantén una biblioteca con tus libros.
+• Importa archivos .epub sin DRM desde Archivos, el menú Compartir o el botón de importar de la app; se envían al reloj automáticamente.
+• Lee sin conexión. Desplázate con la corona digital, salta entre capítulos y mantén una biblioteca con tus libros.
 • Ajusta fuente, tamaño, interlineado, márgenes, alineación, grosor y tema (oscuro, tenue, sepia, alto contraste) desde el reloj o el iPhone, con vista previa en vivo.
 • Consulta una palabra: muévete por el párrafo con la corona digital y mira su definición (requiere conexión a internet; las definiciones salen en inglés y proceden de Wiktionary y dictionaryapi.dev).
 
-SINCRONIZA TU PÁGINA
-• Sincroniza el progreso de lectura con un servidor KOReader Sync (kosync), el mismo protocolo que usan KOReader y Readest, para continuar en otro dispositivo. Tú aportas tu servidor y tu cuenta: la app no proporciona ninguno y funciona también sin sincronización.
+ACCESIBLE
+• VoiceOver en iPhone y Apple Watch, con encabezados para saltar por el libro.
+• Tamaños de texto grandes (Dynamic Type); en el reloj, el texto del libro puede seguir el tamaño de texto del sistema.
+• Los temas de lectura cumplen los contrastes WCAG y se adaptan a Aumentar contraste y Texto en negrita.
+
+OPCIONAL: SINCRONIZA TU PÁGINA
+• Si quieres, sincroniza el progreso de lectura con un servidor KOReader Sync (kosync), el protocolo que usan KOReader y Readest, para continuar en otro dispositivo. Está desactivada por defecto; tú aportas tu servidor y una cuenta que ya tengas en él. La app no proporciona servidor ni crea cuentas, y puedes desactivar la sincronización y borrar tu inicio de sesión cuando quieras.
 • El progreso se asocia por párrafo. Para que los dispositivos coincidan, necesitan el mismo archivo EPUB sin modificar.
-• El reloj funciona por sí solo una vez que tiene tus libros y ajustes.
+• El reloj sincroniza por sí solo una vez que tiene tus libros y ajustes.
 
 PRIVADA POR DISEÑO
 • Sin anuncios, sin analítica, sin seguimiento y sin cuenta con nosotros.
-• Tus libros se quedan en tus dispositivos. Tus credenciales de sincronización se guardan en el Llavero y solo se envían al servidor que elijas.
+• Tus libros se quedan en tus dispositivos. Si activas la sincronización, tu inicio de sesión se guarda en el Llavero y solo se envía al servidor que elijas.
 
 CONVIENE SABER
 • Abre la app del iPhone al menos una vez para que se configure el reloj.
 • No admite libros con DRM.
+• La interfaz de la app está por ahora en inglés.
 • KOReader y Readest son proyectos independientes; WristReader no está afiliada con ellos.
 ```
 
 ## Palabras clave (≤ 100)
 
-`libro,libros,muñeca,sincronizar,progreso,diccionario,kosync,lectura,ebook,lector,biblioteca,reloj` (97)
+`libro,libros,muñeca,lectura,ebook,lector,biblioteca,reloj,diccionario,voiceover,sincronizar,kosync` (98 caracteres, 99 bytes)
 
 ## Novedades (versión 1.0)
 
 ```
-Primera versión: lee libros EPUB en Apple Watch, tipografía ajustable, consulta de palabras y sincronización del progreso con servidores KOReader Sync.
+Primera versión: lee tus propios libros EPUB en Apple Watch sin cuenta, con tipografía ajustable, consulta de palabras, compatibilidad con VoiceOver y Dynamic Type, y sincronización opcional del progreso con servidores KOReader Sync.
 ```
 
 ## Otros campos
 
-Categoría principal: Libros. URL de soporte, de privacidad y copyright: como en `metadata-en.md` (las páginas en español están en `/site/es/`).
+Categoría principal: Libros. Copyright: como en `metadata-en.md`. URLs para esta localización (las páginas en español están en `es/`):
+
+| Campo | Valor |
+|---|---|
+| URL de soporte | `https://xhuerta.github.io/wristreader-site/es/support.html` |
+| URL de marketing | `https://xhuerta.github.io/wristreader-site/es/` |
+| URL de la política de privacidad | `https://xhuerta.github.io/wristreader-site/es/privacy.html` |

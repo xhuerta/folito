@@ -16,27 +16,32 @@ Do not put "KOReader", "Readest", "Kindle", "Apple" or other third-party marks i
 
 ## Promotional text (≤ 170)
 
-`Read your own EPUB books on your wrist and keep your place in sync with KOReader Sync-compatible apps.` (102)
+`Read your own EPUB books on your wrist. No account needed. Optional: keep your place in sync with KOReader Sync-compatible apps.` (128)
 
 ## Description
 
 ```
-WristReader is an EPUB reader for Apple Watch. Import your own books on your iPhone, read them on your wrist, and keep your reading position in sync.
+WristReader is an EPUB reader for Apple Watch. Bring your own books: import them on your iPhone and read them on your wrist. No account is needed.
 
 READ ON YOUR WRIST
-• Import .epub files from Files, the share sheet or the in-app import button; they are sent to your watch.
-• Scroll with the Digital Crown, jump between chapters from the chapter list, and keep a library of your books.
+• Import DRM-free .epub files from Files, the share sheet or the in-app import button; they are sent to your watch automatically.
+• Read offline. Scroll with the Digital Crown, jump between chapters, and keep a library of your books.
 • Adjust typeface, size, line spacing, margins, alignment, weight and theme (dark, dim, sepia, high contrast), from the watch or the iPhone, with live preview.
 • Look up a word: move through the paragraph with the Digital Crown and see its definition (requires a network connection; definitions are in English and come from Wiktionary and dictionaryapi.dev).
 
-SYNC YOUR PLACE
-• Syncs reading progress with a KOReader Sync (kosync) server, the same protocol used by KOReader and Readest, so you can continue on another device. You bring your own server and account: the app does not provide one, and it works without sync.
+ACCESSIBLE
+• VoiceOver on iPhone and Apple Watch, with headings you can jump between in a book.
+• Larger text sizes (Dynamic Type); on the watch, book text can follow your system text size.
+• Reading themes meet WCAG contrast ratios and adapt to Increase Contrast and Bold Text.
+
+OPTIONAL: SYNC YOUR PLACE
+• If you want, sync reading progress with a KOReader Sync (kosync) server, the protocol used by KOReader and Readest, to continue on another device. Sync is off by default; you bring your own server and an existing account on it. The app does not provide a server or create accounts, and you can turn sync off and remove your login at any time.
 • Progress is matched per paragraph. For devices to match, they need the same, unmodified EPUB file.
-• Works on the watch on its own once it has your books and settings.
+• The watch syncs on its own once it has your books and settings.
 
 PRIVATE BY DESIGN
 • No ads, no analytics, no tracking, no account with us.
-• Your books stay on your devices. Your sync credentials are kept in the Keychain and sent only to the server you choose.
+• Your books stay on your devices. If you turn sync on, your login is kept in the Keychain and sent only to the server you choose.
 
 GOOD TO KNOW
 • Open the iPhone app at least once so the watch can be set up.
@@ -46,14 +51,14 @@ GOOD TO KNOW
 
 ## Keywords (≤ 100, comma-separated, no spaces)
 
-`ebook,book,books,wrist,sync,progress,dictionary,kosync,offline,ereader,reading,library,smartwatch` (97)
+`ebook,book,books,wrist,offline,dictionary,ereader,reading,library,smartwatch,voiceover,sync,kosync` (98)
 
 (Words already in the name/subtitle, such as "EPUB", "reader" and "Apple Watch", are indexed automatically; do not repeat them. Do not add competitor or third-party trademarks.)
 
 ## What's New (version 1.0)
 
 ```
-First release: read EPUB books on Apple Watch, adjustable typography, word lookup and reading-progress sync with KOReader Sync servers.
+First release: read your own EPUB books on Apple Watch without an account, with adjustable typography, word lookup, VoiceOver and Dynamic Type support, and optional reading-progress sync with KOReader Sync servers.
 ```
 
 ## Other fields
@@ -62,8 +67,8 @@ First release: read EPUB books on Apple Watch, adjustable typography, word looku
 |---|---|
 | Primary category | Books |
 | Secondary category (optional) | Productivity or Reference (owner choice) |
-| Support URL | `https://<owner>.github.io/<repo>/site/support.html` (after enabling Pages; fill `[CONTACT_EMAIL]`) |
-| Marketing URL | optional; `https://<owner>.github.io/<repo>/site/` |
-| Privacy Policy URL | `https://<owner>.github.io/<repo>/site/privacy.html` |
-| Copyright | `© <year> [DEVELOPER_NAME]` |
+| Support URL | `https://xhuerta.github.io/wristreader-site/support.html` (live once the site repo is published, see `docs/RELEASE.md`; fill `[CONTACT_EMAIL]` first) |
+| Marketing URL | `https://xhuerta.github.io/wristreader-site/` (optional field) |
+| Privacy Policy URL | `https://xhuerta.github.io/wristreader-site/privacy.html` (must equal the in-app link, `AppLinks.privacyPolicy`) |
+| Copyright | `© 2026 [DEVELOPER_NAME]` |
 | Price | owner decision |

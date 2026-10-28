@@ -22,16 +22,16 @@ Provide **one** of these sizes (pick the newest device you can capture, use it i
 | 368 × 448 | Series 6, 5, 4, SE 3, SE 2, SE |
 | 312 × 390 | Series 3, 2, 1 |
 
-The app's deployment target is watchOS 9, so older sizes remain valid; one size is enough.
+The deployment target is watchOS 10 / iOS 17 (raised in PR #20), so the oldest Series 1–3 size is not needed; one size is enough.
 
 ## Suggested content (no Mac needed: use real devices, or simulator screenshots from a CI job later)
 
 1. Watch: reading view with a paragraph of public-domain text.
 2. Watch: word lookup with a definition.
 3. Watch: library list.
-4. iPhone: Library with a book and "watch connected" status.
+4. iPhone: Library with a public-domain book and its "On Apple Watch" state.
 5. iPhone: Reading (typography) tab with live preview.
-6. iPhone: Sync tab with a **demo server and fake username** (never real credentials).
+6. Optional: iPhone *Settings › Progress Sync* with a placeholder server and fake username (never real credentials). Prefer screenshots that show the app working with no account; sync is optional.
 
 Rules: use only public-domain or your own book text and covers; do not show KOReader/Readest logos or UI; no status bars with real names/carrier; no claims that are not in the app (e.g. "free dictionary offline"). An optional app preview video is not required.
 

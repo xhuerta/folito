@@ -1,8 +1,27 @@
 # Releasing WristReader without a Mac
 
+## Owner TODO (every remaining placeholder and decision)
+
+Placeholders still in the repository (search for the bracketed text):
+
+* [ ] `[CONTACT_EMAIL]`: `docs/site/{privacy,support}.html`, `docs/site/es/{privacy,support}.html`, `docs/appstore/REVIEW_NOTES.md`, `docs/appstore/metadata-en.md` (Support URL note).
+* [ ] `[DEVELOPER_NAME]`: `docs/site/privacy.html`, `docs/site/es/privacy.html` (responsible party), `docs/appstore/metadata-en.md` (copyright).
+* [ ] `[DATE]`: "Last updated" in `docs/site/privacy.html` and `docs/site/es/privacy.html` (set it when you publish).
+* [ ] In-app links: `iOSApp/Support/AppLinks.swift` (PR #20) still points to `https://example.com/wristreader/...`; set `privacyPolicy` to `https://xhuerta.github.io/wristreader-site/privacy.html` and `support` to `https://xhuerta.github.io/wristreader-site/support.html` before building the submission.
+* [ ] GitHub: `APPLE_TEAM_ID`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` secrets and the `BUNDLE_ID_BASE` variable (step 5).
+
+Decisions and checks only the owner can make (details in [What only the owner can decide](#what-only-the-owner-can-decide)):
+
+* [ ] Final app name, bundle id, SKU, price and territories.
+* [ ] Sample EPUB for App Review: attach one or keep the Project Gutenberg link in `docs/appstore/REVIEW_NOTES.md` (no demo account is needed).
+* [ ] App Privacy answers (`docs/appstore/APP_PRIVACY.md`), including whether to also declare the optional sync data.
+* [ ] Accessibility Nutrition Labels (`docs/appstore/ACCESSIBILITY_LABELS.md`), only after the manual checks in `docs/ACCESSIBILITY.md`.
+* [ ] Age rating (`docs/appstore/AGE_RATING.md`) and export compliance (`docs/appstore/EXPORT_COMPLIANCE.md`).
+* [ ] Publish the site ([Publishing the site](#9-publishing-the-site)).
+
 This guide takes you from "nothing" to a build on your iPhone and Apple Watch through TestFlight, and then to App Store review, using only a browser and GitHub. All building, signing and uploading happens on a GitHub-hosted macOS runner (`.github/workflows/release.yml`).
 
-Contents: [1 Enrol](#1-enrol-in-the-apple-developer-program) · [2 Bundle ids](#2-register-the-two-bundle-ids) · [3 App record](#3-create-the-app-record-in-app-store-connect) · [4 API key](#4-create-an-app-store-connect-api-key) · [5 GitHub config](#5-configure-github) · [6 Run](#6-run-the-workflow) · [7 TestFlight](#7-install-with-testflight) · [8 App Store](#8-submit-for-app-store-review) · [9 Pages](#9-publish-the-privacy-policy-and-support-site-github-pages) · [Owner decisions](#what-only-the-owner-can-decide) · [Design notes](#why-xcodebuild-cloud-signing-and-not-fastlane) · [Sources](#sources)
+Contents: [1 Enrol](#1-enrol-in-the-apple-developer-program) · [2 Bundle ids](#2-register-the-two-bundle-ids) · [3 App record](#3-create-the-app-record-in-app-store-connect) · [4 API key](#4-create-an-app-store-connect-api-key) · [5 GitHub config](#5-configure-github) · [6 Run](#6-run-the-workflow) · [7 TestFlight](#7-install-with-testflight) · [8 App Store](#8-submit-for-app-store-review) · [9 Site](#9-publishing-the-site) · [Owner decisions](#what-only-the-owner-can-decide) · [Design notes](#why-xcodebuild-cloud-signing-and-not-fastlane) · [Sources](#sources)
 
 ## 1. Enrol in the Apple Developer Program
 
@@ -71,33 +90,39 @@ Apple requires uploads to be built with the current major Xcode/SDK (since 28 Ap
 
 * **Internal testing** (up to 100 App Store Connect users, no review): App Store Connect → your app → **TestFlight** → *Internal Testing* → create a group, add yourself, assign the build. Install **TestFlight** from the App Store on your iPhone, sign in with the same Apple ID and install WristReader.
 * **The watch app** installs through the iPhone: open the **Watch** app on the iPhone → scroll to WristReader → *Install* (or enable *Automatic App Install*). TestFlight itself shows the watch app as part of the iPhone app; the watch needs to be paired, unlocked and on the same iPhone.
-* **External testing** (up to 10,000 people via email or a public link): the first build of a version goes through *Beta App Review* (Apple checks it against the App Review Guidelines) and needs test information including contact details and the sync-server note from `docs/appstore/REVIEW_NOTES.md`. Builds expire after 90 days.
+* **External testing** (up to 10,000 people via email or a public link): the first build of a version goes through *Beta App Review* (Apple checks it against the App Review Guidelines) and needs test information including contact details; reuse `docs/appstore/REVIEW_NOTES.md` (no sign-in or demo account needed). Builds expire after 90 days.
 
 ## 8. Submit for App Store review
 
 1. Pages must be live (step 9) so you can fill in the **Privacy Policy URL** and **Support URL**.
 2. App Store Connect → your app → the version page. Paste metadata from `docs/appstore/metadata-en.md` and `metadata-es.md`. Upload screenshots (checklist in `docs/appstore/SCREENSHOTS.md`).
-3. **App Privacy**, **Age Rating**, **Export compliance** and **App Review information** answers: `docs/appstore/APP_PRIVACY.md`, `AGE_RATING.md`, `EXPORT_COMPLIANCE.md`, `REVIEW_NOTES.md`. Read `docs/appstore/REVIEW_RISKS.md` first.
+3. **App Privacy**, **Accessibility**, **Age Rating**, **Export compliance** and **App Review information** answers: `docs/appstore/APP_PRIVACY.md`, `ACCESSIBILITY_LABELS.md`, `AGE_RATING.md`, `EXPORT_COMPLIANCE.md`, `REVIEW_NOTES.md`. Read `docs/appstore/REVIEW_RISKS.md` first. In *App Review Information* leave **Sign-in required** unticked: the app needs no account; sync is optional and uses a server the user supplies.
+   URLs: Support `https://xhuerta.github.io/wristreader-site/support.html`, Privacy Policy `https://xhuerta.github.io/wristreader-site/privacy.html`, Marketing (optional) `https://xhuerta.github.io/wristreader-site/` (Spanish localisation: same paths under `es/`).
 4. Select the processed build, set pricing/availability, choose release method, **Add for Review** → **Submit**.
 
-## 9. Publish the privacy policy and support site (GitHub Pages)
+## 9. Publishing the site
 
-The static site lives in `docs/site/` (English and Spanish, no scripts, no trackers). Pages can only serve the repository root or `/docs`, so:
+The support, privacy policy and landing pages are static HTML in `docs/site/` (English, Spanish under `es/`, no scripts, no trackers). They are served from a separate **public** repository, `xhuerta/wristreader-site`, so this repository can stay private.
 
-1. Repository → Settings → **Pages** → *Build and deployment* → Source **Deploy from a branch** → branch `main`, folder **`/docs`** → Save. (Public repositories can use Pages on every plan; private ones need a paid plan.)
-2. After a minute the site is at `https://<owner>.github.io/<repo>/site/`, e.g. `https://xhuerta.github.io/wristreader/site/`. Privacy policy: `…/site/privacy.html`; support: `…/site/support.html`.
-3. Before submitting: replace every `[CONTACT_EMAIL]` placeholder in `docs/site/*.html`, and re-read the policy against `docs/PRIVACY_DATA_MAP.md` (added by the compliance work) and the final app.
-4. Put the app's own links to the policy in the build too (guideline 5.1.1(i) requires the policy to be reachable in the app, not only in App Store Connect). At the time of writing the app has no such link; see `REVIEW_RISKS.md` (risk 4).
+1. Fill the placeholders (`[CONTACT_EMAIL]`, `[DEVELOPER_NAME]`, `[DATE]`; see Owner TODO) in `docs/site/`.
+2. Copy the **contents** of `docs/site/` to the **root** of `xhuerta/wristreader-site` (so `index.html`, `privacy.html`, `support.html`, `style.css` and `es/` sit at the top level) and push to `main`. Re-copy whenever `docs/site/` changes; this repository is the source.
+3. In `xhuerta/wristreader-site`: Settings → **Pages** → *Build and deployment* → Source **Deploy from a branch** → branch **`main`**, folder **`/ (root)`** → Save.
+4. After a minute the pages are live:
+   * Marketing / home: `https://xhuerta.github.io/wristreader-site/`
+   * Privacy policy: `https://xhuerta.github.io/wristreader-site/privacy.html` (Spanish: `…/es/privacy.html`)
+   * Support: `https://xhuerta.github.io/wristreader-site/support.html` (Spanish: `…/es/support.html`)
+5. Use the same privacy and support URLs in App Store Connect and in the app (`AppLinks.swift`, PR #20). Guideline 5.1.1(i) requires the policy to be reachable inside the app too; Settings › About links to it once `AppLinks` is updated.
+6. Re-read the policy against `docs/PRIVACY_DATA_MAP.md` whenever networking code changes.
 
 ## What only the owner can decide
 
 * Final **app name** and whether it is available (the name must be unique in the App Store; 30 characters max). "WristReader" is a working title; see candidates in `docs/appstore/metadata-*.md`.
 * **Bundle id** (permanent once the app is created) and the SKU.
-* **Support URL / contact e-mail** (`[CONTACT_EMAIL]` placeholders) and the privacy policy URL.
+* **Contact e-mail and developer name** (`[CONTACT_EMAIL]`, `[DEVELOPER_NAME]`). The site URLs are fixed at `https://xhuerta.github.io/wristreader-site/`.
 * **Price and availability** (free vs paid, territories), and the seller/developer name shown (individual name vs organisation).
-* The **demo KOSync account** credentials for App Review (create it on a public KOSync server).
-* **Keep or remove the in-app "Create account" button** (see `REVIEW_RISKS.md`, guideline 5.1.1(v)), and whether to add an in-app link to the privacy policy.
-* Age-rating answers and App Privacy answers (proposed in `docs/appstore/`; you are the one making the declaration).
+* **No demo account is needed**: sync is optional (PR #18) and reviewers test by importing an EPUB. Decide only which public-domain EPUB to attach or link for review, and whether to bundle a sample book in a future version.
+* "Create account" was removed (PR #18), so guideline 5.1.1(v) account deletion does not apply; do not reintroduce it.
+* Age-rating, App Privacy and Accessibility Nutrition Label answers (proposed in `docs/appstore/`; you are the one making the declaration).
 * Whether to mention KOReader/Readest by name in store text (nominative use only; see risks).
 * Which Apple ID / role holds the API key, and when to rotate it.
 

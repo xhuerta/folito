@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="An EPUB reader for Apple Watch with reading-progress sync.">
+<meta name="description" content="An EPUB reader for Apple Watch. Works without an account; reading-progress sync is optional.">
 <meta name="color-scheme" content="light dark">
 <title>Support - WristReader</title>
 <link rel="stylesheet" href="style.css">
@@ -16,19 +16,24 @@
 </header>
 <main id="main">
 <h1>Support</h1>
-<p>Questions, bug reports or feature requests: <a href="mailto:[CONTACT_EMAIL]">[CONTACT_EMAIL]</a>. Please include your iPhone and watchOS versions and, if the problem is syncing, which server software you use. Never send your password.</p>
-<h2>Getting started</h2>
+<p>Questions, bug reports or feature requests: <a href="mailto:[CONTACT_EMAIL]">[CONTACT_EMAIL]</a>. Please include your iOS and watchOS versions and, if the problem is syncing, which server software you use. Never send your password.</p>
+<h2>Getting started (no account needed)</h2>
 <ol>
-<li>Install WristReader on your iPhone; the watch app installs through the Watch app on the iPhone. Open the iPhone app once so the watch can be set up.</li>
-<li>Import an <code>.epub</code>: tap + in the app, or open the file from Files / the share sheet and choose WristReader. The book is sent to your watch.</li>
-<li>To sync progress, open <em>Sync</em> in the iPhone app, enter your KOReader Sync server URL, username and password, then tap <em>Save &amp; send to watch</em> and <em>Test connection</em>.</li>
+<li>Install WristReader on your iPhone; the watch app installs through the Watch app on the iPhone (or automatically). Open the iPhone app once so the watch can be set up.</li>
+<li>Import an <code>.epub</code> you own or a free public-domain one: tap <em>Import EPUB</em> (+) in the Library, or open the file from the Files app or the share sheet and choose WristReader. The book is sent to your watch.</li>
+<li>Open WristReader on the watch and choose the book. Your place is saved on the watch, and reading works offline.</li>
 </ol>
+<h2>Optional: sync your place with other readers</h2>
+<p>Sync is off by default and only needed to continue the same book in KOReader or another app that speaks the KOReader Sync protocol. On the iPhone open <em>Settings › Progress Sync</em>, enter the server URL and the username and password of an account you already have on that server (create it on the server itself, for example in KOReader under <em>Tools › Progress sync › Register</em>; WristReader does not create accounts), tap <em>Save and Turn On Sync</em>, then <em>Test Connection</em>. The login is sent to your watch so it can sync on its own.</p>
+<p>To stop syncing, tap <em>Turn Off Sync and Remove Login</em>: the login is removed from the iPhone and the watch; your books and reading positions are kept.</p>
 <h2>Frequently asked</h2>
 <dl>
+<dt>Do I need an account?</dt><dd>No. Importing and reading need no account of any kind. Sync is optional and uses a server you choose; the developer runs no server.</dd>
 <dt>Which servers work?</dt><dd>Any KOReader Sync (kosync) compatible server, including the public KOReader server and self-hosted ones. The app does not provide a server.</dd>
 <dt>Progress does not match in KOReader or Readest.</dt><dd>It must be the same, unmodified EPUB file on every device. In Readest set the document matching method to <em>File Content</em>; in KOReader use <em>Binary</em>.</dd>
-<dt>My http:// server does not connect.</dt><dd>iOS blocks plain http to internet hosts. Use https, or a local-network address.</dd>
-<dt>Word lookup says offline or not found.</dt><dd>Lookup needs a network connection and uses Wiktionary (English edition); definitions are in English.</dd>
+<dt>My http:// server does not connect.</dt><dd>iOS blocks plain http to internet hosts. Use https, or a local-network address (iOS asks for local network permission the first time).</dd>
+<dt>Word lookup says offline or not found.</dt><dd>Lookup needs a network connection and uses Wiktionary (English edition), and dictionaryapi.dev for English words Wiktionary lacks; definitions are in English.</dd>
+<dt>Accessibility</dt><dd>The iPhone and watch apps support VoiceOver and larger text sizes (Dynamic Type), follow Dark Mode, Increase Contrast and Bold Text, and use no custom animations. On the watch, reading themes meet WCAG contrast ratios and <em>Typography › Match System Text Size</em> makes the book text follow the watch's text size.</dd>
 <dt>Does the app support DRM-protected books?</dt><dd>No.</dd>
 </dl>
 <p><a href="privacy.html">Privacy Policy</a></p>
