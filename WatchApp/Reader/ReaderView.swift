@@ -11,9 +11,11 @@ struct ReaderView: View {
     @StateObject private var model: ReaderViewModel
     @EnvironmentObject private var sync: SyncCoordinator
     @Environment(\.scenePhase) private var scenePhase
-    @AppStorage(ReaderSettings.fontSizeKey) private var fontSize = ReaderSettings.defaultFontSize
+    @EnvironmentObject private var typography: TypographyModel
     @AppStorage(ReaderSettings.showSyncInfoKey) private var showSyncInfo = true
+    @AppStorage(ReaderSettings.tapToLookUpKey) private var tapToLookUp = true
     @State private var showMenu = false
+    @State private var lookupAfterMenu = false
     private static let scrollSpace = "reader.scroll"
 
     init(model: ReaderViewModel) {
@@ -21,11 +23,16 @@ struct ReaderView: View {
     }
 
     var body: some View {
+        // Fonts and colours are resolved once per typography change, not per block per render.
+        let style = typography.style
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 10) {
+                LazyVStack(alignment: .leading, spacing: style.typography.paragraphSpacing) {
                     ForEach(0..<model.flat.count, id: \.self) { index in
-                        BlockView(block: model.flat.blocks[index], fontSize: ReaderSettings.clampFontSize(fontSize))
+                        BlockStyledText(block: model.flat.blocks[index], style: style)
+                            .equatable()
+                            .contentShape(Rectangle())
+                            .onTapGesture { if tapToLookUp { model.beginLookup(at: index) } }
                             .id(index)
                             .background(
                                 GeometryReader { geo in
@@ -35,10 +42,10 @@ struct ReaderView: View {
                                 })
                     }
                     if model.flat.isEmpty {
-                        Text("This book has no text.").foregroundStyle(.secondary)
+                        Text("This book has no text.").foregroundStyle(style.secondaryColor)
                     }
                 }
-                .padding(.horizontal, 4)
+                .padding(.horizontal, style.typography.horizontalMargin)
             }
             .coordinateSpace(name: Self.scrollSpace)
             .onPreferenceChange(BlockFramesKey.self) { model.blockFramesChanged($0) }
@@ -49,7 +56,12 @@ struct ReaderView: View {
                 }
             }
         }
-        .background(Color.black)
+        .background(style.background)
+        .preferredColorScheme(style.typography.theme == .sepia ? .light : .dark)
+        // Layout metrics changed: keep reading the same block.
+        .onChange(of: style.key) { _ in
+            DispatchQueue.main.async { model.reanchor() }
+        }
         .navigationTitle(model.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -62,8 +74,19 @@ struct ReaderView: View {
                 }
             }
         }
-        .sheet(isPresented: $showMenu) {
-            ReaderMenuView(model: model)
+        .sheet(isPresented: $showMenu, onDismiss: {
+            if lookupAfterMenu {
+                lookupAfterMenu = false
+                model.beginLookup(at: model.currentIndex)
+            }
+            model.reanchor()
+        }) {
+            ReaderMenuView(model: model, onLookup: { lookupAfterMenu = true })
+                .environmentObject(typography)
+        }
+        .sheet(item: $model.lookupBlockIndex) { target in
+            WordLookupSheet(text: model.flat.blocks[target.index].text,
+                            language: model.bookLanguage, provider: model.dictionary)
         }
         .alert("Go to \(model.remoteOffer?.device ?? "other device") position?",
                isPresented: $model.showRemoteOffer) {
@@ -96,42 +119,6 @@ struct BlockFramesKey: PreferenceKey {
     static var defaultValue: [Int: BlockFrame] = [:]
     static func reduce(value: inout [Int: BlockFrame], nextValue: () -> [Int: BlockFrame]) {
         value.merge(nextValue()) { _, new in new }
-    }
-}
-
-struct BlockView: View {
-    let block: Block
-    let fontSize: Double
-
-    var body: some View {
-        let style = block.style
-        let size = fontSize * BlockText.scale(for: style)
-        let text = Text(BlockText.attributed(text: block.text, spans: block.spans))
-        switch style {
-        case .listItem:
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text("\u{2022}")
-                text
-            }
-            .font(.system(size: size))
-            .foregroundStyle(.white)
-        case .quote:
-            text
-                .font(.system(size: size).italic())
-                .foregroundStyle(Color(white: 0.85))
-                .padding(.leading, 8)
-        default:
-            if BlockText.isHeading(style) {
-                text
-                    .font(.system(size: size, weight: .bold))
-                    .foregroundStyle(.white)
-                    .padding(.top, 6)
-            } else {
-                text
-                    .font(.system(size: size))
-                    .foregroundStyle(.white)
-            }
-        }
     }
 }
 

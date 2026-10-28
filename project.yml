@@ -35,6 +35,8 @@ targets:
         excludes:
           - Tests/**
           - Info.plist
+      # SwiftUI code compiled into both apps (typography rendering, block text).
+      - path: Shared
     dependencies:
       - package: ReaderCore
       # Embeds the watch app into the iPhone app bundle.
@@ -91,6 +93,7 @@ targets:
       - path: WatchApp
         excludes:
           - Tests/**
+      - path: Shared
     dependencies:
       - package: ReaderCore
     # Single-target watchOS app (no WatchKit extension) paired with the iOS app.

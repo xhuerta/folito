@@ -161,5 +161,8 @@ final class TypographyTests: XCTestCase {
         local.stamp = 101
         XCTAssertFalse(TypographySync.shouldApply(incoming: decoded, local: local))
         XCTAssertNil(TypographySync.decode(from: ["type": "settings"]))
+        XCTAssertEqual(TypographySync.nextStamp(now: 500, after: 100), 500)
+        XCTAssertEqual(TypographySync.nextStamp(now: 500, after: 500), 501)
+        XCTAssertEqual(TypographySync.nextStamp(now: 100, after: 500), 501)
     }
 }

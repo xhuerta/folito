@@ -36,21 +36,8 @@ enum BlockText {
         return attr
     }
 
-    /// Font size multiplier relative to the user's base size.
-    static func scale(for style: BlockStyle) -> Double {
-        switch style {
-        case .heading1: return 1.35
-        case .heading2: return 1.25
-        case .heading3: return 1.15
-        case .heading4, .heading5, .heading6: return 1.05
-        case .paragraph, .quote, .listItem: return 1.0
-        }
-    }
+    /// Font size multiplier relative to the user's base size (headings at default heading scale).
+    static func scale(for style: BlockStyle) -> Double { style.baseScale }
 
-    static func isHeading(_ style: BlockStyle) -> Bool {
-        switch style {
-        case .heading1, .heading2, .heading3, .heading4, .heading5, .heading6: return true
-        default: return false
-        }
-    }
+    static func isHeading(_ style: BlockStyle) -> Bool { style.isHeading }
 }

@@ -381,3 +381,28 @@ final class DictionaryServiceTests: XCTestCase {
         catch { XCTAssertEqual(error as? DictionaryError, .offline) }
     }
 }
+
+final class WordContextTests: XCTestCase {
+    func testContextWindow() throws {
+        let text = "One two, three four five six seven."
+        let tokens = WordTokenizer.tokens(in: text)
+        let c = try XCTUnwrap(WordContext.make(text: text, tokens: tokens, index: 3, radius: 2))
+        XCTAssertEqual(c.word, "four")
+        XCTAssertEqual(c.before, "two, three ")
+        XCTAssertEqual(c.after, " five six")
+        XCTAssertTrue(c.hasMoreBefore)
+        XCTAssertTrue(c.hasMoreAfter)
+        let edge = try XCTUnwrap(WordContext.make(text: text, tokens: tokens, index: 0, radius: 2))
+        XCTAssertEqual(edge.before, "")
+        XCTAssertFalse(edge.hasMoreBefore)
+        XCTAssertNil(WordContext.make(text: text, tokens: tokens, index: 99))
+    }
+
+    func testContextWithEmoji() throws {
+        let text = "😀 alpha 😀 beta gamma"
+        let tokens = WordTokenizer.tokens(in: text)
+        let c = try XCTUnwrap(WordContext.make(text: text, tokens: tokens, index: 1, radius: 1))
+        XCTAssertEqual(c.before, "alpha 😀 ")
+        XCTAssertEqual(c.after, " gamma")
+    }
+}

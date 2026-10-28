@@ -59,6 +59,10 @@ public enum TypographySync {
         return t
     }
 
+    /// Stamp for a local edit: the clock, but always strictly newer than the value being replaced so two
+    /// edits within the same second (or a skewed clock) still order correctly.
+    public static func nextStamp(now: Int, after previous: Int) -> Int { max(now, previous + 1) }
+
     /// Last writer wins; a tie keeps the local copy (so resends are idempotent).
     public static func shouldApply(incoming: ReaderTypography, local: ReaderTypography) -> Bool {
         incoming.stamp > local.stamp

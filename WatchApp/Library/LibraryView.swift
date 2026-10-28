@@ -92,7 +92,8 @@ struct ReaderLoaderView: View {
             guard model == nil else { return }
             do {
                 let box = try await library.loadBook(entry)
-                model = ReaderViewModel(book: box.book, positions: env.positions, sync: sync)
+                model = ReaderViewModel(book: box.book, positions: env.positions, sync: sync,
+                                        dictionary: env.dictionary)
             } catch {
                 failed = true
             }

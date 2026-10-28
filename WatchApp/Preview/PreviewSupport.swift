@@ -39,5 +39,6 @@ enum PreviewSupport {
         ReaderView(model: ReaderViewModel(book: PreviewSupport.sampleBook, positions: positions, sync: sync))
     }
     .environmentObject(sync)
+    .environmentObject(TypographyModel(store: TypographyStore(defaults: UserDefaults(suiteName: "preview") ?? .standard)))
     .preferredColorScheme(.dark)
 }

@@ -11,6 +11,7 @@ struct WristReaderWatchApp: App {
                 .environmentObject(env)
                 .environmentObject(env.library)
                 .environmentObject(env.sync)
+                .environmentObject(env.typography)
                 .preferredColorScheme(.dark)
                 .task {
                     env.start()

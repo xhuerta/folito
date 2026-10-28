@@ -74,3 +74,31 @@ public enum WordTokenizer {
         return tokens.count - 1
     }
 }
+
+/// The text around a selected word, for the cursor UI: a few neighbouring words on each side.
+public struct WordContext: Equatable, Sendable {
+    public let before: String
+    public let word: String
+    public let after: String
+    public let hasMoreBefore: Bool
+    public let hasMoreAfter: Bool
+
+    /// `radius` words on each side, taken verbatim from `text` (punctuation between words is kept).
+    public static func make(text: String, tokens: [WordToken], index: Int, radius: Int = 4) -> WordContext? {
+        guard tokens.indices.contains(index) else { return nil }
+        let utf16 = text.utf16
+        func slice(_ from: Int, _ to: Int) -> String {
+            guard from < to, let lo = utf16.index(utf16.startIndex, offsetBy: from, limitedBy: utf16.endIndex),
+                  let hi = utf16.index(utf16.startIndex, offsetBy: to, limitedBy: utf16.endIndex) else { return "" }
+            return String(text[lo..<hi])
+        }
+        let first = max(0, index - radius), last = min(tokens.count - 1, index + radius)
+        let cur = tokens[index].range
+        return WordContext(
+            before: slice(tokens[first].range.location, cur.location),
+            word: tokens[index].text,
+            after: slice(NSMaxRange(cur), NSMaxRange(tokens[last].range)),
+            hasMoreBefore: first > 0,
+            hasMoreAfter: last < tokens.count - 1)
+    }
+}
