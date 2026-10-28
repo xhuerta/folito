@@ -45,6 +45,9 @@ targets:
       path: GeneratedInfo/iOS-Info.plist
       properties:
         CFBundleDisplayName: $(WR_APP_NAME)
+        # From Config/Base.xcconfig (or the release workflow's overrides); XcodeGen would otherwise write 1.0 (1).
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDevelopmentRegion: en
         CFBundleLocalizations: [en, es]
         LSApplicationCategoryType: public.app-category.books
@@ -109,6 +112,9 @@ targets:
       path: GeneratedInfo/Watch-Info.plist
       properties:
         CFBundleDisplayName: $(WR_APP_NAME)
+        # From Config/Base.xcconfig (or the release workflow's overrides); XcodeGen would otherwise write 1.0 (1).
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDevelopmentRegion: en
         CFBundleLocalizations: [en, es]
         ITSAppUsesNonExemptEncryption: false
