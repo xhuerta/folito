@@ -3,26 +3,56 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Política de privacidad - WristReader</title>
 <meta name="description" content="Un lector de EPUB para Apple Watch. Funciona sin cuenta; la sincronización del progreso es opcional.">
 <meta name="color-scheme" content="light dark">
-<title>Política de privacidad - WristReader</title>
-<link rel="stylesheet" href="../style.css">
+<meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<link rel="canonical" href="https://xhuerta.github.io/wristreader-site/es/privacy.html">
 <link rel="alternate" hreflang="en" href="../privacy.html">
+<link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="64x64" href="../assets/favicon-64.png">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="WristReader">
+<meta property="og:title" content="Política de privacidad - WristReader">
+<meta property="og:description" content="Un lector de EPUB para Apple Watch. Funciona sin cuenta; la sincronización del progreso es opcional.">
+<meta property="og:url" content="https://xhuerta.github.io/wristreader-site/es/privacy.html">
+<meta property="og:image" content="https://xhuerta.github.io/wristreader-site/assets/icon-512.png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+<meta property="og:image:alt" content="WristReader app icon">
+<meta property="og:locale" content="es_ES">
+<meta name="twitter:card" content="summary">
+<link rel="stylesheet" href="../style.css">
 </head>
 <body>
 <a class="skip" href="#main">Saltar al contenido</a>
-<header>
-<nav aria-label="Principal"><ul><li><a href="index.html">Inicio</a></li><li><a href="privacy.html" aria-current="page">Política de privacidad</a></li><li><a href="support.html">Soporte</a></li><li><a href="../privacy.html" hreflang="en" lang="en">English</a></li></ul></nav>
+<header class="bar">
+<div class="wrap">
+<a class="brand" href="index.html"><img src="../assets/icon-256.png" width="28" height="28" alt=""><span>WristReader</span></a>
+<nav class="nav" aria-label="Principal">
+<a href="privacy.html" aria-current="page">Privacidad</a>
+<a href="support.html">Soporte</a>
+<span class="seg" role="group" aria-label="Idioma"><a href="../privacy.html" lang="en" hreflang="en" aria-label="English">EN</a><a href="privacy.html" lang="es" aria-current="true" aria-label="Español">ES</a></span>
+</nav>
+</div>
 </header>
 <main id="main">
+<div class="doc">
 <h1>Política de privacidad</h1>
 <p class="muted">Última actualización: 28 de octubre de 2026. Se aplica a las apps WristReader para iPhone y Apple Watch.</p>
-<p class="note">En resumen: WristReader funciona sin ninguna cuenta. No tiene analítica, publicidad ni seguimiento, y el desarrollador no opera ningún servidor ni recibe datos. La app solo contacta con un servidor de sincronización si decides configurarlo y, cuando consultas una palabra, con los diccionarios en línea indicados abajo.</p>
+<div class="card note lead-card"><span class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2.8 19 5.6v5.7c0 4.6-3 8.3-7 9.9-4-1.6-7-5.3-7-9.9V5.6z"/><path d="m8.8 12.1 2.2 2.2 4.3-4.5"/></svg></span><p>En resumen: WristReader funciona sin ninguna cuenta. No tiene analítica, publicidad ni seguimiento, y el desarrollador no opera ningún servidor ni recibe datos. La app solo contacta con un servidor de sincronización si decides configurarlo y, cuando consultas una palabra, con los diccionarios en línea indicados abajo.</p></div>
 
+<section class="group">
 <h2>Responsable</h2>
+<div class="card">
 <p>Xabier Lahuerta, contacto: <a href="mailto:xlahuerta@protonmail.com">xlahuerta@protonmail.com</a>.</p>
-
+</div>
+</section>
+<section class="group">
 <h2>Qué se queda en tus dispositivos</h2>
+<div class="card">
 <ul>
 <li><strong>Tus libros</strong> (archivos EPUB que importas) se procesan y guardan en el almacenamiento de la app en el iPhone y se envían al Apple Watch mediante WatchConnectivity de Apple, directamente entre tus dispositivos emparejados. La app nunca los sube.</li>
 <li><strong>Tus posiciones de lectura, ajustes de tipografía, un identificador aleatorio del dispositivo</strong> (ver abajo) y, si la sincronización está activada, <strong>el progreso pendiente de sincronizar</strong> se guardan en los ajustes de la app en el dispositivo. Los ajustes de tipografía también se envían al reloj emparejado.</li>
@@ -30,8 +60,11 @@
 <li><strong>Tu inicio de sesión de sincronización</strong>, solo si activas la sincronización (dirección del servidor, usuario, contraseña), se guarda en el Llavero del iPhone y, como el reloj sincroniza por sí mismo, también se envía al reloj emparejado mediante WatchConnectivity y se guarda en su propio Llavero. Nunca se envía al desarrollador, y por internet solo va al servidor de sincronización que indicaste (ver la sección siguiente).</li>
 <li>La app no usa iCloud. Al borrar la app se eliminan estos datos de ese dispositivo.</li>
 </ul>
-
+</div>
+</section>
+<section class="group">
 <h2>Sincronización del progreso (opcional, tu servidor KOReader Sync)</h2>
+<div class="card">
 <p>La sincronización está desactivada salvo que la actives. No necesitas ninguna cuenta para importar y leer libros. Si introduces un servidor KOReader Sync, usuario y contraseña y activas la sincronización, la app envía peticiones solo a ese servidor. (El campo del servidor sugiere <code>https://sync.koreader.rocks</code>, el servidor público de KOReader; no se le envía nada hasta que guardas usuario y contraseña, y puedes cambiarlo por el tuyo.) La app no crea cuentas: usas una cuenta que ya tengas en ese servidor. Las peticiones pueden incluir:</p>
 <ul>
 <li>tu usuario y un hash MD5 de tu contraseña (así autentica el protocolo KOReader Sync; la contraseña en sí no se envía al servidor);</li>
@@ -40,26 +73,57 @@
 <li>el nombre de dispositivo «WristReader» y un identificador aleatorio generado por la app en el primer arranque (no se deriva del hardware del dispositivo ni es un identificador publicitario).</li>
 </ul>
 <p>La app no envía ninguna marca de tiempo; el servidor registra la suya. Como en cualquier petición de internet, el servidor ve tu dirección IP. Ese servidor lo gestiona quien lo opera (tú o un servicio que elegiste), no el desarrollador; se aplican su política de privacidad y su retención de datos, y la app no puede borrar lo que se guarda allí (pídelo al operador). Si usas <code>http://</code> (permitido solo para direcciones de red local; iOS pide permiso de red local la primera vez) el tráfico no va cifrado. Si no activas la sincronización, no se hace ninguna petición de sincronización.</p>
-
+</div>
+</section>
+<section class="group">
 <h2>Consulta de palabras</h2>
+<div class="card">
 <p>Solo cuando consultas una palabra en el reloj, la palabra seleccionada (y, si no existe la forma exacta, variantes sencillas como su minúscula o forma sin flexión, probadas por orden) se envía por HTTPS a <strong>en.wiktionary.org</strong> (Fundación Wikimedia) y, solo para palabras en inglés que Wiktionary no tenga, a <strong>api.dictionaryapi.dev</strong>. Cada petición contiene la palabra en la dirección web y un User-Agent con el nombre de la app y la página pública del proyecto; esos servicios ven tu dirección IP y la tratan según sus propias políticas (<a href="https://foundation.wikimedia.org/wiki/Policy:Privacy_policy">política de privacidad de Wikimedia</a>, en inglés). No se envía nada más: ni el título, autor o texto del libro, ni tu posición de lectura, tu inicio de sesión o el identificador del dispositivo. Una serie de palabras consultadas podría, en principio, dar pistas a esos servicios sobre lo que lees. Las peticiones no usan cookies ni caché web persistente.</p>
-
+</div>
+</section>
+<section class="group">
 <h2>Lo que no hacemos</h2>
+<div class="card">
 <ul>
 <li>Sin SDK de analítica, informes de errores, publicidad ni otros SDK de terceros, y sin seguimiento entre apps o sitios web.</li>
 <li>Sin cuentas con el desarrollador; el desarrollador no recibe datos de la app.</li>
 <li>No vendemos ni compartimos datos.</li>
 </ul>
-
+</div>
+</section>
+<section class="group">
 <h2>Menores</h2>
+<div class="card">
 <p>La app no está dirigida a menores y el desarrollador no recoge información personal de nadie.</p>
-
+</div>
+</section>
+<section class="group">
 <h2>Tus opciones y derechos</h2>
+<div class="card">
 <p>La sincronización es opcional. Para dejar de sincronizar, abre <em>Settings › Progress Sync</em> en el iPhone y pulsa <em>Turn Off Sync and Remove Login</em>: el inicio de sesión se borra del iPhone y del Apple Watch y se descarta el progreso pendiente (tus libros y posiciones de lectura se conservan). También puedes quitarlo solo en el reloj (<em>Settings › Remove Credentials</em>), borrar la caché del diccionario o eliminar la app en cualquier momento. Para los datos que guarde un servidor de sincronización o un servicio de diccionario, contacta con ese servicio. Para dudas sobre esta política, escribe a <a href="mailto:xlahuerta@protonmail.com">xlahuerta@protonmail.com</a>.</p>
-
+</div>
+</section>
+<section class="group">
 <h2>Cambios</h2>
+<div class="card">
 <p>Si cambia el comportamiento de la app, se actualizará esta página y la fecha de arriba.</p>
+</div>
+</section>
+</div>
 </main>
-<footer><p>WristReader es una app independiente. KOReader y Readest son nombres de proyectos de terceros, usados solo para describir la compatibilidad; WristReader no está afiliada ni respaldada por ellos. Apple, Apple Watch e iPhone son marcas de Apple Inc.</p></footer>
+<footer class="site-footer">
+<div class="wrap">
+<div class="top">
+<nav aria-label="Pie de página"><ul>
+<li><a href="index.html">WristReader</a></li>
+<li><a href="privacy.html">Política de privacidad</a></li>
+<li><a href="support.html">Soporte</a></li>
+</ul></nav>
+<span class="seg" role="group" aria-label="Idioma"><a href="../privacy.html" lang="en" hreflang="en" aria-label="English">EN</a><a href="privacy.html" lang="es" aria-current="true" aria-label="Español">ES</a></span>
+</div>
+<p class="legal">WristReader es una app independiente. KOReader y Readest son nombres de proyectos de terceros, usados solo para describir la compatibilidad; WristReader no está afiliada ni respaldada por ellos. Apple, Apple Watch e iPhone son marcas de Apple Inc.</p>
+<p class="copy">&copy; 2026 Xabier Lahuerta</p>
+</div>
+</footer>
 </body>
 </html>
