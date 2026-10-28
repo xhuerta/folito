@@ -65,6 +65,20 @@ The script fails when:
 
 Catalog keys no source uses any more are only warnings (Xcode marks them "stale"; delete them).
 
+## Checking against Xcode's extraction (macOS CI)
+
+The scanner above approximates what Xcode extracts. The macOS workflow also runs
+`scripts/compare_extracted_strings.py` after building both apps: it reads the `.stringsdata` files the Swift
+compiler writes (`SWIFT_EMIT_LOC_STRINGS`) and fails if Xcode extracts a key that is not, character for
+character, in the target's `Localizable.xcstrings` (for example `%lld` for an interpolated `Int`, where a
+hand-written key might say `%@`; such a key would never be found at run time). It also uploads the catalogs
+as the build left them (artifact `xcstrings-after-build`). Locally:
+
+```sh
+xcodebuild build -project WristReader.xcodeproj -scheme WristReader -destination 'generic/platform=iOS Simulator'
+python3 scripts/compare_extracted_strings.py ~/Library/Developer/Xcode/DerivedData
+```
+
 ## Adding or changing a string
 
 1. Write the code as above.
