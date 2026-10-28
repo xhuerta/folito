@@ -45,3 +45,19 @@ jobs:
             -scheme WristReaderWatch \
             -destination 'generic/platform=watchOS Simulator' \
             CODE_SIGNING_ALLOWED=NO
+
+      - name: Compile iOS unit tests
+        run: |
+          xcodebuild build-for-testing \
+            -project WristReader.xcodeproj \
+            -scheme WristReader \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Compile watchOS unit tests
+        run: |
+          xcodebuild build-for-testing \
+            -project WristReader.xcodeproj \
+            -scheme WristReaderWatch \
+            -destination 'generic/platform=watchOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO
