@@ -1,0 +1,228 @@
+name: Release
+
+# Builds WristReader (iPhone app + embedded watch app), signs it with Apple cloud signing using an
+# App Store Connect API key, and uploads it to TestFlight. See docs/RELEASE.md.
+#
+#  * workflow_dispatch with dry_run=true (default), or a pull_request touching this pipeline: needs NO secrets. Runs XcodeGen and an UNSIGNED
+#    Release archive, then prints what a real run would upload.
+#  * workflow_dispatch with dry_run=false, or a pushed tag v*: real signed build + upload.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run: unsigned archive only, no secrets needed, nothing uploaded"
+        type: boolean
+        default: true
+      lane:
+        description: "testflight = upload build to TestFlight. appstore-metadata-none = identical upload; store metadata/review submission is always done by hand in App Store Connect"
+        type: choice
+        options: [testflight, appstore-metadata-none]
+        default: testflight
+      marketing_version:
+        description: "Marketing version, e.g. 1.0.0 (default: tag name without v, else project.yml)"
+        type: string
+        required: false
+  push:
+    tags: ["v*"]
+  # Dry run only (no secrets): keeps the release pipeline from rotting when it is edited.
+  pull_request:
+    paths:
+      - ".github/workflows/release.yml"
+      - ".github/release/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    # Secrets are only exposed to the steps that need them (below), never job-wide.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve parameters and check secrets
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DRY_RUN_INPUT: ${{ inputs.dry_run }}
+          LANE_INPUT: ${{ inputs.lane }}
+          VERSION_INPUT: ${{ inputs.marketing_version }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          RUN_NUMBER: ${{ github.run_number }}
+          BUNDLE_ID_BASE: ${{ vars.BUNDLE_ID_BASE }}
+          APP_NAME: ${{ vars.APP_NAME }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: .github/release/preflight.sh
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          # App Store Connect only accepts builds made with the current major Xcode.
+          xcode-version: latest-stable
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Apply app display name (APP_NAME)
+        if: ${{ env.WR_APP_NAME != '' }}
+        run: |
+          set -euo pipefail
+          for p in GeneratedInfo/iOS-Info.plist GeneratedInfo/Watch-Info.plist; do
+            plutil -replace CFBundleDisplayName -string "$WR_APP_NAME" "$p"
+            echo "$p -> CFBundleDisplayName=$(plutil -extract CFBundleDisplayName raw "$p")"
+          done
+
+      # ------------------------------------------------------------------ dry run (no secrets)
+      - name: Dry run - unsigned Release archive
+        if: ${{ env.WR_DRY_RUN == 'true' }}
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          xcodebuild archive \
+            -project WristReader.xcodeproj \
+            -scheme WristReader \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/WristReader.xcarchive \
+            -clonedSourcePackagesDirPath SourcePackages \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            WR_BUNDLE_ID="$WR_BUNDLE_ID" \
+            MARKETING_VERSION="$WR_VERSION" \
+            CURRENT_PROJECT_VERSION="$WR_BUILD" \
+            2>&1 | tee build/archive.log | tail -n 200
+
+      - name: Dry run - report what would be uploaded
+        if: ${{ env.WR_DRY_RUN == 'true' }}
+        run: |
+          set -euo pipefail
+          APP=build/WristReader.xcarchive/Products/Applications/WristReader.app
+          WATCH="$APP/Watch/WristReader.app"
+          [ -d "$APP" ]   || { echo "::error::iOS app missing from archive"; exit 1; }
+          [ -d "$WATCH" ] || { echo "::error::watch app is not embedded in the iOS app (expected $WATCH)"; ls -R "$APP" | head -50; exit 1; }
+          get() { plutil -extract "$2" raw -o - "$1/Info.plist"; }
+          IOS_ID=$(get "$APP" CFBundleIdentifier); WATCH_ID=$(get "$WATCH" CFBundleIdentifier)
+          IOS_VER=$(get "$APP" CFBundleShortVersionString); IOS_BLD=$(get "$APP" CFBundleVersion)
+          W_VER=$(get "$WATCH" CFBundleShortVersionString);  W_BLD=$(get "$WATCH" CFBundleVersion)
+          COMPANION=$(get "$WATCH" WKCompanionAppBundleIdentifier)
+          {
+            echo "### Release dry run (nothing uploaded)"
+            echo
+            echo "| | iPhone app | Watch app |"
+            echo "|---|---|---|"
+            echo "| Bundle id | \`$IOS_ID\` | \`$WATCH_ID\` |"
+            echo "| Version (build) | $IOS_VER ($IOS_BLD) | $W_VER ($W_BLD) |"
+            echo "| Display name | $(get "$APP" CFBundleDisplayName) | $(get "$WATCH" CFBundleDisplayName) |"
+            echo
+            echo "Lane: \`$WR_LANE\`. A real run would archive with cloud signing (team \`APPLE_TEAM_ID\`) and upload to App Store Connect with ExportOptions:"
+            echo '```'; cat .github/release/ExportOptions.plist; echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          fail=0
+          [ "$IOS_ID" = "$WR_BUNDLE_ID" ]            || { echo "::error::iOS bundle id $IOS_ID != $WR_BUNDLE_ID"; fail=1; }
+          [ "$WATCH_ID" = "$WR_BUNDLE_ID.watchkitapp" ] || { echo "::error::watch bundle id $WATCH_ID != $WR_BUNDLE_ID.watchkitapp"; fail=1; }
+          [ "$COMPANION" = "$IOS_ID" ]               || { echo "::error::WKCompanionAppBundleIdentifier $COMPANION != $IOS_ID"; fail=1; }
+          [ "$IOS_VER" = "$WR_VERSION" ] && [ "$W_VER" = "$WR_VERSION" ] || { echo "::error::marketing version mismatch"; fail=1; }
+          [ "$IOS_BLD" = "$WR_BUILD" ] && [ "$W_BLD" = "$WR_BUILD" ]     || { echo "::error::build number mismatch"; fail=1; }
+          exit $fail
+
+      # ------------------------------------------------------------------ real run
+      - name: Write App Store Connect API key (temp file, mode 600)
+        if: ${{ env.WR_DRY_RUN != 'true' }}
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: .github/release/write-key.sh
+
+      - name: Archive (Release, automatic cloud signing)
+        if: ${{ env.WR_DRY_RUN != 'true' }}
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          xcodebuild archive \
+            -project WristReader.xcodeproj \
+            -scheme WristReader \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/WristReader.xcarchive \
+            -clonedSourcePackagesDirPath SourcePackages \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            WR_BUNDLE_ID="$WR_BUNDLE_ID" \
+            MARKETING_VERSION="$WR_VERSION" \
+            CURRENT_PROJECT_VERSION="$WR_BUILD" \
+            2>&1 | tee build/archive.log | tail -n 200
+
+      - name: Export and upload to App Store Connect
+        if: ${{ env.WR_DRY_RUN != 'true' }}
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          cp .github/release/ExportOptions.plist build/ExportOptions.plist
+          plutil -replace teamID -string "$APPLE_TEAM_ID" build/ExportOptions.plist
+          plutil -lint build/ExportOptions.plist
+          # destination=upload in ExportOptions.plist makes this command upload the build.
+          xcodebuild -exportArchive \
+            -archivePath build/WristReader.xcarchive \
+            -exportOptionsPlist build/ExportOptions.plist \
+            -exportPath build/export \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            2>&1 | tee build/export.log | tail -n 200
+          {
+            echo "### Uploaded to App Store Connect"
+            echo "- Lane: \`$WR_LANE\`"
+            echo "- Bundle ids: \`$WR_BUNDLE_ID\`, \`$WR_BUNDLE_ID.watchkitapp\`"
+            echo "- Version: $WR_VERSION (build $WR_BUILD)"
+            echo "- Processing takes a few minutes; then the build appears under TestFlight in App Store Connect."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove API key
+        if: ${{ always() && env.ASC_KEY_PATH != '' }}
+        run: rm -rf "$(dirname "$ASC_KEY_PATH")"
+
+      - name: Package archive
+        if: ${{ env.WR_DRY_RUN != 'true' && success() }}
+        run: ditto -c -k --keepParent build/WristReader.xcarchive build/WristReader.xcarchive.zip
+
+      - name: Upload build artifacts
+        if: ${{ env.WR_DRY_RUN != 'true' && success() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: wristreader-${{ env.WR_VERSION }}-${{ env.WR_BUILD }}
+          path: |
+            build/WristReader.xcarchive.zip
+            build/export
+            build/*.log
+          retention-days: 14
+
+      - name: Upload logs on failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-logs-${{ github.run_number }}
+          path: build/*.log
+          if-no-files-found: ignore
+          retention-days: 7
