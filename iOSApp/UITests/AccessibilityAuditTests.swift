@@ -52,16 +52,21 @@ final class AccessibilityAuditTests: XCTestCase {
 
     @MainActor
     private func auditOnce(_ app: XCUIApplication, _ type: XCUIAccessibilityAuditType) throws {
+        // The handler only records findings; element queries and screenshots happen after the audit returns.
+        var findings: [(issue: XCUIAccessibilityAuditIssue, accepted: Bool)] = []
+        defer {
+            for finding in findings { Self.log(finding.issue, accepted: finding.accepted, in: app) }
+        }
         try app.performAccessibilityAudit(for: type) { issue in
             let accepted = Self.isAccepted(issue)
-            Self.log(issue, accepted: accepted, in: app)
+            findings.append((issue, accepted))
             return accepted // true = ignore this issue; false = report it as a test failure
         }
     }
 
     /// Prints every finding with its element, frame (and the tab bar's, which content can scroll under) and,
     /// for contrast findings, the contrast measured from a screenshot of the element, so the CI log shows
-    /// exactly what was found and why.
+    /// exactly what was found and why. Failing findings also attach a screenshot of the screen.
     @MainActor
     private static func log(_ issue: XCUIAccessibilityAuditIssue, accepted: Bool, in app: XCUIApplication) {
         let element = issue.element
@@ -69,16 +74,17 @@ final class AccessibilityAuditTests: XCTestCase {
             + "\"\(issue.compactDescription)\" element=\(element?.elementType.rawValue ?? 0) "
             + "id=\(element?.identifier ?? "<none>") label=\(element?.label ?? "<none>")"
         if let element, element.exists {
-            line += " frame=\(element.frame) tabBar=\(app.tabBars.firstMatch.exists ? "\(app.tabBars.firstMatch.frame)" : "-")"
+            let tabBar = app.tabBars.firstMatch
+            line += " frame=\(element.frame) tabBar=\(tabBar.exists ? "\(tabBar.frame)" : "-")"
             if issue.auditType == .contrast, let measured = ContrastProbe.measure(element) {
                 line += " measured=\(measured)"
             }
-            if !accepted {
-                let attachment = XCTAttachment(screenshot: app.screenshot())
-                attachment.name = "\(issue.compactDescription): \(element.label)"
-                attachment.lifetime = .keepAlways
-                XCTContext.runActivity(named: "Audit finding") { $0.add(attachment) }
-            }
+        }
+        if !accepted {
+            let attachment = XCTAttachment(screenshot: app.screenshot())
+            attachment.name = "\(issue.compactDescription): \(element?.label ?? "")"
+            attachment.lifetime = .keepAlways
+            XCTContext.runActivity(named: "Audit finding") { $0.add(attachment) }
         }
         line += " detail=\"\(issue.detailedDescription)\""
         print(line)
