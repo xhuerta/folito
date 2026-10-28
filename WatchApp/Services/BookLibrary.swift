@@ -8,6 +8,11 @@ final class BookLibrary: ObservableObject {
     /// documentHash -> 0...1 read fraction.
     @Published private(set) var progress: [String: Double] = [:]
 
+    /// Called after a book was removed (watch UI or iPhone request): used to drop its pending sync.
+    var onBookDeleted: ((String) -> Void)?
+    /// Called whenever the set of stored books changed (import / delete) so the phone can be told.
+    var onLibraryChanged: (() -> Void)?
+
     let storage: BookStorage
     let positions: PositionStore
 
@@ -36,6 +41,7 @@ final class BookLibrary: ObservableObject {
         entries.insert(entry, at: 0)
         storage.saveIndex(entries)
         reloadProgress()
+        onLibraryChanged?()
     }
 
     func loadBook(_ entry: LibraryEntry) async throws -> ProcessedBookBox {
@@ -52,11 +58,16 @@ final class BookLibrary: ObservableObject {
         storage.saveIndex(entries)
         positions.remove(documentHash)
         progress.removeValue(forKey: documentHash)
+        onBookDeleted?(documentHash)
+        onLibraryChanged?()
     }
 
     func deleteAll() {
+        let hashes = entries.map(\.documentHash)
         entries = []
         progress = [:]
         storage.deleteAll()
+        hashes.forEach { onBookDeleted?($0) }
+        onLibraryChanged?()
     }
 }

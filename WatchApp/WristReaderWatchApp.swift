@@ -17,7 +17,7 @@ struct WristReaderWatchApp: App {
                     // Foreground retry timer for progress that could not be pushed earlier.
                     while !Task.isCancelled {
                         try? await Task.sleep(nanoseconds: 60 * 1_000_000_000)
-                        if scenePhase == .active { await env.sync.flushPending() }
+                        if scenePhase == .active { env.sync.retryPending() }
                     }
                 }
                 .onChange(of: scenePhase) { phase in

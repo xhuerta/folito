@@ -1,11 +1,13 @@
 import Foundation
 import WatchConnectivity
 
-/// Receives books (transferFile), settings (transferUserInfo) and delete requests from the iPhone.
-/// Wire names (see docs/WATCH_CONNECTIVITY.md on the iOS branch):
+/// Receives books (transferFile), settings (applicationContext, or transferUserInfo from older phones)
+/// and delete requests from the iPhone, and tells the phone which books it holds.
+/// Wire names (see docs/WATCH_CONNECTIVITY.md):
 ///  - file metadata keys: documentHash, title, author, size; payload = LZFSE-compressed ProcessedBook JSON
-///  - userInfo keys: kosync_server, kosync_user, kosync_password
+///  - settings (`type == "settings"`): kosync_server, kosync_user, kosync_password, settingsStamp
 ///  - delete: `{ type: "delete_book", documentHash: <hash> }` (userInfo or message)
+///  - watch -> phone (applicationContext): `{ type: "library", hashes: [<documentHash>] }`
 /// WCSessionDelegate callbacks arrive on a background queue; all heavy work is hopped off the main actor.
 final class ConnectivityReceiver: NSObject, WCSessionDelegate {
     static let typeKey = "type"
@@ -20,6 +22,23 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
         }
         if let hash = info[deleteType] as? String, !hash.isEmpty { return hash }
         return nil
+    }
+
+    static let settingsStampKey = "settings.appliedStamp"
+    static let libraryType = "library"
+    static let hashesKey = "hashes"
+
+    /// The phone resends its settings (same stamp) on every activation / state change; apply them only
+    /// when newer than what was applied, so a Reset on the watch is not undone by a stale resend.
+    /// Messages without a stamp (older phone builds) are always applied.
+    static func shouldApplySettings(incomingStamp: Int?, lastApplied: Int) -> Bool {
+        guard let incomingStamp else { return true }
+        return incomingStamp > lastApplied
+    }
+
+    /// Context published to the phone: the hashes of the books stored on the watch.
+    static func libraryContext(hashes: [String]) -> [String: Any] {
+        [typeKey: libraryType, hashesKey: hashes.sorted()]
     }
 
     private let library: BookLibrary
@@ -42,6 +61,26 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
 
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         // Files/userInfo queued while we were not running are delivered after activation.
+        // The latest settings context may have arrived while the app was not running: apply it now.
+        if activationState == .activated {
+            handle(session.receivedApplicationContext)
+            publishLibrary()
+        }
+    }
+
+    func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
+        handle(applicationContext)
+    }
+
+    /// Tells the phone which books are on the watch so it can (re)send the missing ones.
+    func publishLibrary() {
+        let library = self.library
+        Task { @MainActor in
+            let session = WCSession.default
+            guard WCSession.isSupported(), session.activationState == .activated else { return }
+            let hashes = library.entries.map(\.documentHash)
+            try? session.updateApplicationContext(Self.libraryContext(hashes: hashes))
+        }
     }
 
     func session(_ session: WCSession, didReceive file: WCSessionFile) {
@@ -63,7 +102,18 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
     // MARK: Handling
 
     private func handle(_ info: [String: Any]) {
-        let changed = CredentialsStore.apply(userInfo: info)
+        var changed = false
+        let isSettings = (info[Self.typeKey] as? String) == "settings" || info[CredentialsStore.Key.server] != nil
+            || info[CredentialsStore.Key.user] != nil || info[CredentialsStore.Key.password] != nil
+        if isSettings {
+            let stamp = info["settingsStamp"] as? Int
+            let defaults = UserDefaults.standard
+            let last = defaults.integer(forKey: Self.settingsStampKey)
+            if Self.shouldApplySettings(incomingStamp: stamp, lastApplied: last) {
+                changed = CredentialsStore.apply(userInfo: info)
+                if let stamp { defaults.set(stamp, forKey: Self.settingsStampKey) }
+            }
+        }
         let deleteHash = Self.deleteHash(from: info)
         let library = self.library
         let notify = onSettingsChanged

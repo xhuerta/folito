@@ -6,6 +6,7 @@ struct WristReaderApp: App {
     @StateObject private var library = LibraryStore()
     @StateObject private var connectivity = PhoneConnectivity()
     @StateObject private var settings = SyncSettings()
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
@@ -21,17 +22,24 @@ struct WristReaderApp: App {
                 if url.isFileURL { library.importEPUB(from: url) }
             }
             .onAppear(perform: wire)
+            .onChange(of: scenePhase) { phase in
+                if phase == .active { connectivity.syncWatchState() }
+            }
         }
     }
 
     private func wire() {
-        connectivity.activate()
         library.onImported = { entry in sendToWatch(entry) } // auto-send
         library.onDeleted = { connectivity.sendDelete(hash: $0.documentHash) }
         connectivity.onTransferFinished = { library.markSent(hash: $0) }
-        settings.onSave = { c in
-            connectivity.sendSettings(server: c.serverURL.absoluteString, user: c.username, password: c.password)
-        }
+        // Settings and unconfirmed books are (re)sent whenever the session activates, the watch app
+        // gets installed, reachability changes, the app returns to foreground or the watch reports
+        // its library; Save just triggers the same path.
+        connectivity.settingsProvider = { settings.savedForWatch() }
+        connectivity.unsentBooksProvider = { library.unsentBooks }
+        connectivity.onWatchLibrary = { library.reconcile(watchHashes: $0, inFlight: connectivity.outstandingHashes) }
+        settings.onSave = { _ in connectivity.syncWatchState() }
+        connectivity.activate()
     }
 
     private func sendToWatch(_ entry: LibraryEntry) {

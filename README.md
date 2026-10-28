@@ -73,9 +73,27 @@ Ambos métodos calculan el mismo hash MD5 parcial del contenido del archivo, por
 
 Puedes usar el servidor público `https://sync.koreader.rocks` o alojar el tuyo con [koreader-sync-server](https://github.com/koreader/koreader-sync-server). Introduce la misma URL en todas las apps.
 
+### Servidor HTTP (ATS)
+
+Por defecto se usa **https**. iOS y watchOS bloquean `http://` mediante App Transport Security (ATS), así que WristReader declara en ambos `Info.plist` (vía `project.yml`) únicamente `NSAllowsLocalNetworking`: permite `http://` hacia la **red local** (direcciones IP, nombres `.local` y nombres sin puntos como `http://nas:5200`) sin desactivar ATS para el resto.
+
+- Servidor en LAN por http: funciona tal cual. La app de iPhone muestra un aviso naranja al ver `http://` (el tráfico no va cifrado; úsalo solo en una red de confianza).
+- Servidor con nombre de dominio público por **http**: iOS lo bloquea. Lo recomendable es poner un proxy inverso con https. Si aun así lo necesitas, añade una excepción solo para ese dominio en `project.yml` (en los dos targets, `WristReader` y `WristReaderWatch`) y ejecuta `xcodegen generate`:
+
+```yaml
+NSAppTransportSecurity:
+  NSAllowsLocalNetworking: true
+  NSExceptionDomains:
+    sync.ejemplo.org:
+      NSExceptionAllowsInsecureHTTPLoads: true
+```
+
+No se usa `NSAllowsArbitraryLoads`.
+
 ## Importar EPUBs
 
 - Desde el iPhone: abre un `.epub` con "Abrir en WristReader" (menú Compartir de Archivos, Safari, etc.) o usa el botón de importar en la app. La app los transfiere al reloj.
+- Si el reloj aún no tenía la app instalada, no se pierde nada: los ajustes de sincronización y los libros pendientes se reenvían automáticamente cuando la sesión se activa, la app del reloj se instala, cambia la conectividad o abres la app del iPhone. El reloj informa de qué libros tiene, de modo que se reenvían los que falten.
 - La app expone su carpeta de documentos en la app Archivos (`UIFileSharingEnabled`).
 
 ## Limitaciones

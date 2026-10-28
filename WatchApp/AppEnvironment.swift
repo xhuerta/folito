@@ -20,6 +20,8 @@ final class AppEnvironment: ObservableObject {
         guard connectivity == nil else { return }
         let sync = self.sync
         let receiver = ConnectivityReceiver(library: library) { sync.configurationChanged() }
+        library.onBookDeleted = { sync.discard(document: $0) }
+        library.onLibraryChanged = { [weak receiver] in receiver?.publishLibrary() }
         receiver.start()
         connectivity = receiver
     }

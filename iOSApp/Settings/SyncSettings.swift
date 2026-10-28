@@ -16,7 +16,28 @@ enum SyncSettingsValidator {
         return KOSyncCredentials(serverURL: url, username: u, password: password)
     }
 
+    /// Warning shown while the URL uses plain `http://`; nil for https.
+    static func insecureWarning(server: String) -> String? {
+        let s = server.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard s.hasPrefix("http://"), let host = URL(string: s)?.host else { return nil }
+        if isLocalHost(host) {
+            return "http:// is not encrypted. Acceptable on your home network only; the sync password hash and your reading progress travel in clear."
+        }
+        return "iOS blocks http:// to internet hosts (App Transport Security), so this will fail. Use https://, or a local address (IP, .local or a name without dots)."
+    }
+
+    /// Hosts that `NSAllowsLocalNetworking` lets through over http: IP literals, `.local`, dotless names.
+    static func isLocalHost(_ host: String) -> Bool {
+        let h = host.lowercased()
+        if h.hasSuffix(".local") || !h.contains(".") || h.contains(":") { return true }
+        let parts = h.split(separator: ".", omittingEmptySubsequences: false)
+        return parts.count == 4 && parts.allSatisfy { UInt8($0) != nil }
+    }
+
     static func message(for error: Error) -> String {
+        if let u = error as? URLError, u.code == .appTransportSecurityRequiresSecureConnection {
+            return "iOS blocked the plain http:// connection. Use https://, or a local-network address."
+        }
         guard let e = error as? KOSyncError else { return error.localizedDescription }
         switch e {
         case .unauthorized: return "Wrong username or password."
@@ -42,10 +63,25 @@ final class SyncSettings: ObservableObject {
     private let keychain: KeychainStore
     private let clientFactory: (KOSyncCredentials) -> KOSyncClientProtocol
     var onSave: ((KOSyncCredentials) -> Void)?
+    private let defaults: UserDefaults
+    private static let stampKey = "settings.savedAt"
 
-    init(keychain: KeychainStore = KeychainStore(),
+    var insecureWarning: String? { SyncSettingsValidator.insecureWarning(server: server) }
+
+    /// The saved (Keychain) settings to mirror on the watch, or nil if nothing valid is saved.
+    func savedForWatch() -> PhoneConnectivity.WatchSettings? {
+        guard let c = SyncSettingsValidator.credentials(server: keychain.get(account: "server") ?? "",
+                                                        user: keychain.get(account: "username") ?? "",
+                                                        password: keychain.get(account: "password") ?? "") else { return nil }
+        let stamp = defaults.integer(forKey: Self.stampKey)
+        return .init(server: c.serverURL.absoluteString, user: c.username, password: c.password,
+                     stamp: stamp > 0 ? stamp : 1)
+    }
+
+    init(keychain: KeychainStore = KeychainStore(), defaults: UserDefaults = .standard,
          clientFactory: @escaping (KOSyncCredentials) -> KOSyncClientProtocol = { KOSyncClient(credentials: $0) }) {
         self.keychain = keychain
+        self.defaults = defaults
         self.clientFactory = clientFactory
         server = keychain.get(account: "server") ?? SyncSettingsValidator.defaultServer
         username = keychain.get(account: "username") ?? ""
@@ -62,7 +98,8 @@ final class SyncSettings: ObservableObject {
             try keychain.set(c.serverURL.absoluteString, account: "server")
             try keychain.set(c.username, account: "username")
             try keychain.set(c.password, account: "password")
-            status = "Saved and sent to watch."
+            defaults.set(Int(Date().timeIntervalSince1970), forKey: Self.stampKey)
+            status = "Saved. It is sent to the watch now, or as soon as the watch app is installed."
             onSave?(c)
         } catch {
             status = "Keychain error: \(error)"

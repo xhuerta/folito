@@ -25,44 +25,127 @@ enum SyncErrorClassifier {
         }
         return .error
     }
+}
 
-    /// True for HTTP 4xx answers (other than 401/408/429) that retrying cannot fix.
-    static func isPermanentRejection(_ error: Error) -> Bool {
-        guard case KOSyncError.server(let status)? = error as? KOSyncError else { return false }
-        return (400..<500).contains(status) && ![401, 408, 429].contains(status)
+/// Bridges `SyncQueue` (which owns one client for its lifetime) to credentials that can change at any
+/// time: they are looked up on every call. Without credentials every push fails with `.unauthorized`,
+/// which `SyncQueue` keeps queued without counting an attempt.
+struct CredentialsBackedClient: KOSyncClientProtocol {
+    let credentials: @Sendable () -> KOSyncCredentials?
+    let makeClient: @Sendable (KOSyncCredentials) -> KOSyncClientProtocol
+    /// Reports the outcome of each push (nil = success) so the UI status can follow the queue's worker.
+    let observer: SyncObserver
+
+    private func client() throws -> KOSyncClientProtocol {
+        guard let c = credentials() else { throw KOSyncError.unauthorized }
+        return makeClient(c)
+    }
+
+    func authorize() async throws { try await client().authorize() }
+    func createUser() async throws { try await client().createUser() }
+    func fetchProgress(document: String) async throws -> KOSyncProgress? {
+        try await client().fetchProgress(document: document)
+    }
+    func pushProgress(_ progress: KOSyncProgress) async throws {
+        let c = try client()
+        do {
+            try await c.pushProgress(progress)
+            observer.pushed(nil)
+        } catch {
+            observer.pushed(error)
+            throw error
+        }
     }
 }
 
-/// Thin sync layer for the watch: conflict check on open, debounced offline-tolerant pushes.
-/// Pending progress (latest per document) is persisted and retried on foreground / timers.
+/// Thread-safe hop from the `SyncQueue` actor / worker back to the main-actor coordinator.
+final class SyncObserver: @unchecked Sendable {
+    private let lock = NSLock()
+    private var onPush: (@MainActor (Error?) -> Void)?
+    private var onPending: (@MainActor (Int) -> Void)?
+
+    func install(onPush: @escaping @MainActor (Error?) -> Void, onPending: @escaping @MainActor (Int) -> Void) {
+        lock.lock(); defer { lock.unlock() }
+        self.onPush = onPush
+        self.onPending = onPending
+    }
+
+    func pushed(_ error: Error?) {
+        lock.lock(); let h = onPush; lock.unlock()
+        if let h { Task { @MainActor in h(error) } }
+    }
+
+    func pendingChanged(_ count: Int) {
+        lock.lock(); let h = onPending; lock.unlock()
+        if let h { Task { @MainActor in h(count) } }
+    }
+}
+
+/// Thin sync layer for the watch: conflict check on open, plus progress pushes delegated to
+/// ReaderCore's `SyncQueue` (latest entry per document, debounce, exponential backoff, attempt cap,
+/// persistence). Policy: PUT when leaving a book and when the app goes to background (immediate),
+/// roughly every 60 s while reading (debounced), and offline retries via the queue's backoff.
 @MainActor
 final class SyncCoordinator: ObservableObject {
+    static let queueKey = "sync.queue.v1"
+    /// Key used by the previous ad-hoc store (`[document: KOSyncProgress]`); migrated once.
+    static let legacyKey = "sync.pendingProgress"
+
     @Published private(set) var status: SyncStatus = .idle
     @Published private(set) var isConfigured: Bool = false
+    @Published private(set) var pendingCount: Int = 0
 
     let device: DeviceIdentity
-    private let pending: PendingProgressStore
+    let queue: SyncQueue
     private let policy: SyncConflictPolicy
-    private let credentials: () -> KOSyncCredentials?
-    private let makeClient: (KOSyncCredentials) -> KOSyncClientProtocol
-    private let debounce: TimeInterval
-    private var debounceTask: Task<Void, Never>?
-    private var isFlushing = false
-    private var flushAgain = false
+    private let credentials: @Sendable () -> KOSyncCredentials?
+    private let makeClient: @Sendable (KOSyncCredentials) -> KOSyncClientProtocol
+    private var chain: Task<Void, Never>?
 
     init(device: DeviceIdentity = DeviceIdentity(),
-         pending: PendingProgressStore = PendingProgressStore(),
+         defaults: UserDefaults = .standard,
          policy: SyncConflictPolicy = DefaultSyncConflictPolicy(),
-         debounce: TimeInterval = 5,
-         credentials: @escaping () -> KOSyncCredentials? = { CredentialsStore.current() },
-         makeClient: @escaping (KOSyncCredentials) -> KOSyncClientProtocol = { KOSyncClient(credentials: $0) }) {
+         config: SyncQueue.Config = SyncQueue.Config(),
+         clock: SyncClock = SystemSyncClock(),
+         credentials: @escaping @Sendable () -> KOSyncCredentials? = { CredentialsStore.current() },
+         makeClient: @escaping @Sendable (KOSyncCredentials) -> KOSyncClientProtocol = { KOSyncClient(credentials: $0) }) {
         self.device = device
-        self.pending = pending
         self.policy = policy
-        self.debounce = debounce
         self.credentials = credentials
         self.makeClient = makeClient
+        let observer = SyncObserver()
+        let restored = defaults.data(forKey: Self.queueKey)
+        self.queue = SyncQueue(
+            client: CredentialsBackedClient(credentials: credentials, makeClient: makeClient, observer: observer),
+            clock: clock, config: config, restoring: restored,
+            onChange: { data in
+                defaults.set(data, forKey: Self.queueKey)
+                let count = (try? JSONDecoder().decode([PendingProgress].self, from: data))?.count ?? 0
+                observer.pendingChanged(count)
+            })
         self.isConfigured = credentials() != nil
+        self.pendingCount = restored.flatMap { try? JSONDecoder().decode([PendingProgress].self, from: $0) }?.count ?? 0
+        observer.install(
+            onPush: { [weak self] error in
+                guard let self else { return }
+                self.status = error.map(SyncErrorClassifier.status(for:)) ?? .idle
+            },
+            onPending: { [weak self] count in self?.pendingCount = count })
+
+        let legacy = Self.takeLegacyPending(defaults)
+        let queue = self.queue
+        let configured = isConfigured
+        Task {
+            for p in legacy { await queue.enqueue(p) }
+            if configured { await queue.resume() }
+        }
+    }
+
+    private static func takeLegacyPending(_ defaults: UserDefaults) -> [KOSyncProgress] {
+        guard let data = defaults.data(forKey: legacyKey) else { return [] }
+        defaults.removeObject(forKey: legacyKey)
+        let dict = (try? JSONDecoder().decode([String: KOSyncProgress].self, from: data)) ?? [:]
+        return dict.values.sorted { ($0.timestamp ?? 0) < ($1.timestamp ?? 0) }
     }
 
     private func client() -> KOSyncClientProtocol? {
@@ -73,7 +156,15 @@ final class SyncCoordinator: ObservableObject {
     func configurationChanged() {
         isConfigured = credentials() != nil
         if !isConfigured { status = .idle }
-        Task { await flushPending() }
+        retryPending()
+    }
+
+    /// Restarts delivery of queued progress (entries still honour their backoff). Called on foreground
+    /// and from the ~60 s foreground timer.
+    func retryPending() {
+        guard isConfigured else { return }
+        let queue = self.queue
+        Task { await queue.resume() }
     }
 
     // MARK: Open-book check
@@ -94,61 +185,43 @@ final class SyncCoordinator: ObservableObject {
 
     // MARK: Push
 
-    /// Records the latest position for `document`. With `immediately == false` the push is debounced.
+    /// Records the latest position for `document`. With `immediately == false` the push is debounced
+    /// by the queue; otherwise it is flushed now and, on a transient failure, retried with backoff.
     func report(document: String, xpointer: String, percentage: Double, immediately: Bool) {
         let progress = KOSyncProgress(document: document, progress: xpointer,
                                       percentage: min(max(percentage, 0), 1),
                                       device: device.name, device_id: device.id,
                                       timestamp: Int(Date().timeIntervalSince1970))
-        pending.upsert(progress)
-        guard isConfigured || credentials() != nil else { return }
-        debounceTask?.cancel()
-        if immediately {
-            Task { await flushPending() }
-        } else {
-            let delay = debounce
-            debounceTask = Task { [weak self] in
-                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-                guard !Task.isCancelled else { return }
-                await self?.flushPending()
+        let configured = isConfigured || credentials() != nil
+        if configured { isConfigured = true }
+        let queue = self.queue
+        // Chained so that two quick reports reach the queue in call order.
+        let previous = chain
+        chain = Task {
+            await previous?.value
+            if !configured {
+                await queue.enqueue(progress)
+            } else if immediately {
+                await queue.enqueue(progress)
+                let result = await queue.flush()
+                if !result.retained.isEmpty && !result.unauthorized { await queue.resume() }
+            } else {
+                await queue.schedule(progress)
             }
         }
     }
 
-    /// Pushes every pending entry; stops at the first failure and keeps the rest for a later retry.
-    func flushPending() async {
-        // A report that arrives mid-flush (e.g. leaving the book) must not be skipped until the next
-        // 60 s tick: remember it and run another pass when the current one ends.
-        guard !isFlushing else { flushAgain = true; return }
-        guard let client = client() else { return }
-        isFlushing = true
-        defer { isFlushing = false }
-        repeat {
-            flushAgain = false
-            let items = pending.all()
-            guard !items.isEmpty else { return }
-            status = .syncing
-            for item in items {
-                do {
-                    try await client.pushProgress(item)
-                    pending.remove(item)
-                } catch {
-                    if SyncErrorClassifier.isPermanentRejection(error) {
-                        // The server will never accept this entry (e.g. HTTP 403): drop it so it
-                        // does not block progress for other books, and keep going.
-                        pending.remove(item)
-                        status = .error
-                        continue
-                    }
-                    status = SyncErrorClassifier.status(for: error)
-                    return
-                }
-            }
-            status = .idle
-        } while flushAgain
+    /// Forgets queued progress for a deleted book.
+    func discard(document: String) {
+        let queue = self.queue
+        let previous = chain
+        chain = Task {
+            await previous?.value
+            await queue.remove(document: document)
+        }
     }
 
-    var hasPending: Bool { !pending.isEmpty }
+    var hasPending: Bool { pendingCount > 0 }
 
     // MARK: Settings screen
 
@@ -171,8 +244,13 @@ final class SyncCoordinator: ObservableObject {
     }
 
     func resetPending() {
-        debounceTask?.cancel()
-        pending.removeAll()
+        let queue = self.queue
+        let previous = chain
+        chain = Task {
+            await previous?.value
+            await queue.removeAll()
+        }
+        pendingCount = 0
         status = .idle
     }
 }

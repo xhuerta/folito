@@ -30,4 +30,35 @@ final class LogicTests: XCTestCase {
         XCTAssertEqual(m["size"] as? Int, 5)
         XCTAssertEqual(WatchSchema.deleteBook(hash: "h")["type"] as? String, "delete_book")
     }
+
+    func testInsecureWarning() {
+        XCTAssertNil(SyncSettingsValidator.insecureWarning(server: "https://sync.example.org"))
+        XCTAssertNil(SyncSettingsValidator.insecureWarning(server: "sync.example.org"))
+        XCTAssertTrue(SyncSettingsValidator.insecureWarning(server: "http://192.168.1.5:8081")?.contains("home network") == true)
+        XCTAssertTrue(SyncSettingsValidator.insecureWarning(server: "http://nas.local")?.contains("home network") == true)
+        XCTAssertTrue(SyncSettingsValidator.insecureWarning(server: "http://nas")?.contains("home network") == true)
+        XCTAssertTrue(SyncSettingsValidator.insecureWarning(server: "http://sync.example.org")?.contains("blocks") == true)
+    }
+
+    func testATSErrorMessage() {
+        let msg = SyncSettingsValidator.message(for: URLError(.appTransportSecurityRequiresSecureConnection))
+        XCTAssertTrue(msg.contains("https"))
+    }
+
+    func testSettingsSchemaAndLibraryContext() {
+        let info = WatchSchema.settingsInfo(server: "s", user: "u", password: "p", stamp: 7)
+        XCTAssertEqual(info["type"] as? String, "settings")
+        XCTAssertEqual(info["settingsStamp"] as? Int, 7)
+        XCTAssertEqual(WatchSchema.libraryHashes(from: ["type": "library", "hashes": ["a", "b"]]), ["a", "b"])
+        XCTAssertNil(WatchSchema.libraryHashes(from: ["type": "settings"]))
+    }
+
+    @MainActor
+    func testReconcileMarksUnsentWhenWatchLacksBook() {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let store = LibraryStore(rootDirectory: dir)
+        XCTAssertTrue(store.unsentBooks.isEmpty)
+        store.reconcile(watchHashes: [], inFlight: [])
+        XCTAssertTrue(store.entries.isEmpty)
+    }
 }
