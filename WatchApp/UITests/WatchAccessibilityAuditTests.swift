@@ -13,13 +13,37 @@ final class WatchAccessibilityAuditTests: XCTestCase {
         continueAfterFailure = false
     }
 
+    /// The audit types `performAccessibilityAudit(for: .all)` covers, run one at a time: a single `.all` audit
+    /// of a whole screen can exceed XCTest's internal audit time limit on slower CI simulators
+    /// ("Audit failed to complete in time"), while each type alone finishes well within it.
+    private static let auditTypes: [XCUIAccessibilityAuditType] = {
+        let known: [XCUIAccessibilityAuditType] = [.contrast, .elementDetection, .hitRegion,
+                                                   .sufficientElementDescription, .dynamicType, .textClipped, .trait]
+        let rest = XCUIAccessibilityAuditType.all.subtracting(known.reduce(into: []) { $0.formUnion($1) })
+        return rest.isEmpty ? known : known + [rest]
+    }()
+
     @MainActor
     private func audit(_ app: XCUIApplication) throws {
-        try app.performAccessibilityAudit(for: .all) { issue in
-            let accepted = Self.isAccepted(issue)
-            if accepted {
-                print("Accepted accessibility audit issue: \(issue.compactDescription) on \(issue.element?.identifier ?? "<no element>")")
+        for type in Self.auditTypes {
+            do {
+                try auditOnce(app, type)
+            } catch let error as NSError where error.domain == "com.apple.xcode.xctest.accessibilityAudit" && error.code == -56 {
+                // Timed out (simulator busy); retry this one type once, then let a second timeout fail the test.
+                print("Accessibility audit timed out for type \(type.rawValue); retrying once")
+                try auditOnce(app, type)
             }
+        }
+    }
+
+    @MainActor
+    private func auditOnce(_ app: XCUIApplication, _ type: XCUIAccessibilityAuditType) throws {
+        try app.performAccessibilityAudit(for: type) { issue in
+            let accepted = Self.isAccepted(issue)
+            let element = issue.element
+            print("Accessibility audit issue (\(accepted ? "accepted" : "FAILS")): type=\(issue.auditType.rawValue) "
+                  + "\"\(issue.compactDescription)\" element=\(element?.elementType.rawValue ?? 0) "
+                  + "id=\(element?.identifier ?? "<none>") label=\(element?.label ?? "<none>")")
             return accepted // true = ignore this issue; false = report it as a test failure
         }
     }

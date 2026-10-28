@@ -183,7 +183,7 @@ jobs:
       - name: watchOS accessibility UI tests summary
         if: always() && env.WATCH_SIM_UDID != ''
         run: |
-          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:|Accepted accessibility audit issue" watch-uitests.log || true
+          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:|Accessibility audit issue|Accessibility audit timed out" watch-uitests.log || true
           xcrun xcresulttool get test-results summary --path watch-uitests.xcresult || true
 
       - name: Upload watchOS accessibility UI tests xcresult
