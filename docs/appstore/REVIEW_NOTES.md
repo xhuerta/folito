@@ -5,7 +5,7 @@
 ## Before submitting (owner)
 
 1. Reviewers need an EPUB. The App Store build ships **no sample book** (the built-in sample in `UITestingSupport.swift` exists only in Debug builds for UI tests). Either attach a small public-domain EPUB to the App Review notes (App Store Connect allows an attachment) or give a direct HTTPS download link, e.g. a Project Gutenberg "EPUB (no images)" file such as <https://www.gutenberg.org/ebooks/11.epub.noimages> (Alice's Adventures in Wonderland). Check the link works the day you submit.
-2. Fill `[CONTACT_EMAIL]` below (and a phone number in the App Store Connect contact fields, which are not part of the notes).
+2. Fill `xlahuerta@protonmail.com` below (and a phone number in the App Store Connect contact fields, which are not part of the notes).
 
 ## Notes text
 
@@ -23,7 +23,7 @@ How to test:
 Optional progress sync: Settings > Progress Sync connects to a KOReader Sync ("kosync") server that the USER supplies (self-hosted or one they already use with KOReader). It is off by default, needs an existing account on that server, and can be turned off at any time ("Turn Off Sync and Remove Login" removes the login from the iPhone and the watch). It is not required to evaluate the app. Plain http:// is allowed only for the user's own local-network server (NSAllowsLocalNetworking); all internet traffic is HTTPS.
 
 No in-app purchases, no user-generated content shared with others, no analytics, no ads, no tracking. Dictionary lookups send only the selected word to Wiktionary / dictionaryapi.dev.
-Contact: [CONTACT_EMAIL]
+Contact: xlahuerta@protonmail.com
 ```
 
 For TestFlight external testing reuse the same text in "Beta App Review Information".
