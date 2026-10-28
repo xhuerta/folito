@@ -20,7 +20,7 @@ on:
         options: [testflight, appstore-metadata-none]
         default: testflight
       marketing_version:
-        description: "Marketing version, e.g. 1.0.0 (default: tag name without v, else project.yml)"
+        description: "Marketing version, e.g. 1.0.0 (default: tag name without v, else Config/Base.xcconfig)"
         type: string
         required: false
   push:

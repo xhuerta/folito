@@ -19,8 +19,9 @@ case "$lane" in testflight|appstore-metadata-none) ;; *) echo "::error::Unknown 
 # ---- version ----------------------------------------------------------------------------------
 version="${VERSION_INPUT:-}"
 if [ -z "$version" ] && [ "${REF_TYPE:-}" = "tag" ]; then version="${REF_NAME#v}"; fi
-if [ -z "$version" ] && [ -f project.yml ]; then
-  version=$(sed -n 's/^[[:space:]]*MARKETING_VERSION:[[:space:]]*"\{0,1\}\([^" ]*\)"\{0,1\}[[:space:]]*$/\1/p' project.yml | head -1)
+# Default: the project's own version, Config/Base.xcconfig (`MARKETING_VERSION = 1.2.3`).
+if [ -z "$version" ] && [ -f Config/Base.xcconfig ]; then
+  version=$(sed -n 's/^[[:space:]]*MARKETING_VERSION[[:space:]]*=[[:space:]]*\([^[:space:]/]*\).*$/\1/p' Config/Base.xcconfig | head -1)
 fi
 if ! printf '%s' "$version" | grep -Eq '^[0-9]+(\.[0-9]+){1,2}$'; then
   echo "::error::MARKETING_VERSION '$version' is not 1-3 dot-separated integers (e.g. 1.0 or 1.0.0). Use a tag like v1.0.0 or the marketing_version input."
