@@ -11,7 +11,14 @@ concurrency:
 
 jobs:
   build:
-    runs-on: macos-latest
+    # GitHub's macOS arm64 pool (macos-latest / macos-15 / macos-26) has been
+    # capacity-constrained: jobs sat queued and were dropped with "The job was
+    # not acquired by Runner of type hosted even after multiple attempts".
+    # Pin an explicit label and default to the Intel pool, which is not
+    # affected. Set the repository variable MACOS_RUNNER (e.g. to `macos-15`)
+    # to switch back to arm64 without editing this file.
+    runs-on: ${{ vars.MACOS_RUNNER || 'macos-15-intel' }}
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -20,6 +27,12 @@ jobs:
         with:
           xcode-version: latest-stable
 
+      - name: Show toolchain and simulators
+        run: |
+          uname -m
+          xcodebuild -version
+          xcrun simctl list runtimes available
+
       - name: Cache SwiftPM
         uses: actions/cache@v4
         with:
@@ -27,8 +40,8 @@ jobs:
             ~/Library/Caches/org.swift.swift-package-manager
             SourcePackages
             Packages/ReaderCore/.build
-          key: spm-${{ runner.os }}-${{ hashFiles('Packages/ReaderCore/Package.swift', 'Packages/ReaderCore/Package.resolved') }}
-          restore-keys: spm-${{ runner.os }}-
+          key: spm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Packages/ReaderCore/Package.swift', 'Packages/ReaderCore/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Install XcodeGen
         run: brew install xcodegen

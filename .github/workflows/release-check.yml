@@ -11,7 +11,8 @@ concurrency:
 
 jobs:
   archive:
-    runs-on: macos-latest
+    # Same runner as macos.yml: the arm64 pool is capacity-constrained; set MACOS_RUNNER to override.
+    runs-on: ${{ vars.MACOS_RUNNER || 'macos-15-intel' }}
     steps:
       - uses: actions/checkout@v4
 
