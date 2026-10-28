@@ -58,8 +58,19 @@ enum WatchUI {
         let button = element("readerOptionsButton", in: app)
         XCTAssertTrue(button.waitForExistence(timeout: 5), "Reading Options button missing", file: file, line: line)
         button.tap()
-        XCTAssertTrue(element("chapterButton", in: app).waitForExistence(timeout: 5),
-                      "Reading Options did not open (no chapter button)", file: file, line: line)
+        // The text size stepper is the sheet's first row; the chapter list is further down and, in a lazy
+        // List on a small watch, only enters the accessibility tree once scrolled into view.
+        XCTAssertTrue(element("textSizeStepper", in: app).waitForExistence(timeout: 5),
+                      "Reading Options did not open (no text size stepper)", file: file, line: line)
+    }
+
+    /// Settings or Reading Options -> Typography editor.
+    static func openTypography(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        let link = element("typographyLink", in: app)
+        XCTAssertTrue(scrollToHittable(link, in: app), "Typography link not reachable", file: file, line: line)
+        link.tap()
+        XCTAssertTrue(element("typographyPreview", in: app).waitForExistence(timeout: 5),
+                      "Typography editor did not open", file: file, line: line)
     }
 
     /// Scrolls the current screen (crown-like swipes) until `element` is hittable. Returns whether it is.

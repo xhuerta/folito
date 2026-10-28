@@ -15,6 +15,7 @@ struct ReaderMenuView: View {
                 Section("Text") {
                     TextSizeStepper()
                     NavigationLink("Typography") { TypographyEditorView() }
+                        .accessibilityIdentifier("typographyLink")
                 }
                 Section("Dictionary") {
                     Button {

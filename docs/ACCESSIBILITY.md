@@ -218,8 +218,9 @@ lists iOS 17, macOS 14, tvOS 17, visionOS 1 and **watchOS 10**; the `.dynamicTyp
 `.trait` audit types exist on watchOS but not on macOS). The watch UI-test target uses it and adds explicit
 checks the audit does not make:
 
-- `WatchAccessibilityAuditTests`: the audit (`.all`) on the empty library, the library with one book, the
-  reader, *Reading Options*, Settings and Typography.
+- `WatchAccessibilityAuditTests`: the audit on the empty library, the library with one book, the reader,
+  *Reading Options*, Settings and Typography. Like on iOS it runs the types `.all` covers one at a time
+  (a timed-out type is retried once) and prints every finding with its element in the CI log.
 - `WatchAccessibilityChecksTests`, on the same screens:
   - every button, switch, stepper, slider and link has a non-empty label that does not look like a raw
     identifier: SF Symbol names (`list.bullet`, `gearshape`), file names (`sample.epub`), camelCase or
@@ -231,9 +232,12 @@ checks the audit does not make:
   - launched at the largest accessibility text size (`-UIPreferredContentSizeCategoryName
     UICTContentSizeCategoryAccessibilityXXXL`), the primary controls of each screen exist and are hittable
     (scrolling with swipes where a list is longer than the screen).
+  - Skipped by the label check: the navigation back button that watchOS draws for `NavigationStack`
+    (identifier `BackButton`). It is a system control the app cannot label; on the watchOS 11 simulator it
+    has an empty label in the UI-test tree.
 
 Accessibility identifiers used by the tests: `libraryRow`, `settingsButton`, `readerBlock`,
-`readerOptionsButton`, `chapterButton`, `textSizeStepper`, `typographyPreview`.
+`readerOptionsButton`, `chapterButton`, `textSizeStepper`, `typographyLink`, `typographyPreview`.
 
 Launch arguments (handled only in Debug builds, see `WatchApp/Support/UITestingSupport.swift`; Release
 builds ignore them):

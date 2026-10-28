@@ -36,7 +36,7 @@ final class WatchAccessibilityChecksTests: XCTestCase {
         let elements = try interactiveElements(in: app)
         XCTAssertFalse(elements.isEmpty, "\(screen): no interactive element found", file: file, line: line)
         var problems: [String] = []
-        for element in elements {
+        for element in elements where !Self.isSystemBackButton(element) {
             let label = element.label.trimmingCharacters(in: .whitespacesAndNewlines)
             let what = "\(element.elementType.rawValue) id='\(element.identifier)' label='\(element.label)'"
             if label.isEmpty {
@@ -46,6 +46,13 @@ final class WatchAccessibilityChecksTests: XCTestCase {
             }
         }
         XCTAssertTrue(problems.isEmpty, "\(screen):\n" + problems.joined(separator: "\n"), file: file, line: line)
+    }
+
+    /// The navigation bar's back chevron is drawn by watchOS (`NavigationStack`), not by the app: it has the
+    /// system identifier "BackButton" and, on the watchOS 11 simulator, an empty label in the UI-test tree. The app
+    /// cannot set its label, so it is skipped; see docs/ACCESSIBILITY.md.
+    static func isSystemBackButton(_ element: XCUIElementSnapshot) -> Bool {
+        element.elementType == .button && element.identifier == "BackButton"
     }
 
     /// True for labels that are clearly not words for people: SF Symbol names ("list.bullet", "gearshape"),
@@ -112,11 +119,13 @@ final class WatchAccessibilityChecksTests: XCTestCase {
         try assertInteractiveElementsAreLabelled(app, screen: "Reader")
 
         WatchUI.openReaderMenu(app)
-        let chapter = WatchUI.element("chapterButton", in: app)
-        XCTAssertTrue(chapter.label.contains(WatchUI.sampleChapter), "Chapter label: \(chapter.label)")
-        XCTAssertTrue(chapter.isSelected, "The current chapter must carry the selected trait (the bookmark glyph is hidden)")
         assertTextSizeStepper(in: app)
         try assertInteractiveElementsAreLabelled(app, screen: "Reading Options")
+        let chapter = WatchUI.element("chapterButton", in: app)
+        XCTAssertTrue(WatchUI.scrollToHittable(chapter, in: app), "Chapter button not reachable")
+        XCTAssertTrue(chapter.label.contains(WatchUI.sampleChapter), "Chapter label: \(chapter.label)")
+        XCTAssertTrue(chapter.isSelected, "The current chapter must carry the selected trait (the bookmark glyph is hidden)")
+        try assertInteractiveElementsAreLabelled(app, screen: "Reading Options (chapters)")
     }
 
     // MARK: Settings
@@ -128,11 +137,8 @@ final class WatchAccessibilityChecksTests: XCTestCase {
         assertTextSizeStepper(in: app)
         try assertInteractiveElementsAreLabelled(app, screen: "Settings")
 
-        let typography = app.buttons["Typography"]
-        XCTAssertTrue(WatchUI.scrollToHittable(typography, in: app), "Typography link not reachable")
-        typography.tap()
+        WatchUI.openTypography(app)
         let preview = WatchUI.element("typographyPreview", in: app)
-        XCTAssertTrue(preview.waitForExistence(timeout: 5), "Typography editor did not open")
         XCTAssertEqual(preview.label, "Text preview")
         try assertInteractiveElementsAreLabelled(app, screen: "Typography")
     }

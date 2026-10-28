@@ -108,10 +108,7 @@ final class WatchAccessibilityAuditTests: XCTestCase {
     func testTypographyAudit() throws {
         let app = WatchUI.launch()
         WatchUI.openSettings(app)
-        let typography = app.buttons["Typography"]
-        XCTAssertTrue(WatchUI.scrollToHittable(typography, in: app), "Typography link not reachable")
-        typography.tap()
-        XCTAssertTrue(WatchUI.element("typographyPreview", in: app).waitForExistence(timeout: 5))
+        WatchUI.openTypography(app)
         try audit(app)
     }
 }
