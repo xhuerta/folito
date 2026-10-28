@@ -168,6 +168,8 @@ jobs:
       # an earlier step failed so its findings never hide the unit-test results (and vice versa).
       - name: watchOS accessibility UI tests
         if: always() && env.WATCH_SIM_UDID != ''
+        # A hung simulator must not eat the whole job: stop here so the summary and xcresult steps still run.
+        timeout-minutes: 30
         run: |
           set -o pipefail
           rm -rf watch-uitests.xcresult
@@ -187,7 +189,7 @@ jobs:
           xcrun xcresulttool get test-results summary --path watch-uitests.xcresult || true
 
       - name: Upload watchOS accessibility UI tests xcresult
-        if: failure() && env.WATCH_SIM_UDID != ''
+        if: always() && env.WATCH_SIM_UDID != ''
         uses: actions/upload-artifact@v4
         with:
           name: watch-uitests-xcresult
