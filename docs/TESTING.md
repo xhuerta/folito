@@ -5,12 +5,15 @@ nothing external; the checks in this document are gated by environment variables
 
 ## 0. What runs where
 
+Counts are the "Executed N tests" lines of the CI run for PR #20 (unit tests) and the test methods of the UI
+test targets.
+
 | Suite | Where | Command / job | Executed |
 |---|---|---|---|
-| ReaderCore unit tests | Linux (`linux.yml`) and macOS (`macos.yml`, `swift test`) | `swift test` in `Packages/ReaderCore` | 164 (14 skipped: env-gated) |
+| ReaderCore unit tests | Linux (`linux.yml`) and macOS (`macos.yml`, `swift test`) | `swift test` in `Packages/ReaderCore` | 190 (14 skipped: env-gated) |
 | KOSync integration | Linux, service container | job `kosync-integration` (`KOSYNC_TEST_URL`) | see section 1 |
-| iOS app tests (`WristReaderTests`: LogicTests, TypographySyncTests) | macOS runner, iPhone simulator | `xcodebuild test -scheme WristReader` | 16 |
-| watchOS app tests (`WristReaderWatchTests`: LogicTests, TypographyDictionaryTests) | macOS runner, Apple Watch simulator | `xcodebuild test -scheme WristReaderWatch -skip-testing:WristReaderWatchUITests` | 42 |
+| iOS app tests (`WristReaderTests`: LogicTests, PresentationTests, TypographySyncTests, SecondaryTextContrastTests, …) | macOS runner, iPhone simulator | `xcodebuild test -scheme WristReader -skip-testing:WristReaderUITests` | 35 (1 skipped) |
+| watchOS app tests (`WristReaderWatchTests`: LogicTests, TypographyDictionaryTests, AccessibilityTests) | macOS runner, Apple Watch simulator | `xcodebuild test -scheme WristReaderWatch -skip-testing:WristReaderWatchUITests` | 64 |
 | iOS accessibility audit (`WristReaderUITests`) | macOS runner, iPhone simulator; **not on every PR** (see below) | `accessibility.yml`, `xcodebuild test -scheme WristReader -only-testing:WristReaderUITests` | 5 |
 | watchOS accessibility UI tests (`WristReaderWatchUITests`: audit + label / trait / AX5 checks) | macOS runner, Apple Watch simulator; **not on every PR** (see below) | `accessibility.yml`, `xcodebuild test -scheme WristReaderWatch -only-testing:WristReaderWatchUITests` | 15 |
 
