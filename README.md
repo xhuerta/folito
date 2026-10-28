@@ -116,6 +116,14 @@ watchOS no permite seleccionar texto en `Text` ni mostrar el diccionario del sis
 - Si el reloj aún no tenía la app instalada, no se pierde nada: los ajustes de sincronización y los libros pendientes se reenvían automáticamente cuando la sesión se activa, la app del reloj se instala, cambia la conectividad o abres la app del iPhone. El reloj informa de qué libros tiene, de modo que se reenvían los que falten.
 - La app expone su carpeta de documentos en la app Archivos (`UIFileSharingEnabled`).
 
+## Publicar en TestFlight / App Store sin Mac
+
+Todo el proceso (compilar, firmar con firma en la nube y subir a TestFlight) se hace desde GitHub Actions en un runner macOS, con una cuenta de pago del Apple Developer Program y una clave de API de App Store Connect (rol Admin). Guía paso a paso en inglés: [docs/RELEASE.md](docs/RELEASE.md).
+
+- Flujo de trabajo: `.github/workflows/release.yml` (*Actions → Release → Run workflow*). Con `dry_run = true` (por defecto) no necesita secretos: genera el proyecto con XcodeGen, hace un archivo Release sin firmar y muestra qué se subiría. Con `dry_run = false` (o al subir una etiqueta `v1.0.0`) firma y sube la compilación.
+- Secretos: `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` (el .p8 en claro o en base64), `APPLE_TEAM_ID`. Variables: `BUNDLE_ID_BASE` (tu identificador; la app del reloj usa `.watchkitapp`) y, opcionalmente, `APP_NAME`.
+- Metadatos para App Store Connect (inglés y español), respuestas de privacidad, notas para el revisor y riesgos de rechazo: [docs/appstore/](docs/appstore/). Política de privacidad y página de soporte (GitHub Pages desde `/docs`): [docs/site/](docs/site/).
+
 ## Limitaciones
 
 - La granularidad de la posición es el **inicio del párrafo** (XPointer): al sincronizar con KOReader/Readest se llega al párrafo, no a la palabra o línea exacta.

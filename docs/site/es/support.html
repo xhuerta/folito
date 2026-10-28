@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Un lector de EPUB para Apple Watch con sincronización del progreso de lectura.">
+<meta name="color-scheme" content="light dark">
+<title>Soporte - WristReader</title>
+<link rel="stylesheet" href="../style.css">
+<link rel="alternate" hreflang="en" href="../support.html">
+</head>
+<body>
+<a class="skip" href="#main">Saltar al contenido</a>
+<header>
+<nav aria-label="Principal"><ul><li><a href="index.html">Inicio</a></li><li><a href="privacy.html">Política de privacidad</a></li><li><a href="support.html" aria-current="page">Soporte</a></li><li><a href="../support.html" hreflang="en" lang="en">English</a></li></ul></nav>
+</header>
+<main id="main">
+<h1>Soporte</h1>
+<p>Preguntas, errores o sugerencias: <a href="mailto:[CONTACT_EMAIL]">[CONTACT_EMAIL]</a>. Indica la versión de iOS y watchOS y, si el problema es de sincronización, qué software de servidor usas. No envíes nunca tu contraseña.</p>
+<h2>Primeros pasos</h2>
+<ol>
+<li>Instala WristReader en el iPhone; la app del reloj se instala desde la app Watch del iPhone. Abre la app del iPhone una vez para que se configure el reloj.</li>
+<li>Importa un <code>.epub</code>: pulsa + en la app, o abre el archivo desde Archivos / el menú Compartir y elige WristReader. El libro se envía al reloj.</li>
+<li>Para sincronizar el progreso, abre <em>Sync</em> en la app del iPhone, introduce la URL del servidor KOReader Sync, usuario y contraseña, y pulsa <em>Save &amp; send to watch</em> y <em>Test connection</em>.</li>
+</ol>
+<h2>Preguntas frecuentes</h2>
+<dl>
+<dt>¿Qué servidores funcionan?</dt><dd>Cualquier servidor compatible con KOReader Sync (kosync), incluido el servidor público de KOReader y los autoalojados. La app no proporciona servidor.</dd>
+<dt>El progreso no coincide en KOReader o Readest.</dt><dd>Debe ser el mismo archivo EPUB, sin modificar, en todos los dispositivos. En Readest elige el método de coincidencia <em>File Content</em>; en KOReader, <em>Binary</em>.</dd>
+<dt>Mi servidor http:// no conecta.</dt><dd>iOS bloquea http plano hacia hosts de internet. Usa https o una dirección de red local.</dd>
+<dt>La consulta de palabras dice sin conexión o no encontrada.</dt><dd>Necesita red y usa Wiktionary (edición en inglés); las definiciones salen en inglés.</dd>
+<dt>¿Admite libros con DRM?</dt><dd>No.</dd>
+</dl>
+<p><a href="privacy.html">Política de privacidad</a></p>
+</main>
+<footer><p>WristReader es una app independiente. KOReader y Readest son nombres de proyectos de terceros, usados solo para describir la compatibilidad; WristReader no está afiliada ni respaldada por ellos. Apple, Apple Watch e iPhone son marcas de Apple Inc.</p></footer>
+</body>
+</html>
