@@ -1,0 +1,79 @@
+name: Release check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: release-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  archive:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: SourcePackages
+          key: spm-release-${{ runner.os }}-${{ hashFiles('Packages/ReaderCore/Package.swift', 'Packages/ReaderCore/Package.resolved') }}
+          restore-keys: spm-release-${{ runner.os }}-
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Validate source asset catalogs
+        run: python3 scripts/validate_release.py
+
+      # iOS archive also builds and embeds the watch app (Release, device SDKs).
+      - name: Archive iOS app (Release)
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project WristReader.xcodeproj -scheme WristReader -configuration Release \
+            -destination "generic/platform=iOS" \
+            -archivePath build/WristReader.xcarchive \
+            -derivedDataPath build/DerivedData \
+            -clonedSourcePackagesDirPath SourcePackages \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee archive-ios.log
+
+      # The watch target is SKIP_INSTALL=YES (it ships inside the iOS archive); override so a
+      # standalone archive of its scheme produces a bundle we can inspect.
+      - name: Archive watch app (Release)
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project WristReader.xcodeproj -scheme WristReaderWatch -configuration Release \
+            -destination "generic/platform=watchOS" \
+            -archivePath build/WristReaderWatch.xcarchive \
+            -derivedDataPath build/DerivedData \
+            -clonedSourcePackagesDirPath SourcePackages \
+            CODE_SIGNING_ALLOWED=NO SKIP_INSTALL=NO 2>&1 | tee archive-watch.log
+
+      - name: Validate built bundles
+        run: |
+          IOS_APP=$(ls -d build/WristReader.xcarchive/Products/Applications/*.app | head -1)
+          WATCH_STANDALONE=$(ls -d build/WristReaderWatch.xcarchive/Products/Applications/*.app | head -1)
+          ARGS=(--ios-app "$IOS_APP" --watch-app "$WATCH_STANDALONE")
+          if [ -d "$IOS_APP/Watch" ]; then
+            ARGS+=(--watch-app "$(ls -d "$IOS_APP"/Watch/*.app | head -1)")
+          fi
+          python3 scripts/validate_release.py "${ARGS[@]}"
+        env:
+          # Set RELEASE_STRICT to "1" (repository variable) once real bundle ids replace com.example.
+          RELEASE_STRICT: ${{ vars.RELEASE_STRICT }}
+
+      - name: Show warnings
+        if: always()
+        run: grep -hE "warning:.*(asset|icon|AppIcon|Assets)|error:" archive-*.log || true
