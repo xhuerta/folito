@@ -150,7 +150,7 @@ jobs:
       - name: iOS accessibility audit summary
         if: always() && env.IOS_SIM_UDID != ''
         run: |
-          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:|Accepted accessibility audit issue" ios-uitests.log || true
+          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:|Accepted accessibility audit issue|Accessibility audit issue|Accessibility audit timed out" ios-uitests.log || true
           xcrun xcresulttool get test-results summary --path ios-uitests.xcresult || true
 
       - name: Upload iOS accessibility audit xcresult
