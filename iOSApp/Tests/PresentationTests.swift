@@ -126,6 +126,13 @@ final class PresentationTests: XCTestCase {
         XCTAssertEqual(AppLinks.support.scheme, "https")
     }
 
+    func testLinksPointAtTheSupportSiteInTheReadersLanguage() {
+        let base = "https://xhuerta.github.io/wristreader-site/"
+        XCTAssertEqual(AppLinks.page("privacy.html", languageCode: "en-US").absoluteString, base + "privacy.html")
+        XCTAssertEqual(AppLinks.page("privacy.html", languageCode: "es-MX").absoluteString, base + "es/privacy.html")
+        XCTAssertEqual(AppLinks.page("support.html", languageCode: nil).absoluteString, base + "support.html")
+    }
+
     func testEveryAcknowledgedComponentShipsItsLicenceText() throws {
         XCTAssertEqual(Set(OpenSourceComponent.all.map(\.name)), ["ZIPFoundation", "Swift Crypto", "SwiftASN1"])
         // The unit tests run hosted in the app, so Bundle.main is the app bundle.
