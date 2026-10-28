@@ -68,9 +68,22 @@ handling (any future custom animation must check `accessibilityReduceMotion`).
 ### Automated audit
 
 `WristReaderUITests` (`iOSApp/UITests/AccessibilityAuditTests.swift`) launches the app and calls
-`XCUIApplication.performAccessibilityAudit(for: .all)` on: the empty library, a library with one book,
-Settings, Progress Sync, Acknowledgements and Reading. It runs in CI (`macos.yml`, step "iOS accessibility
-audit") on the same iPhone simulator as the unit tests.
+`XCUIApplication.performAccessibilityAudit` on: the empty library, a library with one book, Settings,
+Progress Sync, Acknowledgements and Reading.
+
+**When it runs.** The audit drives the simulator screen by screen and takes 10–30 minutes on CI, so it is not
+part of the PR-blocking macOS workflow and not a required check. It has its own workflow,
+`.github/workflows/accessibility.yml` ("Accessibility audit"), which runs:
+- on every push to `main`;
+- manually: GitHub › Actions › *Accessibility audit* › *Run workflow* (choose the branch);
+- on a pull request that has the label `accessibility` (when the label is added, and on every later push
+  while it is set). Add the label to PRs that change UI.
+
+Each test has a time limit (`-test-timeouts-enabled YES`, 180 s by default, 300 s at most) and the job stops
+after 30 minutes, so a hung simulator fails the run instead of stalling it. The job always prints the
+findings and uploads `ios-accessibility-xcresult`. The fast, deterministic accessibility checks (for example
+`SecondaryTextContrastTests` and the reader palette contrast tests in ReaderCore) are unit tests and still run
+on every PR.
 
 Launch arguments (handled only in Debug builds, see `iOSApp/Support/UITestingSupport.swift`):
 - `-UITesting`: the library uses a fresh temporary directory (starts empty; the real library is untouched).

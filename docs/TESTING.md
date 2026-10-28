@@ -11,6 +11,13 @@ nothing external; the checks in this document are gated by environment variables
 | KOSync integration | Linux, service container | job `kosync-integration` (`KOSYNC_TEST_URL`) | see section 1 |
 | iOS app tests (`WristReaderTests`: LogicTests, TypographySyncTests) | macOS runner, iPhone simulator | `xcodebuild test -scheme WristReader` | 16 |
 | watchOS app tests (`WristReaderWatchTests`: LogicTests, TypographyDictionaryTests) | macOS runner, Apple Watch simulator | `xcodebuild test -scheme WristReaderWatch` | 42 |
+| iOS accessibility audit (`WristReaderUITests`) | macOS runner, iPhone simulator; **not on every PR** (see below) | `accessibility.yml`, `xcodebuild test -scheme WristReader -only-testing:WristReaderUITests` | 5 |
+
+The macOS workflow (`macos.yml`, PR-blocking) builds and runs only unit tests (`-skip-testing:WristReaderUITests`),
+with per-test time limits (`-test-timeouts-enabled YES`, 180 s default / 300 s maximum). The accessibility audit UI
+tests are slow, so they run in `accessibility.yml` on pushes to `main`, manually (Actions › *Accessibility audit* ›
+*Run workflow*) and on PRs labelled `accessibility`; it is not a required check. Details in
+[ACCESSIBILITY.md](ACCESSIBILITY.md#automated-audit).
 
 The macOS job uploads `ios-tests.xcresult` / `watch-tests.xcresult` as artifacts and prints a per-case summary.
 Notes on the watch bundle: the watch app's `PRODUCT_NAME` is `WristReader`, so `TEST_HOST`/`BUNDLE_LOADER` are set
