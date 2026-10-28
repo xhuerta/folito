@@ -1,0 +1,10 @@
+// Shared defaults. Do not put personal values here; use Config/Local.xcconfig.
+
+// Base bundle id of the iPhone app. The watch app appends ".watchkitapp".
+WR_BUNDLE_ID = com.example.wristreader
+
+// Empty by default so CI and fresh clones build unsigned.
+DEVELOPMENT_TEAM =
+
+// Optional, gitignored per-developer overrides (team id, unique bundle id).
+#include? "Local.xcconfig"

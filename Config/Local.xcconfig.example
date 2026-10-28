@@ -1,0 +1,7 @@
+// Copy to Config/Local.xcconfig (gitignored) and edit.
+
+// Your Apple Developer Team ID (Xcode > Settings > Accounts > Team, 10 chars).
+DEVELOPMENT_TEAM = ABCDE12345
+
+// Must be globally unique for a free Personal Team.
+WR_BUNDLE_ID = com.yourname.wristreader
