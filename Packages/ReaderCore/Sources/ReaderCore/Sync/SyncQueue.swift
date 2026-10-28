@@ -27,6 +27,8 @@ public struct SyncFlushResult: Sendable, Equatable {
     public var retained: [String] = []
     /// Discarded after a permanent rejection or too many attempts.
     public var dropped: [String] = []
+    /// Discarded because the server already holds a newer position from another device.
+    public var superseded: [String] = []
     public var unauthorized = false
 }
 
@@ -38,6 +40,9 @@ public actor SyncQueue {
         public var baseBackoff: TimeInterval = 2
         public var maxBackoff: TimeInterval = 300
         public var maxAttempts: Int = 10
+        /// Entries older than this (they sat in the queue, e.g. while offline) are checked against
+        /// the server before being sent, so they never overwrite a newer position from another device.
+        public var staleCheckAge: TimeInterval = 60
         public init() {}
     }
 
@@ -48,6 +53,11 @@ public actor SyncQueue {
     private var items: [String: PendingProgress] = [:]
     private var worker: Task<Void, Never>?
     private var generation = 0
+    /// At most one flush runs at a time; actor reentrancy would otherwise let an older PUT
+    /// finish after a newer one and leave the server on the older position.
+    private var inFlight: Task<SyncFlushResult, Never>?
+    /// Last position the server is known to hold from us, to avoid re-sending the same place.
+    private var lastSent: [String: KOSyncProgress] = [:]
 
     public init(client: KOSyncClientProtocol, clock: SyncClock = SystemSyncClock(),
                 config: Config = Config(), restoring state: Data? = nil,
@@ -67,6 +77,10 @@ public actor SyncQueue {
 
     /// Records the latest progress (replacing any older one for the document) without sending.
     public func enqueue(_ progress: KOSyncProgress) {
+        if items[progress.document] == nil, inFlight == nil, let sent = lastSent[progress.document],
+           sent.progress == progress.progress, sent.percentage == progress.percentage {
+            return // the server already has exactly this place
+        }
         items[progress.document] = PendingProgress(progress: progress, attempts: 0, nextAttempt: clock.now())
         persist()
     }
@@ -79,6 +93,7 @@ public actor SyncQueue {
 
     /// Forgets the pending entry of one document (e.g. the book was deleted).
     public func remove(document: String) {
+        lastSent[document] = nil
         guard items.removeValue(forKey: document) != nil else { return }
         persist()
     }
@@ -87,6 +102,7 @@ public actor SyncQueue {
     public func removeAll() {
         cancel()
         items.removeAll()
+        lastSent.removeAll()
         persist()
     }
 
@@ -100,14 +116,30 @@ public actor SyncQueue {
     }
 
     /// Sends every entry that is due (all of them when `force`). Never throws.
+    /// Calls are serialized: a flush that starts while another is running waits for it.
     @discardableResult
     public func flush(force: Bool = false) async -> SyncFlushResult {
+        while let running = inFlight { _ = await running.value }
+        let task = Task { await self.performFlush(force: force) }
+        inFlight = task
+        return await task.value
+    }
+
+    private func performFlush(force: Bool) async -> SyncFlushResult {
+        defer { inFlight = nil }
         var result = SyncFlushResult()
         for key in items.keys.sorted() {
             guard let entry = items[key] else { continue }
             if !force && entry.nextAttempt > clock.now() { result.retained.append(key); continue }
             do {
+                if try await isSuperseded(entry.progress) {
+                    if items[key]?.progress == entry.progress { items[key] = nil }
+                    lastSent[key] = nil
+                    result.superseded.append(key)
+                    continue
+                }
                 try await client.pushProgress(entry.progress)
+                lastSent[key] = entry.progress
                 if items[key]?.progress == entry.progress { items[key] = nil } // keep a newer one queued meanwhile
                 result.sent.append(key)
             } catch KOSyncError.unauthorized {
@@ -131,6 +163,27 @@ public actor SyncQueue {
         }
         persist()
         return result
+    }
+
+    /// True when `progress` waited long enough to be stale and another device has since saved a
+    /// newer position. Fresh entries cost no extra request. If the server cannot tell
+    /// (no timestamp, permanent error on GET) the entry is sent as usual; network and auth
+    /// failures propagate so the entry is retried.
+    private func isSuperseded(_ progress: KOSyncProgress) async throws -> Bool {
+        guard let queuedAt = progress.timestamp,
+              clock.now().timeIntervalSince1970 - Double(queuedAt) > config.staleCheckAge else { return false }
+        let remote: KOSyncProgress?
+        do {
+            remote = try await client.fetchProgress(document: progress.document)
+        } catch KOSyncError.unauthorized {
+            throw KOSyncError.unauthorized
+        } catch {
+            if isTransient(error) { throw error }
+            return false
+        }
+        guard let remote, let remoteAt = remote.timestamp, !remote.device_id.isEmpty,
+              remote.device_id != progress.device_id else { return false }
+        return remoteAt > queuedAt
     }
 
     private func isTransient(_ error: Error) -> Bool {
