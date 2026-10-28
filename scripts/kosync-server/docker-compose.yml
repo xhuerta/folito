@@ -1,0 +1,16 @@
+# Real koreader-sync-server (OpenResty + Redis in one image) for the gated integration tests.
+#   docker compose -f scripts/kosync-server/docker-compose.yml up -d
+#   KOSYNC_TEST_URL=http://localhost:17200 swift test --filter KOSync   (in Packages/ReaderCore)
+services:
+  kosync:
+    image: koreader/kosync:latest
+    ports:
+      - "17200:17200"   # plain HTTP (what the tests use)
+      - "7200:7200"     # HTTPS with a self-signed certificate
+    tmpfs:
+      - /var/lib/redis  # throw-away data; drop this line to keep users/progress between runs
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs -H 'Accept: application/vnd.koreader.v1+json' http://localhost:17200/healthcheck | grep -q OK"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
