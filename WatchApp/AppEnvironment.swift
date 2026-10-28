@@ -41,6 +41,13 @@ final class AppEnvironment: ObservableObject {
         connectivity = receiver
     }
 
+    /// Settings > Remove credentials: turns sync off on the watch (keychain + pending queue). Local
+    /// reading positions and books are untouched.
+    func removeSyncCredentials() {
+        CredentialsStore.clear()
+        sync.configurationChanged()
+    }
+
     /// Settings > Reset: clears preferences, positions, pending sync and credentials. Books are kept.
     func resetAll() {
         ReaderSettings.resetPreferences()

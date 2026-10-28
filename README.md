@@ -1,6 +1,15 @@
 # WristReader
 
-Lector de EPUB para el Apple Watch (watchOS) con sincronización de progreso mediante el protocolo **KOReader Sync**, compatible con **Readest** y **KOReader**. Se instala en tu reloj con una cuenta gratuita de Apple (Personal Team), sin pagar el programa de desarrollador ni usar capacidades especiales (sin iCloud, App Groups ni notificaciones push).
+Lector de EPUB para el Apple Watch (watchOS). Funciona **sin cuenta y sin conexión** con tus propios archivos EPUB. Opcionalmente puede sincronizar el progreso de lectura con cualquier servidor compatible con el protocolo **KOReader Sync** (el de KOReader, el de Readest o uno alojado por ti). Se instala en tu reloj con una cuenta gratuita de Apple (Personal Team), sin pagar el programa de desarrollador ni usar capacidades especiales (sin iCloud, App Groups ni notificaciones push).
+
+## Usar sin cuenta
+
+La sincronización es **opcional**; no hace falta ninguna cuenta (ni de Readest ni de KOReader) para leer.
+
+1. Importa tus EPUB en la app del iPhone (botón +, o "Abrir en WristReader" desde Archivos o el menú Compartir). Se envían solos al reloj.
+2. Lee en el reloj. La posición se guarda en el propio reloj y todo funciona sin conexión.
+3. Sin usuario y contraseña guardados, la app no hace ninguna petición de sincronización ni muestra avisos o indicadores de sync. La única función que usa la red por iniciativa tuya es la consulta de diccionario.
+4. Si más adelante quieres sincronizar, ve a la pestaña *Sync* del iPhone (ver más abajo). Puedes desactivarla cuando quieras con *Turn off sync and remove credentials*, que borra las credenciales del iPhone y del reloj y vacía el progreso pendiente (también desde Ajustes del reloj → *Remove credentials*).
 
 ## Arquitectura
 
@@ -15,7 +24,7 @@ project.yml           Especificación de XcodeGen (el .xcodeproj no se versiona)
 
 - La app del reloj es una app de watchOS de un solo target (`WKApplication = true`) emparejada con la app de iPhone mediante `WKCompanionAppBundleIdentifier`. La app de iPhone incluye (embebe) la del reloj.
 - Ambas apps dependen de `ReaderCore`.
-- La sincronización habla directamente con un servidor KOReader Sync (por defecto `https://sync.koreader.rocks`).
+- La sincronización (opcional) habla directamente con un servidor compatible con KOReader Sync que tú configuras (la URL sugerida por defecto es `https://sync.koreader.rocks`, pero no se usa hasta que guardas usuario y contraseña).
 
 ## Compilar en un Mac con XcodeGen
 
@@ -51,9 +60,9 @@ Con la firma automática, Xcode crea los perfiles de aprovisionamiento. No se us
 
 **Límite de 7 días:** con Personal Team, la firma caduca a los 7 días. Hay que volver a instalar desde Xcode (Run) para renovarla. Los datos se conservan si reinstalas sin borrar la app. Además hay un máximo de 3 apps activas y de identificadores nuevos por semana.
 
-## Configurar la sincronización
+## Configurar la sincronización (opcional)
 
-WristReader usa el mismo servidor y el mismo método que tus otros lectores, de modo que el progreso se comparta.
+Solo si quieres continuar el mismo libro en otros lectores. WristReader usa el mismo servidor y el mismo método que tus otros lectores, de modo que el progreso se comparta.
 
 ### Readest
 

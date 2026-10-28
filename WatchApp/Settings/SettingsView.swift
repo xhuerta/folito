@@ -10,6 +10,7 @@ struct SettingsView: View {
     @State private var serverStatus = "Not checked"
     @State private var checking = false
     @State private var confirmReset = false
+    @State private var confirmRemove = false
 
     var body: some View {
         List {
@@ -18,7 +19,7 @@ struct SettingsView: View {
                     Text("Text size \(Int(typography.value.fontSize))")
                 }
                 NavigationLink("Typography") { TypographyEditorView() }
-                Toggle("Show sync info", isOn: $showSyncInfo)
+                if sync.isConfigured { Toggle("Show sync info", isOn: $showSyncInfo) }
             }
             Section {
                 Toggle("Tap paragraph to look up", isOn: $tapToLookUp)
@@ -28,7 +29,7 @@ struct SettingsView: View {
             } footer: {
                 Text("Definitions need a network connection; words already looked up work offline.")
             }
-            Section("KOReader Sync") {
+            Section {
                 if sync.isConfigured {
                     Text(CredentialsStore.username ?? "").font(.footnote).foregroundStyle(.secondary)
                     Button {
@@ -44,16 +45,27 @@ struct SettingsView: View {
                     if sync.hasPending {
                         Text("Progress waiting to sync").font(.footnote).foregroundStyle(.orange)
                     }
+                    Button("Remove credentials", role: .destructive) { confirmRemove = true }
                 } else {
-                    Text("Not configured. Set up sync in the iPhone app.")
+                    Text("Sync is optional and off. Reading works fully offline. To sync progress with a KOReader-compatible server, set it up in the iPhone app.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
+            } header: {
+                Text("Progress sync (optional)")
             }
             Section {
                 Button("Reset", role: .destructive) { confirmReset = true }
             }
         }
         .navigationTitle("Settings")
+        .confirmationDialog("Remove the sync login from this watch? Books and reading positions are kept.",
+                            isPresented: $confirmRemove, titleVisibility: .visible) {
+            Button("Remove credentials", role: .destructive) {
+                env.removeSyncCredentials()
+                serverStatus = "Not checked"
+            }
+            Button("Cancel", role: .cancel) {}
+        }
         .confirmationDialog("Reset settings, reading positions and sync login? Books are kept.",
                             isPresented: $confirmReset, titleVisibility: .visible) {
             Button("Reset", role: .destructive) { env.resetAll() }

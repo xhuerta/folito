@@ -14,6 +14,8 @@ enum WatchSchema {
         static let kosyncUser = "kosync_user"
         static let kosyncPassword = "kosync_password"
         static let settingsStamp = "settingsStamp"
+        /// `true` = the user turned sync off on the phone; the watch removes its credentials and queue.
+        static let kosyncCleared = "kosync_cleared"
         static let hashes = "hashes"
     }
     enum MessageType {
@@ -43,14 +45,25 @@ enum WatchSchema {
          Key.settingsStamp: stamp]
     }
 
+    /// "Sync turned off" state: no credential keys, an explicit marker and the stamp of the clear action
+    /// (newer than any earlier save, so the watch applies it exactly once).
+    static func clearedInfo(stamp: Int) -> [String: Any] {
+        [Key.type: MessageType.settings, Key.kosyncCleared: true, Key.settingsStamp: stamp]
+    }
+
     /// Phone -> watch settings context. KOSync fields are present only when valid credentials are saved;
-    /// typography is present once the user has changed it anywhere (stamp > 0). nil when there is nothing to send.
+    /// `clearedStamp` (used only when there are no credentials) makes the watch drop its own credentials.
+    /// Typography is present once the user has changed it anywhere (stamp > 0). nil when there is nothing to send.
     static func settingsContext(kosync: (server: String, user: String, password: String, stamp: Int)?,
+                                clearedStamp: Int? = nil,
                                 typography: ReaderTypography?) -> [String: Any]? {
         var info: [String: Any] = [Key.type: MessageType.settings]
         var hasContent = false
         if let k = kosync {
             info = settingsInfo(server: k.server, user: k.user, password: k.password, stamp: k.stamp)
+            hasContent = true
+        } else if let clearedStamp, clearedStamp > 0 {
+            info = clearedInfo(stamp: clearedStamp)
             hasContent = true
         }
         if let typography, typography.stamp > 0 {

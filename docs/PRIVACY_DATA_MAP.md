@@ -30,7 +30,9 @@ Used by the iPhone app (connection test / account creation in Settings) and by t
 Endpoints: `GET /users/auth`, `POST /users/create`, `PUT /syncs/progress`, `GET /syncs/progress/{document}`.
 Recipient: whichever server the user configured (self-hosted or a third-party KOSync-compatible service the
 user chose). The developer is not a party. The server operator sees the user's IP address and the data above.
-Without a configured server, nothing is sent. The watch queues unsent progress locally (UserDefaults) and retries.
+Sync is optional. Without a configured server, nothing is sent and nothing is queued. With one, the watch
+queues unsent progress locally (UserDefaults) and retries; turning sync off on the iPhone removes the
+credentials from both devices and drops the watch's queue.
 
 ### 1b. Dictionary lookups: public APIs, on user action only
 
