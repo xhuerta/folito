@@ -228,12 +228,28 @@ final class SyncCoordinatorTests: XCTestCase {
         let legacy = ["a": KOSyncProgress(document: "a", progress: "/p", percentage: 0.4, device_id: "d", timestamp: 1)]
         d.set(try JSONEncoder().encode(legacy), forKey: SyncCoordinator.legacyKey)
         let creds = KOSyncCredentials(username: "u", password: "p")
+        let rec = Recorder()
         var config = SyncQueue.Config(); config.debounce = 3600
-        let sync = SyncCoordinator(defaults: d, config: config, credentials: { creds }, makeClient: { _ in Recorder() })
+        // With credentials the coordinator moves the legacy entries into the queue and resumes it at once,
+        // so the migrated position is delivered (debounce only applies to new reports).
+        let sync = SyncCoordinator(defaults: d, config: config, credentials: { creds }, makeClient: { _ in rec })
+        try await Task.sleep(nanoseconds: 500_000_000)
+        XCTAssertNil(d.data(forKey: SyncCoordinator.legacyKey))
+        XCTAssertEqual(rec.lock.withLock { rec.pushed.map(\.document) }, ["a"])
+        XCTAssertEqual(sync.pendingCount, 0)
+    }
+
+    @MainActor
+    func testLegacyPendingStoreIsDroppedWhenUnconfigured() async throws {
+        let d = defaults()
+        let legacy = ["a": KOSyncProgress(document: "a", progress: "/p", percentage: 0.4, device_id: "d", timestamp: 1)]
+        d.set(try JSONEncoder().encode(legacy), forKey: SyncCoordinator.legacyKey)
+        let rec = Recorder()
+        let sync = SyncCoordinator(defaults: d, credentials: { nil }, makeClient: { _ in rec })
         try await Task.sleep(nanoseconds: 300_000_000)
         XCTAssertNil(d.data(forKey: SyncCoordinator.legacyKey))
-        let queued = await sync.queue.pending.count
-        XCTAssertEqual(queued, 1)
+        XCTAssertEqual(sync.pendingCount, 0)
+        XCTAssertTrue(rec.lock.withLock { rec.pushed.isEmpty })
     }
 }
 
