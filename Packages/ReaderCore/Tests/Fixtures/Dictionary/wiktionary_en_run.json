@@ -1,0 +1,298 @@
+{
+ "en": [
+  {
+   "partOfSpeech": "Symbol",
+   "language": "Translingual",
+   "definitions": [
+    {
+     "definition": "<span class=\"usage-label-sense\" about=\"#mwt6\" typeof=\"mw:Transclusion\"></span><span about=\"#mwt6\"> </span><i about=\"#mwt6\"><a rel=\"mw:WikiLink/Interwiki\" href=\"https://en.wikipedia.org/wiki/ISO%20639-2\" title=\"w:ISO 639-2\" class=\"extiw\">ISO 639-2</a><link rel=\"mw:PageProp/Category\" href=\"./Category:ISO_639-2\"> &amp; <a rel=\"mw:WikiLink/Interwiki\" href=\"https://en.wikipedia.org/wiki/ISO%20639-3\" title=\"w:ISO 639-3\" class=\"extiw\">ISO 639-3</a><link rel=\"mw:PageProp/Category\" href=\"./Category:ISO_639-3\"><link rel=\"mw:PageProp/Category\" href=\"./Category:Theknightwho's_maintenance_category\"> <a rel=\"mw:WikiLink\" href=\"/wiki/language_code\" title=\"language code\">language code</a> for </i><a rel=\"mw:WikiLink/Interwiki\" href=\"https://en.wikipedia.org/wiki/ISO%20639:run\" title=\"w:ISO 639:run\" about=\"#mwt6\" class=\"extiw\"><b>Kirundi</b></a><i about=\"#mwt6\">.</i>"
+    }
+   ]
+  },
+  {
+   "partOfSpeech": "Verb",
+   "language": "English",
+   "definitions": [
+    {
+     "definition": "To move <a rel=\"mw:WikiLink\" href=\"/wiki/swiftly\" title=\"swiftly\">swiftly</a>.\n<ol><li><span class=\"usage-label-sense\" about=\"#mwt52\" typeof=\"mw:Transclusion\"></span> To <a rel=\"mw:WikiLink\" href=\"/wiki/move\" title=\"move\">move</a> forward <a rel=\"mw:WikiLink\" href=\"/wiki/quickly\" title=\"quickly\">quickly</a> upon <a rel=\"mw:WikiLink\" href=\"/wiki/two\" title=\"two\">two</a> <a rel=\"mw:WikiLink\" href=\"/wiki/feet\" title=\"feet\">feet</a> by alternately making a short <a rel=\"mw:WikiLink\" href=\"/wiki/jump\" title=\"jump\">jump</a> off either foot.",
+     "parsedExamples": [
+      {
+       "example": "<b>Run</b>, and you might still catch the train<span typeof=\"mw:Entity\">!</span>"
+      },
+      {
+       "example": "I have been <b>running</b> all over the building looking for him."
+      },
+      {
+       "example": "Sorry, I've got to <b>run</b><span typeof=\"mw:Entity\">;</span> my house is on fire<span typeof=\"mw:Entity\">!</span>"
+      },
+      {
+       "example": "I can <b>run</b> a mile, but I can't <b>run</b> the cross-country course."
+      },
+      {
+       "example": "I was hoping to make the team, but I didn't <b>run</b> the qualifying time."
+      },
+      {
+       "example": "The shuttle <b>runs</b> back and forth on these rollers."
+      },
+      {
+       "example": "As its name suggests, the monorail <b>runs</b> on a single rail."
+      },
+      {
+       "example": "I felt her fingers <b>running</b> over my cheek."
+      },
+      {
+       "example": "Every day I <b>run</b> my dog across the field and back."
+      },
+      {
+       "example": "I'll just <b>run</b> the vacuum cleaner over the carpet."
+      },
+      {
+       "example": "<b>Run</b> your fingers through my hair."
+      },
+      {
+       "example": "<b>Run</b> a flag up (the pole<span typeof=\"mw:Entity\">/</span>mast)"
+      },
+      {
+       "example": "The horse will <b>run</b> in the Preakness next year."
+      },
+      {
+       "example": "I'm not ready to <b>run</b> a marathon."
+      },
+      {
+       "example": "The car could not be repaired in time for the race and did not <b>run</b>."
+      },
+      {
+       "example": "Could you <b>run</b> me over to the store<span typeof=\"mw:Entity\">?</span>"
+      },
+      {
+       "example": "Please <b>run</b> this report upstairs to director's office."
+      },
+      {
+       "example": "The bus (train, plane, ferry boat, etc) <b>runs</b> between Newport and Riverside."
+      },
+      {
+       "example": "Hundreds of cars <b>run</b> along this highway every day."
+      },
+      {
+       "example": "Whenever things get tough, she cuts and <b>runs</b>."
+      },
+      {
+       "example": "When he's broke, he <b>runs</b> to me for money."
+      },
+      {
+       "example": "When the alarm went off, the thief dropped the booty and <b>ran</b>."
+      },
+      {
+       "example": "The car in front just <b>ran</b> a red light."
+      },
+      {
+       "example": "If you have a collision with a vehicle oncoming from the right, after having <b>run</b> priority to the right, you are at fault."
+      }
+     ],
+     "examples": [
+      "<b>Run</b>, and you might still catch the train<span typeof=\"mw:Entity\">!</span>",
+      "I have been <b>running</b> all over the building looking for him.",
+      "Sorry, I've got to <b>run</b><span typeof=\"mw:Entity\">;</span> my house is on fire<span typeof=\"mw:Entity\">!</span>",
+      "I can <b>run</b> a mile, but I can't <b>run</b> the cross-country course.",
+      "I was hoping to make the team, but I didn't <b>run</b> the qualifying time.",
+      "The shuttle <b>runs</b> back and forth on these rollers.",
+      "As its name suggests, the monorail <b>runs</b> on a single rail.",
+      "I felt her fingers <b>running</b> over my cheek.",
+      "Every day I <b>run</b> my dog across the field and back.",
+      "I'll just <b>run</b> the vacuum cleaner over the carpet.",
+      "<b>Run</b> your fingers through my hair.",
+      "<b>Run</b> a flag up (the pole<span typeof=\"mw:Entity\">/</span>mast)",
+      "The horse will <b>run</b> in the Preakness next year.",
+      "I'm not ready to <b>run</b> a marathon.",
+      "The car could not be repaired in time for the race and did not <b>run</b>.",
+      "Could you <b>run</b> me over to the store<span typeof=\"mw:Entity\">?</span>",
+      "Please <b>run</b> this report upstairs to director's office.",
+      "The bus (train, plane, ferry boat, etc) <b>runs</b> between Newport and Riverside.",
+      "Hundreds of cars <b>run</b> along this highway every day.",
+      "Whenever things get tough, she cuts and <b>runs</b>.",
+      "When he's broke, he <b>runs</b> to me for money.",
+      "When the alarm went off, the thief dropped the booty and <b>ran</b>.",
+      "The car in front just <b>ran</b> a red light.",
+      "If you have a collision with a vehicle oncoming from the right, after having <b>run</b> priority to the right, you are at fault."
+     ]
+    },
+    {
+     "definition": "<span class=\"usage-label-sense\" about=\"#mwt52\" typeof=\"mw:Transclusion\"></span> To <a rel=\"mw:WikiLink\" href=\"/wiki/move\" title=\"move\">move</a> forward <a rel=\"mw:WikiLink\" href=\"/wiki/quickly\" title=\"quickly\">quickly</a> upon <a rel=\"mw:WikiLink\" href=\"/wiki/two\" title=\"two\">two</a> <a rel=\"mw:WikiLink\" href=\"/wiki/feet\" title=\"feet\">feet</a> by alternately making a short <a rel=\"mw:WikiLink\" href=\"/wiki/jump\" title=\"jump\">jump</a> off either foot.",
+     "parsedExamples": [
+      {
+       "example": "<b>Run</b>, and you might still catch the train<span typeof=\"mw:Entity\">!</span>"
+      }
+     ],
+     "examples": [
+      "<b>Run</b>, and you might still catch the train<span typeof=\"mw:Entity\">!</span>"
+     ]
+    },
+    {
+     "definition": ""
+    },
+    {
+     "definition": "<span class=\"usage-label-sense\"></span> To <a rel=\"mw:WikiLink\" href=\"/wiki/go\" title=\"go\">go</a> at a <a rel=\"mw:WikiLink\" href=\"/wiki/fast\" title=\"fast\">fast</a> pace; to move <a rel=\"mw:WikiLink\" href=\"/wiki/quickly\" title=\"quickly\">quickly</a>.",
+     "parsedExamples": [
+      {
+       "example": "I have been <b>running</b> all over the building looking for him."
+      },
+      {
+       "example": "Sorry, I've got to <b>run</b><span typeof=\"mw:Entity\">;</span> my house is on fire<span typeof=\"mw:Entity\">!</span>"
+      }
+     ],
+     "examples": [
+      "I have been <b>running</b> all over the building looking for him.",
+      "Sorry, I've got to <b>run</b><span typeof=\"mw:Entity\">;</span> my house is on fire<span typeof=\"mw:Entity\">!</span>"
+     ]
+    },
+    {
+     "definition": "<span class=\"usage-label-sense\" about=\"#mwt62\" typeof=\"mw:Transclusion\"></span> To cover (a course or a distance) by running.",
+     "parsedExamples": [
+      {
+       "example": "I can <b>run</b> a mile, but I can't <b>run</b> the cross-country course."
+      }
+     ],
+     "examples": [
+      "I can <b>run</b> a mile, but I can't <b>run</b> the cross-country course."
+     ]
+    },
+    {
+     "definition": "<span class=\"usage-label-sense\" about=\"#mwt64\" typeof=\"mw:Transclusion\"></span> To complete a running course or event in (a given time).",
+     "parsedExamples": [
+      {
+       "example": "I was hoping to make the team, but I didn't <b>run</b> the qualifying time."
+      }
+     ],
+     "examples": [
+      "I was hoping to make the team, but I didn't <b>run</b> the qualifying time."
+     ]
+    }
+   ]
+  },
+  {
+   "partOfSpeech": "Noun",
+   "language": "English",
+   "definitions": [
+    {
+     "definition": "Act or instance of running, of moving rapidly using the feet.",
+     "parsedExamples": [
+      {
+       "example": "I just got back from my morning <b>run</b>."
+      }
+     ],
+     "examples": [
+      "I just got back from my morning <b>run</b>."
+     ]
+    },
+    {
+     "definition": "Act or instance of <a rel=\"mw:WikiLink\" href=\"/wiki/hurry\" title=\"hurry\">hurrying</a> (to or from a place) ; <a rel=\"mw:WikiLink\" href=\"/wiki/dash\" title=\"dash\">dash</a> or <a rel=\"mw:WikiLink\" href=\"/wiki/errand\" title=\"errand\">errand</a>, <a rel=\"mw:WikiLink\" href=\"/wiki/trip\" title=\"trip\">trip</a>.",
+     "parsedExamples": [
+      {
+       "example": "I need to make a <b>run</b> to the store."
+      }
+     ],
+     "examples": [
+      "I need to make a <b>run</b> to the store."
+     ]
+    },
+    {
+     "definition": "A pleasure trip.",
+     "parsedExamples": [
+      {
+       "example": "Let's go for a <b>run</b> in the car."
+      }
+     ],
+     "examples": [
+      "Let's go for a <b>run</b> in the car."
+     ]
+    },
+    {
+     "definition": "<a rel=\"mw:WikiLink\" href=\"/wiki/flight\" title=\"flight\">Flight</a>, instance or <a rel=\"mw:WikiLink\" href=\"/wiki/period\" title=\"period\">period</a> of <a rel=\"mw:WikiLink\" href=\"/wiki/flee\" title=\"flee\">fleeing</a>."
+    },
+    {
+     "definition": "<a rel=\"mw:WikiLink\" href=\"/wiki/migration\" title=\"migration\">Migration</a> of <a rel=\"mw:WikiLink\" href=\"/wiki/fish\" title=\"fish\">fish</a>."
+    },
+    {
+     "definition": "<span class=\"usage-label-sense\" about=\"#mwt260\" typeof=\"mw:Transclusion\"></span> A group of fish that migrate, or ascend a river for the purpose of spawning."
+    }
+   ]
+  },
+  {
+   "partOfSpeech": "Adjective",
+   "language": "English",
+   "definitions": [
+    {
+     "definition": "In a <a rel=\"mw:WikiLink\" href=\"/wiki/liquid\" title=\"liquid\">liquid</a> state; <a rel=\"mw:WikiLink\" href=\"/wiki/melted\" title=\"melted\">melted</a> or <a rel=\"mw:WikiLink\" href=\"/wiki/molten\" title=\"molten\">molten</a>.",
+     "parsedExamples": [
+      {
+       "example": "Put some <b>run</b> butter on the vegetables."
+      }
+     ],
+     "examples": [
+      "Put some <b>run</b> butter on the vegetables."
+     ]
+    },
+    {
+     "definition": "<a rel=\"mw:WikiLink\" href=\"/wiki/cast\" title=\"cast\">Cast</a> in a <a rel=\"mw:WikiLink\" href=\"/wiki/mould\" title=\"mould\">mould</a>."
+    },
+    {
+     "definition": "<a rel=\"mw:WikiLink\" href=\"/wiki/exhaust\" title=\"exhaust\">Exhausted</a>; <a rel=\"mw:WikiLink\" href=\"/wiki/deplete\" title=\"deplete\">depleted</a> ."
+    },
+    {
+     "definition": "<span class=\"usage-label-sense\" about=\"#mwt356\" typeof=\"mw:Transclusion\"></span> <a rel=\"mw:WikiLink\" href=\"/wiki/travelled\" title=\"travelled\">Travelled</a>, <a rel=\"mw:WikiLink\" href=\"/wiki/migrated\" title=\"migrated\">migrated</a>; having made a <a rel=\"mw:WikiLink\" href=\"/wiki/migration\" title=\"migration\">migration</a> or a spawning <a rel=\"mw:WikiLink\" href=\"/wiki/run#Noun\" class=\"mw-selflink-fragment\">run</a>."
+    },
+    {
+     "definition": "<a rel=\"mw:WikiLink\" href=\"/wiki/smuggled\" title=\"smuggled\">Smuggled</a>.",
+     "parsedExamples": [
+      {
+       "example": "<i><b>run</b> brandy</i>"
+      }
+     ],
+     "examples": [
+      "<i><b>run</b> brandy</i>"
+     ]
+    }
+   ]
+  },
+  {
+   "partOfSpeech": "Verb",
+   "language": "English",
+   "definitions": [
+    {
+     "definition": "<span class=\"form-of-definition use-with-mention\" about=\"#mwt361\" typeof=\"mw:Transclusion\"><a rel=\"mw:WikiLink\" href=\"/wiki/Appendix:Glossary#past_tense\" title=\"Appendix:Glossary\">past</a> <a rel=\"mw:WikiLink\" href=\"/wiki/Appendix:Glossary#participle\" title=\"Appendix:Glossary\">participle</a> of <span class=\"form-of-definition-link\"><i class=\"Latn mention\" lang=\"en\"><a rel=\"mw:WikiLink\" href=\"/wiki/rin#English\" title=\"rin\">rin</a></i></span></span><link rel=\"mw:PageProp/Category\" href=\"./Category:English_past_participles#RUN\" about=\"#mwt361\">"
+    }
+   ]
+  }
+ ],
+ "nl": [
+  {
+   "partOfSpeech": "Verb",
+   "language": "Dutch",
+   "definitions": [
+    {
+     "definition": "<span class=\"form-of-definition use-with-mention\" about=\"#mwt368\" typeof=\"mw:Transclusion\">inflection of <span class=\"form-of-definition-link\"><i class=\"Latn mention\" lang=\"nl\"><a rel=\"mw:WikiLink\" href=\"/wiki/runnen#Dutch\" title=\"runnen\">runnen</a></i></span>:</span><span about=\"#mwt368\">\n</span><ol about=\"#mwt368\"><li><span class=\"form-of-definition use-with-mention\"><a rel=\"mw:WikiLink\" href=\"/wiki/Appendix:Glossary#first_person\" title=\"Appendix:Glossary\">first-person</a> <a rel=\"mw:WikiLink\" href=\"/wiki/Appendix:Glossary#singular_number\" title=\"Appendix:Glossary\">singular</a> <a rel=\"mw:WikiLink\" href=\"/wiki/Appendix:Glossary#present_tense\" title=\"Appendix:Glossary\">present</a> <a rel=\"mw:WikiLink\" href=\"/wiki/Appendix:Glossary#indicative_mood\" title=\"Appendix:Glossary\">indicative</a></span></li>\n<li><span class=\"form-of-definition use-with-mention\">(in case of <a rel=\"mw:WikiLink\" href=\"/wiki/Appendix:Glossary#inversion\" title=\"Appendix:Glossary\">inversion</a>) <a rel=\"mw:WikiLink\" href=\"/wiki/Appendix:Glossary#second_person\" title=\"Appendix:Glossary\">second-person</a> <a rel=\"mw:WikiLink\" href=\"/wiki/Appendix:Glossary#singular_number\" title=\"Appendix:Glossary\">singular</a> <a rel=\"mw:WikiLink\" href=\"/wiki/Appendix:Glossary#present_tense\" title=\"Appendix:Glossary\">present</a> <a rel=\"mw:WikiLink\" href=\"/wiki/Appendix:Glossary#indicative_mood\" title=\"Appendix:Glossary\">indicative</a></span></li>\n<li><span class=\"form-of-definition use-with-mention\"><a rel=\"mw:WikiLink\" href=\"/wiki/Appendix:Glossary#imperative_mood\" title=\"Appendix:Glossary\">imperative</a></span></li></ol>"
+    },
+    {
+     "definition": "<span class=\"form-of-definition use-with-mention\"><a rel=\"mw:WikiLink\" href=\"/wiki/Appendix:Glossary#first_person\" title=\"Appendix:Glossary\">first-person</a> <a rel=\"mw:WikiLink\" href=\"/wiki/Appendix:Glossary#singular_number\" title=\"Appendix:Glossary\">singular</a> <a rel=\"mw:WikiLink\" href=\"/wiki/Appendix:Glossary#present_tense\" title=\"Appendix:Glossary\">present</a> <a rel=\"mw:WikiLink\" href=\"/wiki/Appendix:Glossary#indicative_mood\" title=\"Appendix:Glossary\">indicative</a></span>"
+    },
+    {
+     "definition": "<span class=\"form-of-definition use-with-mention\">(in case of <a rel=\"mw:WikiLink\" href=\"/wiki/Appendix:Glossary#inversion\" title=\"Appendix:Glossary\">inversion</a>) <a rel=\"mw:WikiLink\" href=\"/wiki/Appendix:Glossary#second_person\" title=\"Appendix:Glossary\">second-person</a> <a rel=\"mw:WikiLink\" href=\"/wiki/Appendix:Glossary#singular_number\" title=\"Appendix:Glossary\">singular</a> <a rel=\"mw:WikiLink\" href=\"/wiki/Appendix:Glossary#present_tense\" title=\"Appendix:Glossary\">present</a> <a rel=\"mw:WikiLink\" href=\"/wiki/Appendix:Glossary#indicative_mood\" title=\"Appendix:Glossary\">indicative</a></span>"
+    },
+    {
+     "definition": "<span class=\"form-of-definition use-with-mention\"><a rel=\"mw:WikiLink\" href=\"/wiki/Appendix:Glossary#imperative_mood\" title=\"Appendix:Glossary\">imperative</a></span>"
+    }
+   ]
+  }
+ ],
+ "es": [
+  {
+   "partOfSpeech": "Noun",
+   "language": "Spanish",
+   "definitions": [
+    {
+     "definition": "<span class=\"usage-label-sense\" about=\"#mwt431\" typeof=\"mw:Transclusion\"></span> <a rel=\"mw:WikiLink\" href=\"/wiki/armadillo\" title=\"armadillo\">armadillo</a>"
+    }
+   ]
+  }
+ ]
+}
