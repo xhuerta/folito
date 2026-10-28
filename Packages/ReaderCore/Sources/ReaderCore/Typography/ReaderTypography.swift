@@ -4,7 +4,8 @@ import Foundation
 /// the iPhone (edits it and mirrors it to the watch). Every field is clamped by `clamped()` and decoding
 /// is tolerant: unknown / missing / out-of-range values fall back to defaults instead of failing.
 public struct ReaderTypography: Codable, Equatable, Sendable {
-    public static let currentVersion = 1
+    /// 1: original fields. 2: `matchSystemTextSize` (missing in v1 data -> false).
+    public static let currentVersion = 2
 
     public enum FontFamily: String, Codable, CaseIterable, Sendable {
         /// SF Pro.
@@ -38,6 +39,9 @@ public struct ReaderTypography: Codable, Equatable, Sendable {
     public static let paragraphSpacingRange: ClosedRange<Double> = 2...28
     public static let headingScaleRange: ClosedRange<Double> = 0...2
     public static let trackingRange: ClosedRange<Double> = -1...2
+    /// Body size range once the system text size (Dynamic Type) is applied with `matchSystemTextSize`.
+    /// Wider than `fontSizeRange` so accessibility sizes can go beyond what the size stepper offers.
+    public static let systemScaledFontSizeRange: ClosedRange<Double> = 10...40
 
     // MARK: Defaults (reproduce the pre-typography look exactly)
 
@@ -62,6 +66,9 @@ public struct ReaderTypography: Codable, Equatable, Sendable {
     /// Letter spacing in points (negative = tighter). SwiftUI on watchOS has no hyphenation control.
     public var tracking: Double
     public var theme: Theme
+    /// Scale the reader's body size with the device's system text size (Dynamic Type). `fontSize` stays
+    /// the user's size at the default system text size. Added in version 2.
+    public var matchSystemTextSize: Bool
     /// Unix time of the last user change. Last writer wins when the phone and the watch disagree.
     public var stamp: Int
 
@@ -75,6 +82,7 @@ public struct ReaderTypography: Codable, Equatable, Sendable {
                 headingScale: Double = 1,
                 tracking: Double = 0,
                 theme: Theme = .dark,
+                matchSystemTextSize: Bool = false,
                 stamp: Int = 0) {
         self.version = Self.currentVersion
         self.fontFamily = fontFamily
@@ -87,6 +95,7 @@ public struct ReaderTypography: Codable, Equatable, Sendable {
         self.headingScale = headingScale
         self.tracking = tracking
         self.theme = theme
+        self.matchSystemTextSize = matchSystemTextSize
         self.stamp = stamp
         self = clamped()
     }
@@ -118,7 +127,7 @@ public struct ReaderTypography: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case version, fontFamily, fontSize, lineSpacing, horizontalMargin, paragraphSpacing
-        case alignment, boldText, headingScale, tracking, theme, stamp
+        case alignment, boldText, headingScale, tracking, theme, matchSystemTextSize, stamp
     }
 
     public init(from decoder: Decoder) throws {
@@ -142,6 +151,8 @@ public struct ReaderTypography: Codable, Equatable, Sendable {
         headingScale = number(.headingScale, d.headingScale)
         tracking = number(.tracking, d.tracking)
         theme = value(.theme, d.theme)
+        matchSystemTextSize = (try? c.decodeIfPresent(Bool.self, forKey: .matchSystemTextSize)).flatMap { $0 }
+            ?? d.matchSystemTextSize
         stamp = (try? c.decodeIfPresent(Int.self, forKey: .stamp)).flatMap { $0 } ?? 0
         self = clamped()
     }
@@ -211,6 +222,8 @@ extension ReaderTypography {
             t = ReaderTypography(fontFamily: .serif, fontSize: fontSize, lineSpacing: 2,
                                  horizontalMargin: 6, paragraphSpacing: 12, theme: .dim)
         }
+        // A preset is a look; whether text follows the system size is an accessibility choice, so keep it.
+        t.matchSystemTextSize = matchSystemTextSize
         t.stamp = stamp
         return t.clamped()
     }
@@ -255,13 +268,29 @@ extension BlockStyle {
 extension ReaderTypography {
     /// Style of a block under these settings. Pure; unit-tested.
     public func spec(for style: BlockStyle) -> BlockStyleSpec {
+        spec(for: style, accessibility: .none)
+    }
+
+    /// Body size after the system text size: `fontSize` unless `matchSystemTextSize` is on, in which case
+    /// it is scaled by `textScale` (system body size / default body size) within
+    /// `systemScaledFontSizeRange`. Rounded to 0.5 pt so tiny metric changes do not re-lay out the book.
+    public func effectiveFontSize(textScale: Double) -> Double {
+        let t = clamped()
+        guard t.matchSystemTextSize, textScale.isFinite, textScale > 0 else { return t.fontSize }
+        let scaled = Self.clamp(t.fontSize * textScale, Self.systemScaledFontSizeRange, fallback: t.fontSize)
+        return (scaled * 2).rounded() / 2
+    }
+
+    /// Style of a block under these settings and the device's accessibility settings. Pure; unit-tested.
+    public func spec(for style: BlockStyle, accessibility: ReaderAccessibility) -> BlockStyleSpec {
         let t = clamped()
         let heading = style.isHeading
         // headingScale stretches the *excess* over body size, so 0 flattens headings and 1 is the original.
         let scale = heading ? 1 + (style.baseScale - 1) * t.headingScale : 1
+        let body = t.effectiveFontSize(textScale: accessibility.textScale)
         return BlockStyleSpec(
-            pointSize: (t.fontSize * scale * 10).rounded() / 10,
-            bold: heading || t.boldText || t.theme == .highContrast,
+            pointSize: (body * scale * 10).rounded() / 10,
+            bold: heading || t.boldText || t.theme == .highContrast || accessibility.boldText,
             italic: style == .quote,
             indent: style == .quote ? 8 : 0,
             topPadding: heading ? 6 : 0,
@@ -276,8 +305,35 @@ extension ReaderTypography {
         let t = clamped()
         return [t.fontFamily.rawValue, "\(t.fontSize)", "\(t.lineSpacing)", "\(t.horizontalMargin)",
                 "\(t.paragraphSpacing)", t.alignment.rawValue, "\(t.boldText)", "\(t.headingScale)",
-                "\(t.tracking)", t.theme.rawValue].joined(separator: "|")
+                "\(t.tracking)", t.theme.rawValue, "\(t.matchSystemTextSize)"].joined(separator: "|")
     }
+}
+
+// MARK: - Accessibility inputs
+
+/// Device accessibility state that changes how the reader draws text. Platform-neutral so the mapping is
+/// unit-tested here; the apps fill it from the SwiftUI environment (Dynamic Type, Bold Text, Increase
+/// Contrast, Always On).
+public struct ReaderAccessibility: Equatable, Sendable {
+    /// System body text size divided by the default body size (1 = default Dynamic Type size). Only used
+    /// when `ReaderTypography.matchSystemTextSize` is on.
+    public var textScale: Double
+    /// System Bold Text setting.
+    public var boldText: Bool
+    /// System Increase Contrast setting: use the theme's high-contrast colours.
+    public var increaseContrast: Bool
+    /// Always On display with the wrist down (reduced luminance): dim, simplified colours.
+    public var luminanceReduced: Bool
+
+    public init(textScale: Double = 1, boldText: Bool = false, increaseContrast: Bool = false,
+                luminanceReduced: Bool = false) {
+        self.textScale = textScale
+        self.boldText = boldText
+        self.increaseContrast = increaseContrast
+        self.luminanceReduced = luminanceReduced
+    }
+
+    public static let none = ReaderAccessibility()
 }
 
 // MARK: - Theme colours
@@ -295,30 +351,71 @@ public struct ThemePalette: Equatable, Sendable {
             func lin(_ c: Double) -> Double { c <= 0.03928 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4) }
             return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
         }
+
+        /// WCAG 2.x contrast ratio between two colours (1...21, symmetric).
+        public static func contrast(_ x: RGB, _ y: RGB) -> Double {
+            let a = x.luminance, b = y.luminance
+            return (max(a, b) + 0.05) / (min(a, b) + 0.05)
+        }
     }
     public var background: RGB
     public var text: RGB
+    /// Quotes and other de-emphasised text.
     public var secondaryText: RGB
+    /// Tint for links and controls drawn over the reader background (e.g. the sync status glyph).
+    public var accent: RGB
 
     /// WCAG contrast ratio of text over background.
-    public var contrastRatio: Double {
-        let a = text.luminance, b = background.luminance
-        return (max(a, b) + 0.05) / (min(a, b) + 0.05)
-    }
+    public var contrastRatio: Double { RGB.contrast(text, background) }
+    public var secondaryContrastRatio: Double { RGB.contrast(secondaryText, background) }
+    public var accentContrastRatio: Double { RGB.contrast(accent, background) }
+
+    /// The dimmed palette used while the Always On display has reduced luminance: black background and
+    /// grey text whatever the theme (a light sepia page would light up the whole screen).
+    public static let alwaysOn = ThemePalette(background: .init(0, 0, 0), text: .init(hex: 0xA6A6A6),
+                                              secondaryText: .init(hex: 0x8C8C8C), accent: .init(hex: 0x6E9FCF))
 }
 
 extension ReaderTypography.Theme {
+    /// Watch accent colour (AccentColor asset, #4DA6FF): 8.2:1 on black.
+    private static let accentOnBlack = ThemePalette.RGB(hex: 0x4DA6FF)
+
     public var palette: ThemePalette {
         switch self {
         case .dark:
-            return ThemePalette(background: .init(0, 0, 0), text: .init(1, 1, 1), secondaryText: .init(0.85, 0.85, 0.85))
+            return ThemePalette(background: .init(0, 0, 0), text: .init(1, 1, 1),
+                                secondaryText: .init(0.85, 0.85, 0.85), accent: Self.accentOnBlack)
         case .dim:
-            return ThemePalette(background: .init(0, 0, 0), text: .init(hex: 0xB8B8B8), secondaryText: .init(hex: 0x9A9A9A))
+            return ThemePalette(background: .init(0, 0, 0), text: .init(hex: 0xB8B8B8),
+                                secondaryText: .init(hex: 0x9A9A9A), accent: .init(hex: 0x5A9BD8))
         case .sepia:
-            return ThemePalette(background: .init(hex: 0xF4ECD8), text: .init(hex: 0x3B2A1A), secondaryText: .init(hex: 0x5B4636))
+            return ThemePalette(background: .init(hex: 0xF4ECD8), text: .init(hex: 0x3B2A1A),
+                                secondaryText: .init(hex: 0x5B4636), accent: .init(hex: 0x0B4F8A))
         case .highContrast:
-            return ThemePalette(background: .init(0, 0, 0), text: .init(1, 1, 1), secondaryText: .init(1, 1, 1))
+            return ThemePalette(background: .init(0, 0, 0), text: .init(1, 1, 1),
+                                secondaryText: .init(1, 1, 1), accent: .init(hex: 0x8CC8FF))
         }
+    }
+
+    /// Variant used when the system Increase Contrast setting is on: same character (dark stays dark,
+    /// sepia stays sepia) with stronger text and accent colours.
+    public var increasedContrastPalette: ThemePalette {
+        switch self {
+        case .dark, .highContrast:
+            return ReaderTypography.Theme.highContrast.palette
+        case .dim:
+            return ThemePalette(background: .init(0, 0, 0), text: .init(hex: 0xE0E0E0),
+                                secondaryText: .init(hex: 0xCCCCCC), accent: .init(hex: 0x8CC8FF))
+        case .sepia:
+            return ThemePalette(background: .init(hex: 0xF4ECD8), text: .init(hex: 0x1C1209),
+                                secondaryText: .init(hex: 0x3B2A1A), accent: .init(hex: 0x063761))
+        }
+    }
+
+    /// Palette for the current accessibility state. Always On wins over Increase Contrast.
+    public func palette(for accessibility: ReaderAccessibility) -> ThemePalette {
+        if accessibility.luminanceReduced { return .alwaysOn }
+        return accessibility.increaseContrast ? increasedContrastPalette : palette
     }
 
     public var title: String {

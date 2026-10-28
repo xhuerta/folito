@@ -62,6 +62,22 @@ final class TypographyModel: ObservableObject {
         return true
     }
 
+    /// Style for the device's current accessibility state (Dynamic Type, Bold Text, Increase Contrast,
+    /// Always On). Cached for the last state so calling it from `body` on every scroll update is cheap.
+    func style(for accessibility: ReaderAccessibility) -> ReaderRenderStyle {
+        if accessibility == .none { return style }
+        if let cached = accessibleStyleCache, cached.accessibility == accessibility,
+           cached.typography == style.typography {
+            return cached
+        }
+        let made = ReaderRenderStyle(value, accessibility: accessibility)
+        accessibleStyleCache = made
+        return made
+    }
+
+    /// Not `@Published`: a cache, filled lazily while rendering.
+    private var accessibleStyleCache: ReaderRenderStyle?
+
     func binding<V>(_ keyPath: WritableKeyPath<ReaderTypography, V>) -> Binding<V> {
         Binding(get: { self.value[keyPath: keyPath] },
                 set: { newValue in self.update { $0[keyPath: keyPath] = newValue } })

@@ -5,62 +5,128 @@ import ReaderCore
 /// Changes are pushed to the watch through the settings channel (see docs/WATCH_CONNECTIVITY.md).
 struct TypographySettingsView: View {
     @ObservedObject var typography: TypographyModel
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var confirmReset = false
 
     var body: some View {
         Form {
-            Section("Preview") {
-                // Roughly the width of a 45 mm watch screen.
+            Section {
+                // Content, not chrome: rendered at the reader's own font size and theme colours, at roughly
+                // the width of a 45 mm watch screen, exactly as the watch shows it.
                 TypographyPreview(typography: typography.value)
                     .frame(width: 184)
                     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                     .frame(maxWidth: .infinity)
                     .listRowBackground(Color.clear)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Reading preview")
+                    .accessibilityValue(ReadingSettingsText.previewSummary(typography.value))
+                    .accessibilityIdentifier("typographyPreview")
+            } header: {
+                Text("Preview").systemSecondaryText()
             }
-            Section("Presets") {
-                ScrollView(.horizontal, showsIndicators: false) {
+            Section {
+                ScrollView(.horizontal) {
                     HStack {
                         ForEach(ReaderTypography.Preset.allCases, id: \.self) { preset in
-                            Button(preset.title) { typography.apply(preset) }.buttonStyle(.bordered)
+                            Button(ReadingSettingsText.name(preset)) { typography.apply(preset) }
+                                .buttonStyle(.bordered)
+                                .accessibilityHint("Applies this reading style.")
                         }
                     }
+                    .padding(.vertical, 4)
                 }
+                .scrollIndicators(.hidden)
+            } header: {
+                Text("Presets").systemSecondaryText()
             }
-            Section("Font") {
-                Picker("Font", selection: typography.binding(\.fontFamily)) {
-                    ForEach(ReaderTypography.FontFamily.allCases, id: \.self) { Text($0.title).tag($0) }
+            Section {
+                adaptivePicker("Font", selection: typography.binding(\.fontFamily),
+                               options: ReaderTypography.FontFamily.allCases) { ReadingSettingsText.name($0) }
+                slider("Size", typography.binding(\.fontSize), ReaderTypography.fontSizeRange, 1) {
+                    DisplayFormat.points($0)
                 }
-                .pickerStyle(.segmented)
-                slider("Size", typography.binding(\.fontSize), ReaderTypography.fontSizeRange, 1) { "\(Int($0)) pt" }
-                Toggle("Bold text", isOn: typography.binding(\.boldText))
-                slider("Headings", typography.binding(\.headingScale), ReaderTypography.headingScaleRange, 0.25) { "\(Int(($0 * 100).rounded()))%" }
-                slider("Letter spacing", typography.binding(\.tracking), ReaderTypography.trackingRange, 0.25) { String(format: "%+.2f", $0) }
-            }
-            Section("Layout") {
-                slider("Line spacing", typography.binding(\.lineSpacing), ReaderTypography.lineSpacingRange, 1) { "\(Int($0))" }
-                slider("Paragraph gap", typography.binding(\.paragraphSpacing), ReaderTypography.paragraphSpacingRange, 2) { "\(Int($0))" }
-                slider("Margins", typography.binding(\.horizontalMargin), ReaderTypography.horizontalMarginRange, 2) { "\(Int($0))" }
-                Picker("Alignment", selection: typography.binding(\.alignment)) {
-                    ForEach(ReaderTypography.Alignment.allCases, id: \.self) { Text($0.title).tag($0) }
+                Toggle("Bold Text", isOn: typography.binding(\.boldText))
+                slider("Headings", typography.binding(\.headingScale), ReaderTypography.headingScaleRange, 0.25) {
+                    DisplayFormat.percent($0)
                 }
-                .pickerStyle(.segmented)
+                slider("Letter Spacing", typography.binding(\.tracking), ReaderTypography.trackingRange, 0.25) {
+                    DisplayFormat.signedPoints($0)
+                }
+            } header: {
+                Text("Font").systemSecondaryText()
             }
-            Section("Theme") {
+            Section {
+                slider("Line Spacing", typography.binding(\.lineSpacing), ReaderTypography.lineSpacingRange, 1) {
+                    DisplayFormat.points($0)
+                }
+                slider("Paragraph Spacing", typography.binding(\.paragraphSpacing), ReaderTypography.paragraphSpacingRange, 2) {
+                    DisplayFormat.points($0)
+                }
+                slider("Margins", typography.binding(\.horizontalMargin), ReaderTypography.horizontalMarginRange, 2) {
+                    DisplayFormat.points($0)
+                }
+                adaptivePicker("Alignment", selection: typography.binding(\.alignment),
+                               options: ReaderTypography.Alignment.allCases) { ReadingSettingsText.name($0) }
+            } header: {
+                Text("Layout").systemSecondaryText()
+            }
+            Section {
                 Picker("Theme", selection: typography.binding(\.theme)) {
-                    ForEach(ReaderTypography.Theme.allCases, id: \.self) { Text($0.title).tag($0) }
+                    ForEach(ReaderTypography.Theme.allCases, id: \.self) { Text(ReadingSettingsText.name($0)).tag($0) }
                 }
+            } header: {
+                Text("Theme").systemSecondaryText()
             }
-            Section(footer: Text("Justified text and automatic hyphenation are not available in SwiftUI on watchOS. Changes are sent to the watch; if you also change them on the watch, the most recent change wins.")) {
-                Button("Reset to defaults", role: .destructive) { typography.reset() }
+            Section {
+                Button("Reset to Defaults", role: .destructive) { confirmReset = true }
+            } footer: {
+                Text("Justified text and automatic hyphenation aren’t available on Apple Watch. Changes are sent to your watch; if you also change them on the watch, the most recent change wins.").systemSecondaryText()
             }
         }
         .navigationTitle("Reading")
+        .confirmationDialog("Reset all reading settings to their defaults?", isPresented: $confirmReset,
+                            titleVisibility: .visible) {
+            Button("Reset to Defaults", role: .destructive) { typography.reset() }
+            Button("Cancel", role: .cancel) {}
+        }
     }
 
-    private func slider(_ title: String, _ value: Binding<Double>, _ range: ClosedRange<Double>, _ step: Double,
-                        _ format: @escaping (Double) -> String) -> some View {
+    /// Segmented control at normal text sizes; a menu at accessibility sizes, where segments would truncate.
+    @ViewBuilder
+    private func adaptivePicker<Value: Hashable>(_ title: LocalizedStringKey, selection: Binding<Value>,
+                                                 options: [Value], name: @escaping (Value) -> String) -> some View {
+        let picker = Picker(title, selection: selection) {
+            ForEach(options, id: \.self) { Text(name($0)).tag($0) }
+        }
+        if dynamicTypeSize.isAccessibilitySize {
+            picker.pickerStyle(.menu)
+        } else {
+            picker.pickerStyle(.segmented)
+        }
+    }
+
+    /// Title and current value above the slider (stacked at accessibility sizes). VoiceOver reads the
+    /// slider once, as "title, value", and adjusts it by swiping up or down.
+    private func slider(_ title: LocalizedStringKey, _ value: Binding<Double>, _ range: ClosedRange<Double>,
+                        _ step: Double, _ format: @escaping (Double) -> String) -> some View {
         VStack(alignment: .leading) {
-            HStack { Text(title); Spacer(); Text(format(value.wrappedValue)).foregroundStyle(.secondary) }
-            Slider(value: value, in: range, step: step)
+            ViewThatFits(in: .horizontal) {
+                HStack {
+                    Text(title)
+                    Spacer()
+                    Text(format(value.wrappedValue)).foregroundStyle(.secondaryText)
+                }
+                VStack(alignment: .leading) {
+                    Text(title)
+                    Text(format(value.wrappedValue)).foregroundStyle(.secondaryText)
+                }
+            }
+            .accessibilityHidden(true)
+            Slider(value: value, in: range, step: step) {
+                Text(title)
+            }
+            .accessibilityValue(format(value.wrappedValue))
         }
     }
 }

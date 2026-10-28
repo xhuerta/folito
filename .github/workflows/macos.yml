@@ -64,11 +64,14 @@ jobs:
           echo "iOS simulator: $UDID"
           [ -n "$UDID" ] || { xcrun simctl list devices available; exit 1; }
           rm -rf ios-tests.xcresult
+          # Unit tests only; the accessibility-audit UI tests run in accessibility.yml (not PR-blocking).
           xcodebuild test \
             -project WristReader.xcodeproj \
             -scheme WristReader \
             -destination "id=$UDID" \
+            -skip-testing:WristReaderUITests \
             -clonedSourcePackagesDirPath SourcePackages \
+            -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
             -resultBundlePath ios-tests.xcresult \
             CODE_SIGNING_ALLOWED=NO 2>&1 | tee ios-tests.log
 
@@ -112,6 +115,7 @@ jobs:
             -scheme WristReaderWatch \
             -destination "id=$UDID" \
             -clonedSourcePackagesDirPath SourcePackages \
+            -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
             -resultBundlePath watch-tests.xcresult \
             CODE_SIGNING_ALLOWED=NO 2>&1 | tee watch-tests.log
 
