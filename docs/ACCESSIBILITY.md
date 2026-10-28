@@ -247,7 +247,7 @@ builds ignore them):
   transfer from the iPhone would be (LZFSE-compressed JSON).
 
 CI runs them in `macos.yml` (step "watchOS accessibility UI tests") on the watch unit tests' simulator and
-uploads `watch-uitests.xcresult` when the job fails. Locally:
+always uploads `watch-uitests.xcresult`. Locally:
 
 ```sh
 xcodegen generate
