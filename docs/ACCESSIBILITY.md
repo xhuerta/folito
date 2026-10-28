@@ -80,6 +80,10 @@ xcodebuild test -project WristReader.xcodeproj -scheme WristReader \
 | Element | Audit type | Why it is accepted |
 |---|---|---|
 | Reading preview (`typographyPreview`) | Dynamic Type, Contrast, Text clipped | It is content, not chrome: it renders the book text exactly as the watch will, at the reader's chosen point size and theme colours (for example the *Dim* theme). Scaling it with Dynamic Type would make the preview wrong. Its accessibility value describes the settings in words. |
+| Secondary text (author line, file size, list footers, `LabeledContent` values) | Contrast, only the "Contrast nearly passed" finding | It uses the system's semantic secondary label colour (`.secondary`), as the HIG recommends for supporting text; it adapts to Dark Mode and Increase Contrast. The audit reports it as *nearly* passed, not failed. Any "Contrast failed" finding still fails the test. Every finding (accepted or not) is printed in the CI log with its element. |
+
+The audit runs one audit type at a time (all the types `.all` covers), because a single `.all` audit of a
+screen can exceed XCTest's internal time limit on slower CI simulators; a timed-out type is retried once.
 
 Anything else the audit reports fails the test. If a new finding must be accepted, add it to
 `isAccepted(_:)` *and* to this table with the reason.

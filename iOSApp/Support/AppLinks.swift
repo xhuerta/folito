@@ -2,12 +2,20 @@ import Foundation
 
 /// Every external link the iPhone app shows. Single source of truth: change them here only.
 enum AppLinks {
-    // TODO(owner): replace with the published privacy policy URL before submitting to App Review
-    // (guideline 5.1.1(i): the same URL must be entered in App Store Connect). Source: docs/site/privacy.html.
-    static let privacyPolicy = URL(string: "https://example.com/wristreader/privacy")!
+    /// Support site, published from docs/site to the public repo xhuerta/wristreader-site (GitHub Pages).
+    static let site = URL(string: "https://xhuerta.github.io/wristreader-site/")!
 
-    // TODO(owner): replace with the real support page (App Store Connect "Support URL").
-    static let support = URL(string: "https://example.com/wristreader/support")!
+    /// Same URL as App Store Connect's privacy policy field (guideline 5.1.1(i)).
+    static var privacyPolicy: URL { page("privacy.html") }
+
+    /// App Store Connect "Support URL".
+    static var support: URL { page("support.html") }
+
+    /// Spanish speakers get the translated pages under es/; everyone else the English ones.
+    static func page(_ name: String, languageCode: String? = Locale.preferredLanguages.first) -> URL {
+        let spanish = languageCode.map { Locale(identifier: $0).language.languageCode == .spanish } ?? false
+        return site.appending(path: spanish ? "es/\(name)" : name)
+    }
 }
 
 /// App version and build as shown in Settings > About.

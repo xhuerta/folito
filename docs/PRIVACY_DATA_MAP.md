@@ -15,22 +15,26 @@ Only two code paths use `URLSession`; there are no other networking APIs (no Web
 ### 1a. KOReader Sync (KOSync) server: user-supplied, optional
 
 Code: `Packages/ReaderCore/Sources/ReaderCore/Sync/KOSync.swift` (`KOSyncClient`, `URLSession.shared`).
-Used by the iPhone app (connection test / account creation in Settings) and by the watch app (progress sync).
+Used by the iPhone app (connection test in Settings) and by the watch app (progress sync). Neither app
+creates accounts: the user registers with their server elsewhere (e.g. in KOReader), so `POST /users/create`
+is never called (`KOSyncClient.createUser()` exists in ReaderCore only for protocol completeness and tests).
 
 | Item | Sent | Notes |
 |---|---|---|
 | Server URL | n/a (destination) | Typed by the user. `https://` by default; plain `http://` only works for local-network hosts (ATS `NSAllowsLocalNetworking`: IP addresses, `*.local`, dotless names). |
-| Username | yes, as header `x-auth-user` (and in the body of `POST /users/create`) | Entered by the user. |
-| Password | **no, never in clear.** Only its lowercase MD5 hex, header `x-auth-key` (body field `password` of `POST /users/create`) | This is the KOReader sync protocol's required auth key. |
+| Username | yes, as header `x-auth-user` | Entered by the user. |
+| Password | **no, never in clear.** Only its lowercase MD5 hex, header `x-auth-key` | This is the KOReader sync protocol's required auth key. |
 | Book identifier | yes, `document` | KOReader "partial MD5" of the EPUB file (a hash, not the file, title or text). |
 | Reading position | yes, `progress` (XPointer string) and `percentage` | Per book. |
 | Device name / ID | yes, `device` = constant "WristReader", `device_id` = random UUID generated on first launch and stored in UserDefaults | Not derived from hardware identifiers; not the advertising ID or vendor ID. |
 | Timestamp | no | Server-assigned. |
 
-Endpoints: `GET /users/auth`, `POST /users/create`, `PUT /syncs/progress`, `GET /syncs/progress/{document}`.
+Endpoints: `GET /users/auth`, `PUT /syncs/progress`, `GET /syncs/progress/{document}`.
 Recipient: whichever server the user configured (self-hosted or a third-party KOSync-compatible service the
 user chose). The developer is not a party. The server operator sees the user's IP address and the data above.
-Without a configured server, nothing is sent. The watch queues unsent progress locally (UserDefaults) and retries.
+Sync is optional. Without a configured server, nothing is sent and nothing is queued. With one, the watch
+queues unsent progress locally (UserDefaults) and retries; turning sync off on the iPhone removes the
+credentials from both devices and drops the watch's queue.
 
 ### 1b. Dictionary lookups: public APIs, on user action only
 
