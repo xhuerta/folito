@@ -125,6 +125,10 @@ watchOS no permite seleccionar texto en `Text` ni mostrar el diccionario del sis
 - Si el reloj aún no tenía la app instalada, no se pierde nada: los ajustes de sincronización y los libros pendientes se reenvían automáticamente cuando la sesión se activa, la app del reloj se instala, cambia la conectividad o abres la app del iPhone. El reloj informa de qué libros tiene, de modo que se reenvían los que falten.
 - La app expone su carpeta de documentos en la app Archivos (`UIFileSharingEnabled`).
 
+## Idiomas
+
+Las apps del iPhone y del reloj están traducidas a inglés (idioma base), español, francés, alemán, italiano, portugués de Brasil, japonés y chino simplificado, con String Catalogs de Xcode (`Localizable.xcstrings` e `InfoPlist.xcstrings` en `iOSApp/Resources` y `WatchApp/Resources`). `python3 scripts/check_strings.py` (también en la CI de Linux) comprueba que no falte ninguna traducción; cómo añadir textos o idiomas en [docs/LOCALIZATION.md](docs/LOCALIZATION.md).
+
 ## Limitaciones
 
 - La granularidad de la posición es el **inicio del párrafo** (XPointer): al sincronizar con KOReader/Readest se llega al párrafo, no a la palabra o línea exacta.
