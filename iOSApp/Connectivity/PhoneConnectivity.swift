@@ -16,6 +16,8 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
     var onTransferFinished: ((String) -> Void)?
     /// Saved sync settings to mirror on the watch (nil when not configured). Read on the main queue.
     var settingsProvider: (() -> WatchSettings?)?
+    /// Stamp of the "sync turned off" action while no credentials are saved (nil = never turned off).
+    var clearedStampProvider: (() -> Int?)?
     /// Typography to mirror on the watch (stamp 0 = never changed, nothing is sent). Read on the main queue.
     var typographyProvider: (() -> ReaderTypography)?
     /// The watch published a typography copy (applied by the owner only if its stamp is newer).
@@ -77,7 +79,8 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
     func sendSettings(_ settings: WatchSettings?, typography: ReaderTypography?) {
         guard canSend, let session else { return }
         let kosync = settings.map { (server: $0.server, user: $0.user, password: $0.password, stamp: $0.stamp) }
-        guard let info = WatchSchema.settingsContext(kosync: kosync, typography: typography) else { return }
+        let cleared = settings == nil ? clearedStampProvider?() : nil
+        guard let info = WatchSchema.settingsContext(kosync: kosync, clearedStamp: cleared, typography: typography) else { return }
         do { try session.updateApplicationContext(info) }
         catch { lastError = "Could not send settings: \(error.localizedDescription)" }
     }

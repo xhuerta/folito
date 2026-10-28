@@ -17,7 +17,11 @@ struct LibraryView: View {
             }
             Section("Books") {
                 if library.entries.isEmpty {
-                    Text("No books yet. Tap + to import an EPUB.").foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("No books yet").font(.headline)
+                        Text("WristReader works offline with your own EPUB files. Tap + to import one, or open an EPUB from Files or the share sheet. It is sent to your Apple Watch automatically.")
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 ForEach(library.entries) { entry in
                     row(entry)

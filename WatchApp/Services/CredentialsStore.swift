@@ -50,10 +50,19 @@ enum CredentialsStore {
                               password: KeychainStore.get(Key.password))
     }
 
-    /// Applies a dictionary from `transferUserInfo`; only keys that are present are updated.
+    /// Phone -> watch "sync turned off" marker (see docs/WATCH_CONNECTIVITY.md).
+    static let clearedKey = "kosync_cleared"
+
+    static func isClearRequest(_ userInfo: [String: Any]) -> Bool {
+        (userInfo[clearedKey] as? Bool) == true
+    }
+
+    /// Applies a dictionary from the settings channel; only keys that are present are updated.
+    /// An explicit cleared marker wins over any credential keys and removes all of them.
     /// Returns true when anything changed.
     @discardableResult
     static func apply(userInfo: [String: Any]) -> Bool {
+        if isClearRequest(userInfo) { clear(); return true }
         var changed = false
         for key in [Key.server, Key.user, Key.password] {
             if let value = userInfo[key] as? String {

@@ -3,6 +3,14 @@
 // Base bundle id of the iPhone app. The watch app appends ".watchkitapp".
 WR_BUNDLE_ID = com.example.wristreader
 
+// User-visible app name (home screen / App Store). Override in Config/Local.xcconfig if needed.
+WR_APP_NAME = WristReader
+
+// Version shown in the App Store, and the build number. CI overrides both on the xcodebuild
+// command line, e.g. `xcodebuild ... CURRENT_PROJECT_VERSION=$GITHUB_RUN_NUMBER`.
+MARKETING_VERSION = 0.1.0
+CURRENT_PROJECT_VERSION = 1
+
 // Empty by default so CI and fresh clones build unsigned.
 DEVELOPMENT_TEAM =
 

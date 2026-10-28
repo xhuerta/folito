@@ -30,6 +30,7 @@ dictionary with `transferUserInfo`; the watch accepts both.
 | `kosync_server` | String, base URL (default `https://sync.koreader.rocks`) |
 | `kosync_user` | String |
 | `kosync_password` | String, plain password |
+| `kosync_cleared` | Bool `true`, only when the user turned sync off on the phone (see below); never together with the three keys above |
 | `settingsStamp` | Int, Unix time of the user's last Save on the phone (optional) |
 | `typography` | String, JSON-encoded `ReaderTypography` (optional, see "Typography") |
 | `typographyStamp` | Int, `ReaderTypography.stamp` (optional, same value as inside the JSON) |
@@ -37,6 +38,19 @@ dictionary with `transferUserInfo`; the watch accepts both.
 The KOSync keys are omitted when no valid credentials are saved; a context may therefore carry only
 `type` + typography. Each `updateApplicationContext` replaces the previous context, so the phone always
 sends the full state (credentials + typography).
+
+Sync is optional. With no credentials saved and the user never having turned sync off, the context carries no
+KOSync keys at all, and the watch makes no sync requests and queues no progress.
+
+**Cleared state.** "Turn off sync and remove credentials" on the phone deletes its Keychain items and sends
+`{ type: "settings", kosync_cleared: true, settingsStamp: <clear time> }` (plus typography as usual). The clear
+stamp is `max(now, previous stamp + 1)`, so it is strictly newer than the last save. The watch, on a
+`kosync_cleared == true` context whose stamp passes the usual newer-than check, removes its Keychain
+credentials, empties its pending-progress queue and hides all sync UI. Older watch builds ignore the unknown
+key and keep their credentials (no breakage). The phone keeps resending the cleared state (same stamp, so it
+is applied once) until credentials are saved again; saving uses a stamp newer than the clear, which
+re-provisions the watch. The watch can also remove its credentials locally (Settings > Remove credentials);
+that does not notify the phone, and the phone's resend is ignored because its stamp was already applied.
 
 The phone does not rely on a single send at Save time. It re-runs `syncWatchState()` (settings + unsent
 books) on: session activation, `sessionWatchStateDidChange` (e.g. `isWatchAppInstalled` becoming true),
