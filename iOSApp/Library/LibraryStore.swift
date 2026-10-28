@@ -6,7 +6,8 @@ import ReaderCore
 final class LibraryStore: ObservableObject {
     @Published private(set) var entries: [LibraryEntry] = []
     @Published private(set) var isImporting = false
-    @Published var errorMessage: String?
+    /// The last import problem, presented as an alert by the Library screen.
+    @Published var importError: UserFacingError?
 
     private let parser: EPUBParsing
     private let fm = FileManager.default
@@ -36,13 +37,13 @@ final class LibraryStore: ObservableObject {
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
         let temp = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".epub")
+        let name = url.lastPathComponent
         do {
             try fm.copyItem(at: url, to: temp)
         } catch {
-            errorMessage = "Could not read the file: \(error.localizedDescription)"
+            importError = .fileUnreadable(fileName: name)
             return
         }
-        let name = url.lastPathComponent
         isImporting = true
         let parser = self.parser
         let dir = booksDirectory
@@ -52,7 +53,7 @@ final class LibraryStore: ObservableObject {
                 let result = try LibraryStore.process(epub: temp, originalName: name, parser: parser, into: dir)
                 await self.finishImport(result)
             } catch {
-                await self.failImport(error)
+                await self.failImport(error, fileName: name)
             }
         }
     }
@@ -78,10 +79,26 @@ final class LibraryStore: ObservableObject {
         onImported?(entry)
     }
 
-    private func failImport(_ error: Error) {
+    private func failImport(_ error: Error, fileName: String) {
         isImporting = false
-        errorMessage = "Import failed: \(error.localizedDescription)"
+        importError = .importFailed(fileName: fileName, error: error)
     }
+
+    #if DEBUG
+    /// UI testing only (see UITestingSupport): adds an already-converted book without the import pipeline.
+    func addForUITesting(_ book: ProcessedBook, fileName: String) throws {
+        let data = try BookCodec.encode(book)
+        let payload = LibraryEntry.fileName(forHash: book.documentHash)
+        try data.write(to: booksDirectory.appendingPathComponent(payload), options: .atomic)
+        let entry = LibraryEntry(documentHash: book.documentHash,
+                                 title: BookDisplay.title(book.metadata.title, fallbackFileName: fileName),
+                                 author: BookDisplay.author(from: book.metadata.authors),
+                                 fileName: payload, size: data.count, importedAt: Date(), sentToWatch: false)
+        entries.removeAll { $0.documentHash == entry.documentHash }
+        entries.insert(entry, at: 0)
+        save()
+    }
+    #endif
 
     // MARK: Mutations
 
