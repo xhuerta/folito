@@ -11,17 +11,17 @@ struct SettingsView: View {
                     SyncSettingsView(settings: settings)
                 } label: {
                     LabeledContent {
-                        if settings.isSyncOn { Text("On") } else { Text("Off") }
+                        if settings.isSyncOn { Text("On").systemSecondaryText() } else { Text("Off").systemSecondaryText() }
                     } label: {
                         Label("Progress Sync", systemImage: "arrow.triangle.2.circlepath")
                     }
                 }
                 .accessibilityIdentifier("syncSettingsLink")
             } footer: {
-                Text("Optional. Continue the same book in KOReader and other compatible reading apps.")
+                Text("Optional. Continue the same book in KOReader and other compatible reading apps.").systemSecondaryText()
             }
 
-            Section("About") {
+            Section {
                 Link(destination: AppLinks.privacyPolicy) {
                     Label("Privacy Policy", systemImage: "hand.raised")
                 }
@@ -30,12 +30,16 @@ struct SettingsView: View {
                     Label("Support", systemImage: "questionmark.circle")
                 }
                 .accessibilityHint("Opens in your web browser.")
-                LabeledContent("Version", value: AppVersion.displayString())
+                LabeledContent("Version") {
+                    Text(verbatim: AppVersion.displayString()).systemSecondaryText()
+                }
                 NavigationLink {
                     AcknowledgementsView()
                 } label: {
                     Label("Acknowledgements", systemImage: "doc.text")
                 }
+            } header: {
+                Text("About").systemSecondaryText()
             }
         }
         .navigationTitle("Settings")
@@ -51,11 +55,15 @@ struct AcknowledgementsView: View {
                     NavigationLink {
                         LicenseView(component: component)
                     } label: {
-                        LabeledContent(component.name, value: component.license)
+                        LabeledContent {
+                            Text(verbatim: component.license).systemSecondaryText()
+                        } label: {
+                            Text(verbatim: component.name)
+                        }
                     }
                 }
             } footer: {
-                Text("WristReader uses these open-source components. Tap one to read its licence.")
+                Text("WristReader uses these open-source components. Tap one to read its licence.").systemSecondaryText()
             }
         }
         .navigationTitle("Acknowledgements")
@@ -79,7 +87,7 @@ struct LicenseView: View {
                         .textSelection(.enabled)
                 } else {
                     Text("The licence text is missing from this build. It is available on the project’s website.")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.secondaryText)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

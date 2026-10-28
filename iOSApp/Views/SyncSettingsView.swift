@@ -13,17 +13,17 @@ struct SyncSettingsView: View {
                         .font(.headline)
                     Text("Reading progress is synced with the server below.")
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.secondaryText)
                 } else {
                     Label("Sync is off", systemImage: "icloud.slash")
                         .font(.headline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.secondaryText)
                     Text("WristReader works fully without an account. Sync is optional: it only lets you continue the same book on other readers.")
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.secondaryText)
                 }
             } footer: {
-                Text("Works with any KOReader Sync-compatible server, for example KOReader’s, Readest’s or one you host yourself. Sync stays off until you save a username and password.")
+                Text("Works with any KOReader Sync-compatible server, for example KOReader’s, Readest’s or one you host yourself. Sync stays off until you save a username and password.").systemSecondaryText()
             }
 
             Section {
@@ -44,13 +44,13 @@ struct SyncSettingsView: View {
                 }
             } header: {
                 if settings.isSyncOn {
-                    Text("Server")
+                    Text("Server").systemSecondaryText()
                 } else {
-                    Text("Optional: Connect a Sync Server")
+                    Text("Optional: Connect a Sync Server").systemSecondaryText()
                 }
             } footer: {
                 // App Review 5.1.1(v): the app does not create accounts (KOSync cannot delete them).
-                Text("Use an account you already have. To get one, create it on the sync server itself, for example in KOReader (Tools › Progress sync › Register) or on your own server.")
+                Text("Use an account you already have. To get one, create it on the sync server itself, for example in KOReader (Tools › Progress sync › Register) or on your own server.").systemSecondaryText()
             }
 
             Section {
@@ -68,7 +68,7 @@ struct SyncSettingsView: View {
                     HStack(spacing: 8) {
                         ProgressView()
                         Text("Contacting server…")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.secondaryText)
                     }
                     .accessibilityElement(children: .combine)
                 }
@@ -85,13 +85,13 @@ struct SyncSettingsView: View {
                 Section {
                     Button("Turn Off Sync and Remove Login", role: .destructive) { confirmTurnOff = true }
                 } footer: {
-                    Text("Removes the login from this iPhone and from your Apple Watch, and clears progress waiting to sync. Your books and reading positions are kept.")
+                    Text("Removes the login from this iPhone and from your Apple Watch, and clears progress waiting to sync. Your books and reading positions are kept.").systemSecondaryText()
                 }
             }
 
             Section {
             } footer: {
-                Text("The password is stored in the iPhone Keychain. Once you turn sync on, it is also sent to your paired Apple Watch and stored in the watch’s own Keychain, so the watch can sync on its own. Use a password you don’t use anywhere else; KOReader Sync only sends its MD5 hash.")
+                Text("The password is stored in the iPhone Keychain. Once you turn sync on, it is also sent to your paired Apple Watch and stored in the watch’s own Keychain, so the watch can sync on its own. Use a password you don’t use anywhere else; KOReader Sync only sends its MD5 hash.").systemSecondaryText()
             }
         }
         .navigationTitle("Progress Sync")
@@ -119,7 +119,7 @@ private struct StatusLabel: View {
             TintedLabel(verbatim: status.text, systemImage: "exclamationmark.triangle.fill", tint: .red)
                 .accessibilityLabel(Text("Error: \(status.text)"))
         case .info:
-            TintedLabel(verbatim: status.text, systemImage: "info.circle", tint: .secondary)
+            TintedLabel(verbatim: status.text, systemImage: "info.circle", tint: .secondaryText)
         }
     }
 }

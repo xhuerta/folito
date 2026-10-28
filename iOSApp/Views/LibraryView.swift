@@ -18,17 +18,19 @@ struct LibraryView: View {
                     ContentUnavailableView {
                         Label("No Books", systemImage: "books.vertical")
                     } description: {
-                        Text("Import an EPUB file to read it on your Apple Watch. You can also open EPUB files from the Files app or the share sheet. Books are sent to your watch automatically.")
+                        Text("Import an EPUB file to read it on your Apple Watch. You can also open EPUB files from the Files app or the share sheet. Books are sent to your watch automatically.").systemSecondaryText()
                     } actions: {
                         Button("Import EPUB") { showImporter = true }
                             .disabled(library.isImporting)
                     }
                 }
             } else {
-                Section("Books") {
+                Section {
                     ForEach(library.entries) { entry in
                         row(entry)
                     }
+                } header: {
+                    Text("Books").systemSecondaryText()
                 }
             }
         }
@@ -122,17 +124,17 @@ private struct BookRow: View {
                 .font(.headline)
             Text(entry.author)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.secondaryText)
             let layout = dynamicTypeSize.isAccessibilitySize
                 ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
                 : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 12))
             layout {
                 TintedLabel(verbatim: state.text, systemImage: state.systemImage,
-                            tint: state == .onWatch ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+                            tint: state == .onWatch ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondaryText))
                 Text(DisplayFormat.fileSize(entry.size))
             }
             .font(.footnote)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(.secondaryText)
         }
         .padding(.vertical, 2)
     }
@@ -151,7 +153,7 @@ private struct WatchStatusSection: View {
                 ContentUnavailableView {
                     Label("No Apple Watch", systemImage: "applewatch.slash")
                 } description: {
-                    Text("Pair an Apple Watch with this iPhone to read on your wrist. Books you import stay here and are sent once a watch is paired.")
+                    Text("Pair an Apple Watch with this iPhone to read on your wrist. Books you import stay here and are sent once a watch is paired.").systemSecondaryText()
                 }
             }
         case .appNotInstalled:
@@ -159,7 +161,7 @@ private struct WatchStatusSection: View {
                 ContentUnavailableView {
                     Label("WristReader Isn’t on Your Apple Watch", systemImage: "applewatch")
                 } description: {
-                    Text("Open the Watch app on this iPhone, find WristReader under Available Apps and tap Install. Your books are sent automatically once it’s installed.")
+                    Text("Open the Watch app on this iPhone, find WristReader under Available Apps and tap Install. Your books are sent automatically once it’s installed.").systemSecondaryText()
                 }
             }
         case .ready(let reachable):
@@ -171,7 +173,7 @@ private struct WatchStatusSection: View {
                 }
             }
             .font(.footnote)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(.secondaryText)
         }
     }
 }

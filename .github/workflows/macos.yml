@@ -63,15 +63,15 @@ jobs:
           print(c[-1]['udid'] if c else '')")
           echo "iOS simulator: $UDID"
           [ -n "$UDID" ] || { xcrun simctl list devices available; exit 1; }
-          echo "IOS_SIM_UDID=$UDID" >> "$GITHUB_ENV"
           rm -rf ios-tests.xcresult
-          # Unit tests only; the accessibility-audit UI tests run in their own step below.
+          # Unit tests only; the accessibility-audit UI tests run in accessibility.yml (not PR-blocking).
           xcodebuild test \
             -project WristReader.xcodeproj \
             -scheme WristReader \
             -destination "id=$UDID" \
             -skip-testing:WristReaderUITests \
             -clonedSourcePackagesDirPath SourcePackages \
+            -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
             -resultBundlePath ios-tests.xcresult \
             CODE_SIGNING_ALLOWED=NO 2>&1 | tee ios-tests.log
 
@@ -115,6 +115,7 @@ jobs:
             -scheme WristReaderWatch \
             -destination "id=$UDID" \
             -clonedSourcePackagesDirPath SourcePackages \
+            -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
             -resultBundlePath watch-tests.xcresult \
             CODE_SIGNING_ALLOWED=NO 2>&1 | tee watch-tests.log
 
@@ -152,32 +153,3 @@ jobs:
           path: |
             iOSApp/Resources/*.xcstrings
             WatchApp/Resources/*.xcstrings
-
-      # Accessibility audits (WristReaderUITests) on the same iPhone simulator. Runs last and even when an
-      # earlier step failed, so audit findings never hide the unit-test results (and vice versa).
-      - name: iOS accessibility audit (UI tests)
-        if: always() && env.IOS_SIM_UDID != ''
-        run: |
-          set -o pipefail
-          rm -rf ios-uitests.xcresult
-          xcodebuild test \
-            -project WristReader.xcodeproj \
-            -scheme WristReader \
-            -destination "id=$IOS_SIM_UDID" \
-            -only-testing:WristReaderUITests \
-            -clonedSourcePackagesDirPath SourcePackages \
-            -resultBundlePath ios-uitests.xcresult \
-            CODE_SIGNING_ALLOWED=NO 2>&1 | tee ios-uitests.log
-
-      - name: iOS accessibility audit summary
-        if: always() && env.IOS_SIM_UDID != ''
-        run: |
-          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:|Accepted accessibility audit issue|Accessibility audit issue|Accessibility audit timed out" ios-uitests.log || true
-          xcrun xcresulttool get test-results summary --path ios-uitests.xcresult || true
-
-      - name: Upload iOS accessibility audit xcresult
-        if: always() && env.IOS_SIM_UDID != ''
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-uitests-xcresult
-          path: ios-uitests.xcresult
