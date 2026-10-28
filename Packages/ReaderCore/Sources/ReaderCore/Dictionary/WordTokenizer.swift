@@ -83,6 +83,14 @@ public struct WordContext: Equatable, Sendable {
     public let hasMoreBefore: Bool
     public let hasMoreAfter: Bool
 
+    public init(before: String, word: String, after: String, hasMoreBefore: Bool, hasMoreAfter: Bool) {
+        self.before = before
+        self.word = word
+        self.after = after
+        self.hasMoreBefore = hasMoreBefore
+        self.hasMoreAfter = hasMoreAfter
+    }
+
     /// `radius` words on each side, taken verbatim from `text` (punctuation between words is kept).
     public static func make(text: String, tokens: [WordToken], index: Int, radius: Int = 4) -> WordContext? {
         guard tokens.indices.contains(index) else { return nil }
