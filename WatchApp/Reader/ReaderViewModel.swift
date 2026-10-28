@@ -43,6 +43,10 @@ final class ReaderViewModel: ObservableObject {
         let start = saved.flatMap { flat.flatIndex(for: $0.position) } ?? 0
         self.startIndex = start
         self.currentIndex = start
+        // Merely opening a book must not PUT its (possibly 0%) start position: if the open-time GET
+        // failed or the user declined the remote offer, that would overwrite real remote progress.
+        // Only report once the reader actually moves.
+        self.lastReportedIndex = start
     }
 
     var documentHash: String { book.documentHash }

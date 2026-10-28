@@ -25,6 +25,12 @@ enum SyncErrorClassifier {
         }
         return .error
     }
+
+    /// True for HTTP 4xx answers (other than 401/408/429) that retrying cannot fix.
+    static func isPermanentRejection(_ error: Error) -> Bool {
+        guard case KOSyncError.server(let status)? = error as? KOSyncError else { return false }
+        return (400..<500).contains(status) && ![401, 408, 429].contains(status)
+    }
 }
 
 /// Thin sync layer for the watch: conflict check on open, debounced offline-tolerant pushes.
@@ -42,6 +48,7 @@ final class SyncCoordinator: ObservableObject {
     private let debounce: TimeInterval
     private var debounceTask: Task<Void, Never>?
     private var isFlushing = false
+    private var flushAgain = false
 
     init(device: DeviceIdentity = DeviceIdentity(),
          pending: PendingProgressStore = PendingProgressStore(),
@@ -110,23 +117,35 @@ final class SyncCoordinator: ObservableObject {
 
     /// Pushes every pending entry; stops at the first failure and keeps the rest for a later retry.
     func flushPending() async {
-        guard !isFlushing else { return }
+        // A report that arrives mid-flush (e.g. leaving the book) must not be skipped until the next
+        // 60 s tick: remember it and run another pass when the current one ends.
+        guard !isFlushing else { flushAgain = true; return }
         guard let client = client() else { return }
-        let items = pending.all()
-        guard !items.isEmpty else { return }
         isFlushing = true
-        status = .syncing
         defer { isFlushing = false }
-        for item in items {
-            do {
-                try await client.pushProgress(item)
-                pending.remove(item)
-            } catch {
-                status = SyncErrorClassifier.status(for: error)
-                return
+        repeat {
+            flushAgain = false
+            let items = pending.all()
+            guard !items.isEmpty else { return }
+            status = .syncing
+            for item in items {
+                do {
+                    try await client.pushProgress(item)
+                    pending.remove(item)
+                } catch {
+                    if SyncErrorClassifier.isPermanentRejection(error) {
+                        // The server will never accept this entry (e.g. HTTP 403): drop it so it
+                        // does not block progress for other books, and keep going.
+                        pending.remove(item)
+                        status = .error
+                        continue
+                    }
+                    status = SyncErrorClassifier.status(for: error)
+                    return
+                }
             }
-        }
-        status = .idle
+            status = .idle
+        } while flushAgain
     }
 
     var hasPending: Bool { !pending.isEmpty }
