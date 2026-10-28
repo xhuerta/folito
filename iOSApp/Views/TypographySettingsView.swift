@@ -10,7 +10,7 @@ struct TypographySettingsView: View {
 
     var body: some View {
         Form {
-            Section("Preview") {
+            Section {
                 // Content, not chrome: rendered at the reader's own font size and theme colours, at roughly
                 // the width of a 45 mm watch screen, exactly as the watch shows it.
                 TypographyPreview(typography: typography.value)
@@ -22,6 +22,8 @@ struct TypographySettingsView: View {
                     .accessibilityLabel("Reading preview")
                     .accessibilityValue(ReadingSettingsText.previewSummary(typography.value))
                     .accessibilityIdentifier("typographyPreview")
+            } header: {
+                Text("Preview").systemSecondaryText()
             }
             Section {
                 ScrollView(.horizontal) {
@@ -36,9 +38,9 @@ struct TypographySettingsView: View {
                 }
                 .scrollIndicators(.hidden)
             } header: {
-                Text("Presets")
+                Text("Presets").systemSecondaryText()
             }
-            Section("Font") {
+            Section {
                 adaptivePicker("Font", selection: typography.binding(\.fontFamily),
                                options: ReaderTypography.FontFamily.allCases) { ReadingSettingsText.name($0) }
                 slider("Size", typography.binding(\.fontSize), ReaderTypography.fontSizeRange, 1) {
@@ -51,8 +53,10 @@ struct TypographySettingsView: View {
                 slider("Letter Spacing", typography.binding(\.tracking), ReaderTypography.trackingRange, 0.25) {
                     DisplayFormat.signedPoints($0)
                 }
+            } header: {
+                Text("Font").systemSecondaryText()
             }
-            Section("Layout") {
+            Section {
                 slider("Line Spacing", typography.binding(\.lineSpacing), ReaderTypography.lineSpacingRange, 1) {
                     DisplayFormat.points($0)
                 }
@@ -64,16 +68,20 @@ struct TypographySettingsView: View {
                 }
                 adaptivePicker("Alignment", selection: typography.binding(\.alignment),
                                options: ReaderTypography.Alignment.allCases) { ReadingSettingsText.name($0) }
+            } header: {
+                Text("Layout").systemSecondaryText()
             }
-            Section("Theme") {
+            Section {
                 Picker("Theme", selection: typography.binding(\.theme)) {
                     ForEach(ReaderTypography.Theme.allCases, id: \.self) { Text(ReadingSettingsText.name($0)).tag($0) }
                 }
+            } header: {
+                Text("Theme").systemSecondaryText()
             }
             Section {
                 Button("Reset to Defaults", role: .destructive) { confirmReset = true }
             } footer: {
-                Text("Justified text and automatic hyphenation aren’t available on Apple Watch. Changes are sent to your watch; if you also change them on the watch, the most recent change wins.")
+                Text("Justified text and automatic hyphenation aren’t available on Apple Watch. Changes are sent to your watch; if you also change them on the watch, the most recent change wins.").systemSecondaryText()
             }
         }
         .navigationTitle("Reading")
@@ -107,11 +115,11 @@ struct TypographySettingsView: View {
                 HStack {
                     Text(title)
                     Spacer()
-                    Text(format(value.wrappedValue)).foregroundStyle(.secondary)
+                    Text(format(value.wrappedValue)).foregroundStyle(.secondaryText)
                 }
                 VStack(alignment: .leading) {
                     Text(title)
-                    Text(format(value.wrappedValue)).foregroundStyle(.secondary)
+                    Text(format(value.wrappedValue)).foregroundStyle(.secondaryText)
                 }
             }
             .accessibilityHidden(true)

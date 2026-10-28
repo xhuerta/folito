@@ -33,12 +33,19 @@ final class AccessibilityAuditTests: XCTestCase {
     @MainActor
     private func audit(_ app: XCUIApplication) throws {
         for type in Self.auditTypes {
-            do {
-                try auditOnce(app, type)
-            } catch let error as NSError where error.domain == "com.apple.xcode.xctest.accessibilityAudit" && error.code == -56 {
-                // Timed out (simulator busy); retry this one type once, then let a second timeout fail the test.
-                print("Accessibility audit timed out for type \(type.rawValue); retrying once")
-                try auditOnce(app, type)
+            var attempt = 1
+            while true {
+                do {
+                    try auditOnce(app, type)
+                    break
+                } catch let error as NSError
+                            where error.domain == "com.apple.xcode.xctest.accessibilityAudit" && error.code == -56 && attempt < 3 {
+                    // "Audit failed to complete in time" (busy CI simulator): not a finding. Let the app settle and
+                    // run this one type again; a third timeout fails the test.
+                    print("Accessibility audit timed out for type \(type.rawValue) (attempt \(attempt)); retrying")
+                    attempt += 1
+                    Thread.sleep(forTimeInterval: 3)
+                }
             }
         }
     }
@@ -47,29 +54,55 @@ final class AccessibilityAuditTests: XCTestCase {
     private func auditOnce(_ app: XCUIApplication, _ type: XCUIAccessibilityAuditType) throws {
         try app.performAccessibilityAudit(for: type) { issue in
             let accepted = Self.isAccepted(issue)
-            let element = issue.element
-            print("Accessibility audit issue (\(accepted ? "accepted" : "FAILS")): type=\(issue.auditType.rawValue) "
-                  + "\"\(issue.compactDescription)\" element=\(element?.elementType.rawValue ?? 0) "
-                  + "id=\(element?.identifier ?? "<none>") label=\(element?.label ?? "<none>")")
-            if accepted {
-                print("Accepted accessibility audit issue: \(issue.compactDescription) on \(element?.identifier ?? "<no element>")")
-            }
+            Self.log(issue, accepted: accepted, in: app)
             return accepted // true = ignore this issue; false = report it as a test failure
         }
     }
 
+    /// Prints every finding with its element, frame (and the tab bar's, which content can scroll under) and,
+    /// for contrast findings, the contrast measured from a screenshot of the element, so the CI log shows
+    /// exactly what was found and why.
+    @MainActor
+    private static func log(_ issue: XCUIAccessibilityAuditIssue, accepted: Bool, in app: XCUIApplication) {
+        let element = issue.element
+        var line = "Accessibility audit issue (\(accepted ? "accepted" : "FAILS")): type=\(issue.auditType.rawValue) "
+            + "\"\(issue.compactDescription)\" element=\(element?.elementType.rawValue ?? 0) "
+            + "id=\(element?.identifier ?? "<none>") label=\(element?.label ?? "<none>")"
+        if let element, element.exists {
+            line += " frame=\(element.frame) tabBar=\(app.tabBars.firstMatch.exists ? "\(app.tabBars.firstMatch.frame)" : "-")"
+            if issue.auditType == .contrast, let measured = ContrastProbe.measure(element) {
+                line += " measured=\(measured)"
+            }
+            if !accepted {
+                let attachment = XCTAttachment(screenshot: app.screenshot())
+                attachment.name = "\(issue.compactDescription): \(element.label)"
+                attachment.lifetime = .keepAlways
+                XCTContext.runActivity(named: "Audit finding") { $0.add(attachment) }
+            }
+        }
+        line += " detail=\"\(issue.detailedDescription)\""
+        print(line)
+    }
+
+    /// Identifier of text drawn in a colour chosen by a system component (section header/footer, `LabeledContent`
+    /// value, `ContentUnavailableView` description). Keep in sync with `SystemSecondaryText.identifier`.
+    private static let systemSecondaryTextID = "systemSecondaryText"
+
     /// Findings we accept on purpose (each one is explained in docs/ACCESSIBILITY.md, "Accepted audit findings").
     @MainActor
     private static func isAccepted(_ issue: XCUIAccessibilityAuditIssue) -> Bool {
+        let id = issue.element?.identifier
         // The reading preview is content, not chrome: it is drawn at the reader's own point size and theme
         // colours (exactly what the watch shows), so it neither follows Dynamic Type nor the system contrast.
-        if issue.element?.identifier == "typographyPreview",
+        if id == "typographyPreview",
            issue.auditType == .dynamicType || issue.auditType == .contrast || issue.auditType == .textClipped {
             return true
         }
-        // Secondary text uses the system's semantic secondary label colour (HIG), which the audit reports as
-        // "Contrast nearly passed". A real contrast failure ("Contrast failed") is still reported.
-        if issue.auditType == .contrast, issue.compactDescription == "Contrast nearly passed" {
+        // Text whose colour the system chooses (secondaryLabel in section headers/footers, LabeledContent values,
+        // ContentUnavailableView descriptions) is reported as "nearly passed". Only that finding, and only on
+        // those elements; text the app colours itself uses `.secondaryText` (>= 4.5:1) and must pass.
+        if id == systemSecondaryTextID, issue.auditType == .contrast,
+           issue.compactDescription == "Contrast nearly passed" {
             return true
         }
         return false
