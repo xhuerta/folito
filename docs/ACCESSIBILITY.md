@@ -43,12 +43,21 @@ title/value rows use `ViewThatFits`, and the segmented *Font*/*Alignment* picker
 text is never line-limited. The reading preview is content: it intentionally uses the reader's own font
 size (the one sent to the watch) and keeps a fixed watch-like width.
 
-**Colour and contrast.** Only semantic system colours (`.primary`, `.secondary`, `.green`, `.orange`,
-`.red`, `.tint`) and the AccentColor are used in UI chrome; the only hard-coded colours are the reader
-themes in the preview (shared with the watch). Coloured status labels colour only the symbol; the text
-stays primary/secondary, because coloured text such as system green on white falls below 4.5:1.
-Increase Contrast, Reduce Transparency, Bold Text, Smart Invert and Dark Mode are handled by the system
-components; nothing overrides them. There are no custom animations, so Reduce Motion needs no special
+**Colour and contrast.** UI chrome uses system colours (`.primary`, `.green`, `.orange`, `.red`, `.tint`),
+the AccentColor and one app colour for supporting text, `secondaryText` (`iOSApp/Views/SecondaryText.swift`).
+The system's `secondaryLabel` is a 60% gray that measures about 3.5:1 on white and 3.2:1 on the grouped
+background, below WCAG AA's 4.5:1 for text at footnote/subheadline sizes, so every piece of text the app
+colours itself (author line, file size and watch state in library rows, slider values, the sync explanations,
+the watch connection note) uses `secondaryText` instead: opaque system grays, #636366 in light mode (5.3:1 on
+the grouped background, 6.0:1 on white) and #AEAEB2 in dark mode (at least 6:1 on every dark background),
+#48484A / #D1D1D6 with Increase Contrast. `SecondaryTextContrastTests` checks ≥ 4.5:1 against every system
+background in light/dark, normal/increased contrast, base/elevated. Text whose colour a system component
+chooses (section headers and footers, `LabeledContent` values, `ContentUnavailableView` descriptions) keeps
+the system's colour, like in Apple's apps; see "Accepted audit findings". The only hard-coded colours besides
+these are the reader themes in the preview (shared with the watch). Coloured status labels colour only the
+symbol; the text stays primary or `secondaryText`, because coloured text such as system green on white falls
+below 4.5:1. Increase Contrast, Reduce Transparency, Bold Text, Smart Invert and Dark Mode are handled by the
+system components; nothing overrides them. There are no custom animations, so Reduce Motion needs no special
 handling (any future custom animation must check `accessibilityReduceMotion`).
 
 **Localizability.** Every user-facing string is a `LocalizedStringKey` literal or goes through
@@ -59,9 +68,22 @@ handling (any future custom animation must check `accessibilityReduceMotion`).
 ### Automated audit
 
 `WristReaderUITests` (`iOSApp/UITests/AccessibilityAuditTests.swift`) launches the app and calls
-`XCUIApplication.performAccessibilityAudit(for: .all)` on: the empty library, a library with one book,
-Settings, Progress Sync, Acknowledgements and Reading. It runs in CI (`macos.yml`, step "iOS accessibility
-audit") on the same iPhone simulator as the unit tests.
+`XCUIApplication.performAccessibilityAudit` on: the empty library, a library with one book, Settings,
+Progress Sync, Acknowledgements and Reading.
+
+**When it runs.** The audit drives the simulator screen by screen and takes 10–30 minutes on CI, so it is not
+part of the PR-blocking macOS workflow and not a required check. It has its own workflow,
+`.github/workflows/accessibility.yml` ("Accessibility audit"), which runs:
+- on every push to `main`;
+- manually: GitHub › Actions › *Accessibility audit* › *Run workflow* (choose the branch);
+- on a pull request that has the label `accessibility` (when the label is added, and on every later push
+  while it is set). Add the label to PRs that change UI.
+
+Each test has a time limit (`-test-timeouts-enabled YES`, 180 s by default, 300 s at most) and the job stops
+after 30 minutes, so a hung simulator fails the run instead of stalling it. The job always prints the
+findings and uploads `ios-accessibility-xcresult`. The fast, deterministic accessibility checks (for example
+`SecondaryTextContrastTests` and the reader palette contrast tests in ReaderCore) are unit tests and still run
+on every PR.
 
 Launch arguments (handled only in Debug builds, see `iOSApp/Support/UITestingSupport.swift`):
 - `-UITesting`: the library uses a fresh temporary directory (starts empty; the real library is untouched).
@@ -80,10 +102,15 @@ xcodebuild test -project WristReader.xcodeproj -scheme WristReader \
 | Element | Audit type | Why it is accepted |
 |---|---|---|
 | Reading preview (`typographyPreview`) | Dynamic Type, Contrast, Text clipped | It is content, not chrome: it renders the book text exactly as the watch will, at the reader's chosen point size and theme colours (for example the *Dim* theme). Scaling it with Dynamic Type would make the preview wrong. Its accessibility value describes the settings in words. |
-| Secondary text (author line, file size, list footers, `LabeledContent` values) | Contrast, only the "Contrast nearly passed" finding | It uses the system's semantic secondary label colour (`.secondary`), as the HIG recommends for supporting text; it adapts to Dark Mode and Increase Contrast. The audit reports it as *nearly* passed, not failed. Any "Contrast failed" finding still fails the test. Every finding (accepted or not) is printed in the CI log with its element. |
+| System-coloured secondary text: section headers ("Books", "About", "Preview", "Presets", "Font", "Layout", "Theme", "Server"), section footers, `LabeledContent` values ("On"/"Off", the version, licence names) and `ContentUnavailableView` descriptions ("No Apple Watch", "No Books") | Contrast, only "Contrast nearly passed" | The system draws these in its semantic `secondaryLabel` (about 3.5:1 on white, 3.2:1 on the grouped background); the app does not choose the colour, and it follows Dark Mode and Increase Contrast. Each of these texts is marked with `.systemSecondaryText()`, which only sets the accessibility identifier `systemSecondaryText`; the test accepts the finding only on elements with that identifier. A "Contrast failed" finding on them, or any contrast finding on text the app colours itself, still fails the test. |
+
+Every finding (accepted or not) is printed in the CI log ("Accessibility audit issue (accepted|FAILS)") with
+its element, frame, the audit's detailed description and, for contrast findings, the contrast measured from
+a screenshot of the element; findings that fail also attach a screenshot to the result bundle.
 
 The audit runs one audit type at a time (all the types `.all` covers), because a single `.all` audit of a
-screen can exceed XCTest's internal time limit on slower CI simulators; a timed-out type is retried once.
+screen can exceed XCTest's internal time limit on slower CI simulators; a timed-out type is run again, up to
+three attempts (a timeout is not a finding).
 
 Anything else the audit reports fails the test. If a new finding must be accepted, add it to
 `isAccepted(_:)` *and* to this table with the reason.
@@ -246,8 +273,10 @@ builds ignore them):
 - `-UITestingSeedSampleBook`: the same, plus one tiny built-in public-domain sample book, stored exactly as a
   transfer from the iPhone would be (LZFSE-compressed JSON).
 
-CI runs them in `macos.yml` (step "watchOS accessibility UI tests") on the watch unit tests' simulator and
-always uploads `watch-uitests.xcresult`. Locally:
+CI runs them in `accessibility.yml` (job `watch`, in parallel with the iOS audit; same triggers: push to `main`,
+manual run from the Actions tab, PRs labelled `accessibility`; see "Automated audit" in the iOS section). They
+are not part of the PR-blocking macOS workflow. Per-test time limits and a 30-minute job timeout stop a hung
+simulator, and the job always prints the findings and uploads `watch-accessibility-xcresult`. Locally:
 
 ```sh
 xcodegen generate

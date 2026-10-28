@@ -11,11 +11,17 @@ nothing external; the checks in this document are gated by environment variables
 | KOSync integration | Linux, service container | job `kosync-integration` (`KOSYNC_TEST_URL`) | see section 1 |
 | iOS app tests (`WristReaderTests`: LogicTests, TypographySyncTests) | macOS runner, iPhone simulator | `xcodebuild test -scheme WristReader` | 16 |
 | watchOS app tests (`WristReaderWatchTests`: LogicTests, TypographyDictionaryTests) | macOS runner, Apple Watch simulator | `xcodebuild test -scheme WristReaderWatch -skip-testing:WristReaderWatchUITests` | 42 |
-| watchOS accessibility UI tests (`WristReaderWatchUITests`: audit + label / trait / AX5 checks) | macOS runner, same Apple Watch simulator | `xcodebuild test -scheme WristReaderWatch -only-testing:WristReaderWatchUITests` | not yet run |
+| iOS accessibility audit (`WristReaderUITests`) | macOS runner, iPhone simulator; **not on every PR** (see below) | `accessibility.yml`, `xcodebuild test -scheme WristReader -only-testing:WristReaderUITests` | 5 |
+| watchOS accessibility UI tests (`WristReaderWatchUITests`: audit + label / trait / AX5 checks) | macOS runner, Apple Watch simulator; **not on every PR** (see below) | `accessibility.yml`, `xcodebuild test -scheme WristReaderWatch -only-testing:WristReaderWatchUITests` | 15 |
 
-The macOS job uploads `ios-tests.xcresult` / `watch-tests.xcresult` as artifacts (and `watch-uitests.xcresult` when
-the job fails) and prints a per-case summary. The watch UI tests are described in `docs/ACCESSIBILITY.md`
-(Apple Watch, *Automated checks*).
+The macOS workflow (`macos.yml`, PR-blocking) builds and runs only unit tests (`-skip-testing:WristReaderUITests`,
+`-skip-testing:WristReaderWatchUITests`), with per-test time limits (`-test-timeouts-enabled YES`, 180 s default /
+300 s maximum). The accessibility UI tests are slow, so they run in `accessibility.yml` (iOS and watch jobs in
+parallel) on pushes to `main`, manually (Actions › *Accessibility audit* › *Run workflow*) and on PRs labelled
+`accessibility`; it is not a required check. Details in [ACCESSIBILITY.md](ACCESSIBILITY.md#automated-audit).
+
+The macOS job uploads `ios-tests.xcresult` / `watch-tests.xcresult` as artifacts and prints a per-case summary. The
+watch UI tests are described in `docs/ACCESSIBILITY.md` (Apple Watch, *Automated checks*).
 Notes on the watch bundle: the watch app's `PRODUCT_NAME` is `WristReader`, so `TEST_HOST`/`BUNDLE_LOADER` are set
 explicitly in `project.yml`; the app also sets `WKRunsIndependentlyOfCompanionApp` so it can be installed on a watch
 simulator without a paired iPhone (otherwise the test host fails to launch: "Unknown application display identifier").

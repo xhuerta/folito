@@ -141,4 +141,4 @@ cd Packages/ReaderCore
 swift test
 ```
 
-CI en GitHub Actions: `.github/workflows/linux.yml` (tests de `ReaderCore` en `swift:6.0`) y `.github/workflows/macos.yml` (XcodeGen, tests de `ReaderCore` y ejecución real de los tests de la app iOS y watchOS en simuladores, sin firma; se suben los `.xcresult` como artefactos). Qué se ejecuta dónde: [docs/TESTING.md](docs/TESTING.md). Más detalles de planes futuros en [ROADMAP.md](ROADMAP.md).
+CI en GitHub Actions: `.github/workflows/linux.yml` (tests de `ReaderCore` en `swift:6.0`) y `.github/workflows/macos.yml` (XcodeGen, tests de `ReaderCore` y ejecución real de los tests de la app iOS y watchOS en simuladores, sin firma; se suben los `.xcresult` como artefactos) y `.github/workflows/accessibility.yml` (auditoría de accesibilidad con UI tests, lenta: en cada push a `main`, a mano desde Actions o en PRs con la etiqueta `accessibility`; no bloquea los PRs). Qué se ejecuta dónde: [docs/TESTING.md](docs/TESTING.md). Más detalles de planes futuros en [ROADMAP.md](ROADMAP.md).

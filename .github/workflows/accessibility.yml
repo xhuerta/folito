@@ -1,0 +1,169 @@
+name: Accessibility audit
+
+# Xcode's automated accessibility audit (XCUIApplication.performAccessibilityAudit) in UI tests, for the iPhone
+# app (job ios) and the watch app (job watch, plus label / trait / largest-text-size checks), in parallel. It drives the
+# simulator screen by screen and is slow (10-30 minutes), so it is NOT part of the PR-blocking macOS workflow
+# and not a required check. The fast, deterministic accessibility checks (contrast, labels, formatting) are unit
+# tests and still run on every PR in macos.yml / linux.yml. See docs/TESTING.md and docs/ACCESSIBILITY.md.
+#
+# Runs on:
+#  * every push to main;
+#  * manually: Actions tab > "Accessibility audit" > Run workflow (any branch);
+#  * a pull request labelled `accessibility` (when the label is added and on every later push while it is set).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  pull_request:
+    types: [labeled, synchronize]
+
+concurrency:
+  group: accessibility-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.action == 'labeled' && github.event.label.name == 'accessibility') ||
+      (github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'accessibility'))
+    # Same runner as macos.yml: the arm64 pool is capacity-constrained; set MACOS_RUNNER to override.
+    runs-on: ${{ vars.MACOS_RUNNER || 'macos-15-intel' }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swift-package-manager
+            SourcePackages
+          key: spm-a11y-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Packages/ReaderCore/Package.swift', 'Packages/ReaderCore/Package.resolved') }}
+          restore-keys: spm-a11y-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      # Per-test time limits make a hung audit fail that test instead of stalling the job.
+      - name: iOS accessibility audit (WristReaderUITests)
+        timeout-minutes: 25
+        run: |
+          set -o pipefail
+          UDID=$(xcrun simctl list devices available -j | python3 -c "
+          import json,sys
+          d=json.load(sys.stdin)['devices']
+          c=[x for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone')]
+          print(c[-1]['udid'] if c else '')")
+          echo "iOS simulator: $UDID"
+          [ -n "$UDID" ] || { xcrun simctl list devices available; exit 1; }
+          xcodebuild test \
+            -project WristReader.xcodeproj \
+            -scheme WristReader \
+            -destination "id=$UDID" \
+            -only-testing:WristReaderUITests \
+            -clonedSourcePackagesDirPath SourcePackages \
+            -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
+            -resultBundlePath ios-uitests.xcresult \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee ios-uitests.log
+
+      - name: Findings summary
+        if: always()
+        run: |
+          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:|Accessibility audit issue|Accessibility audit timed out" ios-uitests.log || true
+          xcrun xcresulttool get test-results summary --path ios-uitests.xcresult || true
+
+      - name: Upload xcresult
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-accessibility-xcresult
+          path: ios-uitests.xcresult
+          if-no-files-found: ignore
+
+  watch:
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.action == 'labeled' && github.event.label.name == 'accessibility') ||
+      (github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'accessibility'))
+    runs-on: ${{ vars.MACOS_RUNNER || 'macos-15-intel' }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swift-package-manager
+            SourcePackages
+          key: spm-a11y-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Packages/ReaderCore/Package.swift', 'Packages/ReaderCore/Package.resolved') }}
+          restore-keys: spm-a11y-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      # Audit + label / trait / largest-text-size checks (WatchApp/UITests). Per-test time limits make a hung
+      # test fail instead of stalling the job.
+      - name: watchOS accessibility UI tests (WristReaderWatchUITests)
+        timeout-minutes: 25
+        run: |
+          set -o pipefail
+          UDID=$(xcrun simctl list devices available -j | python3 -c "
+          import json,sys
+          d=json.load(sys.stdin)['devices']
+          c=[x for k,v in d.items() if 'watchOS' in k for x in v if x['name'].startswith('Apple Watch')]
+          print(c[-1]['udid'] if c else '')")
+          if [ -z "$UDID" ]; then
+            RT=$(xcrun simctl list runtimes available -j | python3 -c "
+          import json,sys
+          r=[x['identifier'] for x in json.load(sys.stdin)['runtimes'] if x['identifier'].split('.')[-1].startswith('watchOS')]
+          print(r[-1] if r else '')")
+            DT=$(xcrun simctl list devicetypes -j | python3 -c "
+          import json,sys
+          t=[x['identifier'] for x in json.load(sys.stdin)['devicetypes'] if 'Apple-Watch' in x['identifier']]
+          print(t[-1] if t else '')")
+            echo "creating watch simulator: $DT / $RT"
+            UDID=$(xcrun simctl create "CI Watch" "$DT" "$RT")
+          fi
+          echo "watchOS simulator: $UDID"
+          xcodebuild test \
+            -project WristReader.xcodeproj \
+            -scheme WristReaderWatch \
+            -destination "id=$UDID" \
+            -only-testing:WristReaderWatchUITests \
+            -clonedSourcePackagesDirPath SourcePackages \
+            -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
+            -resultBundlePath watch-uitests.xcresult \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee watch-uitests.log
+
+      - name: Findings summary
+        if: always()
+        run: |
+          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:|Accessibility audit issue|Accessibility audit timed out" watch-uitests.log || true
+          xcrun xcresulttool get test-results summary --path watch-uitests.xcresult || true
+
+      - name: Upload xcresult
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: watch-accessibility-xcresult
+          path: watch-uitests.xcresult
+          if-no-files-found: ignore
