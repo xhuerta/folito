@@ -5,10 +5,22 @@ import WatchConnectivity
 /// Wire names (see docs/WATCH_CONNECTIVITY.md on the iOS branch):
 ///  - file metadata keys: documentHash, title, author, size; payload = LZFSE-compressed ProcessedBook JSON
 ///  - userInfo keys: kosync_server, kosync_user, kosync_password
-///  - `delete_book` (userInfo or message): value = documentHash
+///  - delete: `{ type: "delete_book", documentHash: <hash> }` (userInfo or message)
 /// WCSessionDelegate callbacks arrive on a background queue; all heavy work is hopped off the main actor.
 final class ConnectivityReceiver: NSObject, WCSessionDelegate {
-    static let deleteKey = "delete_book"
+    static let typeKey = "type"
+    static let deleteType = "delete_book"
+    static let documentHashKey = "documentHash"
+
+    /// Hash of the book to delete, per docs/WATCH_CONNECTIVITY.md (`type == "delete_book"` + `documentHash`).
+    /// Also accepts the legacy shape `{ "delete_book": <hash> }`.
+    static func deleteHash(from info: [String: Any]) -> String? {
+        if (info[typeKey] as? String) == deleteType, let hash = info[documentHashKey] as? String, !hash.isEmpty {
+            return hash
+        }
+        if let hash = info[deleteType] as? String, !hash.isEmpty { return hash }
+        return nil
+    }
 
     private let library: BookLibrary
     private let onSettingsChanged: @MainActor () -> Void
@@ -52,7 +64,7 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
 
     private func handle(_ info: [String: Any]) {
         let changed = CredentialsStore.apply(userInfo: info)
-        let deleteHash = info[Self.deleteKey] as? String
+        let deleteHash = Self.deleteHash(from: info)
         let library = self.library
         let notify = onSettingsChanged
         Task { @MainActor in

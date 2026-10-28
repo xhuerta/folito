@@ -137,6 +137,22 @@ final class MiscLogicTests: XCTestCase {
         XCTAssertEqual(SyncErrorClassifier.status(for: URLError(.badServerResponse)), .error)
     }
 
+    func testPermanentRejection() {
+        XCTAssertTrue(SyncErrorClassifier.isPermanentRejection(KOSyncError.server(status: 403)))
+        XCTAssertFalse(SyncErrorClassifier.isPermanentRejection(KOSyncError.server(status: 429)))
+        XCTAssertFalse(SyncErrorClassifier.isPermanentRejection(KOSyncError.server(status: 502)))
+        XCTAssertFalse(SyncErrorClassifier.isPermanentRejection(KOSyncError.unauthorized))
+        XCTAssertFalse(SyncErrorClassifier.isPermanentRejection(KOSyncError.offline))
+    }
+
+    func testDeleteMessageSchema() {
+        // Shape sent by the iPhone (WatchSchema.deleteBook) and the legacy shape.
+        XCTAssertEqual(ConnectivityReceiver.deleteHash(from: ["type": "delete_book", "documentHash": "abc"]), "abc")
+        XCTAssertEqual(ConnectivityReceiver.deleteHash(from: ["delete_book": "abc"]), "abc")
+        XCTAssertNil(ConnectivityReceiver.deleteHash(from: ["type": "settings", "documentHash": "abc"]))
+        XCTAssertNil(ConnectivityReceiver.deleteHash(from: ["type": "delete_book"]))
+    }
+
     func testSafeName() {
         XCTAssertEqual(BookStorage.safeName("ab12/../x"), "ab12____x")
     }
