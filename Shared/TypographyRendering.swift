@@ -20,15 +20,21 @@ extension ThemePalette.RGB {
     var color: Color { Color(.sRGB, red: r, green: g, blue: b, opacity: 1) }
 }
 
-/// Everything the block views need, derived once per typography change (fonts are built here, not per
-/// block per render). Equality is by `ReaderTypography.renderKey`, so unrelated state changes do not
-/// invalidate block views.
+/// Everything the block views need, derived once per typography / accessibility change (fonts are built
+/// here, not per block per render). Equality is by `key` (`ReaderTypography.renderKey` plus the
+/// accessibility state), so unrelated state changes do not invalidate block views.
 struct ReaderRenderStyle: Equatable {
     let key: String
+    /// Part of `key` that changes line breaks (sizes, weights, spacing). Colour-only changes such as Always
+    /// On or Increase Contrast keep it, so the reader does not need to re-anchor its scroll position.
+    let layoutKey: String
     let typography: ReaderTypography
+    let accessibility: ReaderAccessibility
     let background: Color
     let textColor: Color
     let secondaryColor: Color
+    /// Links and glyphs drawn over the page (meets 4.5:1 against `background` in every theme).
+    let accentColor: Color
     let alignment: TextAlignment
     let frameAlignment: Alignment
     private let fonts: [BlockStyle: Font]
@@ -37,20 +43,23 @@ struct ReaderRenderStyle: Equatable {
     static let allStyles: [BlockStyle] = [.paragraph, .heading1, .heading2, .heading3, .heading4, .heading5,
                                           .heading6, .quote, .listItem]
 
-    init(_ typography: ReaderTypography) {
+    init(_ typography: ReaderTypography, accessibility: ReaderAccessibility = .none) {
         let t = typography.clamped()
         self.typography = t
-        key = t.renderKey
-        let palette = t.theme.palette
+        self.accessibility = accessibility
+        layoutKey = t.renderKey + "|\(t.effectiveFontSize(textScale: accessibility.textScale))|\(accessibility.boldText)"
+        key = layoutKey + "|\(accessibility.increaseContrast)|\(accessibility.luminanceReduced)"
+        let palette = t.theme.palette(for: accessibility)
         background = palette.background.color
         textColor = palette.text.color
         secondaryColor = palette.secondaryText.color
+        accentColor = palette.accent.color
         alignment = t.alignment == .center ? .center : .leading
         frameAlignment = t.alignment == .center ? .center : .leading
         var fonts: [BlockStyle: Font] = [:]
         var specs: [BlockStyle: BlockStyleSpec] = [:]
         for style in Self.allStyles {
-            let spec = t.spec(for: style)
+            let spec = t.spec(for: style, accessibility: accessibility)
             let weight: Font.Weight = spec.isHeading ? .bold : (spec.bold ? .semibold : .regular)
             var font = Font.system(size: spec.pointSize, weight: weight, design: t.fontFamily.design)
             if spec.italic { font = font.italic() }
@@ -65,6 +74,42 @@ struct ReaderRenderStyle: Equatable {
 
     func font(for style: BlockStyle) -> Font { fonts[style] ?? .body }
     func spec(for style: BlockStyle) -> BlockStyleSpec { specs[style] ?? ReaderTypography.default.spec(for: style) }
+
+    /// Light page (sepia) or dark page: drives `preferredColorScheme` so system chrome over the page
+    /// (toolbar glyphs, `.secondary`) adapts. Always On is always dark.
+    var isLightPage: Bool { typography.theme.palette(for: accessibility).background.luminance > 0.5 }
+
+    /// VoiceOver heading level of a block (nil for non-headings), so the rotor can jump between headings.
+    static func headingLevel(for style: BlockStyle) -> AccessibilityHeadingLevel? {
+        switch style {
+        case .heading1: return .h1
+        case .heading2: return .h2
+        case .heading3: return .h3
+        case .heading4: return .h4
+        case .heading5: return .h5
+        case .heading6: return .h6
+        case .paragraph, .quote, .listItem: return nil
+        }
+    }
+}
+
+/// Reads the accessibility settings that change how reader text is drawn from the SwiftUI environment:
+/// Dynamic Type (as a body-text scale), Bold Text, Increase Contrast and reduced luminance (Always On).
+/// Declare it as a stored property of a view (`private var readerAccessibility = ReaderAccessibilityReader()`)
+/// so SwiftUI installs its environment values, then read `readerAccessibility.value` in `body`.
+struct ReaderAccessibilityReader: DynamicProperty {
+    /// 100 at the default text size; scales with the system text size like body text does.
+    @ScaledMetric(relativeTo: .body) private var bodyScale: CGFloat = 100
+    @Environment(\.legibilityWeight) private var legibilityWeight
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.isLuminanceReduced) private var isLuminanceReduced
+
+    var value: ReaderAccessibility {
+        ReaderAccessibility(textScale: Double(bodyScale) / 100,
+                            boldText: legibilityWeight == .bold,
+                            increaseContrast: colorSchemeContrast == .increased,
+                            luminanceReduced: isLuminanceReduced)
+    }
 }
 
 /// Bounded cache of the styled `AttributedString` of each block. It depends only on the block's text and
@@ -104,7 +149,8 @@ struct BlockStyledText: View, Equatable {
         let content = Group {
             if spec.showsBullet {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text("\u{2022}")
+                    // Decorative: VoiceOver reads the item's text only.
+                    Text("\u{2022}").accessibilityHidden(true)
                     base
                 }
             } else {
@@ -112,6 +158,9 @@ struct BlockStyledText: View, Equatable {
             }
         }
         content
+            // One VoiceOver element per block (the bullet and the text are read together).
+            .accessibilityElement(children: .combine)
+            .modifier(HeadingAccessibility(level: ReaderRenderStyle.headingLevel(for: block.style)))
             .font(font)
             .lineSpacing(style.typography.lineSpacing)
             .multilineTextAlignment(style.alignment)
@@ -122,9 +171,27 @@ struct BlockStyledText: View, Equatable {
     }
 }
 
+/// Marks heading blocks with the header trait and their level (VoiceOver rotor "Headings").
+private struct HeadingAccessibility: ViewModifier {
+    let level: AccessibilityHeadingLevel?
+
+    func body(content: Content) -> some View {
+        if let level {
+            content
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityHeading(level)
+        } else {
+            content
+        }
+    }
+}
+
 /// Small sample page used for live previews (iPhone settings and watch editor).
 struct TypographyPreview: View {
     let typography: ReaderTypography
+    /// The watch passes its own accessibility state so the preview matches its reader; the iPhone keeps
+    /// `.none` (its settings are not the watch's).
+    var accessibility: ReaderAccessibility = .none
 
     private static let sample: [Block] = [
         Block(text: "Chapter One", style: .heading1, xpointer: "", globalOffset: -1),
@@ -136,7 +203,7 @@ struct TypographyPreview: View {
     ]
 
     var body: some View {
-        let style = ReaderRenderStyle(typography)
+        let style = ReaderRenderStyle(typography, accessibility: accessibility)
         VStack(alignment: .leading, spacing: style.typography.paragraphSpacing) {
             ForEach(Array(Self.sample.enumerated()), id: \.offset) { _, block in
                 BlockStyledText(block: block, style: style)
