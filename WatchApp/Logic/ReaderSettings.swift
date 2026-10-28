@@ -1,9 +1,12 @@
 import Foundation
+import ReaderCore
 
 /// User-facing reader preferences. Views bind to the keys via `@AppStorage`.
 enum ReaderSettings {
-    static let fontSizeKey = "settings.fontSize"
+    /// Legacy font size key; the value now lives in `ReaderTypography` (migrated by `TypographyStore`).
+    static let fontSizeKey = TypographyStore.legacyFontSizeKey
     static let showSyncInfoKey = "settings.showSyncInfo"
+    static let tapToLookUpKey = "settings.tapToLookUp"
 
     static let minFontSize = 12.0
     static let maxFontSize = 28.0
@@ -17,5 +20,6 @@ enum ReaderSettings {
     static func resetPreferences(_ defaults: UserDefaults = .standard) {
         defaults.removeObject(forKey: fontSizeKey)
         defaults.removeObject(forKey: showSyncInfoKey)
+        defaults.removeObject(forKey: tapToLookUpKey)
     }
 }

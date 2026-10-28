@@ -29,10 +29,13 @@ final class ReaderViewModel: ObservableObject {
     private let positions: PositionStore
     private let sync: SyncCoordinator
     private let resolver: XPointerResolving
+    let dictionary: DictionaryProviding
 
     init(book: ProcessedBook, positions: PositionStore, sync: SyncCoordinator,
-         resolver: XPointerResolving = XPointerResolver()) {
+         resolver: XPointerResolving = XPointerResolver(),
+         dictionary: DictionaryProviding = MockDictionaryProvider.sample) {
         self.book = book
+        self.dictionary = dictionary
         let flat = FlatBook(book)
         self.flat = flat
         self.positions = positions
@@ -50,6 +53,29 @@ final class ReaderViewModel: ObservableObject {
 
     var documentHash: String { book.documentHash }
     var title: String { book.metadata.title }
+    /// BCP-47 language of the book (dictionary language); nil when the EPUB does not declare one.
+    var bookLanguage: String? { book.metadata.language }
+
+    /// Block shown in the word-lookup sheet.
+    @Published var lookupBlockIndex: LookupTarget?
+
+    struct LookupTarget: Identifiable, Equatable {
+        let index: Int
+        var id: Int { index }
+    }
+
+    func beginLookup(at index: Int) {
+        guard !flat.isEmpty else { return }
+        lookupBlockIndex = LookupTarget(index: flat.clamped(index))
+    }
+
+    /// Re-aligns the scroll view with the block we were reading after the layout changed (typography).
+    /// Does not change the saved position.
+    func reanchor() {
+        guard !flat.isEmpty else { return }
+        beginRestore()
+        jumpRequest = JumpRequest(index: currentIndex)
+    }
 
     // MARK: Visibility / persistence
 

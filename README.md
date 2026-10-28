@@ -90,6 +90,26 @@ NSAppTransportSecurity:
 
 No se usa `NSAllowsArbitraryLoads`.
 
+## Tipografía configurable
+
+En el reloj (menú del lector, icono de lista → *Typography*, o Ajustes) y en la app del iPhone (pestaña *Reading*, con vista previa en vivo) puedes cambiar: familia tipográfica (SF, serif/New York, redondeada, monoespaciada), tamaño, interlineado, márgenes, separación entre párrafos, alineación (izquierda/centrada), negrita, escala de los títulos, espaciado entre letras y tema (oscuro, tenue, sepia, alto contraste), además de varios *presets* y "Reset to defaults".
+
+- Los cambios hechos en el iPhone se envían al reloj por el canal de ajustes (`updateApplicationContext`) y los del reloj se publican al iPhone. Gana el **último cambio** (por marca de tiempo). Ver [docs/WATCH_CONNECTIVITY.md](docs/WATCH_CONNECTIVITY.md).
+- Al cambiar un ajuste el lector mantiene el bloque actual como ancla; las fuentes se calculan una vez por cambio y el texto con estilo se guarda en caché por bloque, por lo que el `LazyVStack` no se reconstruye entero.
+- Tamaño de letra: el ajuste antiguo se migra automáticamente.
+- Limitaciones de SwiftUI en watchOS: no hay texto justificado ni guionado automático (se ofrece izquierda/centrada y espaciado entre letras). No se incluyen fuentes personalizadas: añadirlas aumentaría el tamaño y habría que revisar su licencia; solo se usan las del sistema.
+
+## Diccionario (consulta de palabras)
+
+watchOS no permite seleccionar texto en `Text` ni mostrar el diccionario del sistema, así que hay un "modo consulta": toca un párrafo (o menú del lector → *Look up a word*), gira la **Digital Crown** para mover el cursor entre las palabras (también hay botones ‹ ›) y pulsa *Look up*. Se muestran categoría gramatical, definiciones y un ejemplo, con desplazamiento.
+
+- **Necesita conexión de red** (Wi-Fi/LTE del reloj o a través del iPhone). Las palabras ya consultadas se guardan en una caché LRU en disco (máx. 200 entradas / ~600 KB) y funcionan sin conexión.
+- Fuente: la API REST de Wiktionary (edición inglesa, `en.wiktionary.org/api/rest_v1/page/definition/{palabra}`), que contiene palabras de todos los idiomas; se usa el idioma del libro (`dc:language`). Las definiciones salen **en inglés** también para libros en otros idiomas, porque las demás ediciones de Wiktionary no ofrecen este endpoint (devuelven HTTP 501). Para inglés hay respaldo en `api.dictionaryapi.dev`.
+- Si la forma exacta no existe, se prueban minúsculas y reducciones simples (plurales, -ed, -ing) como reintento.
+- Errores claros: sin conexión, no encontrada, servicio ocupado (límite de peticiones).
+- Contenido de Wiktionary bajo licencia CC BY-SA.
+- Ajustes del reloj: *Tap paragraph to look up* y *Clear dictionary cache*.
+
 ## Importar EPUBs
 
 - Desde el iPhone: abre un `.epub` con "Abrir en WristReader" (menú Compartir de Archivos, Safari, etc.) o usa el botón de importar en la app. La app los transfiere al reloj.

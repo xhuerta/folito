@@ -1,13 +1,15 @@
 import Foundation
 import WatchConnectivity
+import ReaderCore
 
 /// Receives books (transferFile), settings (applicationContext, or transferUserInfo from older phones)
 /// and delete requests from the iPhone, and tells the phone which books it holds.
 /// Wire names (see docs/WATCH_CONNECTIVITY.md):
 ///  - file metadata keys: documentHash, title, author, size; payload = LZFSE-compressed ProcessedBook JSON
-///  - settings (`type == "settings"`): kosync_server, kosync_user, kosync_password, settingsStamp
+///  - settings (`type == "settings"`): kosync_server, kosync_user, kosync_password, settingsStamp,
+///    and (independently, last writer wins) typography + typographyStamp
 ///  - delete: `{ type: "delete_book", documentHash: <hash> }` (userInfo or message)
-///  - watch -> phone (applicationContext): `{ type: "library", hashes: [<documentHash>] }`
+///  - watch -> phone (applicationContext): `{ type: "library", hashes: [<documentHash>], typography?, typographyStamp? }`
 /// WCSessionDelegate callbacks arrive on a background queue; all heavy work is hopped off the main actor.
 final class ConnectivityReceiver: NSObject, WCSessionDelegate {
     static let typeKey = "type"
@@ -37,15 +39,25 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
     }
 
     /// Context published to the phone: the hashes of the books stored on the watch.
-    static func libraryContext(hashes: [String]) -> [String: Any] {
-        [typeKey: libraryType, hashesKey: hashes.sorted()]
+    /// The watch's typography rides along so the phone can mirror it (last writer wins by stamp).
+    static func libraryContext(hashes: [String], typography: ReaderTypography? = nil) -> [String: Any] {
+        var context: [String: Any] = [typeKey: libraryType, hashesKey: hashes.sorted()]
+        if let typography { context.merge(TypographySync.context(for: typography)) { _, new in new } }
+        return context
     }
 
     private let library: BookLibrary
+    private let typography: @MainActor () -> ReaderTypography
+    private let onTypography: @MainActor (ReaderTypography) -> Void
     private let onSettingsChanged: @MainActor () -> Void
 
-    init(library: BookLibrary, onSettingsChanged: @escaping @MainActor () -> Void) {
+    init(library: BookLibrary,
+         typography: @escaping @MainActor () -> ReaderTypography,
+         onTypography: @escaping @MainActor (ReaderTypography) -> Void,
+         onSettingsChanged: @escaping @MainActor () -> Void) {
         self.library = library
+        self.typography = typography
+        self.onTypography = onTypography
         self.onSettingsChanged = onSettingsChanged
         super.init()
     }
@@ -75,11 +87,12 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
     /// Tells the phone which books are on the watch so it can (re)send the missing ones.
     func publishLibrary() {
         let library = self.library
+        let typography = self.typography
         Task { @MainActor in
             let session = WCSession.default
             guard WCSession.isSupported(), session.activationState == .activated else { return }
             let hashes = library.entries.map(\.documentHash)
-            try? session.updateApplicationContext(Self.libraryContext(hashes: hashes))
+            try? session.updateApplicationContext(Self.libraryContext(hashes: hashes, typography: typography()))
         }
     }
 
@@ -115,9 +128,12 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
             }
         }
         let deleteHash = Self.deleteHash(from: info)
+        let incomingTypography = TypographySync.decode(from: info)
         let library = self.library
         let notify = onSettingsChanged
+        let applyTypography = onTypography
         Task { @MainActor in
+            if let incomingTypography { applyTypography(incomingTypography) }
             if changed { notify() }
             if let hash = deleteHash { library.delete(documentHash: hash) }
         }

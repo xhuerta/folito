@@ -1,10 +1,12 @@
 import SwiftUI
+import ReaderCore
 
 struct SettingsView: View {
     @EnvironmentObject private var env: AppEnvironment
     @EnvironmentObject private var sync: SyncCoordinator
-    @AppStorage(ReaderSettings.fontSizeKey) private var fontSize = ReaderSettings.defaultFontSize
+    @EnvironmentObject private var typography: TypographyModel
     @AppStorage(ReaderSettings.showSyncInfoKey) private var showSyncInfo = true
+    @AppStorage(ReaderSettings.tapToLookUpKey) private var tapToLookUp = true
     @State private var serverStatus = "Not checked"
     @State private var checking = false
     @State private var confirmReset = false
@@ -12,10 +14,19 @@ struct SettingsView: View {
     var body: some View {
         List {
             Section("Reading") {
-                Stepper(value: $fontSize, in: ReaderSettings.minFontSize...ReaderSettings.maxFontSize, step: 1) {
-                    Text("Text size \(Int(ReaderSettings.clampFontSize(fontSize)))")
+                Stepper(value: typography.binding(\.fontSize), in: ReaderTypography.fontSizeRange, step: 1) {
+                    Text("Text size \(Int(typography.value.fontSize))")
                 }
+                NavigationLink("Typography") { TypographyEditorView() }
                 Toggle("Show sync info", isOn: $showSyncInfo)
+            }
+            Section {
+                Toggle("Tap paragraph to look up", isOn: $tapToLookUp)
+                Button("Clear dictionary cache") { env.dictionaryCache.removeAll() }
+            } header: {
+                Text("Dictionary")
+            } footer: {
+                Text("Definitions need a network connection; words already looked up work offline.")
             }
             Section("KOReader Sync") {
                 if sync.isConfigured {
