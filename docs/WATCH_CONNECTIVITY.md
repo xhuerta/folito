@@ -31,6 +31,12 @@ dictionary with `transferUserInfo`; the watch accepts both.
 | `kosync_user` | String |
 | `kosync_password` | String, plain password |
 | `settingsStamp` | Int, Unix time of the user's last Save on the phone (optional) |
+| `typography` | String, JSON-encoded `ReaderTypography` (optional, see "Typography") |
+| `typographyStamp` | Int, `ReaderTypography.stamp` (optional, same value as inside the JSON) |
+
+The KOSync keys are omitted when no valid credentials are saved; a context may therefore carry only
+`type` + typography. Each `updateApplicationContext` replaces the previous context, so the phone always
+sends the full state (credentials + typography).
 
 The phone does not rely on a single send at Save time. It re-runs `syncWatchState()` (settings + unsent
 books) on: session activation, `sessionWatchStateDidChange` (e.g. `isWatchAppInstalled` becoming true),
@@ -54,3 +60,27 @@ The watch generates its own `device_id` UUID; it is never sent from the phone.
 every import/delete. The phone reconciles `sentToWatch` with it (skipping transfers still in flight) and
 sends whatever is missing, which covers a reinstalled watch app, books deleted on the watch and transfers
 lost in transit. The phone also reads `receivedApplicationContext` on its own activation.
+
+## Typography (both directions, last writer wins)
+`ReaderTypography` (ReaderCore) is a versioned, clamped, tolerant-decoding Codable: font family, size, line
+spacing, margins, paragraph spacing, alignment, bold, heading scale, tracking, theme and `stamp`.
+Unknown or out-of-range values decode to defaults, so differing app versions never fail to apply it.
+
+Wire format: `typography` (JSON string) + `typographyStamp` (Int, Unix time of the last edit; every local
+edit uses `max(now, previousStamp + 1)`, so edits within the same second still order).
+
+- Phone -> watch: part of the `settings` context above. Sent only once the stamp is > 0 (the user changed
+  something on some device); a never-edited phone does not overwrite the watch.
+- Watch -> phone: the `library` context also carries `typography` / `typographyStamp`. Readers of that
+  context must keep treating it as `library` (extra keys are ignored by `libraryHashes(from:)`).
+- Merge rule on both sides: apply the incoming copy only if `incoming.stamp > local.stamp`; a tie keeps the
+  local copy. That makes the phone's periodic resends idempotent: after the phone adopts a newer watch copy
+  it resends the same stamp, which the watch ignores. A "Reset" on either side is a normal edit (default
+  look, new stamp) and therefore propagates.
+- The pre-typography watch setting `settings.fontSize` (a bare Double in `UserDefaults`) is migrated into
+  `ReaderTypography.fontSize` on first launch and then removed.
+
+## Dictionary (watch only, no phone involvement)
+The watch queries the network itself (Wi-Fi, or through the paired iPhone). Nothing about it crosses
+WatchConnectivity.
+

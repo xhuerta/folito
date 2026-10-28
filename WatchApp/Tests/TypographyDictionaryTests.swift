@@ -173,7 +173,8 @@ final class WordLookupModelTests: XCTestCase {
                                     provider: MockDictionaryProvider(entries: MockDictionaryProvider.sample.entries,
                                                                      delayNanoseconds: 50_000_000))
         let pending = Task { await model.lookup() }
-        model.step(1)                              // cursor moves while the request is in flight
+        try? await Task.sleep(nanoseconds: 10_000_000)   // request is now in flight
+        model.step(1)
         await pending.value
         XCTAssertEqual(model.state, .loading, "result for the previous word must not be shown")
     }

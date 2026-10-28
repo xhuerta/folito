@@ -406,3 +406,42 @@ final class WordContextTests: XCTestCase {
         XCTAssertEqual(c.after, " gamma")
     }
 }
+
+final class RealResponseFixtureTests: XCTestCase {
+    func testSpanishWordOnEnglishEdition() throws {
+        let entry = try XCTUnwrap(WiktionaryParser.parse(try fixture("wiktionary_en_casa.json"), word: "casa", language: "es"))
+        let noun = try XCTUnwrap(entry.meanings.first { $0.partOfSpeech == "noun" })
+        XCTAssertEqual(noun.senses.map(\.definition), ["house"])
+        let verb = try XCTUnwrap(entry.meanings.first { $0.partOfSpeech == "verb" })
+        // Inflected forms come back as "inflection of X:" followed by the grammatical descriptions.
+        XCTAssertTrue(verb.senses[0].definition.hasPrefix("inflection of casar"))
+        XCTAssertGreaterThan(verb.senses.count, 1)
+        // Other languages' sections (Portuguese, Italian) are not mixed in.
+        XCTAssertNotNil(WiktionaryParser.parse(try fixture("wiktionary_en_casa.json"), word: "casa", language: "pt"))
+        XCTAssertFalse(entry.meanings.flatMap(\.senses).contains { $0.definition.contains("<") })
+    }
+
+    func testWiktionaryNotFoundAndUnsupportedEditionBodies() throws {
+        // The English edition answers 404 with this body for a missing word; other editions answer 501.
+        for name in ["wiktionary_notfound_404.json", "wiktionary_fr_edition_501.json"] {
+            let data = try fixture(name)
+            XCTAssertNil(WiktionaryParser.parse(data, word: "x", language: "en"), name)
+            XCTAssertNotNil(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        }
+    }
+
+    func testNotFoundStatusMapsThroughSource() async throws {
+        struct Canned: DictionaryHTTPFetching {
+            let status: Int; let body: Data
+            func get(_ url: URL) async throws -> (data: Data, status: Int) { (body, status) }
+        }
+        let body = try fixture("wiktionary_notfound_404.json")
+        do { _ = try await WiktionarySource(fetcher: Canned(status: 404, body: body)).fetch(word: "zzzqqxx", language: "en"); XCTFail() }
+        catch { XCTAssertEqual(error as? DictionaryError, .notFound) }
+        do { _ = try await WiktionarySource(fetcher: Canned(status: 501, body: try fixture("wiktionary_fr_edition_501.json"))).fetch(word: "maison", language: "fr"); XCTFail() }
+        catch { XCTAssertEqual(error as? DictionaryError, .server(status: 501)) }
+        // HTTP 200 whose JSON has no section for the requested language is a miss, not an error.
+        do { _ = try await WiktionarySource(fetcher: Canned(status: 200, body: try fixture("wiktionary_en_run.json"))).fetch(word: "run", language: "fr"); XCTFail() }
+        catch { XCTAssertEqual(error as? DictionaryError, .notFound) }
+    }
+}
