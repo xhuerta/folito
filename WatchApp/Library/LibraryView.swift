@@ -23,6 +23,7 @@ struct LibraryView: View {
                             NavigationLink(value: entry) {
                                 BookRow(entry: entry, fraction: library.progress[entry.documentHash] ?? 0)
                             }
+                            .accessibilityIdentifier("libraryRow")
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                 Button(role: .destructive) {
                                     pendingDelete = entry
@@ -45,6 +46,7 @@ struct LibraryView: View {
                     } label: {
                         Label("Settings", systemImage: "gearshape")
                     }
+                    .accessibilityIdentifier("settingsButton")
                 }
             }
             .confirmationDialog(deleteTitle, isPresented: deleteDialogShown, titleVisibility: .visible,

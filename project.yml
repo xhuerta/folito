@@ -102,6 +102,7 @@ targets:
       - path: WatchApp
         excludes:
           - Tests/**
+          - UITests/**
       - path: Shared
     dependencies:
       - package: ReaderCore
@@ -188,6 +189,22 @@ targets:
         BUNDLE_LOADER: $(TEST_HOST)
         GENERATE_INFOPLIST_FILE: YES
 
+  # Watch accessibility UI tests: XCUIApplication.performAccessibilityAudit (available on watchOS 10+) plus
+  # explicit label / trait / largest-text-size checks. Launches the watch app with -UITesting /
+  # -UITestingSeedSampleBook (handled in Debug builds only). See docs/ACCESSIBILITY.md.
+  WristReaderWatchUITests:
+    type: bundle.ui-testing
+    platform: watchOS
+    sources:
+      - path: WatchApp/UITests
+    dependencies:
+      - target: WristReaderWatch
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(WR_BUNDLE_ID).watchuitests
+        TEST_TARGET_NAME: WristReaderWatch
+        GENERATE_INFOPLIST_FILE: YES
+
 schemes:
   WristReader:
     build:
@@ -214,6 +231,7 @@ schemes:
       config: Debug
       targets:
         - WristReaderWatchTests
+        - WristReaderWatchUITests
     profile:
       config: Release
     archive:

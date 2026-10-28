@@ -96,11 +96,14 @@ jobs:
             UDID=$(xcrun simctl create "CI Watch" "$DT" "$RT")
           fi
           echo "watchOS simulator: $UDID"
+          echo "WATCH_SIM_UDID=$UDID" >> "$GITHUB_ENV"
           rm -rf watch-tests.xcresult
+          # Unit tests only; the watch accessibility UI tests run in their own step below.
           xcodebuild test \
             -project WristReader.xcodeproj \
             -scheme WristReaderWatch \
             -destination "id=$UDID" \
+            -skip-testing:WristReaderWatchUITests \
             -clonedSourcePackagesDirPath SourcePackages \
             -resultBundlePath watch-tests.xcresult \
             CODE_SIGNING_ALLOWED=NO 2>&1 | tee watch-tests.log
@@ -146,3 +149,34 @@ jobs:
         with:
           name: ios-uitests-xcresult
           path: ios-uitests.xcresult
+
+      # Watch accessibility UI tests (WristReaderWatchUITests: automated audit + label / trait / AX5 text size
+      # checks) on the same Apple Watch simulator as the watch unit tests. Like the iOS audit, it runs even when
+      # an earlier step failed so its findings never hide the unit-test results (and vice versa).
+      - name: watchOS accessibility UI tests
+        if: always() && env.WATCH_SIM_UDID != ''
+        run: |
+          set -o pipefail
+          rm -rf watch-uitests.xcresult
+          xcodebuild test \
+            -project WristReader.xcodeproj \
+            -scheme WristReaderWatch \
+            -destination "id=$WATCH_SIM_UDID" \
+            -only-testing:WristReaderWatchUITests \
+            -clonedSourcePackagesDirPath SourcePackages \
+            -resultBundlePath watch-uitests.xcresult \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee watch-uitests.log
+
+      - name: watchOS accessibility UI tests summary
+        if: always() && env.WATCH_SIM_UDID != ''
+        run: |
+          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:|Accepted accessibility audit issue" watch-uitests.log || true
+          xcrun xcresulttool get test-results summary --path watch-uitests.xcresult || true
+
+      - name: Upload watchOS accessibility UI tests xcresult
+        if: failure() && env.WATCH_SIM_UDID != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: watch-uitests-xcresult
+          path: watch-uitests.xcresult
+          if-no-files-found: ignore

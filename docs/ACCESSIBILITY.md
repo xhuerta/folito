@@ -205,6 +205,58 @@ unfinished book never shows 100%). ReaderCore's English option titles are not sh
   typography JSON, tolerant decoding and the wire format of `matchSystemTextSize`.
 - Watch (`WatchApp/Tests/AccessibilityTests.swift`): percent formatting, error-message mapping, the
   adjustable word cursor and its haptics (spy), accessibility-aware render styles and the style cache.
+- Watch UI tests (`WristReaderWatchUITests`, `WatchApp/UITests/`): see *Automated checks* below.
+
+### Automated checks
+
+`XCUIApplication.performAccessibilityAudit(for:_:)` is available on watchOS 10+ (Apple's documentation
+lists iOS 17, macOS 14, tvOS 17, visionOS 1 and **watchOS 10**; the `.dynamicType`, `.textClipped` and
+`.trait` audit types exist on watchOS but not on macOS). The watch UI-test target uses it and adds explicit
+checks the audit does not make:
+
+- `WatchAccessibilityAuditTests`: the audit (`.all`) on the empty library, the library with one book, the
+  reader, *Reading Options*, Settings and Typography.
+- `WatchAccessibilityChecksTests`, on the same screens:
+  - every button, switch, stepper, slider and link has a non-empty label that does not look like a raw
+    identifier: SF Symbol names (`list.bullet`, `gearshape`), file names (`sample.epub`), camelCase or
+    snake_case identifiers, document hashes;
+  - key elements: the book row is one actionable element whose label has title, author and progress; the
+    toolbar buttons are labelled *Settings* / *Reading Options*; the text size stepper reads "Text Size" with
+    the value "n points"; the current chapter in *Reading Options* is *selected* (its bookmark glyph is
+    hidden); the typography preview is labelled "Text preview";
+  - launched at the largest accessibility text size (`-UIPreferredContentSizeCategoryName
+    UICTContentSizeCategoryAccessibilityXXXL`), the primary controls of each screen exist and are hittable
+    (scrolling with swipes where a list is longer than the screen).
+
+Accessibility identifiers used by the tests: `libraryRow`, `settingsButton`, `readerBlock`,
+`readerOptionsButton`, `chapterButton`, `textSizeStepper`, `typographyPreview`.
+
+Launch arguments (handled only in Debug builds, see `WatchApp/Support/UITestingSupport.swift`; Release
+builds ignore them):
+- `-UITesting`: books in a fresh temporary directory, positions and typography in a private `UserDefaults`
+  suite emptied at launch, and WatchConnectivity not started (no iPhone needed, nothing arrives meanwhile).
+- `-UITestingSeedSampleBook`: the same, plus one tiny built-in public-domain sample book, stored exactly as a
+  transfer from the iPhone would be (LZFSE-compressed JSON).
+
+CI runs them in `macos.yml` (step "watchOS accessibility UI tests") on the watch unit tests' simulator and
+uploads `watch-uitests.xcresult` when the job fails. Locally:
+
+```sh
+xcodegen generate
+xcodebuild test -project WristReader.xcodeproj -scheme WristReaderWatch \
+  -destination 'platform=watchOS Simulator,name=Apple Watch Series 10 (46mm)' \
+  -only-testing:WristReaderWatchUITests CODE_SIGNING_ALLOWED=NO
+```
+
+#### Accepted audit findings
+
+| Element | Audit type | Why it is accepted |
+|---|---|---|
+| Typography preview (`typographyPreview`) | Dynamic Type, Contrast, Text clipped | As on iOS: it shows the book text exactly as the reader will, at the reader's point size and theme colours. |
+| Book text (`readerBlock`) | Dynamic Type, Text clipped | The reader uses its own text size (it follows Dynamic Type only with *Match System Text Size*, off by default); blocks at the top and bottom edge of the scroll view are partly off screen by design. Contrast is *not* accepted (the palettes are checked in `ReaderAccessibilityTests`). |
+
+Anything else fails the test. To accept a new finding, add it to `isAccepted(_:)` in
+`WatchAccessibilityAuditTests.swift` *and* to this table with the reason.
 
 ### Testing manually
 
@@ -233,13 +285,14 @@ values and traits of the elements above and run *Audit* on each screen.
 
 ### Known gaps
 
-- Not yet built or run on a simulator or device (no macOS runner was available); the checklist above and
-  the watch unit tests must be run once CI is back.
+- Not yet built or run on a simulator or device (no macOS runner was available); the checklist above,
+  the watch unit tests and the watch UI tests must be run once CI is back.
+- The AX5 launch argument (`-UIPreferredContentSizeCategoryName`) is the documented way to force a text size
+  on iOS; that the watch simulator honours it the same way is assumed, not yet verified. The label checks
+  only see elements that are in the accessibility tree (on-screen rows of lazy lists).
 - The reader is a `LazyVStack`: VoiceOver can only reach headings that are laid out (near the current
   position); use *Reading Options › Chapters* to jump further.
 - The sync glyph keeps the `.cancellationAction` placement (top leading); its position next to the back
   button needs checking on watchOS 10 and 11.
 - *Match System Text Size* is synced with the iPhone like the rest of the typography; the iPhone preview
   does not apply the watch's text size.
-- No automated accessibility audit for the watch yet. `XCUIApplication.performAccessibilityAudit`
-  exists on watchOS 10, but it needs a watch UI-test target in `project.yml` (follow-up).
