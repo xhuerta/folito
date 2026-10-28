@@ -11,6 +11,8 @@ public enum EPUBError: Error, Equatable {
     case missingResource(String)
     /// A ZIP entry declares (or expands to) more than the allowed size.
     case entryTooLarge(String)
+    /// The sum of all decompressed entries read exceeds the budget (zip bomb with many medium entries).
+    case archiveTooLarge
 }
 
 /// Turns an EPUB file into a `ProcessedBook` (metadata, hashes, chapters, blocks with XPointers).
@@ -38,6 +40,10 @@ public struct EPUBParser: EPUBParsing {
     }
 
     public func process(epubAt url: URL) throws -> ProcessedBook {
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory), !isDirectory.boolValue else {
+            throw EPUBError.invalidArchive
+        }
         let zip = try ZipReader(url: url)
 
         // container.xml -> package document
@@ -58,7 +64,11 @@ public struct EPUBParser: EPUBParsing {
         var offset = 0
         for (i, item) in package.spine.enumerated() {
             let spineIndex = i + 1
-            guard Self.isXHTML(item), zip.contains(item.path), let data = try? zip.data(at: item.path) else { continue }
+            guard Self.isXHTML(item), zip.contains(item.path) else { continue }
+            let data: Data
+            do { data = try zip.data(at: item.path) }
+            catch EPUBError.archiveTooLarge { throw EPUBError.archiveTooLarge }
+            catch { continue }  // unreadable or oversized single chapter: skip it
             let raw = BlockExtractor.extract(from: data).blocks
             guard !raw.isEmpty else { continue }
             var blocks: [Block] = []
