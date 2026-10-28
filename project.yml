@@ -34,6 +34,7 @@ targets:
       - path: iOSApp
         excludes:
           - Tests/**
+          - Info.plist
     dependencies:
       - package: ReaderCore
       # Embeds the watch app into the iPhone app bundle.
