@@ -92,7 +92,7 @@ struct WordPickerView: View {
     static func highlighted(_ c: WordContext) -> AttributedString {
         var result = AttributedString((c.hasMoreBefore ? "\u{2026}" : "") + c.before)
         var word = AttributedString(c.word)
-        // Black on yellow: 19.6:1. Bold too, so the cue does not rely on colour alone.
+        // Black on system yellow: about 15:1. Bold too, so the cue does not rely on colour alone.
         word.backgroundColor = .yellow
         word.foregroundColor = .black
         word.inlinePresentationIntent = .stronglyEmphasized

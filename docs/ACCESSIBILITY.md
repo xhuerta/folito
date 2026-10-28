@@ -117,3 +117,129 @@ use *Audit* › *Run Audit* on each screen, and the inspection pointer to check 
   sizes the wrapping is uneven, but nothing is clipped.
 - Not yet verified on a device or simulator (no macOS runner was available when this was written); see the
   CI step and the manual checklist above.
+
+## Apple Watch
+
+### What was done
+
+**Structure (HIG).** One `NavigationStack`: *Library* → reader, with *Settings* behind a gear in the
+`.topBarTrailing` toolbar placement and the reader's options (*Reading Options*: text size, typography,
+dictionary, chapters) behind a `.topBarTrailing` button. Lists, pickers, steppers and toggles are standard
+SwiftUI controls with system styles; there is no custom chrome. The empty library is a
+`ContentUnavailableView` ("No Books"). Deleting a book (swipe, VoiceOver action, or the "can't open" screen),
+Settings › Reset, Remove Credentials and Typography › Reset to Defaults all use `role: .destructive`
+behind a `confirmationDialog`.
+
+**VoiceOver.**
+- Library rows are one element: "title, author, 43% read". *Delete* is also an accessibility action
+  (Actions rotor), and it asks for confirmation like the swipe does.
+- Icon-only buttons are `Label`s ("Settings", "Reading Options", "Previous Word", "Next Word"); decorative
+  icons (error glyphs, the current-chapter bookmark, list bullets) are hidden, and the current chapter in
+  *Contents* has the *Selected* trait instead.
+- Reader: every block (paragraph, heading, quote, list item) is one element; headings carry `.isHeader`
+  and their level (`accessibilityHeading(.h1…)`), so the rotor's *Headings* jumps between chapter titles.
+  Every block also has the action *Look Up a Word*, even with *Tap Paragraph to Look Up* turned off.
+- The sync status glyph has a label ("Syncing reading progress", "Offline. Progress will sync when you're
+  connected.", "Sync failed. Check the server in Settings."); nothing is shown while idle.
+- Word lookup: the word cursor is one *adjustable* element, "Selected word, *bright*, word 4 of 12". Swipe
+  up/down moves to the next/previous word, so it works without the Digital Crown. Turning the crown
+  still moves it (with the crown's own detent haptics); the buttons and VoiceOver play a click.
+- Steppers read as "Text Size, 16 points", "Letter Spacing, +0.25 points", etc.
+- Definitions: the entry word is a header; each sense (number, definition, examples) is one element.
+
+**Dynamic Type.** UI chrome uses text styles only (`.headline`, `.footnote`, `.caption2`, `.title3`) and
+scales. Library titles and authors allow more lines at accessibility sizes; the word picker, error screens
+and the empty library scroll instead of clipping. The **reader body** keeps the user's chosen point size by
+default (it is content, and the size is synced with the iPhone). *Typography › Match System Text Size*
+(`ReaderTypography.matchSystemTextSize`, model version 2) scales that size with the watch's Text Size
+setting (via `@ScaledMetric(relativeTo: .body)`), clamped to 10–40 pt; headings scale with it.
+
+**Colour and contrast.** Reader theme colours live in ReaderCore (`ThemePalette`), and
+`ReaderAccessibilityTests` checks WCAG 2 contrast for every theme: body text ≥ 7:1, secondary text
+(quotes) and accent (links / glyphs over the page) ≥ 4.5:1. No theme was below 4.5:1 for body text;
+the accent used to be the app tint everywhere, which on the sepia page would have been about 2.2:1, so
+each theme now has its own accent.
+
+| Theme | Body | Secondary | Accent | With Increase Contrast (body / secondary / accent) |
+|---|---|---|---|---|
+| Dark | 21.0 | 14.8 | 8.2 | 21.0 / 21.0 / 11.8 |
+| Dim | 10.6 | 7.5 | 7.1 | 15.9 / 13.1 / 11.8 |
+| Sepia | 11.6 | 7.5 | 7.1 | 15.6 / 11.6 / 10.3 |
+| High Contrast | 21.0 | 21.0 | 11.8 | 21.0 / 21.0 / 11.8 |
+| Always On (any theme) | 8.6 | 6.2 | 7.5 | (same) |
+
+- **Increase Contrast** (`colorSchemeContrast == .increased`) switches the reader to the theme's
+  high-contrast variant (same background, stronger text).
+- **Bold Text** (`legibilityWeight == .bold`) makes the reader's body text semibold (headings stay bold).
+- The highlighted word in the word picker is black on yellow (about 15:1 with the system yellow) and bold, so it does not rely on
+  colour alone. The sync error glyph differs in shape, not only in colour.
+
+**Always On.** While `isLuminanceReduced` (wrist down), the reader uses a dim palette on black (also for
+sepia, so the page doesn't light up the screen) and hides the sync glyph. Changing colours does not move
+the reading position (`ReaderRenderStyle.layoutKey`).
+
+**Motion.** There are no custom animations. Jumps (restoring the position, chapters, the other device's
+position) scroll without animation, so Reduce Motion needs nothing extra.
+
+**Digital Crown.** The reader is a plain `ScrollView`, so the crown scrolls it with the system's
+momentum and detents, like other system apps. In the word picker the crown moves the word cursor
+(`digitalCrownRotation`, detent haptics); the page can still be scrolled by touch.
+
+**Haptics.** `WKInterfaceDevice.play`: `.click` when the word cursor moves by a button or VoiceOver,
+`.success` / `.failure` when a lookup succeeds or fails.
+
+**Errors.** Messages say what happened and what to do (`WatchMessages`, unit-tested), for example "Can't
+reach the server. Check that your watch or iPhone is online, then try again." or "This book's file is
+damaged. Delete it here and send it again from WristReader on your iPhone." There is no bare "Error".
+
+**Localizability.** Literal strings in `Text`/`Button`/`Label` are localizable keys; other strings use
+`String(localized:comment:)`; sentences with values are single format strings ("%@ read"), never
+concatenated; percentages and numbers use `FormatStyle` (`ReadingProgressFormat`, rounded down so an
+unfinished book never shows 100%). ReaderCore's English option titles are not shown on the watch
+(`localizedName` in `WatchApp/Logic/WatchStrings.swift`).
+
+### Tests
+
+- ReaderCore (`swift test`, also on Linux): `ReaderAccessibilityTests`: contrast of every palette,
+  palette selection, Bold Text / Dynamic Type in `spec(for:accessibility:)`, migration of version-1
+  typography JSON, tolerant decoding and the wire format of `matchSystemTextSize`.
+- Watch (`WatchApp/Tests/AccessibilityTests.swift`): percent formatting, error-message mapping, the
+  adjustable word cursor and its haptics (spy), accessibility-aware render styles and the style cache.
+
+### Testing manually
+
+**VoiceOver on the watch** (Watch app on iPhone › Accessibility › VoiceOver, or Settings › Accessibility on
+the watch; triple-click the crown if the shortcut is on):
+1. Library: swipe through rows; each reads "title, author, n% read". Swipe up/down on a row: *Delete*,
+   then check the confirmation and *Cancel*.
+2. Open a book: swipe through paragraphs; set the rotor (two-finger twist) to *Headings* and swipe
+   up/down to jump between chapter titles. Check *Reading Options* and, if sync is on, the sync glyph label.
+3. A paragraph's *Look Up a Word* action opens the word picker; on the cursor, swipe up/down: the new
+   word and "word n of m" are announced, with a click. Look up a word offline: the failure message is read
+   and the failure haptic plays.
+4. Settings: steppers read their value; Reset and Remove Credentials ask for confirmation.
+
+**Text size** (watch Settings › Display & Brightness › Text Size, and Accessibility › Bold Text): at the
+largest size check that the library, Settings, menus and the word picker scroll without clipped text. Turn on
+*Typography › Match System Text Size* and check the book text follows the Text Size slider.
+
+**Increase Contrast** (Accessibility › Increase Contrast; or Xcode's Environment Overrides) with each theme.
+
+**Always On:** lower the wrist while reading (or Xcode's watch simulator: Device › Always On): the page
+dims, sepia turns dark, the sync glyph disappears, and raising the wrist keeps the same paragraph.
+
+**Accessibility Inspector** (Xcode › Open Developer Tool) can inspect the watch simulator: check labels,
+values and traits of the elements above and run *Audit* on each screen.
+
+### Known gaps
+
+- Not yet built or run on a simulator or device (no macOS runner was available); the checklist above and
+  the watch unit tests must be run once CI is back.
+- The reader is a `LazyVStack`: VoiceOver can only reach headings that are laid out (near the current
+  position); use *Reading Options › Chapters* to jump further.
+- The sync glyph keeps the `.cancellationAction` placement (top leading); its position next to the back
+  button needs checking on watchOS 10 and 11.
+- *Match System Text Size* is synced with the iPhone like the rest of the typography; the iPhone preview
+  does not apply the watch's text size.
+- No automated accessibility audit for the watch yet. `XCUIApplication.performAccessibilityAudit`
+  exists on watchOS 10, but it needs a watch UI-test target in `project.yml` (follow-up).
