@@ -1,4 +1,5 @@
 import Foundation
+import ReaderCore
 
 /// Message schema shared (by convention, see docs/WATCH_CONNECTIVITY.md) with the watch app.
 enum WatchSchema {
@@ -40,6 +41,23 @@ enum WatchSchema {
          Key.kosyncUser: user,
          Key.kosyncPassword: password,
          Key.settingsStamp: stamp]
+    }
+
+    /// Phone -> watch settings context. KOSync fields are present only when valid credentials are saved;
+    /// typography is present once the user has changed it anywhere (stamp > 0). nil when there is nothing to send.
+    static func settingsContext(kosync: (server: String, user: String, password: String, stamp: Int)?,
+                                typography: ReaderTypography?) -> [String: Any]? {
+        var info: [String: Any] = [Key.type: MessageType.settings]
+        var hasContent = false
+        if let k = kosync {
+            info = settingsInfo(server: k.server, user: k.user, password: k.password, stamp: k.stamp)
+            hasContent = true
+        }
+        if let typography, typography.stamp > 0 {
+            info.merge(TypographySync.context(for: typography)) { _, new in new }
+            hasContent = true
+        }
+        return hasContent ? info : nil
     }
 
     /// Hashes the watch reports in its `library` context; nil for any other message.

@@ -16,6 +16,10 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
     var onTransferFinished: ((String) -> Void)?
     /// Saved sync settings to mirror on the watch (nil when not configured). Read on the main queue.
     var settingsProvider: (() -> WatchSettings?)?
+    /// Typography to mirror on the watch (stamp 0 = never changed, nothing is sent). Read on the main queue.
+    var typographyProvider: (() -> ReaderTypography)?
+    /// The watch published a typography copy (applied by the owner only if its stamp is newer).
+    var onWatchTypography: ((ReaderTypography) -> Void)?
     /// Books not yet confirmed on the watch, with their payload files. Read on the main queue.
     var unsentBooksProvider: (() -> [(entry: LibraryEntry, fileURL: URL)])?
     /// The watch reported the hashes of the books it currently stores.
@@ -70,10 +74,10 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
 
     /// Mirrors the settings with `updateApplicationContext`: latest-state semantics, so only the newest
     /// settings are delivered (also to a watch app installed later), unlike a queue of userInfo transfers.
-    func sendSettings(_ settings: WatchSettings) {
+    func sendSettings(_ settings: WatchSettings?, typography: ReaderTypography?) {
         guard canSend, let session else { return }
-        let info = WatchSchema.settingsInfo(server: settings.server, user: settings.user,
-                                            password: settings.password, stamp: settings.stamp)
+        let kosync = settings.map { (server: $0.server, user: $0.user, password: $0.password, stamp: $0.stamp) }
+        guard let info = WatchSchema.settingsContext(kosync: kosync, typography: typography) else { return }
         do { try session.updateApplicationContext(info) }
         catch { lastError = "Could not send settings: \(error.localizedDescription)" }
     }
@@ -82,7 +86,7 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
     /// called on activation, watch state / reachability changes, app foreground and watch library reports.
     func syncWatchState() {
         guard canSend else { return }
-        if let settings = settingsProvider?() { sendSettings(settings) }
+        sendSettings(settingsProvider?(), typography: typographyProvider?())
         for (entry, url) in unsentBooksProvider?() ?? [] {
             send(book: entry, fileURL: url, formatVersion: ProcessedBook.currentFormatVersion)
         }
@@ -119,6 +123,9 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
                 if let hashes = WatchSchema.libraryHashes(from: session.receivedApplicationContext) {
                     self.onWatchLibrary?(hashes)
                 }
+                if let typography = TypographySync.decode(from: session.receivedApplicationContext) {
+                    self.onWatchTypography?(typography)
+                }
                 self.syncWatchState()
             }
         }
@@ -143,9 +150,12 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
-        guard let hashes = WatchSchema.libraryHashes(from: applicationContext) else { return }
+        let hashes = WatchSchema.libraryHashes(from: applicationContext)
+        let typography = TypographySync.decode(from: applicationContext)
+        guard hashes != nil || typography != nil else { return }
         DispatchQueue.main.async {
-            self.onWatchLibrary?(hashes)
+            if let typography { self.onWatchTypography?(typography) }
+            if let hashes { self.onWatchLibrary?(hashes) }
             self.syncWatchState()
         }
     }
