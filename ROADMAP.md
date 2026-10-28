@@ -23,7 +23,7 @@ Según `readest-sync-api.json` (base `https://web.readest.com/api`):
 - `POST /sync` con `books`, `notes`, `configs` (y `statBooks`, `statPages`) para subirlos.
 - Progreso de lectura: registros de configuración con `bookHash`, `metaHash`, `progress`, `xpointer` y `updatedAt` (en el plugin, `type = "configs"`; la respuesta trae `configs`). Para libros reflowables se usa `xpointer`; para paginados `progress` como `[página, total]`.
 - Descarga de libros: `GET /storage/download?fileKey=...`, `GET /storage/list?bookHash=...` y `POST /storage/upload`.
-- La pestaña `book_configs` de la base de datos de Readest debe consultarse en el código de Readest (no está documentada en el plugin); no se asume su esquema.
+- La tabla `book_configs` de la base de datos de Readest (con `xpointer` y `progress`) debe verificarse en el código de Readest (el plugin solo usa el endpoint /sync); no se asume su esquema.
 
 ### Tareas
 
