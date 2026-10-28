@@ -116,6 +116,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(WR_BUNDLE_ID).watchkitapp
         PRODUCT_NAME: WristReader
+        # Distinct from the iOS app's module so WatchApp/Tests can `@testable import WristReaderWatch`.
+        PRODUCT_MODULE_NAME: WristReaderWatch
         SDKROOT: watchos
         TARGETED_DEVICE_FAMILY: "4"
         SKIP_INSTALL: YES
