@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "ReaderCore",
-    platforms: [.iOS(.v16), .watchOS(.v9), .macOS(.v13)],
+    platforms: [.iOS(.v17), .watchOS(.v10), .macOS(.v14)],
     products: [.library(name: "ReaderCore", targets: ["ReaderCore"])],
     dependencies: [
         .package(url: "https://github.com/apple/swift-crypto.git", from: "3.0.0"),

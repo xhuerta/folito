@@ -4,8 +4,8 @@ options:
   bundleIdPrefix: com.example
   developmentLanguage: en
   deploymentTarget:
-    iOS: "16.0"
-    watchOS: "9.0"
+    iOS: "17.0"
+    watchOS: "10.0"
   createIntermediateGroups: true
   generateEmptyDirectories: false
 
