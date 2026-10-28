@@ -112,19 +112,103 @@ final class SyncCoordinatorTests: XCTestCase {
 
     private func defaults() -> UserDefaults { UserDefaults(suiteName: "test.\(UUID().uuidString)")! }
 
+    private final class Spy: KOSyncClientProtocol, @unchecked Sendable {
+        let lock = NSLock()
+        private(set) var calls: [String] = []
+        private func note(_ s: String) { lock.lock(); calls.append(s); lock.unlock() }
+        func authorize() async throws { note("authorize") }
+        func createUser() async throws { note("createUser") }
+        func fetchProgress(document: String) async throws -> KOSyncProgress? { note("fetch"); return nil }
+        func pushProgress(_ p: KOSyncProgress) async throws { note("push") }
+    }
+
+    /// Credentials that can be switched on and off while the coordinator lives.
+    private final class Creds: @unchecked Sendable {
+        let lock = NSLock()
+        private var value: KOSyncCredentials?
+        init(_ v: KOSyncCredentials?) { value = v }
+        func get() -> KOSyncCredentials? { lock.lock(); defer { lock.unlock() }; return value }
+        func set(_ v: KOSyncCredentials?) { lock.lock(); value = v; lock.unlock() }
+    }
+
     @MainActor
-    func testUnconfiguredReportsStayQueuedAndDiscardClearsThem() async throws {
+    func testUnconfiguredNeverQueuesNorTouchesTheNetwork() async throws {
         let d = defaults()
-        let sync = SyncCoordinator(defaults: d, credentials: { nil })
+        let spy = Spy()
+        let made = Creds(nil) // reused as a counter-free flag: makeClient must never be called
+        let sync = SyncCoordinator(defaults: d, credentials: { nil }, makeClient: { _ in
+            made.set(KOSyncCredentials(username: "called", password: "x")); return spy })
         sync.report(document: "a", xpointer: "/p1", percentage: 0.1, immediately: true)
         sync.report(document: "b", xpointer: "/p2", percentage: 0.2, immediately: false)
+        sync.retryPending()
+        let decision = await sync.decisionOnOpen(document: "a", localPercentage: 0.3)
+        XCTAssertEqual(decision, .keepLocal)
+        let test = await sync.testConnection()
+        XCTAssertEqual(test, .notConfigured)
         try await Task.sleep(nanoseconds: 300_000_000)
-        XCTAssertEqual(sync.pendingCount, 2)
-        XCTAssertTrue(sync.hasPending)
-        sync.discard(document: "a")
+        XCTAssertEqual(spy.calls, [])
+        XCTAssertNil(made.get())
+        XCTAssertEqual(sync.pendingCount, 0)
+        XCTAssertFalse(sync.hasPending)
+        XCTAssertEqual(sync.status, .idle)
+        XCTAssertFalse(sync.isConfigured)
+        let snapshot = try await sync.queue.snapshot()
+        XCTAssertEqual(try JSONDecoder().decode([PendingProgress].self, from: snapshot).count, 0)
+        let stored = d.data(forKey: SyncCoordinator.queueKey).flatMap { try? JSONDecoder().decode([PendingProgress].self, from: $0) }
+        XCTAssertTrue((stored ?? []).isEmpty)
+    }
+
+    @MainActor
+    func testRemovingCredentialsClearsQueueAndStopsSync() async throws {
+        let d = defaults()
+        let spy = Spy()
+        let creds = Creds(KOSyncCredentials(username: "u", password: "p"))
+        var config = SyncQueue.Config(); config.debounce = 3600
+        let sync = SyncCoordinator(defaults: d, config: config, credentials: { creds.get() }, makeClient: { _ in spy })
+        XCTAssertTrue(sync.isConfigured)
+        sync.report(document: "a", xpointer: "/p1", percentage: 0.1, immediately: false)
         try await Task.sleep(nanoseconds: 300_000_000)
         XCTAssertEqual(sync.pendingCount, 1)
-        XCTAssertNotNil(d.data(forKey: SyncCoordinator.queueKey))
+
+        creds.set(nil)
+        sync.configurationChanged()
+        try await Task.sleep(nanoseconds: 300_000_000)
+        XCTAssertFalse(sync.isConfigured)
+        XCTAssertEqual(sync.pendingCount, 0)
+        XCTAssertEqual(sync.status, .idle)
+        let stored = d.data(forKey: SyncCoordinator.queueKey).flatMap { try? JSONDecoder().decode([PendingProgress].self, from: $0) }
+        XCTAssertTrue((stored ?? []).isEmpty)
+
+        let before = spy.calls
+        sync.report(document: "a", xpointer: "/p2", percentage: 0.2, immediately: true)
+        sync.retryPending()
+        _ = await sync.decisionOnOpen(document: "a", localPercentage: 0.2)
+        try await Task.sleep(nanoseconds: 300_000_000)
+        XCTAssertEqual(spy.calls, before)
+        XCTAssertEqual(sync.pendingCount, 0)
+    }
+
+    @MainActor
+    func testCredentialsArrivingLaterEnableSync() async throws {
+        let spy = Spy()
+        let creds = Creds(nil)
+        let sync = SyncCoordinator(defaults: defaults(), credentials: { creds.get() }, makeClient: { _ in spy })
+        sync.report(document: "a", xpointer: "/p1", percentage: 0.1, immediately: true)
+        try await Task.sleep(nanoseconds: 200_000_000)
+        XCTAssertEqual(spy.calls, [])
+        creds.set(KOSyncCredentials(username: "u", password: "p"))
+        sync.configurationChanged()
+        XCTAssertTrue(sync.isConfigured)
+        _ = await sync.decisionOnOpen(document: "a", localPercentage: 0.1)
+        XCTAssertEqual(spy.calls, ["fetch"])
+    }
+
+    func testClearRequestDetection() {
+        XCTAssertTrue(CredentialsStore.isClearRequest(["type": "settings", "kosync_cleared": true, "settingsStamp": 9]))
+        XCTAssertFalse(CredentialsStore.isClearRequest(["type": "settings", "kosync_cleared": false]))
+        XCTAssertFalse(CredentialsStore.isClearRequest(["type": "settings", "kosync_user": "u"]))
+        XCTAssertTrue(ConnectivityReceiver.shouldApplySettings(incomingStamp: 9, lastApplied: 8))
+        XCTAssertFalse(ConnectivityReceiver.shouldApplySettings(incomingStamp: 8, lastApplied: 8))
     }
 
     @MainActor
@@ -143,10 +227,13 @@ final class SyncCoordinatorTests: XCTestCase {
         let d = defaults()
         let legacy = ["a": KOSyncProgress(document: "a", progress: "/p", percentage: 0.4, device_id: "d", timestamp: 1)]
         d.set(try JSONEncoder().encode(legacy), forKey: SyncCoordinator.legacyKey)
-        let sync = SyncCoordinator(defaults: d, credentials: { nil })
+        let creds = KOSyncCredentials(username: "u", password: "p")
+        var config = SyncQueue.Config(); config.debounce = 3600
+        let sync = SyncCoordinator(defaults: d, config: config, credentials: { creds }, makeClient: { _ in Recorder() })
         try await Task.sleep(nanoseconds: 300_000_000)
-        XCTAssertEqual(sync.pendingCount, 1)
         XCTAssertNil(d.data(forKey: SyncCoordinator.legacyKey))
+        let queued = await sync.queue.pending.count
+        XCTAssertEqual(queued, 1)
     }
 }
 

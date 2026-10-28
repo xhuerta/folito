@@ -12,7 +12,7 @@ struct LibraryView: View {
                     VStack(spacing: 6) {
                         Image(systemName: "book.closed").font(.title2)
                         Text("No books yet").font(.headline)
-                        Text("Send a book from WristReader on your iPhone.")
+                        Text("Import an EPUB in WristReader on your iPhone (from Files or the share sheet) and it appears here. Reading works offline.")
                             .font(.footnote).foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                     }

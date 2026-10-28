@@ -59,12 +59,17 @@ final class SyncSettings: ObservableObject {
     @Published var password: String
     @Published var status: String?
     @Published var isBusy = false
+    /// Sync is ON only when valid credentials are saved in the Keychain. The prefilled default server
+    /// or unsaved text in the form never counts.
+    @Published private(set) var isSyncOn = false
 
     private let keychain: KeychainStore
     private let clientFactory: (KOSyncCredentials) -> KOSyncClientProtocol
     var onSave: ((KOSyncCredentials) -> Void)?
+    var onTurnOff: (() -> Void)?
     private let defaults: UserDefaults
     private static let stampKey = "settings.savedAt"
+    private static let clearedKey = "settings.clearedAt"
 
     var insecureWarning: String? { SyncSettingsValidator.insecureWarning(server: server) }
 
@@ -78,6 +83,14 @@ final class SyncSettings: ObservableObject {
                      stamp: stamp > 0 ? stamp : 1)
     }
 
+    /// Stamp of the last "turn off sync" while nothing valid is saved; nil if never turned off or if
+    /// credentials were saved afterwards. Mirrored to the watch so it removes its copy.
+    var clearedStamp: Int? {
+        guard savedForWatch() == nil else { return nil }
+        let v = defaults.integer(forKey: Self.clearedKey)
+        return v > 0 ? v : nil
+    }
+
     init(keychain: KeychainStore = KeychainStore(), defaults: UserDefaults = .standard,
          clientFactory: @escaping (KOSyncCredentials) -> KOSyncClientProtocol = { KOSyncClient(credentials: $0) }) {
         self.keychain = keychain
@@ -86,6 +99,7 @@ final class SyncSettings: ObservableObject {
         server = keychain.get(account: "server") ?? SyncSettingsValidator.defaultServer
         username = keychain.get(account: "username") ?? ""
         password = keychain.get(account: "password") ?? ""
+        isSyncOn = savedForWatch() != nil
     }
 
     var hasCredentials: Bool { SyncSettingsValidator.credentials(server: server, user: username, password: password) != nil }
@@ -98,12 +112,30 @@ final class SyncSettings: ObservableObject {
             try keychain.set(c.serverURL.absoluteString, account: "server")
             try keychain.set(c.username, account: "username")
             try keychain.set(c.password, account: "password")
-            defaults.set(Int(Date().timeIntervalSince1970), forKey: Self.stampKey)
-            status = "Saved. It is sent to the watch now, or as soon as the watch app is installed."
+            // Strictly newer than any earlier save or turn-off so the watch applies it.
+            let previous = max(defaults.integer(forKey: Self.stampKey), defaults.integer(forKey: Self.clearedKey))
+            defaults.set(max(Int(Date().timeIntervalSince1970), previous + 1), forKey: Self.stampKey)
+            defaults.removeObject(forKey: Self.clearedKey)
+            isSyncOn = true
+            status = "Sync is on. The login is sent to the watch now, or as soon as the watch app is installed."
             onSave?(c)
         } catch {
             status = "Keychain error: \(error)"
         }
+    }
+
+    /// Removes the saved login from the iPhone Keychain and tells the watch (settings channel, stamped)
+    /// to remove its credentials and pending queue. Books and reading positions are untouched.
+    func turnOff() {
+        for account in ["server", "username", "password"] { keychain.remove(account: account) }
+        let previous = max(defaults.integer(forKey: Self.stampKey), defaults.integer(forKey: Self.clearedKey))
+        defaults.set(max(Int(Date().timeIntervalSince1970), previous + 1), forKey: Self.clearedKey)
+        server = SyncSettingsValidator.defaultServer
+        username = ""
+        password = ""
+        isSyncOn = false
+        status = "Sync is off. Credentials were removed from this iPhone and the watch."
+        onTurnOff?()
     }
 
     func testConnection() { run("Connection OK.") { try await $0.authorize() } }

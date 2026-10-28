@@ -41,7 +41,9 @@ struct WristReaderApp: App {
         connectivity.settingsProvider = { settings.savedForWatch() }
         connectivity.unsentBooksProvider = { library.unsentBooks }
         connectivity.onWatchLibrary = { library.reconcile(watchHashes: $0, inFlight: connectivity.outstandingHashes) }
+        connectivity.clearedStampProvider = { settings.clearedStamp }
         settings.onSave = { _ in connectivity.syncWatchState() }
+        settings.onTurnOff = { connectivity.syncWatchState() }
         // Typography: edits on the phone are pushed with their stamp; the watch's copy wins if newer.
         connectivity.typographyProvider = { typography.value }
         connectivity.onWatchTypography = { typography.applyRemote($0) }

@@ -136,8 +136,13 @@ final class SyncCoordinator: ObservableObject {
         let queue = self.queue
         let configured = isConfigured
         Task {
-            for p in legacy { await queue.enqueue(p) }
-            if configured { await queue.resume() }
+            if configured {
+                for p in legacy { await queue.enqueue(p) }
+                await queue.resume()
+            } else if restored != nil || !legacy.isEmpty {
+                // Sync is optional: progress queued by an older build while unconfigured is dropped.
+                await queue.removeAll()
+            }
         }
     }
 
@@ -155,8 +160,12 @@ final class SyncCoordinator: ObservableObject {
     /// Call when settings changed (new credentials) or the app returns to foreground.
     func configurationChanged() {
         isConfigured = credentials() != nil
-        if !isConfigured { status = .idle }
-        retryPending()
+        if isConfigured {
+            retryPending()
+        } else {
+            // Credentials removed (or never set): nothing may stay queued and the UI shows no sync state.
+            resetPending()
+        }
     }
 
     /// Restarts delivery of queued progress (entries still honour their backoff). Called on foreground
@@ -188,20 +197,21 @@ final class SyncCoordinator: ObservableObject {
     /// Records the latest position for `document`. With `immediately == false` the push is debounced
     /// by the queue; otherwise it is flushed now and, on a transient failure, retried with backoff.
     func report(document: String, xpointer: String, percentage: Double, immediately: Bool) {
+        // Sync is optional: without credentials nothing is queued or persisted (PositionStore keeps the
+        // local position). When credentials arrive later the open-time GET + conflict policy apply.
+        let configured = credentials() != nil
+        isConfigured = configured
+        guard configured else { return }
         let progress = KOSyncProgress(document: document, progress: xpointer,
                                       percentage: min(max(percentage, 0), 1),
                                       device: device.name, device_id: device.id,
                                       timestamp: Int(Date().timeIntervalSince1970))
-        let configured = isConfigured || credentials() != nil
-        if configured { isConfigured = true }
         let queue = self.queue
         // Chained so that two quick reports reach the queue in call order.
         let previous = chain
         chain = Task {
             await previous?.value
-            if !configured {
-                await queue.enqueue(progress)
-            } else if immediately {
+            if immediately {
                 await queue.enqueue(progress)
                 let result = await queue.flush()
                 if !result.retained.isEmpty && !result.unauthorized { await queue.resume() }

@@ -7,6 +7,7 @@ import ReaderCore
 /// Wire names (see docs/WATCH_CONNECTIVITY.md):
 ///  - file metadata keys: documentHash, title, author, size; payload = LZFSE-compressed ProcessedBook JSON
 ///  - settings (`type == "settings"`): kosync_server, kosync_user, kosync_password, settingsStamp,
+///    or `kosync_cleared == true` + settingsStamp (sync turned off on the phone),
 ///    and (independently, last writer wins) typography + typographyStamp
 ///  - delete: `{ type: "delete_book", documentHash: <hash> }` (userInfo or message)
 ///  - watch -> phone (applicationContext): `{ type: "library", hashes: [<documentHash>], typography?, typographyStamp? }`

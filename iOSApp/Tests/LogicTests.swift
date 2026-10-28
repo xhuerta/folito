@@ -61,4 +61,77 @@ final class LogicTests: XCTestCase {
         store.reconcile(watchHashes: [], inFlight: [])
         XCTAssertTrue(store.entries.isEmpty)
     }
+
+    func testClearedSettingsSchema() {
+        let info = WatchSchema.clearedInfo(stamp: 42)
+        XCTAssertEqual(info["type"] as? String, "settings")
+        XCTAssertEqual(info["kosync_cleared"] as? Bool, true)
+        XCTAssertEqual(info["settingsStamp"] as? Int, 42)
+        XCTAssertNil(info["kosync_user"])
+        XCTAssertNil(info["kosync_password"])
+        XCTAssertNil(info["kosync_server"])
+        // Credentials win over a stale cleared stamp; cleared is used only without credentials.
+        let creds = WatchSchema.settingsContext(kosync: ("s", "u", "p", 5), clearedStamp: 4, typography: nil)
+        XCTAssertEqual(creds?["kosync_user"] as? String, "u")
+        XCTAssertNil(creds?["kosync_cleared"])
+        let cleared = WatchSchema.settingsContext(kosync: nil, clearedStamp: 9, typography: nil)
+        XCTAssertEqual(cleared?["kosync_cleared"] as? Bool, true)
+        XCTAssertEqual(cleared?["settingsStamp"] as? Int, 9)
+        // Never configured: nothing is sent at all.
+        XCTAssertNil(WatchSchema.settingsContext(kosync: nil, clearedStamp: nil, typography: nil))
+        XCTAssertNil(WatchSchema.settingsContext(kosync: nil, clearedStamp: 0, typography: nil))
+    }
+}
+
+@MainActor
+final class SyncOptionalTests: XCTestCase {
+    private func make() -> (SyncSettings, KeychainStore, UserDefaults) {
+        let kc = KeychainStore(service: "test.wristreader.\(UUID().uuidString)")
+        let d = UserDefaults(suiteName: "test.\(UUID().uuidString)")!
+        return (SyncSettings(keychain: kc, defaults: d, clientFactory: { _ in MockKOSyncClient() }), kc, d)
+    }
+
+    func testPrefilledDefaultServerDoesNotMeanConfigured() {
+        let (s, _, _) = make()
+        XCTAssertEqual(s.server, SyncSettingsValidator.defaultServer)
+        XCTAssertFalse(s.isSyncOn)
+        XCTAssertNil(s.savedForWatch())
+        XCTAssertNil(s.clearedStamp)
+        s.username = "u" // typing without saving does not turn sync on
+        XCTAssertFalse(s.isSyncOn)
+    }
+
+    func testSaveTurnsOnAndTurnOffClearsEverything() throws {
+        let (s, kc, _) = make()
+        s.username = "u"; s.password = "p"
+        s.save()
+        try XCTSkipUnless(s.isSyncOn, "Keychain unavailable in this test host")
+        XCTAssertNotNil(s.savedForWatch())
+        XCTAssertNil(s.clearedStamp)
+        var turnedOff = 0
+        s.onTurnOff = { turnedOff += 1 }
+        s.turnOff()
+        XCTAssertEqual(turnedOff, 1)
+        XCTAssertFalse(s.isSyncOn)
+        XCTAssertNil(kc.get(account: "username"))
+        XCTAssertNil(kc.get(account: "password"))
+        XCTAssertNil(s.savedForWatch())
+        XCTAssertEqual(s.username, "")
+        XCTAssertEqual(s.password, "")
+        let cleared = s.clearedStamp
+        XCTAssertNotNil(cleared)
+        // Saving again supersedes the cleared state with a strictly newer stamp.
+        s.username = "u"; s.password = "p"
+        s.save()
+        XCTAssertNil(s.clearedStamp)
+        XCTAssertGreaterThan(s.savedForWatch()?.stamp ?? 0, cleared ?? Int.max)
+        s.turnOff()
+    }
+
+    func testTurnOffWithoutEverConfiguringStillProducesClearedState() {
+        let (s, _, _) = make()
+        s.turnOff()
+        XCTAssertFalse(s.isSyncOn)
+        XCTAssertNotNil(s.clearedStamp)
+    }
 }
