@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }}</title>
+<meta name="description" content="{{ meta.description }}">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<link rel="canonical" href="{{ canonical }}">
+{{ alternates }}
+<link rel="icon" type="image/png" sizes="32x32" href="{{ root }}assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="64x64" href="{{ root }}assets/favicon-64.png">
+<link rel="apple-touch-icon" href="{{ root }}assets/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Folito">
+<meta property="og:title" content="{{ title }}">
+<meta property="og:description" content="{{ meta.description }}">
+<meta property="og:url" content="{{ canonical }}">
+<meta property="og:image" content="https://folito.app/assets/icon-512.png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+<meta property="og:image:alt" content="{{ meta.icon_alt }}">
+<meta property="og:locale" content="{{ og_locale }}">
+{{ og_locale_alternates }}
+<meta name="twitter:card" content="summary">
+<link rel="stylesheet" href="{{ root }}style.css">
+</head>
+<body>
+<a class="skip" href="#main">{{ nav.skip }}</a>
+<header class="bar">
+<div class="wrap">
+<a class="brand" href="index.html"{{ current.index }}><img src="{{ root }}assets/icon-256.png" width="28" height="28" alt=""><span>Folito</span></a>
+<nav class="nav" aria-label="{{ nav.main_label }}">
+<a href="privacy.html"{{ current.privacy }}>{{ nav.privacy }}</a>
+<a href="support.html"{{ current.support }}>{{ nav.support }}</a>
+</nav>
+{{ picker.header }}
+</div>
+</header>
+{{ content }}
+<footer class="site-footer">
+<div class="wrap">
+<div class="top">
+<nav aria-label="{{ nav.footer_label }}"><ul>
+<li><a href="index.html">Folito</a></li>
+<li><a href="privacy.html">{{ nav.privacy_policy }}</a></li>
+<li><a href="support.html">{{ nav.support }}</a></li>
+</ul></nav>
+{{ picker.footer }}
+</div>
+<p class="legal">{{ footer.legal }}</p>
+<p class="copy">&copy; 2026 Xabier Lahuerta</p>
+</div>
+</footer>
+{{ scripts }}
+</body>
+</html>
