@@ -290,6 +290,7 @@ xcodebuild test -project WristReader.xcodeproj -scheme WristReaderWatch \
 | Element | Audit type | Why it is accepted |
 |---|---|---|
 | Typography preview (`typographyPreview`) | Dynamic Type, Contrast, Text clipped | As on iOS: it shows the book text exactly as the reader will, at the reader's point size and theme colours. |
+| Settings toolbar button (`settingsButton`) | Hit region only | A system toolbar item (`ToolbarItem(placement: .topBarTrailing)` with a `Label`); watchOS draws and sizes it, the app sets no frame. The audit reported "Hit area is too small" for it on the empty library only (the same button passes on the library with a book). |
 | Book text (`readerBlock`) | Dynamic Type, Text clipped | The reader uses its own text size (it follows Dynamic Type only with *Match System Text Size*, off by default); blocks at the top and bottom edge of the scroll view are partly off screen by design. Contrast is *not* accepted (the palettes are checked in `ReaderAccessibilityTests`). |
 
 Anything else fails the test. To accept a new finding, add it to `isAccepted(_:)` in

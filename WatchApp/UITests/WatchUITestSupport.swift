@@ -66,8 +66,18 @@ enum WatchUI {
 
     /// Settings or Reading Options -> Typography editor.
     static func openTypography(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
-        let link = element("typographyLink", in: app)
-        XCTAssertTrue(scrollToHittable(link, in: app), "Typography link not reachable", file: file, line: line)
+        // By identifier, or by its label: on watchOS a NavigationLink row may not carry the identifier set on it.
+        let byID = element("typographyLink", in: app)
+        let byLabel = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label BEGINSWITH %@", "Typography")).element(boundBy: 0)
+        var swipes = 0
+        while !(byID.exists && byID.isHittable) && !(byLabel.exists && byLabel.isHittable) && swipes < 8 {
+            app.swipeUp()
+            swipes += 1
+        }
+        let link = byID.exists && byID.isHittable ? byID : byLabel
+        XCTAssertTrue(link.exists && link.isHittable,
+                      "Typography link not reachable. Tree:\n\(app.debugDescription)", file: file, line: line)
         link.tap()
         XCTAssertTrue(element("typographyPreview", in: app).waitForExistence(timeout: 5),
                       "Typography editor did not open", file: file, line: line)
