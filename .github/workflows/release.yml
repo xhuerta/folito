@@ -40,8 +40,8 @@ concurrency:
 
 jobs:
   release:
-    # Same runner as macos.yml: the arm64 pool is capacity-constrained; set MACOS_RUNNER to override.
-    runs-on: ${{ vars.MACOS_RUNNER || 'macos-15-intel' }}
+    # Same runner as macos.yml (arm64 macos-15); set the repository variable MACOS_RUNNER to override.
+    runs-on: ${{ vars.MACOS_RUNNER || 'macos-15' }}
     timeout-minutes: 60
     # Secrets are only exposed to the steps that need them (below), never job-wide.
     steps:

@@ -26,14 +26,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # The repository name is part of the key: .build holds absolute paths, so a cache saved under the old
-      # repository name (wristreader) breaks the build after the rename.
+      # .build holds absolute paths (module cache, PCH): the key includes the repository name so a rename
+      # (wristreader -> folito changed the workspace path) cannot restore an incompatible build.
       - name: Cache SwiftPM
         uses: actions/cache@v4
         with:
           path: Packages/ReaderCore/.build
-          key: spm-${{ github.event.repository.name }}-${{ runner.os }}-${{ hashFiles('Packages/ReaderCore/Package.swift', 'Packages/ReaderCore/Package.resolved') }}
-          restore-keys: spm-${{ github.event.repository.name }}-${{ runner.os }}-
+          key: spm-${{ runner.os }}-${{ github.event.repository.name }}-${{ hashFiles('Packages/ReaderCore/Package.swift', 'Packages/ReaderCore/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-${{ github.event.repository.name }}-
 
       - name: Test ReaderCore
         working-directory: Packages/ReaderCore
@@ -50,12 +50,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # .build holds absolute paths (module cache, PCH): the key includes the repository name so a rename
+      # (wristreader -> folito changed the workspace path) cannot restore an incompatible build.
       - name: Cache SwiftPM
         uses: actions/cache@v4
         with:
           path: Packages/ReaderCore/.build
-          key: spm-${{ github.event.repository.name }}-${{ runner.os }}-${{ hashFiles('Packages/ReaderCore/Package.swift', 'Packages/ReaderCore/Package.resolved') }}
-          restore-keys: spm-${{ github.event.repository.name }}-${{ runner.os }}-
+          key: spm-${{ runner.os }}-${{ github.event.repository.name }}-${{ hashFiles('Packages/ReaderCore/Package.swift', 'Packages/ReaderCore/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-${{ github.event.repository.name }}-
 
       - name: Wait for KOSync server
         run: |
