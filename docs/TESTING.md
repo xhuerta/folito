@@ -7,19 +7,52 @@ nothing external; the checks in this document are gated by environment variables
 
 | Suite | Where | Command / job | Executed |
 |---|---|---|---|
-| ReaderCore unit tests | Linux (`linux.yml`) and macOS (`macos.yml`, `swift test`) | `swift test` in `Packages/ReaderCore` | 164 (14 skipped: env-gated) |
+| ReaderCore unit tests | Linux (`linux.yml`); on macOS only compiled, as part of both apps | `swift test` in `Packages/ReaderCore` | 164 (14 skipped: env-gated) |
 | KOSync integration | Linux, service container | job `kosync-integration` (`KOSYNC_TEST_URL`) | see section 1 |
 | iOS app tests (`WristReaderTests`: LogicTests, TypographySyncTests) | macOS runner, iPhone simulator | `xcodebuild test -scheme WristReader` | 16 |
 | watchOS app tests (`WristReaderWatchTests`: LogicTests, TypographyDictionaryTests) | macOS runner, Apple Watch simulator | `xcodebuild test -scheme WristReaderWatch` | 42 |
 | iOS accessibility audit (`WristReaderUITests`) | macOS runner, iPhone simulator; **not on every PR** (see below) | `accessibility.yml`, `xcodebuild test -scheme WristReader -only-testing:WristReaderUITests` | 5 |
 
-The macOS workflow (`macos.yml`, PR-blocking) builds and runs only unit tests (`-skip-testing:WristReaderUITests`),
-with per-test time limits (`-test-timeouts-enabled YES`, 180 s default / 300 s maximum). The accessibility audit UI
-tests are slow, so they run in `accessibility.yml` on pushes to `main`, manually (Actions › *Accessibility audit* ›
-*Run workflow*) and on PRs labelled `accessibility`; it is not a required check. Details in
-[ACCESSIBILITY.md](ACCESSIBILITY.md#automated-audit).
+### CI: which workflow runs when
 
-The macOS job uploads `ios-tests.xcresult` / `watch-tests.xcresult` as artifacts and prints a per-case summary.
+| Workflow | Runs on | Triggers | Typical time |
+|---|---|---|---|
+| `linux.yml`: `test-core` (ReaderCore `swift test`), `kosync-integration`, `strings` | `ubuntu-latest` | every push to `main` and every PR | 1-2 min |
+| `macos.yml`: jobs `ios` and `watch` in parallel (build + unit tests on simulators, String Catalog comparison in `ios`) | `macos-15` (arm64) | push to `main` and PRs, **except** docs-only changes (`docs/**`, `*.md`, scripts and workflows that do not affect the build); **draft PRs skip it** and it runs when the PR is marked ready for review; manual (`workflow_dispatch`, optional runner label) | 4-8 min per job (was 15-20 min in one Intel job) |
+| `release-check.yml`: Release archive of both apps + `validate_release.py` | `macos-15` (arm64) | every push to `main`; PRs (not drafts) only when they touch `project.yml`, `Config/**`, asset catalogs, Info/plist/entitlements/privacy manifests, `InfoPlist.xcstrings`, the package manifest/pins, `scripts/validate_release.py` or the workflow; manual | 2-3 min |
+| `accessibility.yml`: accessibility audit UI tests | `macos-15` (arm64) | push to `main`, manual, PRs labelled `accessibility` | 10-30 min |
+| `release.yml`: signed build + TestFlight upload | `macos-15` (arm64) | tag `v*`, manual; dry run on PRs touching the pipeline | |
+
+`main` has no branch protection or required checks, so path-filtered workflows simply do not run for docs-only PRs. If
+a macOS check is ever made required, replace `paths-ignore` with a job-level `if` (e.g. a paths-filter step) so the
+check still reports on docs-only PRs.
+
+How `macos.yml` stays fast:
+
+- ReaderCore's `swift test` runs only on Linux. The package has no Apple-only code paths (only `canImport`
+  shims for `FoundationNetworking`/`FoundationXML` on Linux) and is compiled on macOS as part of both apps.
+- iOS and watch are separate parallel jobs. Each runs `xcodebuild build-for-testing` for a generic simulator
+  destination and the runner's architecture only, while `scripts/ci/boot_simulator.sh` picks (or creates) and boots
+  the simulator in the background; then `test-without-building` on that simulator. The `ios` job also builds the
+  embedded watch app, as the scheme requires.
+- `SourcePackages` and `DerivedData` (build products, module cache) are cached, keyed on the package pins, the package
+  manifest, `project.yml`, the Xcode version and the architecture. Repository sources get fresh mtimes on every
+  checkout, so the apps and ReaderCore are always recompiled; the cache only spares the package checkouts and the
+  third-party package builds, so it cannot hide a compile error in this repository.
+- No index store, `DEBUG_INFORMATION_FORMAT=dwarf`, `-skipPackagePluginValidation -skipMacroValidation`, unsigned;
+  XcodeGen comes from its release zip instead of Homebrew.
+- Runner: arm64 `macos-15` compiles 3-4x faster than `macos-15-intel` (measured on PR #25: iOS build-for-testing
+  3.6-5.5 min on arm64 vs 15.5 min on Intel). Queue time is dominated by the account-wide limit on concurrent macOS
+  jobs, which shorter jobs also relieve. If the arm64 pool is ever capacity-starved again (jobs "not acquired by
+  Runner"), set the repository variable `MACOS_RUNNER` to `macos-15-intel`; every macOS workflow honours it.
+
+Unit tests run with per-test time limits (`-test-timeouts-enabled YES`, 180 s default / 300 s maximum) and skip
+`WristReaderUITests`. The accessibility audit UI tests are slow, so they run in `accessibility.yml` on pushes to
+`main`, manually (Actions › *Accessibility audit* › *Run workflow*) and on PRs labelled `accessibility`; it is not a
+required check. Details in [ACCESSIBILITY.md](ACCESSIBILITY.md#automated-audit).
+
+Each macOS job uploads `ios-tests.xcresult` / `watch-tests.xcresult` (plus its `build.log`) as artifacts and prints a
+per-case summary.
 Notes on the watch bundle: the watch app's `PRODUCT_NAME` is `WristReader`, so `TEST_HOST`/`BUNDLE_LOADER` are set
 explicitly in `project.yml`; the app also sets `WKRunsIndependentlyOfCompanionApp` so it can be installed on a watch
 simulator without a paired iPhone (otherwise the test host fails to launch: "Unknown application display identifier").
