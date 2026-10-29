@@ -18,7 +18,7 @@ nothing external; the checks in this document are gated by environment variables
 | Workflow | Runs on | Triggers | Typical time |
 |---|---|---|---|
 | `linux.yml`: `test-core` (ReaderCore `swift test`), `kosync-integration`, `strings` | `ubuntu-latest` | every push to `main` and every PR | 1-2 min |
-| `macos.yml`: jobs `ios` and `watch` in parallel (build + unit tests on simulators, String Catalog comparison in `ios`) | `macos-15` (arm64) | push to `main` and PRs, **except** docs-only changes (`docs/**`, `*.md`, scripts and workflows that do not affect the build); **draft PRs skip it** and it runs when the PR is marked ready for review; manual (`workflow_dispatch`, optional runner label) | 4-8 min per job (was 15-20 min in one Intel job) |
+| `macos.yml`: jobs `ios` and `watch` in parallel (build + unit tests on simulators, String Catalog comparison in `ios`) | `macos-15` (arm64) | push to `main` and PRs, **except** docs-only changes (`docs/**`, `*.md`, scripts and workflows that do not affect the build); **draft PRs skip it** and it runs when the PR is marked ready for review; manual (`workflow_dispatch`, optional runner label) | 5-9 min per job, run in parallel (was 15-20 min in one Intel job) |
 | `release-check.yml`: Release archive of both apps + `validate_release.py` | `macos-15` (arm64) | every push to `main`; PRs (not drafts) only when they touch `project.yml`, `Config/**`, asset catalogs, Info/plist/entitlements/privacy manifests, `InfoPlist.xcstrings`, the package manifest/pins, `scripts/validate_release.py` or the workflow; manual | 2-3 min |
 | `accessibility.yml`: accessibility audit UI tests | `macos-15` (arm64) | push to `main`, manual, PRs labelled `accessibility` | 10-30 min |
 | `release.yml`: signed build + TestFlight upload | `macos-15` (arm64) | tag `v*`, manual; dry run on PRs touching the pipeline | |
@@ -42,7 +42,7 @@ How `macos.yml` stays fast:
 - No index store, `DEBUG_INFORMATION_FORMAT=dwarf`, `-skipPackagePluginValidation -skipMacroValidation`, unsigned;
   XcodeGen comes from its release zip instead of Homebrew.
 - Runner: arm64 `macos-15` compiles 3-4x faster than `macos-15-intel` (measured on PR #25: iOS build-for-testing
-  3.6-5.5 min on arm64 vs 15.5 min on Intel). Queue time is dominated by the account-wide limit on concurrent macOS
+  3.6-6.4 min on arm64 vs 15.5 min on Intel; the iOS job took 4.8-9.3 min on arm64 vs 20.4 min on Intel). Queue time is dominated by the account-wide limit on concurrent macOS
   jobs, which shorter jobs also relieve. If the arm64 pool is ever capacity-starved again (jobs "not acquired by
   Runner"), set the repository variable `MACOS_RUNNER` to `macos-15-intel`; every macOS workflow honours it.
 

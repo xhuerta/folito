@@ -20,6 +20,7 @@ on:
       - ".github/workflows/release.yml"
       - ".github/workflows/release-check.yml"
       - ".github/workflows/accessibility.yml"
+      - ".github/workflows/cla.yml"
   pull_request:
     # ready_for_review: draft PRs skip the macOS jobs; they run when the PR is marked ready.
     types: [opened, synchronize, reopened, ready_for_review]
@@ -34,6 +35,7 @@ on:
       - ".github/workflows/release.yml"
       - ".github/workflows/release-check.yml"
       - ".github/workflows/accessibility.yml"
+      - ".github/workflows/cla.yml"
   workflow_dispatch:
     inputs:
       runner:
