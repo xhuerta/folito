@@ -21,7 +21,7 @@ final class AppEnvironment: ObservableObject {
         self.sync = SyncCoordinator()
         self.typography = TypographyModel(store: TypographyStore(defaults: UITesting.defaults))
         let cacheURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("WristReader/Dictionary/cache.json")
+            .appendingPathComponent("Folito/Dictionary/cache.json")
         let cache = DictionaryCache(fileURL: cacheURL)
         self.dictionaryCache = cache
         self.dictionary = DictionaryService.online(cache: cache)

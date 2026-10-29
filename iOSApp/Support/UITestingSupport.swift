@@ -1,7 +1,7 @@
 import Foundation
 import ReaderCore
 
-/// Launch arguments used by the UI test target (WristReaderUITests). Compiled into Debug builds only, so
+/// Launch arguments used by the UI test target (FolitoUITests). Compiled into Debug builds only, so
 /// a Release / App Store build has no test hooks at all.
 ///
 /// - `-UITesting`: the library lives in a fresh temporary directory, so every launch starts empty and the

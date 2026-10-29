@@ -1,7 +1,7 @@
 import Foundation
 import ReaderCore
 
-/// Launch arguments used by the watch UI test target (WristReaderWatchUITests). The hooks are compiled into
+/// Launch arguments used by the watch UI test target (FolitoWatchUITests). The hooks are compiled into
 /// Debug builds only: in Release every factory below returns the normal service and nothing is read from the
 /// launch arguments, so an App Store build has no test hooks at all.
 ///
@@ -21,7 +21,7 @@ enum UITesting {
         return args.contains(isolateArgument) || args.contains(seedSampleBookArgument)
     }()
 
-    private static let defaultsSuite = "WristReader.UITesting"
+    private static let defaultsSuite = "Folito.UITesting"
 
     /// Private settings store, emptied on every launch. `.standard` when not UI testing.
     static let defaults: UserDefaults = {

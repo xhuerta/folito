@@ -217,10 +217,10 @@ final class EPUBParserTests: XCTestCase {
 
     // MARK: Optional integration (Project Gutenberg etc.)
 
-    /// Set `WRISTREADER_EPUB` to a path of a real EPUB to run this.
+    /// Set `FOLITO_EPUB` to a path of a real EPUB to run this.
     func testRealWorldEPUBIfProvided() throws {
-        guard let path = ProcessInfo.processInfo.environment["WRISTREADER_EPUB"] else {
-            throw XCTSkip("WRISTREADER_EPUB not set")
+        guard let path = ProcessInfo.processInfo.environment["FOLITO_EPUB"] else {
+            throw XCTSkip("FOLITO_EPUB not set")
         }
         let book = try EPUBTestSupport.parser().process(epubAt: URL(fileURLWithPath: path))
         XCTAssertFalse(book.chapters.isEmpty)

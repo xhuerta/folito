@@ -2,7 +2,7 @@ import SwiftUI
 import ReaderCore
 
 @main
-struct WristReaderApp: App {
+struct FolitoApp: App {
     // Debug builds honour the UI-testing launch arguments (isolated, optionally seeded library); Release
     // builds always use the real library. See UITestingSupport.swift.
     @StateObject private var library = UITesting.makeLibrary()

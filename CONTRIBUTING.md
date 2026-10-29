@@ -1,22 +1,22 @@
-# Contributing to WristReader
+# Contributing to Folito
 
 Thanks for your interest! Bug reports, fixes, translations and improvements are
 welcome.
 
 ## License in plain words
 
-WristReader is **source-available** under the
+Folito is **source-available** under the
 [Functional Source License 1.1, ALv2 Future License](LICENSE.md)
 (`FSL-1.1-ALv2`). It is not "open source" in the OSI sense. In practice:
 
 - **You can** read the code, modify it, build the app for yourself, use it for
   non-commercial education or research, and contribute changes back.
 - **You can't** ship a competing product or service with it: a commercial app
-  or service that substitutes for WristReader or offers substantially the same
+  or service that substitutes for Folito or offers substantially the same
   functionality.
 - **Every release becomes Apache-2.0** two years after it is published, with no
   restrictions beyond that license.
-- The **WristReader name and icon are not licensed** with the code; forks must
+- The **Folito name and icon are not licensed** with the code; forks must
   use their own name and icon. See [TRADEMARKS.md](TRADEMARKS.md).
 
 LICENSE.md is the authoritative text; this summary does not replace it.

@@ -4,7 +4,7 @@ import ReaderCore
 
 /// Thin generic-password Keychain wrapper (no access groups; free Personal Team friendly).
 enum KeychainStore {
-    private static let service = "wristreader.kosync"
+    private static let service = "folito.kosync"
 
     private static func baseQuery(_ account: String) -> [String: Any] {
         [kSecClass as String: kSecClassGenericPassword,

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministically generates the WristReader app icon (1024x1024, opaque, square corners).
+"""Deterministically generates the Folito app icon (1024x1024, opaque, square corners).
 
 Motif (owner-provided design, redrawn as vector-like shapes so it is crisp at 1024 px):
 an open book inside a circular arrow on a blue gradient. The book was traced from

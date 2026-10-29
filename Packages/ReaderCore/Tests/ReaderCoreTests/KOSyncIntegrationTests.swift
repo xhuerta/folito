@@ -47,12 +47,12 @@ final class KOSyncIntegrationTests: XCTestCase {
         let xp = "/body/DocFragment[3]/body/div/p[2]/text().17"
         let before = Int(Date().timeIntervalSince1970)
         try await c.pushProgress(KOSyncProgress(document: doc, progress: xp, percentage: 0.123456789,
-                                                device: "WristReader", device_id: "WATCH-1", timestamp: 42))
+                                                device: "Folito", device_id: "WATCH-1", timestamp: 42))
         let got = try await c.fetchProgress(document: doc)
         XCTAssertEqual(got?.document, doc)
         XCTAssertEqual(got?.progress, xp)   // slashes survive the server's JSON escaping
         XCTAssertEqual(got?.percentage ?? 0, 0.123456789, accuracy: 1e-9)
-        XCTAssertEqual(got?.device, "WristReader")
+        XCTAssertEqual(got?.device, "Folito")
         XCTAssertEqual(got?.device_id, "WATCH-1")
         // Timestamp is assigned by the server (seconds), not taken from the client's `42`.
         let ts = try XCTUnwrap(got?.timestamp)

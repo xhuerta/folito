@@ -61,19 +61,19 @@ jobs:
       matrix:
         include:
           - platform: ios
-            scheme: WristReader
+            scheme: Folito
             sdk: iOS Simulator
             # Unit tests only; the accessibility-audit UI tests run in accessibility.yml (not PR-blocking).
-            test_args: -skip-testing:WristReaderUITests
+            test_args: -skip-testing:FolitoUITests
           - platform: watch
-            scheme: WristReaderWatch
+            scheme: FolitoWatch
             sdk: watchOS Simulator
             # Unit tests only; the watch accessibility UI tests run in accessibility.yml (not PR-blocking).
-            test_args: -skip-testing:WristReaderWatchUITests
+            test_args: -skip-testing:FolitoWatchUITests
     env:
       # Shared build settings: no indexing, no dSYMs, no signing, only the runner's architecture.
       XCB_FLAGS: >-
-        -project WristReader.xcodeproj
+        -project Folito.xcodeproj
         -derivedDataPath DerivedData
         -clonedSourcePackagesDirPath SourcePackages
         -skipPackagePluginValidation -skipMacroValidation
