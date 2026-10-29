@@ -1,24 +1,83 @@
 name: macOS
 
+# PR-blocking: builds the iPhone and watch apps and runs their unit tests on simulators, as two parallel jobs.
+# ReaderCore's own `swift test` runs on Linux (linux.yml); the package has no Apple-only code paths and is
+# compiled here as part of both apps. The slow accessibility UI audits run in accessibility.yml.
+# See docs/TESTING.md ("What runs where").
+
 on:
   push:
     branches: [main]
+    # Docs-only / tooling-only changes skip this workflow (no branch protection requires it).
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - "scripts/kosync-server/**"
+      - "scripts/check_real_books.sh"
+      - "scripts/make_icons.py"
+      - "scripts/partial_md5_*"
+      - ".github/workflows/linux.yml"
+      - ".github/workflows/release.yml"
+      - ".github/workflows/release-check.yml"
+      - ".github/workflows/accessibility.yml"
+      - ".github/workflows/cla.yml"
   pull_request:
+    # ready_for_review: draft PRs skip the macOS jobs; they run when the PR is marked ready.
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - "scripts/kosync-server/**"
+      - "scripts/check_real_books.sh"
+      - "scripts/make_icons.py"
+      - "scripts/partial_md5_*"
+      - ".github/workflows/linux.yml"
+      - ".github/workflows/release.yml"
+      - ".github/workflows/release-check.yml"
+      - ".github/workflows/accessibility.yml"
+      - ".github/workflows/cla.yml"
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: "Runner label override (e.g. macos-15-intel)"
+        type: string
+        required: false
 
 concurrency:
   group: macos-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
-    # GitHub's macOS arm64 pool (macos-latest / macos-15 / macos-26) has been
-    # capacity-constrained: jobs sat queued and were dropped with "The job was
-    # not acquired by Runner of type hosted even after multiple attempts".
-    # Pin an explicit label and default to the Intel pool, which is not
-    # affected. Set the repository variable MACOS_RUNNER (e.g. to `macos-15`)
-    # to switch back to arm64 without editing this file.
-    runs-on: ${{ vars.MACOS_RUNNER || 'macos-15-intel' }}
-    timeout-minutes: 45
+  test:
+    name: ${{ matrix.platform }}
+    if: github.event.pull_request.draft != true
+    # Default: arm64 `macos-15` (free for public repos and ~2x faster than Intel; see docs/TESTING.md for
+    # the measurements). If the arm64 pool is capacity-constrained again (jobs queued for a long time or
+    # "not acquired by Runner"), set the repository variable MACOS_RUNNER to `macos-15-intel`.
+    runs-on: ${{ inputs.runner || vars.MACOS_RUNNER || 'macos-15' }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ios
+            scheme: Folito
+            sdk: iOS Simulator
+            # Unit tests only; the accessibility-audit UI tests run in accessibility.yml (not PR-blocking).
+            test_args: -skip-testing:FolitoUITests
+          - platform: watch
+            scheme: FolitoWatch
+            sdk: watchOS Simulator
+            # Unit tests only; the watch accessibility UI tests run in accessibility.yml (not PR-blocking).
+            test_args: -skip-testing:FolitoWatchUITests
+    env:
+      # Shared build settings: no indexing, no dSYMs, no signing, only the runner's architecture.
+      XCB_FLAGS: >-
+        -project Folito.xcodeproj
+        -derivedDataPath DerivedData
+        -clonedSourcePackagesDirPath SourcePackages
+        -skipPackagePluginValidation -skipMacroValidation
+        CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO DEBUG_INFORMATION_FORMAT=dwarf
     steps:
       - uses: actions/checkout@v4
 
@@ -27,120 +86,94 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - name: Show toolchain and simulators
+      # Boots the simulator in the background while the app compiles (first CoreSimulator use takes ~1 min).
+      - name: Boot simulator (background)
         run: |
+          nohup scripts/ci/boot_simulator.sh ${{ matrix.platform }} "$RUNNER_TEMP/udid" > "$RUNNER_TEMP/boot.log" 2>&1 &
           uname -m
           xcodebuild -version
-          xcrun simctl list runtimes available
-
-      - name: Cache SwiftPM
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/Library/Caches/org.swift.swift-package-manager
-            SourcePackages
-            Packages/ReaderCore/.build
-          key: spm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Packages/ReaderCore/Package.swift', 'Packages/ReaderCore/Package.resolved') }}
-          restore-keys: spm-${{ runner.os }}-${{ runner.arch }}-
+          echo "ARCH=$(uname -m)" >> "$GITHUB_ENV"
 
       - name: Install XcodeGen
-        run: brew install xcodegen
+        run: |
+          # Prebuilt release binary (seconds) instead of `brew install` (~20 s); brew as a fallback.
+          if curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" https://github.com/yonaskolb/XcodeGen/releases/download/2.44.1/xcodegen.zip; then
+            unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xg"
+            echo "$RUNNER_TEMP/xg/xcodegen/bin" >> "$GITHUB_PATH"
+          else
+            brew install xcodegen
+          fi
 
       - name: Generate Xcode project
         run: xcodegen generate
 
-      - name: Test ReaderCore
-        working-directory: Packages/ReaderCore
-        run: swift test
+      # SwiftPM checkouts only. Caching DerivedData was measured on PR #25 and did not pay off: the repository's
+      # sources are recompiled on every checkout anyway, and restoring/saving ~160 MB cost as much as the few
+      # third-party package compiles it saved.
+      - name: Cache SwiftPM checkouts
+        uses: actions/cache@v4
+        with:
+          path: SourcePackages
+          key: spm-src-${{ hashFiles('Packages/ReaderCore/Package.resolved') }}
+          restore-keys: spm-src-
 
-      - name: Test iOS app (simulator)
+      - name: Build for testing
+        run: |
+          xcodebuild build-for-testing $XCB_FLAGS \
+            -scheme ${{ matrix.scheme }} \
+            -destination "generic/platform=${{ matrix.sdk }}" \
+            ARCHS="$ARCH" ONLY_ACTIVE_ARCH=YES \
+            -showBuildTimingSummary > build.log 2>&1 || { grep -E "error:" build.log; tail -80 build.log; exit 1; }
+          grep -E "^Resolved source packages|warning:" build.log | sort -u | head -40 || true
+          sed -n '/Build Timing Summary/,$p' build.log | head -40 || true
+
+      - name: Wait for simulator
+        timeout-minutes: 8
+        run: |
+          until [ -s "$RUNNER_TEMP/udid" ] && grep -q booted "$RUNNER_TEMP/boot.log"; do
+            if ! pgrep -f boot_simulator.sh >/dev/null && ! grep -q booted "$RUNNER_TEMP/boot.log"; then
+              tail -40 "$RUNNER_TEMP/boot.log"; exit 1
+            fi
+            sleep 2
+          done
+          grep -v -E "^\s|^\[|^$" "$RUNNER_TEMP/boot.log" || true
+          echo "UDID=$(cat "$RUNNER_TEMP/udid")" >> "$GITHUB_ENV"
+
+      - name: Run tests
         run: |
           set -o pipefail
-          UDID=$(xcrun simctl list devices available -j | python3 -c "
-          import json,sys
-          d=json.load(sys.stdin)['devices']
-          c=[x for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone')]
-          print(c[-1]['udid'] if c else '')")
-          echo "iOS simulator: $UDID"
-          [ -n "$UDID" ] || { xcrun simctl list devices available; exit 1; }
-          rm -rf ios-tests.xcresult
-          # Unit tests only; the accessibility-audit UI tests run in accessibility.yml (not PR-blocking).
-          xcodebuild test \
-            -project Folito.xcodeproj \
-            -scheme Folito \
+          rm -rf ${{ matrix.platform }}-tests.xcresult
+          xcodebuild test-without-building $XCB_FLAGS \
+            -scheme ${{ matrix.scheme }} \
             -destination "id=$UDID" \
-            -skip-testing:FolitoUITests \
-            -clonedSourcePackagesDirPath SourcePackages \
+            ${{ matrix.test_args }} \
             -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
-            -resultBundlePath ios-tests.xcresult \
-            CODE_SIGNING_ALLOWED=NO 2>&1 | tee ios-tests.log
+            -resultBundlePath ${{ matrix.platform }}-tests.xcresult 2>&1 | tee ${{ matrix.platform }}-tests.log
 
-      - name: iOS test summary
+      - name: Test summary
         if: always()
         run: |
-          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:" ios-tests.log || true
-          xcrun xcresulttool get test-results summary --path ios-tests.xcresult || true
+          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:" ${{ matrix.platform }}-tests.log || true
+          xcrun xcresulttool get test-results summary --path ${{ matrix.platform }}-tests.xcresult || true
 
-      - name: Upload iOS xcresult
+      - name: Upload xcresult
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ios-tests-xcresult
-          path: ios-tests.xcresult
-
-      - name: Test watchOS app (simulator)
-        run: |
-          set -o pipefail
-          UDID=$(xcrun simctl list devices available -j | python3 -c "
-          import json,sys
-          d=json.load(sys.stdin)['devices']
-          c=[x for k,v in d.items() if 'watchOS' in k for x in v if x['name'].startswith('Apple Watch')]
-          print(c[-1]['udid'] if c else '')")
-          if [ -z "$UDID" ]; then
-            RT=$(xcrun simctl list runtimes available -j | python3 -c "
-          import json,sys
-          r=[x['identifier'] for x in json.load(sys.stdin)['runtimes'] if x['identifier'].split('.')[-1].startswith('watchOS')]
-          print(r[-1] if r else '')")
-            DT=$(xcrun simctl list devicetypes -j | python3 -c "
-          import json,sys
-          t=[x['identifier'] for x in json.load(sys.stdin)['devicetypes'] if 'Apple-Watch' in x['identifier']]
-          print(t[-1] if t else '')")
-            echo "creating watch simulator: $DT / $RT"
-            UDID=$(xcrun simctl create "CI Watch" "$DT" "$RT")
-          fi
-          echo "watchOS simulator: $UDID"
-          rm -rf watch-tests.xcresult
-          # Unit tests only; the watch accessibility UI tests run in accessibility.yml (not PR-blocking).
-          xcodebuild test \
-            -project Folito.xcodeproj \
-            -scheme FolitoWatch \
-            -destination "id=$UDID" \
-            -skip-testing:FolitoWatchUITests \
-            -clonedSourcePackagesDirPath SourcePackages \
-            -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
-            -resultBundlePath watch-tests.xcresult \
-            CODE_SIGNING_ALLOWED=NO 2>&1 | tee watch-tests.log
-
-      - name: watchOS test summary
-        if: always()
-        run: |
-          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:" watch-tests.log || true
-          xcrun xcresulttool get test-results summary --path watch-tests.xcresult || true
-
-      - name: Upload watchOS xcresult
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: watch-tests-xcresult
-          path: watch-tests.xcresult
+          name: ${{ matrix.platform }}-tests-xcresult
+          path: |
+            ${{ matrix.platform }}-tests.xcresult
+            build.log
+          if-no-files-found: ignore
 
       # The catalogs are hand-checked on Linux by scripts/check_strings.py; here they are compared with the keys
-      # the Swift compiler actually extracted while building both apps (SWIFT_EMIT_LOC_STRINGS). If the build
-      # rewrote a catalog, the rewritten files are uploaded so they can be committed as Xcode writes them.
+      # the Swift compiler actually extracted while building both apps (SWIFT_EMIT_LOC_STRINGS). The iOS job
+      # builds the embedded watch app too, so it covers both targets. If the build rewrote a catalog, the
+      # rewritten files are uploaded so they can be committed as Xcode writes them.
       - name: Compare String Catalogs with Xcode's extraction
-        if: always()
+        if: always() && matrix.platform == 'ios'
         run: |
-          python3 scripts/compare_extracted_strings.py ~/Library/Developer/Xcode/DerivedData
+          python3 scripts/compare_extracted_strings.py DerivedData
           if git status --porcelain -- '*.xcstrings' | grep -q .; then
             echo "::warning::The build rewrote String Catalogs:"; git diff --stat -- '*.xcstrings'
           else
@@ -148,7 +181,7 @@ jobs:
           fi
 
       - name: Upload String Catalogs as written by the build
-        if: always()
+        if: always() && matrix.platform == 'ios'
         uses: actions/upload-artifact@v4
         with:
           name: xcstrings-after-build
