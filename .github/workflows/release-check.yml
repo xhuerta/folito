@@ -1,9 +1,27 @@
 name: Release check
 
+# Release archive + bundle validation. Slow and rarely affected by ordinary code changes, so on pull requests it
+# runs only when release-relevant files change; every push to main runs it. Draft PRs skip it.
 on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "project.yml"
+      - "Config/**"
+      - "**/*.xcassets/**"
+      - "**/Info.plist"
+      - "**/*.plist"
+      - "**/*.entitlements"
+      - "**/*.xcprivacy"
+      - "**/InfoPlist.strings"
+      - "**/InfoPlist.xcstrings"
+      - "Packages/ReaderCore/Package.swift"
+      - "Packages/ReaderCore/Package.resolved"
+      - "scripts/validate_release.py"
+      - ".github/workflows/release-check.yml"
+  workflow_dispatch:
 
 concurrency:
   group: release-check-${{ github.ref }}
@@ -11,8 +29,9 @@ concurrency:
 
 jobs:
   archive:
-    # Same runner as macos.yml: the arm64 pool is capacity-constrained; set MACOS_RUNNER to override.
-    runs-on: ${{ vars.MACOS_RUNNER || 'macos-15-intel' }}
+    if: github.event.pull_request.draft != true
+    # Same runner as macos.yml; set the repository variable MACOS_RUNNER to override.
+    runs-on: ${{ vars.MACOS_RUNNER || 'macos-15' }}
     steps:
       - uses: actions/checkout@v4
 
