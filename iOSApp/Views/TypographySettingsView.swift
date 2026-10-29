@@ -23,7 +23,7 @@ struct TypographySettingsView: View {
                     .accessibilityValue(ReadingSettingsText.previewSummary(typography.value))
                     .accessibilityIdentifier("typographyPreview")
             } header: {
-                Text("Preview").systemSecondaryText()
+                Text("Preview").foregroundStyle(.secondaryText)
             }
             Section {
                 ScrollView(.horizontal) {
@@ -38,7 +38,7 @@ struct TypographySettingsView: View {
                 }
                 .scrollIndicators(.hidden)
             } header: {
-                Text("Presets").systemSecondaryText()
+                Text("Presets").foregroundStyle(.secondaryText)
             }
             Section {
                 adaptivePicker("Font", selection: typography.binding(\.fontFamily),
@@ -54,7 +54,7 @@ struct TypographySettingsView: View {
                     DisplayFormat.signedPoints($0)
                 }
             } header: {
-                Text("Font").systemSecondaryText()
+                Text("Font").foregroundStyle(.secondaryText)
             }
             Section {
                 slider("Line Spacing", typography.binding(\.lineSpacing), ReaderTypography.lineSpacingRange, 1) {
@@ -69,19 +69,19 @@ struct TypographySettingsView: View {
                 adaptivePicker("Alignment", selection: typography.binding(\.alignment),
                                options: ReaderTypography.Alignment.allCases) { ReadingSettingsText.name($0) }
             } header: {
-                Text("Layout").systemSecondaryText()
+                Text("Layout").foregroundStyle(.secondaryText)
             }
             Section {
                 Picker("Theme", selection: typography.binding(\.theme)) {
                     ForEach(ReaderTypography.Theme.allCases, id: \.self) { Text(ReadingSettingsText.name($0)).tag($0) }
                 }
             } header: {
-                Text("Theme").systemSecondaryText()
+                Text("Theme").foregroundStyle(.secondaryText)
             }
             Section {
                 Button("Reset to Defaults", role: .destructive) { confirmReset = true }
             } footer: {
-                Text("Justified text and automatic hyphenation aren’t available on Apple Watch. Changes are sent to your watch; if you also change them on the watch, the most recent change wins.").systemSecondaryText()
+                Text("Justified text and automatic hyphenation aren’t available on Apple Watch. Changes are sent to your watch; if you also change them on the watch, the most recent change wins.").foregroundStyle(.secondaryText)
             }
         }
         .navigationTitle("Reading")

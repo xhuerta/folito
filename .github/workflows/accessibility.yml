@@ -59,12 +59,19 @@ jobs:
         timeout-minutes: 25
         run: |
           set -o pipefail
+          # A standard 6.1"/6.3" iPhone (e.g. "iPhone 16 Pro") on the newest iOS runtime, not whichever iPhone
+          # happens to be listed last (often the 4.7" iPhone SE, where the audit's larger text sizes push rows
+          # under the tab bar; see docs/ACCESSIBILITY.md).
           UDID=$(xcrun simctl list devices available -j | python3 -c "
-          import json,sys
+          import json,re,sys
           d=json.load(sys.stdin)['devices']
-          c=[x for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone')]
-          print(c[-1]['udid'] if c else '')")
+          def ver(k): return [int(n) for n in re.findall(r'\d+', k.split('.')[-1])]
+          rts=sorted((k for k in d if 'iOS' in k and any(x['name'].startswith('iPhone') for x in d[k])), key=ver)
+          c=[x for x in d[rts[-1]] if x['name'].startswith('iPhone')] if rts else []
+          pick=[x for p in (r'iPhone \d+ Pro$', r'iPhone \d+$') for x in c if re.fullmatch(p, x['name'])] or c
+          print(pick[0]['udid'] + ' ' + pick[0]['name'] if pick else '')")
           echo "iOS simulator: $UDID"
+          UDID=${UDID%% *}
           [ -n "$UDID" ] || { xcrun simctl list devices available; exit 1; }
           xcodebuild test \
             -project WristReader.xcodeproj \
@@ -144,6 +151,15 @@ jobs:
             UDID=$(xcrun simctl create "CI Watch" "$DT" "$RT")
           fi
           echo "watchOS simulator: $UDID"
+          # TEMPORARY DIAGNOSTIC: sample the watch app's threads every 10 s while the tests run.
+          mkdir -p samples
+          ( for i in $(seq 1 300); do
+              pid=$(pgrep -f '/WristReader.app/WristReader$' | head -1)
+              if [ -n "$pid" ]; then
+                sudo sample "$pid" 2 -mayDie -file "samples/$(date +%H%M%S)-$pid.txt" >/dev/null 2>&1 || true
+              fi
+              sleep 8
+            done ) &
           xcodebuild test \
             -project WristReader.xcodeproj \
             -scheme WristReaderWatch \
@@ -153,6 +169,25 @@ jobs:
             -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
             -resultBundlePath watch-uitests.xcresult \
             CODE_SIGNING_ALLOWED=NO 2>&1 | tee watch-uitests.log
+
+      - name: Thread samples (TEMPORARY DIAGNOSTIC)
+        if: always()
+        run: |
+          ls samples || true
+          for f in samples/*.txt; do
+            echo "===== $f"
+            sed -n '/Sort by top of stack/,$p' "$f" | head -25
+            echo "----- main thread"
+            awk '/Thread_[0-9]+.*DispatchQueue_1: com.apple.main-thread/{p=1} p&&/^    [0-9]+ Thread_/&&!/main-thread/{p=0} p' "$f" | head -70 | cut -c1-220
+          done
+
+      - name: Upload samples (TEMPORARY DIAGNOSTIC)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: watch-samples
+          path: samples
+          if-no-files-found: ignore
 
       - name: Findings summary
         if: always()

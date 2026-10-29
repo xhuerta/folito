@@ -18,7 +18,7 @@ struct LibraryView: View {
                     ContentUnavailableView {
                         Label("No Books", systemImage: "books.vertical")
                     } description: {
-                        Text("Import an EPUB file to read it on your Apple Watch. You can also open EPUB files from the Files app or the share sheet. Books are sent to your watch automatically.").systemSecondaryText()
+                        Text("Import an EPUB file to read it on your Apple Watch. You can also open EPUB files from the Files app or the share sheet. Books are sent to your watch automatically.").foregroundStyle(.secondaryText)
                     } actions: {
                         Button("Import EPUB") { showImporter = true }
                             .disabled(library.isImporting)
@@ -30,7 +30,7 @@ struct LibraryView: View {
                         row(entry)
                     }
                 } header: {
-                    Text("Books").systemSecondaryText()
+                    Text("Books").foregroundStyle(.secondaryText)
                 }
             }
         }
@@ -153,7 +153,7 @@ private struct WatchStatusSection: View {
                 ContentUnavailableView {
                     Label("No Apple Watch", systemImage: "applewatch.slash")
                 } description: {
-                    Text("Pair an Apple Watch with this iPhone to read on your wrist. Books you import stay here and are sent once a watch is paired.").systemSecondaryText()
+                    Text("Pair an Apple Watch with this iPhone to read on your wrist. Books you import stay here and are sent once a watch is paired.").foregroundStyle(.secondaryText)
                 }
             }
         case .appNotInstalled:
@@ -161,7 +161,7 @@ private struct WatchStatusSection: View {
                 ContentUnavailableView {
                     Label("WristReader Isn’t on Your Apple Watch", systemImage: "applewatch")
                 } description: {
-                    Text("Open the Watch app on this iPhone, find WristReader under Available Apps and tap Install. Your books are sent automatically once it’s installed.").systemSecondaryText()
+                    Text("Open the Watch app on this iPhone, find WristReader under Available Apps and tap Install. Your books are sent automatically once it’s installed.").foregroundStyle(.secondaryText)
                 }
             }
         case .ready(let reachable):
