@@ -25,6 +25,29 @@ explicitly in `project.yml`; the app also sets `WKRunsIndependentlyOfCompanionAp
 simulator without a paired iPhone (otherwise the test host fails to launch: "Unknown application display identifier").
 Locally on a Mac: `xcodegen generate && xcodebuild test -project WristReader.xcodeproj -scheme WristReaderWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 10 (46mm)' CODE_SIGNING_ALLOWED=NO`.
 
+### Current counts and the UI test target (as of `feat/native-polish`, PR #20)
+
+The table above predates PRs #18 and #20 and is kept as-is here so this branch merges cleanly with them; these
+figures supersede it once #20 is merged:
+
+| Suite | Count |
+|---|---|
+| ReaderCore unit tests (`swift test`) | 190 executed, 14 skipped (env-gated, sections 1 and 2) |
+| iOS app tests (`WristReaderTests`: LogicTests, PresentationTests, TypographySyncTests) | 31 test methods (static count) |
+| watchOS app tests (`WristReaderWatchTests`: LogicTests, TypographyDictionaryTests, AccessibilityTests) | 63 test methods (static count) |
+| iOS UI tests (`WristReaderUITests`: AccessibilityAuditTests) | 5 test methods (static count) |
+
+`WristReaderUITests` (`iOSApp/UITests/AccessibilityAuditTests.swift`, target `bundle.ui-testing` in `project.yml`, part of
+the `WristReader` scheme's test action) launches the app with `-UITesting` / `-UITestingSeedSampleBook` (Debug-only hooks
+in `iOSApp/Support/UITestingSupport.swift`: a throw-away library, optionally with a tiny built-in sample book) and calls
+`XCUIApplication.performAccessibilityAudit(for: .all)` on the empty library, a library with one book, Settings, Progress
+Sync, Acknowledgements and Reading. Accepted findings are listed in `docs/ACCESSIBILITY.md`; anything else fails. CI runs
+it in `macos.yml`, step "iOS accessibility audit (UI tests)", on the same iPhone simulator, uploading
+`ios-uitests.xcresult`. Locally: `xcodebuild test -project WristReader.xcodeproj -scheme WristReader -destination
+'platform=iOS Simulator,name=iPhone 16' -only-testing:WristReaderUITests`. There is no watch UI test target yet.
+The iOS/watch/UI counts are static counts of `func test` methods, not CI-executed numbers; replace them with the
+"Executed N tests" lines from the macOS job once it has run.
+
 ## 1. Real KOSync server (koreader-sync-server)
 
 - Server: the original `koreader/kosync` image (OpenResty + Redis), see `scripts/kosync-server/` (compose file + README).
