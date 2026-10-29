@@ -81,6 +81,7 @@ WristReader works **without an account and offline** with your own EPUB files. R
 - [Typography](#typography) · [Dictionary](#dictionary-word-lookup) · [Importing EPUBs](#importing-epubs) · [Languages](#languages)
 - [Releasing to TestFlight / App Store](#releasing-to-testflight--app-store-without-a-mac)
 - [Limitations](#limitations) · [Development](#development) · [Documentation](#documentation)
+- [License](#license) · [Third-party components](#third-party-components)
 
 ## Using it without an account
 
@@ -248,6 +249,28 @@ What runs where: [docs/TESTING.md](docs/TESTING.md). Future plans: [ROADMAP.md](
 | [PRIVACY_DATA_MAP.md](docs/PRIVACY_DATA_MAP.md) | What data is stored and sent, and where |
 | [EXPORT_COMPLIANCE.md](docs/EXPORT_COMPLIANCE.md) | Export compliance (encryption) |
 | [ROADMAP.md](ROADMAP.md) | Future plans |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute, CLA |
+
+## License
+
+WristReader is **source-available**, not open source in the OSI sense. It is licensed under the [Functional Source License 1.1, ALv2 Future License](LICENSE.md) (SPDX: `FSL-1.1-ALv2`), © 2026 Xabier Lahuerta.
+
+- **You can** read the code, modify it, build the app for yourself, use it for non-commercial education or research, and [contribute](CONTRIBUTING.md).
+- **You can't** ship a competing product: a commercial app or service that substitutes for WristReader or offers substantially the same functionality.
+- **Each release becomes Apache-2.0** two years after it is published.
+- The WristReader name and icon are not covered by the license; forks need their own. See [TRADEMARKS.md](TRADEMARKS.md).
+
+Contributions require signing the [CLA](CLA.md) (a one-line comment on your first pull request). [LICENSE.md](LICENSE.md) is the authoritative text.
+
+## Third-party components
+
+The apps link these packages, fetched by Swift Package Manager (not vendored in this repository). Their licenses are unaffected by WristReader's license; their full license and NOTICE texts ship inside the iPhone app (*Settings › About › Acknowledgements*, from [`iOSApp/Resources/Acknowledgements`](iOSApp/Resources/Acknowledgements)).
+
+| Component | License |
+| --- | --- |
+| [ZIPFoundation](https://github.com/weichsel/ZIPFoundation) | MIT |
+| [Swift Crypto](https://github.com/apple/swift-crypto) | Apache-2.0 |
+| [SwiftASN1](https://github.com/apple/swift-asn1) | Apache-2.0 |
 
 ---
 
