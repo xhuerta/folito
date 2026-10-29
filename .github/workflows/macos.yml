@@ -40,8 +40,8 @@ jobs:
             ~/Library/Caches/org.swift.swift-package-manager
             SourcePackages
             Packages/ReaderCore/.build
-          key: spm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Packages/ReaderCore/Package.swift', 'Packages/ReaderCore/Package.resolved') }}
-          restore-keys: spm-${{ runner.os }}-${{ runner.arch }}-
+          key: spm-${{ github.event.repository.name }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Packages/ReaderCore/Package.swift', 'Packages/ReaderCore/Package.resolved') }}
+          restore-keys: spm-${{ github.event.repository.name }}-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Install XcodeGen
         run: brew install xcodegen
