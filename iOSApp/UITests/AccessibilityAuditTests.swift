@@ -59,6 +59,13 @@ final class AccessibilityAuditTests: XCTestCase {
         }
         try app.performAccessibilityAudit(for: type) { issue in
             let accepted = Self.isAccepted(issue)
+            if !accepted {
+                // A failing finding stops the test (continueAfterFailure = false) before the deferred log runs,
+                // so print what the issue itself carries right away.
+                print("Accessibility audit issue (FAILS): type=\(issue.auditType.rawValue) \"\(issue.compactDescription)\" "
+                      + "id=\(issue.element?.identifier ?? "<none>") label=\(issue.element?.label ?? "<none>") "
+                      + "detail=\"\(issue.detailedDescription)\"")
+            }
             findings.append((issue, accepted))
             return accepted // true = ignore this issue; false = report it as a test failure
         }

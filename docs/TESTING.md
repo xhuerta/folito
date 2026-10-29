@@ -5,13 +5,17 @@ nothing external; the checks in this document are gated by environment variables
 
 ## 0. What runs where
 
+Counts are the "Executed N tests" lines of the CI run for PR #20 (unit tests) and the test methods of the UI
+test targets.
+
 | Suite | Where | Command / job | Executed |
 |---|---|---|---|
-| ReaderCore unit tests | Linux (`linux.yml`); on macOS only compiled, as part of both apps | `swift test` in `Packages/ReaderCore` | 164 (14 skipped: env-gated) |
+| ReaderCore unit tests | Linux (`linux.yml`); on macOS only compiled, as part of both apps | `swift test` in `Packages/ReaderCore` | 190 (14 skipped: env-gated) |
 | KOSync integration | Linux, service container | job `kosync-integration` (`KOSYNC_TEST_URL`) | see section 1 |
-| iOS app tests (`WristReaderTests`: LogicTests, TypographySyncTests) | macOS runner, iPhone simulator | `xcodebuild test -scheme WristReader` | 16 |
-| watchOS app tests (`WristReaderWatchTests`: LogicTests, TypographyDictionaryTests) | macOS runner, Apple Watch simulator | `xcodebuild test -scheme WristReaderWatch` | 42 |
+| iOS app tests (`WristReaderTests`: LogicTests, PresentationTests, TypographySyncTests, SecondaryTextContrastTests, …) | macOS runner, iPhone simulator | `xcodebuild test -scheme WristReader -skip-testing:WristReaderUITests` | 35 (1 skipped) |
+| watchOS app tests (`WristReaderWatchTests`: LogicTests, TypographyDictionaryTests, AccessibilityTests) | macOS runner, Apple Watch simulator | `xcodebuild test -scheme WristReaderWatch -skip-testing:WristReaderWatchUITests` | 64 |
 | iOS accessibility audit (`WristReaderUITests`) | macOS runner, iPhone simulator; **not on every PR** (see below) | `accessibility.yml`, `xcodebuild test -scheme WristReader -only-testing:WristReaderUITests` | 5 |
+| watchOS accessibility UI tests (`WristReaderWatchUITests`: audit + label / trait / AX5 checks) | macOS runner, Apple Watch simulator; **not on every PR** (see below) | `accessibility.yml`, `xcodebuild test -scheme WristReaderWatch -only-testing:WristReaderWatchUITests` | 15 |
 
 ### CI: which workflow runs when
 
@@ -47,39 +51,16 @@ How `macos.yml` stays fast:
   Runner"), set the repository variable `MACOS_RUNNER` to `macos-15-intel`; every macOS workflow honours it.
 
 Unit tests run with per-test time limits (`-test-timeouts-enabled YES`, 180 s default / 300 s maximum) and skip
-`WristReaderUITests`. The accessibility audit UI tests are slow, so they run in `accessibility.yml` on pushes to
-`main`, manually (Actions › *Accessibility audit* › *Run workflow*) and on PRs labelled `accessibility`; it is not a
+`WristReaderUITests` / `WristReaderWatchUITests`. The accessibility UI tests are slow, so they run in
+`accessibility.yml` (iOS and watch jobs in parallel) on pushes to `main`, manually (Actions › *Accessibility audit* › *Run workflow*) and on PRs labelled `accessibility`; it is not a
 required check. Details in [ACCESSIBILITY.md](ACCESSIBILITY.md#automated-audit).
 
 Each macOS job uploads `ios-tests.xcresult` / `watch-tests.xcresult` (plus its `build.log`) as artifacts and prints a
-per-case summary.
+per-case summary. The watch UI tests are described in `docs/ACCESSIBILITY.md` (Apple Watch, *Automated checks*).
 Notes on the watch bundle: the watch app's `PRODUCT_NAME` is `WristReader`, so `TEST_HOST`/`BUNDLE_LOADER` are set
 explicitly in `project.yml`; the app also sets `WKRunsIndependentlyOfCompanionApp` so it can be installed on a watch
 simulator without a paired iPhone (otherwise the test host fails to launch: "Unknown application display identifier").
 Locally on a Mac: `xcodegen generate && xcodebuild test -project WristReader.xcodeproj -scheme WristReaderWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 10 (46mm)' CODE_SIGNING_ALLOWED=NO`.
-
-### Current counts and the UI test target (as of `feat/native-polish`, PR #20)
-
-The table above predates PRs #18 and #20 and is kept as-is here so this branch merges cleanly with them; these
-figures supersede it once #20 is merged:
-
-| Suite | Count |
-|---|---|
-| ReaderCore unit tests (`swift test`) | 190 executed, 14 skipped (env-gated, sections 1 and 2) |
-| iOS app tests (`WristReaderTests`: LogicTests, PresentationTests, TypographySyncTests) | 31 test methods (static count) |
-| watchOS app tests (`WristReaderWatchTests`: LogicTests, TypographyDictionaryTests, AccessibilityTests) | 63 test methods (static count) |
-| iOS UI tests (`WristReaderUITests`: AccessibilityAuditTests) | 5 test methods (static count) |
-
-`WristReaderUITests` (`iOSApp/UITests/AccessibilityAuditTests.swift`, target `bundle.ui-testing` in `project.yml`, part of
-the `WristReader` scheme's test action) launches the app with `-UITesting` / `-UITestingSeedSampleBook` (Debug-only hooks
-in `iOSApp/Support/UITestingSupport.swift`: a throw-away library, optionally with a tiny built-in sample book) and calls
-`XCUIApplication.performAccessibilityAudit(for: .all)` on the empty library, a library with one book, Settings, Progress
-Sync, Acknowledgements and Reading. Accepted findings are listed in `docs/ACCESSIBILITY.md`; anything else fails. CI runs
-it in `macos.yml`, step "iOS accessibility audit (UI tests)", on the same iPhone simulator, uploading
-`ios-uitests.xcresult`. Locally: `xcodebuild test -project WristReader.xcodeproj -scheme WristReader -destination
-'platform=iOS Simulator,name=iPhone 16' -only-testing:WristReaderUITests`. There is no watch UI test target yet.
-The iOS/watch/UI counts are static counts of `func test` methods, not CI-executed numbers; replace them with the
-"Executed N tests" lines from the macOS job once it has run.
 
 ## 1. Real KOSync server (koreader-sync-server)
 

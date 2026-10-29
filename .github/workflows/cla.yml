@@ -37,4 +37,4 @@ jobs:
           path-to-document: https://github.com/xhuerta/wristreader/blob/main/CLA.md
           # Must exist and must not be protected; keeps signature commits off main.
           branch: cla-signatures
-          allowlist: xhuerta,dependabot[bot],github-actions[bot]
+          allowlist: xhuerta,dependabot[bot],github-actions[bot],Claude,claude

@@ -18,6 +18,7 @@ struct SettingsView: View {
             Section("Reading") {
                 TextSizeStepper()
                 NavigationLink("Typography") { TypographyEditorView() }
+                    .accessibilityIdentifier("typographyLink")
                 if sync.isConfigured { Toggle("Show Sync Status", isOn: $showSyncInfo) }
             }
             Section {

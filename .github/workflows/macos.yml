@@ -68,7 +68,8 @@ jobs:
           - platform: watch
             scheme: WristReaderWatch
             sdk: watchOS Simulator
-            test_args: ""
+            # Unit tests only; the watch accessibility UI tests run in accessibility.yml (not PR-blocking).
+            test_args: -skip-testing:WristReaderWatchUITests
     env:
       # Shared build settings: no indexing, no dSYMs, no signing, only the runner's architecture.
       XCB_FLAGS: >-

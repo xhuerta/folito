@@ -15,6 +15,7 @@ struct ReaderMenuView: View {
                 Section("Text") {
                     TextSizeStepper()
                     NavigationLink("Typography") { TypographyEditorView() }
+                        .accessibilityIdentifier("typographyLink")
                 }
                 Section("Dictionary") {
                     Button {
@@ -43,6 +44,7 @@ struct ReaderMenuView: View {
                         }
                         // The bookmark glyph is visual only: VoiceOver says "selected" instead.
                         .accessibilityAddTraits(offset == current ? .isSelected : [])
+                        .accessibilityIdentifier("chapterButton")
                     }
                 }
             }
@@ -67,5 +69,6 @@ struct TextSizeStepper: View {
         }
         .accessibilityLabel(Text("Text Size"))
         .accessibilityValue(Text("\(size) points", comment: "VoiceOver value of the reader text size"))
+        .accessibilityIdentifier("textSizeStepper")
     }
 }
