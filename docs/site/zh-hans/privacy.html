@@ -70,7 +70,7 @@
 <h1>隐私政策</h1>
 <p class="translation-note">本译文借助机器翻译完成，仅供参考。如与原文有任何出入，以<a href="../privacy.html" hreflang="en">英文版本</a>为准。</p>
 <p class="muted">最后更新：2026 年 10 月 28 日。适用于 iPhone 和 Apple Watch 版 Folito App。</p>
-<div class="card note lead-card"><span class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2.8 19 5.6v5.7c0 4.6-3 8.3-7 9.9-4-1.6-7-5.3-7-9.9V5.6z"/><path d="m8.8 12.1 2.2 2.2 4.3-4.5"/></svg></span><p>简而言之：Folito 无需任何帐户即可使用。它没有分析、广告和跟踪，开发者不运营任何服务器，也不会收到任何数据。仅当你选择设置同步服务器时，App 才会联系该服务器；当你查询单词时，App 会联系下文所列的在线词典。</p></div>
+<div class="card note lead-card"><span class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2.8 19 5.6v5.7c0 4.6-3 8.3-7 9.9-4-1.6-7-5.3-7-9.9V5.6z"/><path d="m8.8 12.1 2.2 2.2 4.3-4.5"/></svg></span><p>简而言之：Folito 无需任何账户即可使用。它没有分析、广告或跟踪，开发者不运营任何服务器，也不接收任何数据。App 只会在你选择设置同步服务器时与之通信，并在你下载词典时访问下文所述的下载网站。</p></div>
 
 <section class="group">
 <h2>负责人</h2>
@@ -84,7 +84,7 @@
 <ul>
 <li><strong>你的图书</strong>（你导入的 EPUB 文件）会在 iPhone 上的 App 存储空间中处理和存储，并通过 Apple 的 WatchConnectivity 在你已配对的设备之间直接发送到 Apple Watch。App 绝不会上传这些图书。</li>
 <li><strong>你的阅读位置、排版设置、一个随机设备标识符</strong>（见下文），以及在开启同步时<strong>等待同步的进度</strong>，会存储在设备上的 App 设置中。你的排版设置也会发送到已配对的手表。</li>
-<li><strong>查询过的释义</strong>会缓存在手表上，以免重复请求同一个单词。你可以在手表 App 的设置中清除缓存（<em>清除词典缓存</em>）。</li>
+<li>你下载的<strong>词典</strong>存储在你的 iPhone 和 Apple Watch 上。查词在手表本身上进行，因此你查询的内容永远不会离开设备。你可以在 iPhone App 中删除词典（<em>设置 › 词典</em>）。</li>
 <li><strong>你的同步登录信息</strong>（服务器地址、用户名、密码）仅在你开启同步时才会存储在 iPhone 的钥匙串中；由于手表会独立同步，这些信息还会通过 WatchConnectivity 发送到已配对的手表，并存储在手表自己的钥匙串中。这些信息绝不会发送给开发者，在互联网上只会发送到你输入的同步服务器（见下一节）。</li>
 <li>本 App 不使用 iCloud。删除 App 会从该设备上移除这些数据。</li>
 </ul>
@@ -106,7 +106,7 @@
 <section class="group">
 <h2>单词查询</h2>
 <div class="card">
-<p>仅当你在手表上查询单词时，所选单词（如果没有完全匹配的词条，还会依次尝试简单的变体，如小写形式或去除屈折变化后的形式）会通过 HTTPS 发送到 <strong>en.wiktionary.org</strong>（维基媒体基金会），并且仅对 Wiktionary 中没有词条的英语单词，发送到 <strong>api.dictionaryapi.dev</strong>。每个请求的网址中包含该单词，并附带标明 App 名称及其公开项目页面的 User-Agent；这些服务能看到你的 IP 地址，并根据其自身的政策进行处理（<a href="https://foundation.wikimedia.org/wiki/Policy:Privacy_policy">维基媒体隐私政策</a>）。除此之外不会发送任何内容：不包括书名、作者或上下文，也不包括你的阅读位置、同步登录信息或设备标识符。理论上，一系列查询过的单词可能会让这些服务推测出你正在阅读的内容。这些请求不使用 Cookie，也不使用持久性网页缓存。</p>
+<p>查词不会向任何地方发送任何内容：词典就在你的手表上。只有当你在<em>设置 › 词典</em>中轻点<em>下载</em>或<em>更新</em>时，iPhone 才会通过 HTTPS 从 <strong>www.reader-dict.com</strong>（reader.dict，它根据 Wiktionary 编制词典文件）下载词典文件。请求只包含文件地址（可看出你选择的语言）和注明 App 名称的 User-Agent；该网站能看到你的 IP 地址，并按其自身政策处理。该页面打开时，App 还会向网站询问已安装的词典是否有变化（信息相同，不传输文件）。随后 iPhone 会转换文件，并通过 Apple Watch 连接发送到手表。任何单词、书名、文本或阅读位置都不会被发送。</p>
 </div>
 </section>
 <section class="group">
@@ -128,7 +128,7 @@
 <section class="group">
 <h2>你的选择和权利</h2>
 <div class="card">
-<p>同步是可选的。要停止同步，请在 iPhone 上打开<em>设置 › 进度同步</em>，然后轻点<em>关闭同步并移除登录信息</em>：登录信息会从你的 iPhone 和 Apple Watch 中移除，等待同步的进度会被丢弃（你的图书和阅读位置会保留）。你也可以仅在手表上移除登录信息（<em>设置 › 移除凭证</em>），清除词典缓存，或随时删除 App。对于同步服务器或词典服务所保存的数据，请联系相应服务。如对本政策有任何疑问，请发送邮件至 <a href="mailto:xlahuerta@protonmail.com">xlahuerta@protonmail.com</a>。</p>
+<p>同步是可选的。要停止同步，请在 iPhone 上打开<em>设置 › 进度同步</em>，然后轻点<em>关闭同步并移除登录信息</em>：登录信息会从你的 iPhone 和 Apple Watch 中移除，等待同步的进度会被丢弃（你的图书和阅读位置会保留）。你也可以仅在手表上移除登录信息（<em>设置 › 移除凭证</em>），删除词典，或随时删除 App。对于同步服务器或词典下载网站所保存的数据，请联系相应服务。如对本政策有任何疑问，请发送邮件至 <a href="mailto:xlahuerta@protonmail.com">xlahuerta@protonmail.com</a>。</p>
 </div>
 </section>
 <section class="group">

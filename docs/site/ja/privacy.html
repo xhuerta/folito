@@ -70,7 +70,7 @@
 <h1>プライバシーポリシー</h1>
 <p class="translation-note">この翻訳は機械翻訳の支援を受けて作成された参考訳です。内容に相違がある場合は、<a href="../privacy.html" hreflang="en">英語版</a>が優先されます。</p>
 <p class="muted">最終更新日：2026年10月28日。iPhone および Apple Watch 用の Folito アプリに適用されます。</p>
-<div class="card note lead-card"><span class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2.8 19 5.6v5.7c0 4.6-3 8.3-7 9.9-4-1.6-7-5.3-7-9.9V5.6z"/><path d="m8.8 12.1 2.2 2.2 4.3-4.5"/></svg></span><p>要約：Folito はアカウントなしで動作します。分析、広告、トラッキングは一切なく、開発者はサーバを運営しておらず、データを受け取ることもありません。アプリが通信するのは、あなたが同期サーバを設定した場合のその同期サーバと、単語を調べたときの下記のオンライン辞書だけです。</p></div>
+<div class="card note lead-card"><span class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2.8 19 5.6v5.7c0 4.6-3 8.3-7 9.9-4-1.6-7-5.3-7-9.9V5.6z"/><path d="m8.8 12.1 2.2 2.2 4.3-4.5"/></svg></span><p>要約：Folito はアカウントなしで使えます。分析、広告、トラッキングはなく、開発者はサーバを運営せず、データを受け取りません。アプリが通信するのは、設定した場合の同期サーバと、辞書をダウンロードするときの下記のダウンロードサイトだけです。</p></div>
 
 <section class="group">
 <h2>責任者</h2>
@@ -84,7 +84,7 @@
 <ul>
 <li><strong>あなたの本</strong>（読み込んだ EPUB ファイル）は、iPhone 上のアプリのストレージで処理および保存され、Apple の WatchConnectivity を介して、ペアリングされたデバイス間で直接 Apple Watch に送信されます。アプリがそれらをアップロードすることはありません。</li>
 <li><strong>読書位置、タイポグラフィ設定、ランダムなデバイス識別子</strong>（下記参照）、および同期がオンの場合は<strong>同期待ちの進捗</strong>が、デバイス上のアプリの設定に保存されます。タイポグラフィ設定は、ペアリングされた Apple Watch にも送信されます。</li>
-<li><strong>調べた単語の定義</strong>は、同じ単語を二度要求しないように Apple Watch 上にキャッシュされます。キャッシュは Apple Watch アプリの設定（<em>辞書キャッシュを消去</em>）で消去できます。</li>
+<li>ダウンロードした<strong>辞書</strong>は iPhone と Apple Watch に保存されます。単語の検索は Apple Watch 上で行われるため、調べた内容がデバイスの外に出ることはありません。辞書は iPhone アプリで削除できます（<em>設定 › 辞書</em>）。</li>
 <li><strong>同期のログイン情報</strong>（サーバアドレス、ユーザ名、パスワード）は、同期をオンにした場合にのみ、iPhone のキーチェーンに保存されます。また、Apple Watch は単独で同期するため、WatchConnectivity を介してペアリングされた Apple Watch にも送信され、Apple Watch 自身のキーチェーンに保存されます。開発者に送信されることはなく、インターネット経由では、あなたが入力した同期サーバにのみ送信されます（次のセクションを参照）。</li>
 <li>アプリは iCloud を使用しません。アプリを削除すると、そのデバイスからこれらのデータが削除されます。</li>
 </ul>
@@ -106,7 +106,7 @@
 <section class="group">
 <h2>単語の検索</h2>
 <div class="card">
-<p>Apple Watch で単語を調べたときに限り、選択した単語（完全に一致する項目がない場合は、小文字にした形や語形変化を除いた形などの簡単な変形を順に試します）が HTTPS で <strong>en.wiktionary.org</strong>（Wikimedia Foundation）に送信され、Wiktionary に項目がない英単語に限り <strong>api.dictionaryapi.dev</strong> にも送信されます。各リクエストには、Web アドレス内の単語と、アプリ名およびその公開プロジェクトページを示す User-Agent が含まれます。これらのサービスにはあなたの IP アドレスが見え、各サービス独自のポリシーに従って取り扱われます（<a href="https://foundation.wikimedia.org/wiki/Policy:Privacy_policy">Wikimedia のプライバシーポリシー</a>）。それ以外は何も送信されません。本のタイトル、著者、前後の文章、読書位置、同期のログイン情報、デバイス識別子は送信されません。調べた単語の連なりから、原理的にはあなたが何を読んでいるかがこれらのサービスに推測される可能性があります。リクエストには Cookie も永続的な Web キャッシュも使用しません。</p>
+<p>単語を調べても、どこにも何も送信されません。辞書は Apple Watch 上にあります。<em>設定 › 辞書</em>で<em>ダウンロード</em>または<em>アップデート</em>をタップしたときだけ、iPhone が HTTPS で <strong>www.reader-dict.com</strong>（Wiktionary から辞書ファイルを作成している reader.dict）から辞書ファイルをダウンロードします。リクエストに含まれるのは、選んだ言語がわかるファイルのアドレスと、アプリ名を示す User-Agent だけです。サイトには IP アドレスが見え、サイト自身のポリシーに従って扱われます。この画面を開いている間、アプリはインストール済みの辞書が更新されたかどうかもサイトに問い合わせます（同じ情報のみで、ファイルは転送されません）。その後 iPhone がファイルを変換し、Apple Watch との接続を通じて送ります。単語、本のタイトル、本文、読書位置が送信されることはありません。</p>
 </div>
 </section>
 <section class="group">
@@ -128,7 +128,7 @@
 <section class="group">
 <h2>あなたの選択と権利</h2>
 <div class="card">
-<p>同期はオプションです。同期を停止するには、iPhone で<em>設定 › 進捗の同期</em>を開き、<em>同期をオフにしてログイン情報を削除</em>をタップします。ログイン情報が iPhone と Apple Watch から削除され、同期待ちの進捗は破棄されます（本と読書位置は保持されます）。Apple Watch だけでログイン情報を削除することもできます（<em>設定 › 資格情報を削除</em>）。また、辞書キャッシュの消去やアプリの削除はいつでも行えます。同期サーバや辞書サービスが保持するデータについては、そのサービスにお問い合わせください。このポリシーに関するご質問は <a href="mailto:xlahuerta@protonmail.com">xlahuerta@protonmail.com</a> までお送りください。</p>
+<p>同期はオプションです。同期を停止するには、iPhone で<em>設定 › 進捗の同期</em>を開き、<em>同期をオフにしてログイン情報を削除</em>をタップします。ログイン情報が iPhone と Apple Watch から削除され、同期待ちの進捗は破棄されます（本と読書位置は保持されます）。Apple Watch だけでログイン情報を削除することもできます（<em>設定 › 資格情報を削除</em>）。また、辞書の削除やアプリの削除はいつでも行えます。同期サーバや辞書のダウンロードサイトが保持するデータについては、そのサービスにお問い合わせください。このポリシーに関するご質問は <a href="mailto:xlahuerta@protonmail.com">xlahuerta@protonmail.com</a> までお送りください。</p>
 </div>
 </section>
 <section class="group">
