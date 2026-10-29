@@ -20,6 +20,18 @@ extension UIColor {
         }
     }
 
+    /// Colour for the titles of destructive buttons in forms ("Reset to Defaults", "Turn Off Sync and Remove
+    /// Login"). The system red that `role: .destructive` uses measured 3.57:1 on white in the CI audit (#FF383C);
+    /// these reds keep at least 4.5:1 on every system background, like `secondaryText`.
+    static let destructiveText = UIColor { traits in
+        let increased = traits.accessibilityContrast == .high
+        if traits.userInterfaceStyle == .dark {
+            return increased ? UIColor(rgb: 0xFF9C96) : UIColor(rgb: 0xFF8A84)
+        } else {
+            return increased ? UIColor(rgb: 0xB00012) : UIColor(rgb: 0xD70015)
+        }
+    }
+
     convenience init(rgb: Int) {
         self.init(red: CGFloat((rgb >> 16) & 0xFF) / 255, green: CGFloat((rgb >> 8) & 0xFF) / 255,
                   blue: CGFloat(rgb & 0xFF) / 255, alpha: 1)
@@ -30,4 +42,7 @@ extension ShapeStyle where Self == Color {
     /// Secondary text with at least 4.5:1 contrast; see `UIColor.secondaryText`. Use it instead of `.secondary`
     /// for any text the app colours itself.
     static var secondaryText: Color { Color(uiColor: .secondaryText) }
+
+    /// Destructive button titles with at least 4.5:1 contrast; see `UIColor.destructiveText`.
+    static var destructiveText: Color { Color(uiColor: .destructiveText) }
 }

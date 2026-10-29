@@ -89,11 +89,14 @@ struct TypographySettingsView: View {
                 Text("Theme").foregroundStyle(.secondaryText)
             }
             Section {
-                Button("Reset to Defaults", role: .destructive) { confirmReset = true }
+                Button(role: .destructive) { confirmReset = true } label: {
+                    Text("Reset to Defaults").foregroundStyle(.destructiveText)
+                }
             } footer: {
                 Text("Justified text and automatic hyphenation aren’t available on Apple Watch. Changes are sent to your watch; if you also change them on the watch, the most recent change wins.").foregroundStyle(.secondaryText)
             }
         }
+        .readableScrollEdges()
         .navigationTitle("Reading")
         .confirmationDialog("Reset all reading settings to their defaults?", isPresented: $confirmReset,
                             titleVisibility: .visible) {

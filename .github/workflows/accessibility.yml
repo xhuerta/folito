@@ -159,7 +159,7 @@ jobs:
           mkdir -p samples
           ( set +e +o pipefail
             for i in $(seq 1 600); do
-              pid=$(pgrep -f 'Folito.app/Folito$' | head -1)
+              pid=$(pgrep -f 'Folito\.app/Folito( |$)' | head -1)
               if [ -n "$pid" ]; then
                 sample "$pid" 2 -mayDie -file "samples/$(date +%H%M%S)-$pid.txt" >> samples/errors.log 2>&1
               fi

@@ -42,6 +42,7 @@ struct SettingsView: View {
                 Text("About").foregroundStyle(.secondaryText)
             }
         }
+        .readableScrollEdges()
         .navigationTitle("Settings")
     }
 }
@@ -66,6 +67,7 @@ struct AcknowledgementsView: View {
                 Text("Folito uses these open-source components. Tap one to read its licence.").foregroundStyle(.secondaryText)
             }
         }
+        .readableScrollEdges()
         .navigationTitle("Acknowledgements")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -93,6 +95,7 @@ struct LicenseView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding()
         }
+        .readableScrollEdges()
         .navigationTitle(component.name)
         .navigationBarTitleDisplayMode(.inline)
     }

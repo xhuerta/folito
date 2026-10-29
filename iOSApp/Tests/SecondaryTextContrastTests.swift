@@ -3,8 +3,8 @@ import XCTest
 import ReaderCore
 @testable import Folito
 
-/// `UIColor.secondaryText` (the app's own secondary text colour) must reach WCAG AA 4.5:1 on every system
-/// background it can appear on, in light and dark mode, with and without Increase Contrast.
+/// The app's own text colours (`UIColor.secondaryText`, `UIColor.destructiveText`) must reach WCAG AA 4.5:1 on
+/// every system background they can appear on, in light and dark mode, with and without Increase Contrast.
 final class SecondaryTextContrastTests: XCTestCase {
     private typealias RGB = ThemePalette.RGB
 
@@ -35,24 +35,31 @@ final class SecondaryTextContrastTests: XCTestCase {
         return result
     }()
 
-    func testSecondaryTextMeetsAAOnEverySystemBackground() {
-        for (traitName, traits) in Self.traitSets {
-            let text = Self.rgb(UIColor.secondaryText, traits, over: RGB(1, 1, 1))
-            for (name, background) in Self.backgrounds {
-                let bg = Self.rgb(background, traits, over: RGB(0, 0, 0))
-                let ratio = RGB.contrast(text, bg)
-                XCTAssertGreaterThanOrEqual(ratio, 4.5, "secondaryText on \(name), \(traitName): \(ratio)")
+    private static let appTextColors: [(String, UIColor)] = [("secondaryText", .secondaryText),
+                                                             ("destructiveText", .destructiveText)]
+
+    func testAppTextColorsMeetAAOnEverySystemBackground() {
+        for (colorName, color) in Self.appTextColors {
+            for (traitName, traits) in Self.traitSets {
+                let text = Self.rgb(color, traits, over: RGB(1, 1, 1))
+                for (name, background) in Self.backgrounds {
+                    let bg = Self.rgb(background, traits, over: RGB(0, 0, 0))
+                    let ratio = RGB.contrast(text, bg)
+                    XCTAssertGreaterThanOrEqual(ratio, 4.5, "\(colorName) on \(name), \(traitName): \(ratio)")
+                }
             }
         }
     }
 
     func testIncreaseContrastMovesFurtherFromTheBackground() {
-        for style in [UIUserInterfaceStyle.light, .dark] {
-            let normal = UITraitCollection(mutations: { $0.userInterfaceStyle = style; $0.accessibilityContrast = .normal })
-            let high = UITraitCollection(mutations: { $0.userInterfaceStyle = style; $0.accessibilityContrast = .high })
-            let bg = Self.rgb(.systemBackground, normal, over: RGB(0, 0, 0))
-            XCTAssertGreaterThan(RGB.contrast(Self.rgb(.secondaryText, high, over: bg), bg),
-                                 RGB.contrast(Self.rgb(.secondaryText, normal, over: bg), bg))
+        for (colorName, color) in Self.appTextColors {
+            for style in [UIUserInterfaceStyle.light, .dark] {
+                let normal = UITraitCollection(mutations: { $0.userInterfaceStyle = style; $0.accessibilityContrast = .normal })
+                let high = UITraitCollection(mutations: { $0.userInterfaceStyle = style; $0.accessibilityContrast = .high })
+                let bg = Self.rgb(.systemBackground, normal, over: RGB(0, 0, 0))
+                XCTAssertGreaterThan(RGB.contrast(Self.rgb(color, high, over: bg), bg),
+                                     RGB.contrast(Self.rgb(color, normal, over: bg), bg), colorName)
+            }
         }
     }
 

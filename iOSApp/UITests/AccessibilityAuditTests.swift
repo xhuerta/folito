@@ -37,12 +37,9 @@ final class AccessibilityAuditTests: XCTestCase {
     /// The audit types `performAccessibilityAudit(for: .all)` covers, run one at a time: a single `.all` audit
     /// of a whole screen can exceed XCTest's internal audit time limit on slower CI simulators
     /// ("Audit failed to complete in time"), while each type alone finishes well within it.
-    private static let allTypes: [XCUIAccessibilityAuditType] = {
-        let known: [XCUIAccessibilityAuditType] = [.contrast, .elementDetection, .hitRegion,
-                                                   .sufficientElementDescription, .dynamicType, .textClipped, .trait]
-        let rest = XCUIAccessibilityAuditType.all.subtracting(known.reduce(into: []) { $0.formUnion($1) })
-        return rest.isEmpty ? known : known + [rest]
-    }()
+    private static let allTypes: [XCUIAccessibilityAuditType] = [.contrast, .elementDetection, .hitRegion,
+                                                                 .sufficientElementDescription, .dynamicType,
+                                                                 .textClipped, .trait]
 
     private static let largestTextTypes: [XCUIAccessibilityAuditType] = [.dynamicType, .textClipped]
     private static let defaultSizeTypes = allTypes.filter { !largestTextTypes.contains($0) }
@@ -117,10 +114,14 @@ final class AccessibilityAuditTests: XCTestCase {
         start.press(forDuration: 0.1, thenDragTo: end)
     }
 
+    /// Labels and positions of the texts on screen: unchanged after a scroll means the end was reached.
     @MainActor
     private static func layoutSignature(_ app: XCUIApplication) -> [String] {
         guard let snapshot = try? app.snapshot() else { return [] }
-        return snapshotElements(snapshot, of: [.staticText]).prefix(12).map { "\($0.label)@\(Int($0.frame.minY))" }
+        let screen = app.windows.firstMatch.frame
+        return snapshotElements(snapshot, of: [.staticText])
+            .filter { $0.frame.intersects(screen) }
+            .map { "\($0.label)@\(Int($0.frame.minY))" }
     }
 
     /// Texts and buttons of the screen from one snapshot (a single query, instead of one per element).
@@ -148,17 +149,16 @@ final class AccessibilityAuditTests: XCTestCase {
 
     // MARK: Bars and the scroll edge effect
 
-    /// The part of the screen between the navigation bar and the tab bar, minus the bands where the system's
-    /// scroll edge effect fades content scrolling under the bars (iOS 26). Text in those bands is drawn
-    /// faded on purpose, and the contrast audit measures it there; the CI audit flagged rows up to 20 pt
-    /// above the tab bar and rows under the navigation bar.
+    /// The part of the screen between the navigation bar and the tab bar. The screens use hard scroll edges
+    /// (`readableScrollEdges()`), so text is drawn at full contrast up to the bars; text scrolled under a bar is
+    /// covered by it, and the contrast audit measures it against the bar.
     @MainActor
     private static func clearArea(in app: XCUIApplication) -> (top: CGFloat, bottom: CGFloat) {
         let window = app.windows.firstMatch.frame
         let navigationBar = app.navigationBars.firstMatch
         let tabBar = app.tabBars.firstMatch
-        let top = (navigationBar.exists ? navigationBar.frame.maxY : window.minY) + 24
-        let bottom = (tabBar.exists ? tabBar.frame.minY : window.maxY) - 56
+        let top = (navigationBar.exists ? navigationBar.frame.maxY : window.minY) + 4
+        let bottom = (tabBar.exists ? tabBar.frame.minY : window.maxY) - 4
         return (top, bottom)
     }
 
@@ -253,7 +253,7 @@ final class AccessibilityAuditTests: XCTestCase {
            issue.auditType == .dynamicType || issue.auditType == .contrast || issue.auditType == .textClipped {
             return .accepted
         }
-        // Contrast measured inside the scroll edge effect of a bar (the system fades content scrolled under it).
+        // Contrast measured on text partly scrolled under a bar (measured against the bar, not the page).
         // Accepted for now; `auditScreen` then requires the same element to pass on another page.
         if issue.auditType == .contrast, !clearOfBars(element.frame, in: app) {
             return .underBar
@@ -308,7 +308,9 @@ final class AccessibilityAuditTests: XCTestCase {
     func testLibraryWithBookAudit() throws {
         try auditScreen("Library (one book)", seedSampleBook: true) { app in
             let row = app.descendants(matching: .any)["libraryRow"]
-            XCTAssertTrue(row.waitForExistence(timeout: 5), "Seeded sample book not shown")
+            // At the largest text size the watch status above the book can fill the screen: scroll to the row.
+            for _ in 0..<6 where !row.waitForExistence(timeout: 2) { Self.scrollDown(app) }
+            XCTAssertTrue(row.exists, "Seeded sample book not shown")
             XCTAssertTrue(row.label.contains("Alice"), "Row should be one element that includes the title: \(row.label)")
         }
     }

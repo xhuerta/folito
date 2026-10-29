@@ -34,6 +34,7 @@ struct LibraryView: View {
                 }
             }
         }
+        .readableScrollEdges()
         .navigationTitle("Library")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
