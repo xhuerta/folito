@@ -40,7 +40,7 @@ TARGETS = {
         "WatchApp/Resources/Localizable.xcstrings",
         ["WatchApp/Resources/InfoPlist.xcstrings"],
         ["WatchApp", "Shared"],
-        {"Tests"},
+        {"Tests", "UITests"},
     ),
 }
 

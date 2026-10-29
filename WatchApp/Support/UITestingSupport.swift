@@ -55,7 +55,7 @@ enum UITesting {
     /// A tiny public-domain text (Lewis Carroll, 1865), built in code: no book file ships in the app.
     /// Same content as the iPhone's UI-testing sample.
     static let sampleBook: ProcessedBook = {
-        let text = "Alice was beginning to get very tired of sitting by her sister on the bank, and of having nothing to do."
+        let text = "Alice was beginning to get very tired of sitting by her sister on the bank, and of having nothing to do." // i18n-ignore: UI-test fixture (Debug only)
         let blocks = [
             Block(text: "Down the Rabbit-Hole", style: .heading1, xpointer: "/body/DocFragment[1]/body/h1", globalOffset: 0),
             Block(text: text, xpointer: "/body/DocFragment[1]/body/p", globalOffset: 20),
