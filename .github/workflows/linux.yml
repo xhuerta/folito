@@ -86,13 +86,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Same cache as test-core (key includes the repository name; see the comment there).
       - name: Cache SwiftPM
         if: env.READEST_TEST_EMAIL != '' && env.READEST_TEST_PASSWORD != ''
         uses: actions/cache@v4
         with:
           path: Packages/ReaderCore/.build
-          key: spm-${{ runner.os }}-${{ hashFiles('Packages/ReaderCore/Package.swift', 'Packages/ReaderCore/Package.resolved') }}
-          restore-keys: spm-${{ runner.os }}-
+          key: spm-${{ runner.os }}-${{ github.event.repository.name }}-${{ hashFiles('Packages/ReaderCore/Package.swift', 'Packages/ReaderCore/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-${{ github.event.repository.name }}-
 
       - name: Integration test against Readest Cloud
         if: env.READEST_TEST_EMAIL != '' && env.READEST_TEST_PASSWORD != ''
