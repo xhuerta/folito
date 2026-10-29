@@ -42,12 +42,12 @@ public enum ReadestProgressMapper {
         let exactFraction = exact?.fraction ?? 0
         if let s = bestSibling, let f = s.fraction, f > exactFraction + siblingEpsilon {
             return ReadingPosition(xpointer: "", percentage: f, page: s.progress?[0], pageCount: s.progress?[1],
-                                   timestamp: s.updatedAt, deviceID: "", deviceName: "Readest")
+                                   timestamp: s.updatedAt, deviceID: "", deviceName: "")
         }
         guard let e = exact, e.xpointer != nil || e.fraction != nil else { return nil }
         return ReadingPosition(xpointer: e.xpointer ?? "", percentage: e.fraction ?? 0,
                                page: e.progress?[0], pageCount: e.progress?[1],
-                               timestamp: e.updatedAt, deviceID: "", deviceName: "Readest")
+                               timestamp: e.updatedAt, deviceID: "", deviceName: "")
     }
 }
 

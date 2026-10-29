@@ -41,8 +41,8 @@
 <main id="main">
 <div class="doc">
 <h1>Política de privacidad</h1>
-<p class="muted">Última actualización: 28 de octubre de 2026. Se aplica a las apps Folito para iPhone y Apple Watch.</p>
-<div class="card note lead-card"><span class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2.8 19 5.6v5.7c0 4.6-3 8.3-7 9.9-4-1.6-7-5.3-7-9.9V5.6z"/><path d="m8.8 12.1 2.2 2.2 4.3-4.5"/></svg></span><p>En resumen: Folito funciona sin ninguna cuenta. No tiene analítica, publicidad ni seguimiento, y el desarrollador no opera ningún servidor ni recibe datos. La app solo contacta con un servidor de sincronización si decides configurarlo y, cuando consultas una palabra, con los diccionarios en línea indicados abajo.</p></div>
+<p class="muted">Última actualización: 29 de octubre de 2026. Se aplica a las apps Folito para iPhone y Apple Watch.</p>
+<div class="card note lead-card"><span class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2.8 19 5.6v5.7c0 4.6-3 8.3-7 9.9-4-1.6-7-5.3-7-9.9V5.6z"/><path d="m8.8 12.1 2.2 2.2 4.3-4.5"/></svg></span><p>En resumen: Folito funciona sin ninguna cuenta. No tiene analítica, publicidad ni seguimiento, y el desarrollador no opera ningún servidor ni recibe datos. La app solo contacta con un servicio de sincronización si decides configurarlo (un servidor KOReader Sync o tu cuenta de Readest) y, cuando consultas una palabra, con los diccionarios en línea indicados abajo.</p></div>
 
 <section class="group">
 <h2>Responsable</h2>
@@ -57,7 +57,7 @@
 <li><strong>Tus libros</strong> (archivos EPUB que importas) se procesan y guardan en el almacenamiento de la app en el iPhone y se envían al Apple Watch mediante WatchConnectivity de Apple, directamente entre tus dispositivos emparejados. La app nunca los sube.</li>
 <li><strong>Tus posiciones de lectura, ajustes de tipografía, un identificador aleatorio del dispositivo</strong> (ver abajo) y, si la sincronización está activada, <strong>el progreso pendiente de sincronizar</strong> se guardan en los ajustes de la app en el dispositivo. Los ajustes de tipografía también se envían al reloj emparejado.</li>
 <li><strong>Las definiciones consultadas</strong> se guardan en caché en el reloj para no pedir dos veces la misma palabra. Puedes borrar la caché en los ajustes de la app del reloj (<em>Clear Dictionary Cache</em>).</li>
-<li><strong>Tu inicio de sesión de sincronización</strong>, solo si activas la sincronización (dirección del servidor, usuario, contraseña), se guarda en el Llavero del iPhone y, como el reloj sincroniza por sí mismo, también se envía al reloj emparejado mediante WatchConnectivity y se guarda en su propio Llavero. Nunca se envía al desarrollador, y por internet solo va al servidor de sincronización que indicaste (ver la sección siguiente).</li>
+<li><strong>Tu inicio de sesión de sincronización</strong>, solo si activas la sincronización, se guarda en el Llavero del iPhone y, como el reloj sincroniza por sí mismo, también se envía al reloj emparejado mediante WatchConnectivity y se guarda en su propio Llavero. Con KOReader Sync son la dirección del servidor, el usuario y la contraseña; con Readest, tu correo de Readest y un token de sesión, nunca tu contraseña de Readest. Nunca se envía al desarrollador, y por internet solo va al servicio de sincronización que elegiste (ver las secciones siguientes).</li>
 <li>La app no usa iCloud. Al borrar la app se eliminan estos datos de ese dispositivo.</li>
 </ul>
 </div>
@@ -73,6 +73,18 @@
 <li>el nombre de dispositivo «Folito» y un identificador aleatorio generado por la app en el primer arranque (no se deriva del hardware del dispositivo ni es un identificador publicitario).</li>
 </ul>
 <p>La app no envía ninguna marca de tiempo; el servidor registra la suya. Como en cualquier petición de internet, el servidor ve tu dirección IP. Ese servidor lo gestiona quien lo opera (tú o un servicio que elegiste), no el desarrollador; se aplican su política de privacidad y su retención de datos, y la app no puede borrar lo que se guarda allí (pídelo al operador). Si usas <code>http://</code> (permitido solo para direcciones de red local; iOS pide permiso de red local la primera vez) el tráfico no va cifrado. Si no activas la sincronización, no se hace ninguna petición de sincronización.</p>
+</div>
+</section>
+<section class="group">
+<h2>Sincronización del progreso con Readest (opcional, tu cuenta de Readest)</h2>
+<div class="card">
+<p>En lugar de un servidor KOReader Sync puedes elegir <strong>Readest</strong> en <em>Settings › Progress Sync</em> e iniciar sesión con una cuenta de Readest que ya tengas; solo hay un servicio de sincronización activo a la vez. Readest es un servicio de terceros, no lo opera el desarrollador, y Folito no está afiliado a él. Al iniciar sesión, tu correo y tu contraseña se envían una vez por HTTPS al servicio de inicio de sesión de Readest (operado para Readest por Supabase); Folito no guarda tu contraseña, solo la sesión que recibe. Mientras la sincronización está activada, la app envía a Readest (<code>web.readest.com</code>):</p>
+<ul>
+<li>el token de sesión que identifica tu cuenta de Readest (el reloj lo renueva aproximadamente cada hora);</li>
+<li>dos identificadores del libro: un hash calculado a partir del contenido del archivo EPUB y un hash del título, los autores y el identificador del libro (no el archivo, ni su título o su texto de forma legible);</li>
+<li>tu posición de lectura en ese libro (una referencia de posición, el número de párrafo y el total) y cuándo la alcanzaste.</li>
+</ul>
+<p>No se envía a Readest ningún identificador del dispositivo. Readest guarda tu posición de lectura en tu cuenta de Readest, donde la leen las apps de Readest y el plugin de Readest para KOReader; se aplican la <a href="https://readest.com/privacy-policy">política de privacidad</a> y las condiciones de Readest, y los datos guardados allí se gestionan en Readest (la app no puede borrarlos). <em>Sign Out</em> en <em>Settings › Progress Sync</em> elimina la sesión del iPhone y del Apple Watch y pide a Readest que la cierre. Si no eliges Readest, no se envía nada a Readest.</p>
 </div>
 </section>
 <section class="group">
@@ -100,7 +112,7 @@
 <section class="group">
 <h2>Tus opciones y derechos</h2>
 <div class="card">
-<p>La sincronización es opcional. Para dejar de sincronizar, abre <em>Settings › Progress Sync</em> en el iPhone y pulsa <em>Turn Off Sync and Remove Login</em>: el inicio de sesión se borra del iPhone y del Apple Watch y se descarta el progreso pendiente (tus libros y posiciones de lectura se conservan). También puedes quitarlo solo en el reloj (<em>Settings › Remove Credentials</em>), borrar la caché del diccionario o eliminar la app en cualquier momento. Para los datos que guarde un servidor de sincronización o un servicio de diccionario, contacta con ese servicio. Para dudas sobre esta política, escribe a <a href="mailto:xlahuerta@protonmail.com">xlahuerta@protonmail.com</a>.</p>
+<p>La sincronización es opcional. Para dejar de sincronizar, abre <em>Settings › Progress Sync</em> en el iPhone y pulsa <em>Turn Off Sync and Remove Login</em> (<em>Sign Out</em> con Readest): el inicio de sesión se borra del iPhone y del Apple Watch y se descarta el progreso pendiente (tus libros y posiciones de lectura se conservan). También puedes quitarlo solo en el reloj (<em>Settings › Remove Credentials</em>), borrar la caché del diccionario o eliminar la app en cualquier momento. Para los datos que guarde un servidor de sincronización o un servicio de diccionario, contacta con ese servicio. Para dudas sobre esta política, escribe a <a href="mailto:xlahuerta@protonmail.com">xlahuerta@protonmail.com</a>.</p>
 </div>
 </section>
 <section class="group">

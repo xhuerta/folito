@@ -69,3 +69,32 @@ jobs:
         env:
           KOSYNC_TEST_URL: http://kosync:17200
         run: swift test --filter KOSync
+
+  # Live test against Readest Cloud (docs/READEST_SYNC.md). Runs only when the repository secrets
+  # READEST_TEST_EMAIL and READEST_TEST_PASSWORD exist (never on forks); use a dedicated test account.
+  # The test skips itself when they are empty and never prints them.
+  readest-integration:
+    runs-on: ubuntu-latest
+    container: swift:6.0
+    env:
+      READEST_TEST_EMAIL: ${{ secrets.READEST_TEST_EMAIL }}
+      READEST_TEST_PASSWORD: ${{ secrets.READEST_TEST_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache SwiftPM
+        if: env.READEST_TEST_EMAIL != '' && env.READEST_TEST_PASSWORD != ''
+        uses: actions/cache@v4
+        with:
+          path: Packages/ReaderCore/.build
+          key: spm-${{ runner.os }}-${{ hashFiles('Packages/ReaderCore/Package.swift', 'Packages/ReaderCore/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-
+
+      - name: Integration test against Readest Cloud
+        if: env.READEST_TEST_EMAIL != '' && env.READEST_TEST_PASSWORD != ''
+        working-directory: Packages/ReaderCore
+        run: swift test --filter ReadestIntegrationTests
+
+      - name: Skipped (no Readest test secrets)
+        if: env.READEST_TEST_EMAIL == '' || env.READEST_TEST_PASSWORD == ''
+        run: echo "READEST_TEST_EMAIL / READEST_TEST_PASSWORD secrets not set; skipping the live Readest test."

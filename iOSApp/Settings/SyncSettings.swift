@@ -3,17 +3,10 @@ import ReaderCore
 
 /// Pure validation of the user-entered KOSync form.
 enum SyncSettingsValidator {
-    static let defaultServer = "https://sync.koreader.rocks"
+    static let defaultServer = KOSyncConnectorFactory.defaultServer
 
     static func credentials(server: String, user: String, password: String) -> KOSyncCredentials? {
-        var s = server.trimmingCharacters(in: .whitespacesAndNewlines)
-        if s.isEmpty { s = defaultServer }
-        if !s.contains("://") { s = "https://" + s }
-        while s.hasSuffix("/") { s.removeLast() }
-        let u = user.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let url = URL(string: s), let scheme = url.scheme, ["http", "https"].contains(scheme),
-              url.host != nil, !u.isEmpty, !password.isEmpty else { return nil }
-        return KOSyncCredentials(serverURL: url, username: u, password: password)
+        KOSyncConnectorFactory.credentials(server: server, user: user, password: password)
     }
 
     /// Warning shown while the URL uses plain `http://`; nil for https.
@@ -53,38 +46,178 @@ struct SyncStatus: Equatable {
         .failure(String(localized: "Enter your username and password. Leave the server URL empty to use the default server.",
                         comment: "Sync form validation message"))
     }
+
+    static func missingFieldsStatus(for connectorID: String) -> SyncStatus {
+        switch connectorID {
+        case ReadestConnectorFactory.id:
+            return .failure(String(localized: "Enter your Readest email and password.",
+                                   comment: "Sync form validation message for Readest"))
+        default:
+            return missingFields
+        }
+    }
 }
 
-/// Persists settings (Keychain) and pushes them to the watch.
+/// Progress-sync settings of the iPhone: which connector is active (None, KOReader Sync, Readest, ...),
+/// its credentials in the Keychain, and what is mirrored to the watch. The screen is generated from
+/// `SyncConnectorRegistry` (see docs/SYNC_CONNECTORS.md).
 @MainActor
 final class SyncSettings: ObservableObject {
-    @Published var server: String
-    @Published var username: String
-    @Published var password: String
-    @Published var status: SyncStatus?
-    @Published var isBusy = false
-    /// Sync is ON only when valid credentials are saved in the Keychain. The prefilled default server
-    /// or unsaved text in the form never counts.
-    @Published private(set) var isSyncOn = false
-
-    private let keychain: KeychainStore
-    private let clientFactory: (KOSyncCredentials) -> KOSyncClientProtocol
-    var onSave: ((KOSyncCredentials) -> Void)?
-    var onTurnOff: (() -> Void)?
-    private let defaults: UserDefaults
+    /// UserDefaults key of the active connector id (absent = sync off).
+    static let connectorKey = "sync.connector"
     private static let stampKey = "settings.savedAt"
     private static let clearedKey = "settings.clearedAt"
 
-    var insecureWarning: String? { SyncSettingsValidator.insecureWarning(server: server) }
+    /// Connector chosen in the picker ("" = None). Changing it loads that connector's form.
+    @Published var selectedConnectorID: String {
+        didSet { if oldValue != selectedConnectorID { loadForm() } }
+    }
+    /// Sign-in form of the selected connector, keyed by `CredentialField.key`.
+    @Published var fields: [String: String] = [:]
+    @Published var status: SyncStatus?
+    @Published var isBusy = false
+    /// Connector whose credentials are saved; sync is ON only then. The prefilled default server or unsaved
+    /// text in the form never counts.
+    @Published private(set) var activeConnectorID: String? = nil
 
-    /// The saved (Keychain) settings to mirror on the watch, or nil if nothing valid is saved.
+    let registry: SyncConnectorRegistry
+    private let keychain: KeychainStore
+    private let defaults: UserDefaults
+    private let session: URLSession
+    private let makeConnector: (SyncConnectorFactory, SyncCredentials) -> SyncConnector
+    var onSave: ((SyncCredentials) -> Void)?
+    var onTurnOff: (() -> Void)?
+
+    var isSyncOn: Bool { activeConnectorID != nil }
+
+    init(keychain: KeychainStore = KeychainStore(), defaults: UserDefaults = .standard,
+         registry: SyncConnectorRegistry = .standard, session: URLSession = .shared,
+         makeConnector: ((SyncConnectorFactory, SyncCredentials) -> SyncConnector)? = nil) {
+        self.keychain = keychain
+        self.defaults = defaults
+        self.registry = registry
+        self.session = session
+        self.makeConnector = makeConnector ?? { factory, creds in
+            factory.makeConnector(credentials: creds, store: InMemoryCredentialStore(creds), session: session)
+        }
+        selectedConnectorID = ""
+        Self.migrateLegacyKeychain(keychain, defaults: defaults)
+        activeConnectorID = Self.loadActiveID(keychain: keychain, defaults: defaults, registry: registry)
+        selectedConnectorID = activeConnectorID ?? ""
+        loadForm()
+    }
+
+    /// KOSync test double initializer (tests and previews written before connectors).
+    convenience init(keychain: KeychainStore = KeychainStore(), defaults: UserDefaults = .standard,
+                     clientFactory: @escaping (KOSyncCredentials) -> KOSyncClientProtocol) {
+        self.init(keychain: keychain, defaults: defaults, makeConnector: { factory, creds in
+            if factory.descriptor.id == KOSyncConnectorFactory.id,
+               let k = KOSyncConnectorFactory.kosyncCredentials(from: creds) {
+                return KOSyncConnector(client: clientFactory(k))
+            }
+            return factory.makeConnector(credentials: creds, store: InMemoryCredentialStore(creds), session: .shared)
+        })
+    }
+
+    // MARK: Selection and form
+
+    var selectedFactory: SyncConnectorFactory? { registry.factory(id: selectedConnectorID) }
+    var activeFactory: SyncConnectorFactory? { activeConnectorID.flatMap(registry.factory(id:)) }
+
+    /// True when the selected connector is the saved one and keeps a session (signed in: no form shown).
+    var isSignedInToSelected: Bool {
+        guard let f = selectedFactory, f.descriptor.id == activeConnectorID else { return false }
+        return f.descriptor.usesSession
+    }
+
+    /// User name or email of the saved account.
+    var accountLabel: String? {
+        guard let f = activeFactory, let c = activeCredentials else { return nil }
+        return f.accountLabel(for: c)
+    }
+
+    func value(for key: String) -> String { fields[key] ?? "" }
+    func setValue(_ value: String, for key: String) { fields[key] = value }
+
+    // KOSync form accessors (kept for the KOSync-specific warning and existing tests).
+    var server: String {
+        get { value(for: KOSyncConnectorFactory.Key.server) }
+        set { setValue(newValue, for: KOSyncConnectorFactory.Key.server) }
+    }
+    var username: String {
+        get { value(for: KOSyncConnectorFactory.Key.user) }
+        set { setValue(newValue, for: KOSyncConnectorFactory.Key.user) }
+    }
+    var password: String {
+        get { value(for: KOSyncConnectorFactory.Key.password) }
+        set { setValue(newValue, for: KOSyncConnectorFactory.Key.password) }
+    }
+
+    var insecureWarning: String? {
+        guard selectedConnectorID == KOSyncConnectorFactory.id else { return nil }
+        return SyncSettingsValidator.insecureWarning(server: server)
+    }
+
+    private func loadForm() {
+        status = nil
+        guard let f = selectedFactory else { fields = [:]; return }
+        if f.descriptor.id == activeConnectorID, let c = activeCredentials {
+            fields = f.formValues(from: c)
+        } else {
+            var form: [String: String] = [:]
+            for field in f.descriptor.credentialFields { form[field.key] = field.defaultValue ?? "" }
+            fields = form
+        }
+    }
+
+    // MARK: Storage
+
+    var activeCredentials: SyncCredentials? {
+        guard let f = activeFactory else { return nil }
+        return credentials(for: f)
+    }
+
+    private func credentials(for f: SyncConnectorFactory) -> SyncCredentials? {
+        var values: [String: String] = [:]
+        for key in f.descriptor.storageKeys { if let v = keychain.get(account: key) { values[key] = v } }
+        return values.isEmpty ? nil : SyncCredentials(values)
+    }
+
+    private static func loadActiveID(keychain: KeychainStore, defaults: UserDefaults,
+                                     registry: SyncConnectorRegistry) -> String? {
+        guard let id = defaults.string(forKey: connectorKey), let f = registry.factory(id: id) else { return nil }
+        let hasAll = f.descriptor.credentialFields.isEmpty || f.descriptor.storageKeys.contains { keychain.get(account: $0) != nil }
+        if id == KOSyncConnectorFactory.id {
+            let k = KOSyncConnectorFactory.Key.self
+            return SyncSettingsValidator.credentials(server: keychain.get(account: k.server) ?? "",
+                                                     user: keychain.get(account: k.user) ?? "",
+                                                     password: keychain.get(account: k.password) ?? "") != nil ? id : nil
+        }
+        return hasAll ? id : nil
+    }
+
+    /// Builds before connectors stored the KOSync login under the accounts server/username/password.
+    private static func migrateLegacyKeychain(_ keychain: KeychainStore, defaults: UserDefaults) {
+        guard let user = keychain.get(account: "username") else { return }
+        let k = KOSyncConnectorFactory.Key.self
+        let pairs = [("server", k.server), ("username", k.user), ("password", k.password)]
+        for (old, new) in pairs {
+            if let v = (old == "username" ? user : keychain.get(account: old)) { try? keychain.set(v, account: new) }
+            keychain.remove(account: old)
+        }
+        defaults.set(KOSyncConnectorFactory.id, forKey: connectorKey)
+    }
+
+    private func nextStamp() -> Int {
+        let previous = max(defaults.integer(forKey: Self.stampKey), defaults.integer(forKey: Self.clearedKey))
+        return max(Int(Date().timeIntervalSince1970), previous + 1)
+    }
+
+    /// The saved settings to mirror on the watch, or nil if nothing valid is saved.
     func savedForWatch() -> PhoneConnectivity.WatchSettings? {
-        guard let c = SyncSettingsValidator.credentials(server: keychain.get(account: "server") ?? "",
-                                                        user: keychain.get(account: "username") ?? "",
-                                                        password: keychain.get(account: "password") ?? "") else { return nil }
+        guard let id = activeConnectorID, let creds = activeCredentials else { return nil }
         let stamp = defaults.integer(forKey: Self.stampKey)
-        return .init(server: c.serverURL.absoluteString, user: c.username, password: c.password,
-                     stamp: stamp > 0 ? stamp : 1)
+        return .init(connectorID: id, credentials: creds, stamp: stamp > 0 ? stamp : 1)
     }
 
     /// Stamp of the last "turn off sync" while nothing valid is saved; nil if never turned off or if
@@ -95,74 +228,108 @@ final class SyncSettings: ObservableObject {
         return v > 0 ? v : nil
     }
 
-    init(keychain: KeychainStore = KeychainStore(), defaults: UserDefaults = .standard,
-         clientFactory: @escaping (KOSyncCredentials) -> KOSyncClientProtocol = { KOSyncClient(credentials: $0) }) {
-        self.keychain = keychain
-        self.defaults = defaults
-        self.clientFactory = clientFactory
-        server = keychain.get(account: "server") ?? SyncSettingsValidator.defaultServer
-        username = keychain.get(account: "username") ?? ""
-        password = keychain.get(account: "password") ?? ""
-        isSyncOn = savedForWatch() != nil
+    var hasCredentials: Bool {
+        selectedConnectorID == KOSyncConnectorFactory.id
+            && SyncSettingsValidator.credentials(server: server, user: username, password: password) != nil
     }
 
-    var hasCredentials: Bool { SyncSettingsValidator.credentials(server: server, user: username, password: password) != nil }
+    // MARK: Actions
 
-    func save() {
-        guard let c = SyncSettingsValidator.credentials(server: server, user: username, password: password) else {
-            status = .missingFields; return
-        }
+    /// Signs in with the selected connector (KOSync: validates only; Readest: password grant), stores the
+    /// result in the Keychain and sends it to the watch. Replaces any previously saved service.
+    func save() async {
+        guard let f = selectedFactory else { return }
+        isBusy = true
+        status = nil
+        defer { isBusy = false }
+        let creds: SyncCredentials
         do {
-            try keychain.set(c.serverURL.absoluteString, account: "server")
-            try keychain.set(c.username, account: "username")
-            try keychain.set(c.password, account: "password")
-            // Strictly newer than any earlier save or turn-off so the watch applies it.
-            let previous = max(defaults.integer(forKey: Self.stampKey), defaults.integer(forKey: Self.clearedKey))
-            defaults.set(max(Int(Date().timeIntervalSince1970), previous + 1), forKey: Self.stampKey)
-            defaults.removeObject(forKey: Self.clearedKey)
-            isSyncOn = true
-            status = .success(String(localized: "Sync is on. The login is sent to your Apple Watch now, or as soon as the watch app is installed.",
-                                     comment: "Sync status after saving"))
-            onSave?(c)
+            creds = try await f.signIn(fields: fields, session: session)
+        } catch SyncConnectorError.missingFields {
+            status = .missingFieldsStatus(for: f.descriptor.id)
+            return
+        } catch {
+            status = .failure(SyncSettingsValidator.message(for: error))
+            return
+        }
+        let previous = activeFactory.flatMap { old in activeCredentials.map { (old, $0) } }
+        do {
+            for key in registry.allStorageKeys { keychain.remove(account: key) }
+            for (key, value) in creds.values { try keychain.set(value, account: key) }
         } catch {
             status = .failure(String(localized: "The login couldn’t be saved to this iPhone’s Keychain. Restart your iPhone and try again.",
                                      comment: "Sync status when the Keychain write fails"))
+            return
         }
+        // Strictly newer than any earlier save or turn-off so the watch applies it.
+        defaults.set(nextStamp(), forKey: Self.stampKey)
+        defaults.removeObject(forKey: Self.clearedKey)
+        defaults.set(f.descriptor.id, forKey: Self.connectorKey)
+        activeConnectorID = f.descriptor.id
+        // The previous session (another service, or an older Readest sign-in) is no longer used.
+        if let previous, previous.0.descriptor.usesSession {
+            let session = self.session
+            let oldFactory = previous.0, oldCreds = previous.1
+            Task.detached { await oldFactory.signOut(credentials: oldCreds, session: session) }
+        }
+        if f.descriptor.usesSession {
+            fields = f.formValues(from: creds)
+            status = .success(String(localized: "Signed in. Sync is on. The session is sent to your Apple Watch now, or as soon as the watch app is installed.",
+                                     comment: "Sync status after signing in to a sync service such as Readest"))
+        } else {
+            status = .success(String(localized: "Sync is on. The login is sent to your Apple Watch now, or as soon as the watch app is installed.",
+                                     comment: "Sync status after saving"))
+        }
+        onSave?(creds)
     }
 
-    /// Removes the saved login from the iPhone Keychain and tells the watch (settings channel, stamped)
-    /// to remove its credentials and pending queue. Books and reading positions are untouched.
+    /// Removes the saved login or session from the iPhone Keychain and tells the watch (settings channel,
+    /// stamped) to remove its credentials and pending queue. Books and reading positions are untouched.
+    /// A session (Readest) is also revoked on the server, best effort.
     func turnOff() {
-        for account in ["server", "username", "password"] { keychain.remove(account: account) }
-        let previous = max(defaults.integer(forKey: Self.stampKey), defaults.integer(forKey: Self.clearedKey))
-        defaults.set(max(Int(Date().timeIntervalSince1970), previous + 1), forKey: Self.clearedKey)
-        server = SyncSettingsValidator.defaultServer
-        username = ""
-        password = ""
-        isSyncOn = false
-        status = .info(String(localized: "Sync is off. Your login was removed from this iPhone and your Apple Watch.",
-                              comment: "Sync status after turning sync off"))
+        let wasSession = activeFactory?.descriptor.usesSession ?? false
+        if let f = activeFactory, wasSession, let creds = activeCredentials {
+            let session = self.session
+            Task.detached { await f.signOut(credentials: creds, session: session) }
+        }
+        for key in registry.allStorageKeys { keychain.remove(account: key) }
+        defaults.set(nextStamp(), forKey: Self.clearedKey)
+        defaults.removeObject(forKey: Self.connectorKey)
+        activeConnectorID = nil
+        selectedConnectorID = ""
+        fields = [:]
+        if wasSession {
+            status = .info(String(localized: "Signed out. The session was removed from this iPhone and your Apple Watch.",
+                                  comment: "Sync status after signing out of a sync service such as Readest"))
+        } else {
+            status = .info(String(localized: "Sync is off. Your login was removed from this iPhone and your Apple Watch.",
+                                  comment: "Sync status after turning sync off"))
+        }
         onTurnOff?()
     }
 
-    // No "create account" action: accounts are created on the sync server itself. KOSync has no
-    // account-deletion endpoint, and App Review guideline 5.1.1(v) requires in-app deletion for any
-    // account an app creates.
+    /// Checks the login in the form (KOSync). Not offered for session-based connectors: their sign-in
+    /// already checks it, and refreshing a session here would invalidate the watch's copy.
     func testConnection() {
-        run(String(localized: "Connected. The server accepted your username and password.",
-                   comment: "Sync status after a successful connection test")) { try await $0.authorize() }
-    }
-
-    private func run(_ success: String, _ op: @escaping (KOSyncClientProtocol) async throws -> Void) {
-        guard let c = SyncSettingsValidator.credentials(server: server, user: username, password: password) else {
+        guard let f = selectedFactory, f.descriptor.supportsConnectionTest else {
             status = .missingFields; return
         }
         isBusy = true
         status = nil
-        let client = clientFactory(c)
+        let fields = self.fields
+        let session = self.session
+        let make = makeConnector
         Task {
-            do { try await op(client); status = .success(success) }
-            catch { status = .failure(SyncSettingsValidator.message(for: error)) }
+            do {
+                let creds = try await f.signIn(fields: fields, session: session)
+                try await make(f, creds).authorize()
+                status = .success(String(localized: "Connected. The server accepted your username and password.",
+                                         comment: "Sync status after a successful connection test"))
+            } catch SyncConnectorError.missingFields {
+                status = .missingFieldsStatus(for: f.descriptor.id)
+            } catch {
+                status = .failure(SyncSettingsValidator.message(for: error))
+            }
             isBusy = false
         }
     }

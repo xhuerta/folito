@@ -55,7 +55,7 @@ A full reading app, designed for the smallest screen you own.
     <td width="33%" valign="top">
       <img src="docs/readme/sync.svg" width="44" height="44" alt=""><br>
       <b>Optional progress sync</b><br>
-      Continue in apps that speak the KOReader Sync protocol, such as KOReader and Readest. Off unless you connect a server you choose; the app does not provide one.
+      Continue in KOReader, Readest and other apps through a KOReader Sync server or your Readest account. Off unless you choose a service; the app does not provide one.
     </td>
     <td width="33%" valign="top">
       <img src="docs/readme/accessibility.svg" width="44" height="44" alt=""><br>
@@ -70,7 +70,7 @@ A full reading app, designed for the smallest screen you own.
   </tr>
 </table>
 
-Folito works **without an account and offline** with your own EPUB files. Reading progress can optionally be synced with any server that speaks the **KOReader Sync** protocol (KOReader's, Readest's, or your own). It installs on your watch with a free Apple account (Personal Team): no paid developer program and no special capabilities (no iCloud, App Groups or push notifications).
+Folito works **without an account and offline** with your own EPUB files. Reading progress can optionally be synced with any server that speaks the **KOReader Sync** protocol (KOReader's, Readest's, or your own) or with **Readest Cloud** (your Readest account, the service the Readest apps and the Readest plugin for KOReader use). It installs on your watch with a free Apple account (Personal Team): no paid developer program and no special capabilities (no iCloud, App Groups or push notifications).
 
 ## Contents
 
@@ -89,14 +89,15 @@ Sync is **optional**; you don't need any account (Readest, KOReader or otherwise
 
 1. Import your EPUBs in the iPhone app (the **+** button, or "Open in Folito" from Files or the share sheet). They are sent to the watch automatically.
 2. Read on the watch. Your position is stored on the watch itself and everything works offline.
-3. With no username and password saved, the app makes no sync requests and shows no sync prompts or indicators. The only feature that uses the network at your request is dictionary lookup.
-4. If you later want to sync, go to *Settings › Progress Sync* on the iPhone (see [below](#progress-sync-optional)). You can turn it off at any time with *Turn Off Sync and Remove Login*, which deletes the credentials from the iPhone and the watch and clears pending progress (also available in the watch's Settings → *Remove credentials*).
+3. With no sync service chosen (*None*), the app makes no sync requests and shows no sync prompts or indicators. The only feature that uses the network at your request is dictionary lookup.
+4. If you later want to sync, go to *Settings › Progress Sync* on the iPhone (see [below](#progress-sync-optional)). You can turn it off at any time with *Turn Off Sync and Remove Login* (*Sign Out* for Readest), which deletes the credentials from the iPhone and the watch and clears pending progress (also available in the watch's Settings → *Remove credentials*).
 
 ## Architecture
 
 ```
 Packages/ReaderCore   SwiftPM package (pure logic, also tested on Linux):
-                      EPUB parsing, XPointer, KOReader Sync client, document hash.
+                      EPUB parsing, XPointer, sync connectors (KOReader Sync,
+                      Readest), document hash.
 iOSApp/               iPhone app (SwiftUI): imports EPUBs and sends them to the watch.
 WatchApp/             watchOS app (SwiftUI): reader and sync.
 Config/               Build settings (xcconfig).
@@ -105,7 +106,7 @@ project.yml           XcodeGen spec (the .xcodeproj is not checked in).
 
 - The watch app is a single-target watchOS app (`WKApplication = true`) paired with the iPhone app via `WKCompanionAppBundleIdentifier`. The iPhone app embeds the watch app.
 - Both apps depend on `ReaderCore`.
-- Optional sync talks directly to a KOReader Sync–compatible server that you configure (the suggested default URL is `https://sync.koreader.rocks`, but it is not used until you save a username and password).
+- Optional sync goes through one **connector** at a time ([docs/SYNC_CONNECTORS.md](docs/SYNC_CONNECTORS.md)): a KOReader Sync–compatible server that you configure (the suggested default URL is `https://sync.koreader.rocks`, but it is not used until you save a username and password), or Readest Cloud with your Readest account ([docs/READEST_SYNC.md](docs/READEST_SYNC.md)).
 
 ## Building
 
@@ -144,7 +145,20 @@ With automatic signing, Xcode creates the provisioning profiles. No entitlements
 
 ## Progress sync (optional)
 
-Only needed if you want to continue the same book in other readers. Folito uses the same server and matching method as your other readers so progress is shared.
+Only needed if you want to continue the same book in other readers. In *Settings › Progress Sync* on the iPhone choose **None**, **KOReader Sync** or **Readest**. Only one service is active at a time; switching drops progress still queued for the previous one.
+
+### Readest (your Readest account)
+
+Choose **Readest** and sign in with the email and password of an existing Readest account (create it in a Readest app; Folito does not create accounts). Progress then syncs with the Readest apps and with KOReader devices (for example a Kobo) that use the **Readest plugin for KOReader** with the same account.
+
+- The iPhone signs in once and sends the session to the watch, which syncs and renews it on its own. The password is never stored. *Sign Out* removes the session from both devices.
+- Books are matched by the same file hash KOReader uses (plus Readest's metadata hash), so use the **same EPUB file** on every device.
+- Positions are KOReader XPointers at paragraph granularity. The Readest apps only move forward automatically, so going back on the watch doesn't pull an open Readest app back.
+- Folito is not affiliated with Readest; it uses the same sync API as Readest's own KOReader plugin. Details and limitations: [docs/READEST_SYNC.md](docs/READEST_SYNC.md).
+
+### KOReader Sync (any KOSync server)
+
+Folito uses the same server and matching method as your other readers so progress is shared.
 
 | Reader | Where | Document matching method |
 | --- | --- | --- |
@@ -245,6 +259,8 @@ What runs where: [docs/TESTING.md](docs/TESTING.md). Future plans: [ROADMAP.md](
 | [ACCESSIBILITY.md](docs/ACCESSIBILITY.md) | Accessibility support and audit |
 | [LOCALIZATION.md](docs/LOCALIZATION.md) | Adding strings and languages |
 | [WATCH_CONNECTIVITY.md](docs/WATCH_CONNECTIVITY.md) | iPhone ↔ watch transfer and settings sync |
+| [SYNC_CONNECTORS.md](docs/SYNC_CONNECTORS.md) | Progress sync connectors and how to add one |
+| [READEST_SYNC.md](docs/READEST_SYNC.md) | Readest Cloud protocol, mapping, terms |
 | [DISCREPANCIES.md](docs/DISCREPANCIES.md) | Compatibility notes vs. KOReader/Readest: document hash, XPointer, KOSync |
 | [PRIVACY_DATA_MAP.md](docs/PRIVACY_DATA_MAP.md) | What data is stored and sent, and where |
 | [EXPORT_COMPLIANCE.md](docs/EXPORT_COMPLIANCE.md) | Export compliance (encryption) |

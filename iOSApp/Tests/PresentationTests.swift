@@ -56,14 +56,21 @@ final class PresentationTests: XCTestCase {
     }
 
     @MainActor
-    func testMissingFieldsStatusIsAFailure() {
+    func testMissingFieldsStatusIsAFailure() async {
         let s = SyncSettings(keychain: KeychainStore(service: "test.\(UUID().uuidString)"),
                              defaults: UserDefaults(suiteName: "test.\(UUID().uuidString)")!,
                              clientFactory: { _ in MockKOSyncClient() })
         s.testConnection()
         XCTAssertEqual(s.status?.kind, .failure)
-        s.save()
+        s.selectedConnectorID = KOSyncConnectorFactory.id
+        await s.save()
         XCTAssertEqual(s.status, .missingFields)
+    }
+
+    func testReadestMessages() {
+        XCTAssertTrue(UserFacingError.syncMessage(for: ReadestError.invalidCredentials).contains("email and password"))
+        XCTAssertTrue(UserFacingError.syncMessage(for: ReadestError.unauthorized).contains("Sign in again"))
+        XCTAssertTrue(UserFacingError.syncMessage(for: ReadestError.server(status: 502, message: nil)).contains("502"))
     }
 
     // MARK: Formatting

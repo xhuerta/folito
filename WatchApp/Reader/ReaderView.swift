@@ -119,10 +119,10 @@ struct ReaderView: View {
             if let remote = model.remoteOffer {
                 Text(ReadingProgressFormat.readOnDevice(
                     remote.percentage,
-                    device: remote.device.isEmpty
+                    device: remote.deviceName.isEmpty
                         ? String(localized: "another device",
                                  comment: "Used in '43% read on another device' when the device name is unknown")
-                        : remote.device))
+                        : remote.deviceName))
             }
         }
         .onAppear { model.restoreInitialPosition() }

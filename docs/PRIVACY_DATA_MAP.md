@@ -5,12 +5,15 @@ Source of truth for what data leaves the device, to whom and why. The privacy po
 `UserDefaults`, Keychain, file and WatchConnectivity use). Re-audit when networking code changes.
 
 Summary: the developer operates **no server** and receives **no data**. There is no analytics, advertising,
-crash-reporting or third-party SDK, and no tracking. Network traffic goes only to (a) a sync server the
-user configures themselves and (b) two public dictionary APIs when the user looks up a word.
+crash-reporting or third-party SDK, and no tracking. Network traffic goes only to (a) the progress-sync
+service the user chooses and signs in to (a KOReader Sync server, or Readest Cloud), and (b) two public
+dictionary APIs when the user looks up a word. At most one sync service is active at a time.
 
 ## 1. Network traffic (complete list)
 
-Only two code paths use `URLSession`; there are no other networking APIs (no WebKit, no sockets, no Bonjour).
+Only the sync connectors and the dictionary use `URLSession`; there are no other networking APIs (no WebKit,
+no sockets, no Bonjour). Sync connectors are listed in `SyncConnectorRegistry.standard`
+(`Packages/ReaderCore/Sources/ReaderCore/Sync/Connectors/SyncConnector.swift`).
 
 ### 1a. KOReader Sync (KOSync) server: user-supplied, optional
 
@@ -36,6 +39,29 @@ Sync is optional. Without a configured server, nothing is sent and nothing is qu
 queues unsent progress locally (UserDefaults) and retries; turning sync off on the iPhone removes the
 credentials from both devices and drops the watch's queue.
 
+### 1a-bis. Readest Cloud: optional, user's own Readest account
+
+Code: `Packages/ReaderCore/Sources/ReaderCore/Sync/Readest/` (`ReadestAuth`, `ReadestSyncClient`,
+`ReadestConnector`, `URLSession.shared`). Details: `docs/READEST_SYNC.md`. Used only when the user picks
+**Readest** in Settings › Progress Sync and signs in with an existing Readest account (the app creates no
+accounts). The iPhone signs in once; the watch then syncs and refreshes the session on its own.
+
+| Recipient | Item | Sent | Notes |
+|---|---|---|---|
+| Supabase (Readest's auth provider), `https://vbsyxfusjjqdxkjqlysc.supabase.co/auth/v1/*` | Email and password | yes, once, at sign-in (iPhone), HTTPS | The password is **never stored**, on either device. |
+| same | Refresh token | yes, when the session is refreshed (watch, about hourly while syncing) | |
+| same | Public `apikey` | yes | Readest's public anon key, identical in every Readest client; not user data. |
+| Readest, `https://web.readest.com/api/sync` | Access token | yes, `Authorization: Bearer` header | Identifies the user's Readest account. |
+| same | Book identifiers | yes, `bookHash` (KOReader partial MD5 of the file) and `metaHash` (MD5 of title, authors and identifier) | Hashes; title, author and the file are not sent. Note that a metadata hash of a well-known book could be matched by someone who hashes the same metadata. |
+| same | Reading position | yes, `xpointer` (paragraph XPointer), `progress` (`[paragraph number, paragraph count]`) and `updatedAt` (time the position was reached) | Per book. |
+| same | Device name / ID | no | |
+
+Endpoints: `POST /auth/v1/token` (password and refresh grants), `POST /auth/v1/logout?scope=local` (sign out,
+best effort), `GET /api/sync?type=configs&book=…&meta_hash=…`, `POST /api/sync` (configs only; no books,
+notes, statistics or files). Recipient: Readest (the user's own account, governed by Readest's privacy
+policy). The developer is not a party and receives nothing. Signing out on the iPhone removes the session from
+both devices and asks Supabase to revoke it.
+
 ### 1b. Dictionary lookups: public APIs, on user action only
 
 Code: `Packages/ReaderCore/Sources/ReaderCore/Dictionary/OnlineDictionary.swift`
@@ -55,16 +81,19 @@ those services' logs; their own privacy policies apply to what they retain.
 ### 1c. Not network, but data movement to document
 
 - iPhone to Apple Watch (WatchConnectivity, local to the user's paired devices, handled by Apple's frameworks):
-  processed books, reading typography settings, and the KOSync server URL, username and password so the
-  watch can sync on its own (see `docs/WATCH_CONNECTIVITY.md`). The password sent here is the real password
-  (the watch computes the MD5 itself); it travels only between the user's own paired devices.
+  processed books, reading typography settings, and the active sync connector's credentials so the watch can
+  sync on its own (see `docs/WATCH_CONNECTIVITY.md`): for KOSync the server URL, username and password (the
+  real password; the watch computes the MD5 itself), for Readest the account email and the session (access +
+  refresh token, never the password). They travel only between the user's own paired devices.
 - No iCloud, CloudKit, Keychain access groups or app groups are used.
 
 ## 2. Data stored on device only
 
 | Data | Where | Notes |
 |---|---|---|
+| Active sync service id | iPhone: UserDefaults (`sync.connector`); watch: Keychain (`sync_connector`) | |
 | KOSync server URL, username, password | Keychain (iPhone and watch each have their own item; no access groups) | Never leaves the device except as described in 1a/1c. |
+| Readest email and session (access + refresh token) | Keychain (iPhone and watch; the watch updates its copy when the session is refreshed) | No password. Removed on Sign Out. |
 | Library (processed EPUBs) | `Application Support/Folito/Books` (iPhone), watch app's Application Support | Files the user imports; never uploaded. |
 | Reading position, typography, device UUID, pending sync queue | UserDefaults | |
 | Dictionary cache | On-device cache file (Application Support) | |
@@ -80,8 +109,10 @@ those services' logs; their own privacy policies apply to what they retain.
 - Collected data types: **Search History** (the dictionary words sent to Wiktionary / dictionaryapi.dev),
   not linked to identity, not used for tracking, purpose App Functionality.
   Rationale for what is *not* declared: Apple defines "collect" as data transmitted off device to the developer
-  or third-party partners. Sync data (username, hashed password, reading position, device UUID) goes only to
-  a server the user runs or chooses, not to the developer, so it is not declared as collected by the developer.
+  or third-party partners. Sync data (username or Readest email, hashed password or session token, book hashes,
+  reading position, device UUID) goes only to a service the user runs or chooses and signs in to with their own
+  account (a KOSync server, or Readest Cloud), not to the developer or a partner of the developer, so it is not
+  declared as collected by the developer.
   **Owner to confirm** this reading against App Store Connect's App Privacy guidance (see section 5).
 
 ## 4. Suggested App Store Connect "App Privacy" answers
@@ -93,8 +124,9 @@ those services' logs; their own privacy policies apply to what they retain.
 
 ## 5. Items needing owner verification
 
-1. Whether Apple wants user-configured sync (username / reading position / device UUID going to the user's own
-   server) listed under App Privacy. The conservative alternative is to also declare Other User Content /
+1. Whether Apple wants user-configured sync (username or Readest email / book hashes / reading position /
+   device UUID going to the user's own server or Readest account) listed under App Privacy. Readest Cloud is a
+   fixed, named third party (not user-run), which makes the conservative reading more likely to be expected. The conservative alternative is to also declare Other User Content /
    Device ID / User ID, "not linked", purpose App Functionality; the current files take the "developer
    receives nothing" reading. Verify with Apple's "App privacy details" documentation.
 2. Wikimedia User-Agent contains the GitHub project URL; replace with a real contact URL/email if the repo moves.

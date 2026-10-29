@@ -4088,52 +4088,6 @@
         }
       }
     },
-    "Sync is optional and off. Reading works fully offline. To sync progress with a KOReader-compatible server, set it up in the iPhone app." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sync ist optional und aus. Lesen funktioniert vollständig offline. Um den Fortschritt mit einem KOReader-kompatiblen Server zu synchronisieren, richte Sync in der iPhone-App ein."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La sincronización es opcional y está desactivada. La lectura funciona por completo sin conexión. Para sincronizar el progreso con un servidor compatible con KOReader, configúrala en la app del iPhone."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La synchronisation est facultative et désactivée. La lecture fonctionne entièrement hors ligne. Pour synchroniser la progression avec un serveur compatible KOReader, configurez-la dans l’app iPhone."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La sincronizzazione è opzionale e disattivata. La lettura funziona completamente offline. Per sincronizzare i progressi con un server compatibile con KOReader, configurala nell’app per iPhone."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "同期はオプションで、現在オフです。読書はすべてオフラインで行えます。KOReader対応サーバと進捗を同期するには、iPhoneのAppで設定してください。"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A sincronização é opcional e está desativada. A leitura funciona totalmente offline. Para sincronizar o progresso com um servidor compatível com o KOReader, configure-a no app do iPhone."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "同步是可选的，目前已关闭。阅读完全可以离线进行。要与兼容 KOReader 的服务器同步进度，请在 iPhone App 中设置。"
-          }
-        }
-      }
-    },
     "Sync isn't set up. Set it up in Folito on your iPhone." : {
       "comment" : "Sync server status: no credentials",
       "localizations" : {
@@ -5530,6 +5484,236 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "“腕上的文字，”他说。"
+          }
+        }
+      }
+    },
+    "Sync is optional and off. Reading works fully offline. To sync progress with KOReader Sync or Readest, set it up in the iPhone app." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La sincronización es opcional y está desactivada. La lectura funciona sin conexión. Para sincronizar el progreso con KOReader Sync o Readest, configúrala en la app del iPhone."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La synchronisation est facultative et désactivée. La lecture fonctionne entièrement hors ligne. Pour synchroniser la progression avec KOReader Sync ou Readest, configurez-la dans l’app iPhone."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Synchronisierung ist optional und aus. Lesen funktioniert vollständig offline. Um den Fortschritt mit KOReader Sync oder Readest zu synchronisieren, richte sie in der iPhone-App ein."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La sincronizzazione è facoltativa e disattivata. La lettura funziona completamente offline. Per sincronizzare l’avanzamento con KOReader Sync o Readest, configurala nell’app per iPhone."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A sincronização é opcional e está desativada. A leitura funciona totalmente offline. Para sincronizar o progresso com o KOReader Sync ou o Readest, configure-a no app do iPhone."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同期は任意で、オフになっています。読書は完全にオフラインで使えます。KOReader SyncまたはReadestと進捗を同期するには、iPhoneアプリで設定してください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步为可选项，目前已关闭。阅读完全可离线使用。要与 KOReader Sync 或 Readest 同步进度，请在 iPhone App 中设置。"
+          }
+        }
+      }
+    },
+    "Service" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Servicio"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Service"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dienst"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Servizio"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Serviço"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サービス"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务"
+          }
+        }
+      }
+    },
+    "Readest" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Readest"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Readest"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Readest"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Readest"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Readest"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Readest"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Readest"
+          }
+        }
+      }
+    },
+    "Your session has ended. Sign in again in Folito on your iPhone." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu sesión ha caducado. Vuelve a iniciar sesión en Folito en tu iPhone."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre session a expiré. Reconnectez-vous dans Folito sur votre iPhone."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deine Sitzung ist abgelaufen. Melde dich in Folito auf deinem iPhone erneut an."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La sessione è scaduta. Accedi di nuovo in Folito sull’iPhone."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sua sessão terminou. Entre novamente no Folito no seu iPhone."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "セッションが終了しました。iPhoneのFolitoでもう一度サインインしてください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "会话已结束。请在 iPhone 上的 Folito 中重新登录。"
+          }
+        }
+      }
+    },
+    "KOReader Sync" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "KOReader Sync"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "KOReader Sync"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "KOReader Sync"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "KOReader Sync"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "KOReader Sync"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "KOReader Sync"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "KOReader Sync"
           }
         }
       }

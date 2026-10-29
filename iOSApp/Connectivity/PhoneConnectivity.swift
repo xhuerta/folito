@@ -28,10 +28,10 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
     /// The watch reported the hashes of the books it currently stores.
     var onWatchLibrary: ((Set<String>) -> Void)?
 
+    /// Active sync connector and its stored credentials (see `SyncSettingsWire`).
     struct WatchSettings: Equatable {
-        var server: String
-        var user: String
-        var password: String
+        var connectorID: String
+        var credentials: SyncCredentials
         var stamp: Int
     }
 
@@ -77,9 +77,9 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
     /// settings are delivered (also to a watch app installed later), unlike a queue of userInfo transfers.
     func sendSettings(_ settings: WatchSettings?, typography: ReaderTypography?) {
         guard canSend, let session else { return }
-        let kosync = settings.map { (server: $0.server, user: $0.user, password: $0.password, stamp: $0.stamp) }
+        let sync = settings.map { (connectorID: $0.connectorID, credentials: $0.credentials, stamp: $0.stamp) }
         let cleared = settings == nil ? clearedStampProvider?() : nil
-        guard let info = WatchSchema.settingsContext(kosync: kosync, clearedStamp: cleared, typography: typography) else { return }
+        guard let info = WatchSchema.settingsContext(sync: sync, clearedStamp: cleared, typography: typography) else { return }
         do { try session.updateApplicationContext(info) }
         catch { lastError = "Could not send settings: \(error.localizedDescription)" } // i18n-ignore
     }

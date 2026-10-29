@@ -43,7 +43,7 @@ final class ReadingProgressFormatTests: XCTestCase {
 }
 
 final class WatchMessagesTests: XCTestCase {
-    private let allConnections: [SyncCoordinator.ConnectionResult?] = [nil, .ok, .unauthorized, .offline, .notConfigured, .failed]
+    private let allConnections: [SyncCoordinator.ConnectionResult?] = [nil, .ok, .unauthorized, .offline, .notConfigured, .failed, .signInAgain]
     private let allDictionaryErrors: [DictionaryError] = [.offline, .notFound, .rateLimited, .server(status: 503), .invalidResponse]
 
     private func assertSpecific(_ message: String, file: StaticString = #filePath, line: UInt = #line) {

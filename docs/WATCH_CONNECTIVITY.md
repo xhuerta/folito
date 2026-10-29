@@ -27,25 +27,44 @@ dictionary with `transferUserInfo`; the watch accepts both.
 | key | type |
 |---|---|
 | `type` | `"settings"` |
-| `kosync_server` | String, base URL (default `https://sync.koreader.rocks`) |
-| `kosync_user` | String |
-| `kosync_password` | String, plain password |
-| `kosync_cleared` | Bool `true`, only when the user turned sync off on the phone (see below); never together with the three keys above |
+| `settingsVersion` | Int, `2` (generic connector keys). Absent in version 1 (KOSync keys only). |
+| `sync_connector` | String, active connector id (`"kosync"`, `"readest"`, see [SYNC_CONNECTORS.md](SYNC_CONNECTORS.md)) |
+| `sync_credentials` | String, JSON object `{storageKey: value}` of that connector (`SyncCredentials`); KOSync: `kosync_server`, `kosync_user`, `kosync_password`; Readest: `readest_email`, `readest_session` (JSON session with access + refresh token) |
+| `kosync_server` | String, base URL (default `https://sync.koreader.rocks`); only when the connector is KOSync, for watch builds before connectors |
+| `kosync_user` | String; idem |
+| `kosync_password` | String, plain password; idem |
+| `sync_cleared` / `kosync_cleared` | Bool `true` (both are sent), only when the user turned sync off on the phone (see below); never together with the keys above |
 | `settingsStamp` | Int, Unix time of the user's last Save on the phone (optional) |
 | `typography` | String, JSON-encoded `ReaderTypography` (optional, see "Typography") |
 | `typographyStamp` | Int, `ReaderTypography.stamp` (optional, same value as inside the JSON) |
 
-The KOSync keys are omitted when no valid credentials are saved; a context may therefore carry only
+The message is generic: any connector travels as `{sync_connector, sync_credentials}`; there are no
+per-connector message types. The watch stores each credential under its storage key in its Keychain, plus the
+active id under `sync_connector`; applying a new connector first removes every other connector's keys, so
+switching service never leaves stale credentials (and the watch drops queued positions recorded for the old
+service). A watch from before connectors ignores the generic keys and keeps using the `kosync_*` keys, which
+the phone still sends for KOSync; a phone from before connectors sends only `kosync_*`, which a new watch
+maps to the KOSync connector.
+
+**Readest sessions.** The phone signs in and sends the session; from then on the watch is the only device
+that refreshes it (Supabase refresh tokens rotate and are single use) and saves rotated tokens in its own
+Keychain. Because resends reuse the stamp, the phone's older copy never overwrites the watch's rotated one.
+If the watch app is reinstalled, the resent session may already be rotated away; the watch then reports
+"sign in again" and a new sign-in on the phone (new stamp) fixes it. The password is never sent or stored.
+
+The sync keys are omitted when no valid credentials are saved; a context may therefore carry only
 `type` + typography. Each `updateApplicationContext` replaces the previous context, so the phone always
 sends the full state (credentials + typography).
 
 Sync is optional. With no credentials saved and the user never having turned sync off, the context carries no
 KOSync keys at all, and the watch makes no sync requests and queues no progress.
 
-**Cleared state.** "Turn off sync and remove credentials" on the phone deletes its Keychain items and sends
-`{ type: "settings", kosync_cleared: true, settingsStamp: <clear time> }` (plus typography as usual). The clear
+**Cleared state.** "Turn off sync and remove credentials" (or "Sign Out" for Readest) on the phone deletes its
+Keychain items, revokes a Readest session on the server (best effort) and sends
+`{ type: "settings", sync_cleared: true, kosync_cleared: true, settingsVersion: 2, settingsStamp: <clear time> }`
+(plus typography as usual). The clear
 stamp is `max(now, previous stamp + 1)`, so it is strictly newer than the last save. The watch, on a
-`kosync_cleared == true` context whose stamp passes the usual newer-than check, removes its Keychain
+`sync_cleared` or `kosync_cleared == true` context whose stamp passes the usual newer-than check, removes its Keychain
 credentials, empties its pending-progress queue and hides all sync UI. Older watch builds ignore the unknown
 key and keep their credentials (no breakage). The phone keeps resending the cleared state (same stamp, so it
 is applied once) until credentials are saved again; saving uses a stamp newer than the clear, which
@@ -62,8 +81,8 @@ Nothing is sent until the session is activated, paired and the watch app is inst
 last applied one (messages without a stamp are always applied). So a "Reset" on the watch is not undone by
 the phone's periodic resend; saving again on the phone (new stamp) re-provisions it.
 
-Tradeoff: the plain password crosses WatchConnectivity (encrypted, paired devices) so the watch can sync
-standalone. Both sides store it in their own Keychain (`kSecClassGenericPassword`, no access group).
+Tradeoff: for KOSync the plain password crosses WatchConnectivity (encrypted, paired devices) so the watch can
+sync standalone; for Readest only the session tokens do. Both sides store it in their own Keychain (`kSecClassGenericPassword`, no access group).
 The watch generates its own `device_id` UUID; it is never sent from the phone.
 
 ## Delete (`WCSession.transferUserInfo`)

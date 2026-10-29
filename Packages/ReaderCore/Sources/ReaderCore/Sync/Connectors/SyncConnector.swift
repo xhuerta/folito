@@ -173,6 +173,13 @@ public struct SyncConnectorDescriptor: Sendable, Equatable {
         self.staleCheckRequiresDeviceID = staleCheckRequiresDeviceID
         self.hosts = hosts
     }
+
+    /// Whether "Test Connection" can run from stored credentials without a session that only one device
+    /// may refresh (true for plain username/password services such as KOSync).
+    public var supportsConnectionTest: Bool { authKind == .usernamePassword || authKind == .none }
+
+    /// Whether the connector keeps a server session (tokens) instead of the password.
+    public var usesSession: Bool { authKind == .emailPassword || authKind == .token || authKind == .oauth }
 }
 
 /// A live, signed-in connection to one sync service.
