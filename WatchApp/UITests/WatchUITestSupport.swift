@@ -70,10 +70,10 @@ enum WatchUI {
         let byID = element("typographyLink", in: app)
         let byLabel = app.descendants(matching: .any)
             .matching(NSPredicate(format: "label BEGINSWITH %@", "Typography")).element(boundBy: 0)
-        var swipes = 0
-        while !(byID.exists && byID.isHittable) && !(byLabel.exists && byLabel.isHittable) && swipes < 8 {
-            app.swipeUp()
-            swipes += 1
+        var steps = 0
+        while !(byID.exists && byID.isHittable) && !(byLabel.exists && byLabel.isHittable) && steps < 12 {
+            nudgeUp(app)
+            steps += 1
         }
         let link = byID.exists && byID.isHittable ? byID : byLabel
         XCTAssertTrue(link.exists && link.isHittable,
@@ -83,14 +83,24 @@ enum WatchUI {
                       "Typography editor did not open", file: file, line: line)
     }
 
-    /// Scrolls the current screen (crown-like swipes) until `element` is hittable. Returns whether it is.
+    /// Scrolls the current screen in small steps (about a third of the screen per drag, so a row just below the
+    /// edge is not skipped, as a full swipe does on a 40 mm watch) until `element` is hittable. Returns whether
+    /// it is.
     @discardableResult
-    static func scrollToHittable(_ element: XCUIElement, in app: XCUIApplication, maxSwipes: Int = 6) -> Bool {
-        var swipes = 0
-        while !(element.exists && element.isHittable) && swipes < maxSwipes {
-            app.swipeUp()
-            swipes += 1
+    static func scrollToHittable(_ element: XCUIElement, in app: XCUIApplication, maxSteps: Int = 12) -> Bool {
+        var steps = 0
+        while !(element.exists && element.isHittable) && steps < maxSteps {
+            nudgeUp(app)
+            steps += 1
         }
         return element.exists && element.isHittable
+    }
+
+    /// Drags the content up by roughly a third of the screen.
+    static func nudgeUp(_ app: XCUIApplication) {
+        let window = app.windows.firstMatch
+        let start = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
+        let end = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))
+        start.press(forDuration: 0.05, thenDragTo: end)
     }
 }
