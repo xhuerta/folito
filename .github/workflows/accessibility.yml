@@ -28,8 +28,8 @@ jobs:
       github.event_name != 'pull_request' ||
       (github.event.action == 'labeled' && github.event.label.name == 'accessibility') ||
       (github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'accessibility'))
-    # Same runner as macos.yml: the arm64 pool is capacity-constrained; set MACOS_RUNNER to override.
-    runs-on: ${{ vars.MACOS_RUNNER || 'macos-15-intel' }}
+    # Same runner as macos.yml (arm64 macos-15); set the repository variable MACOS_RUNNER to override.
+    runs-on: ${{ vars.MACOS_RUNNER || 'macos-15' }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -95,7 +95,7 @@ jobs:
       github.event_name != 'pull_request' ||
       (github.event.action == 'labeled' && github.event.label.name == 'accessibility') ||
       (github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'accessibility'))
-    runs-on: ${{ vars.MACOS_RUNNER || 'macos-15-intel' }}
+    runs-on: ${{ vars.MACOS_RUNNER || 'macos-15' }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
