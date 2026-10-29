@@ -73,6 +73,9 @@ jobs:
           echo "iOS simulator: $UDID"
           UDID=${UDID%% *}
           [ -n "$UDID" ] || { xcrun simctl list devices available; exit 1; }
+          # Boot the simulator and wait until it is fully up: a cold boot inside xcodebuild can make the UI-test
+          # runner time out ("Timed out waiting for AX loaded notification") before any test runs.
+          xcrun simctl bootstatus "$UDID" -b
           xcodebuild test \
             -project Folito.xcodeproj \
             -scheme Folito \
@@ -151,14 +154,17 @@ jobs:
             UDID=$(xcrun simctl create "CI Watch" "$DT" "$RT")
           fi
           echo "watchOS simulator: $UDID"
+          xcrun simctl bootstatus "$UDID" -b
           # TEMPORARY DIAGNOSTIC: sample the watch app's threads every 10 s while the tests run.
           mkdir -p samples
-          ( for i in $(seq 1 300); do
-              pid=$(pgrep -f '/Folito.app/Folito$' | head -1)
+          ( for i in $(seq 1 900); do
+              pid=$(pgrep -f 'Folito.app/Folito' | head -1)
               if [ -n "$pid" ]; then
-                sudo sample "$pid" 2 -mayDie -file "samples/$(date +%H%M%S)-$pid.txt" >/dev/null 2>&1 || true
+                [ -f samples/ps.txt ] || ps -o pid,command -p "$pid" > samples/ps.txt
+                sample "$pid" 1 -mayDie -file "samples/$(date +%H%M%S)-$pid.txt" >> samples/sample-errors.txt 2>&1 \
+                  || sudo sample "$pid" 1 -mayDie -file "samples/$(date +%H%M%S)-$pid.txt" >> samples/sample-errors.txt 2>&1 || true
               fi
-              sleep 8
+              sleep 2
             done ) &
           xcodebuild test \
             -project Folito.xcodeproj \
@@ -173,12 +179,12 @@ jobs:
       - name: Thread samples (TEMPORARY DIAGNOSTIC)
         if: always()
         run: |
-          ls samples || true
-          for f in samples/*.txt; do
+          ls samples | head -400 || true
+          cat samples/ps.txt samples/sample-errors.txt 2>/dev/null | tail -20 || true
+          for f in samples/[0-9]*.txt; do
+            [ -f "$f" ] || continue
             echo "===== $f"
-            sed -n '/Sort by top of stack/,$p' "$f" | head -25
-            echo "----- main thread"
-            awk '/Thread_[0-9]+.*DispatchQueue_1: com.apple.main-thread/{p=1} p&&/^    [0-9]+ Thread_/&&!/main-thread/{p=0} p' "$f" | head -70 | cut -c1-220
+            sed -n '/Sort by top of stack/,$p' "$f" | sed -n '2,8p'
           done
 
       - name: Upload samples (TEMPORARY DIAGNOSTIC)
