@@ -9,11 +9,11 @@
 </p>
 
 <p align="center">
-  <a href="https://xhuerta.github.io/folito-site/"><b>Website</b></a>
+  <a href="https://folito.app/"><b>Website</b></a>
   &nbsp;·&nbsp;
-  <a href="https://xhuerta.github.io/folito-site/privacy.html"><b>Privacy</b></a>
+  <a href="https://folito.app/privacy.html"><b>Privacy</b></a>
   &nbsp;·&nbsp;
-  <a href="https://xhuerta.github.io/folito-site/support.html"><b>Support</b></a>
+  <a href="https://folito.app/support.html"><b>Support</b></a>
 </p>
 
 <p align="center">

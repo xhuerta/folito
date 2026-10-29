@@ -32,8 +32,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: Packages/ReaderCore/.build
-          key: spm-${{ github.event.repository.name }}-${{ runner.os }}-${{ hashFiles('Packages/ReaderCore/Package.swift', 'Packages/ReaderCore/Package.resolved') }}
-          restore-keys: spm-${{ github.event.repository.name }}-${{ runner.os }}-
+          key: spm-${{ runner.os }}-${{ github.event.repository.name }}-${{ hashFiles('Packages/ReaderCore/Package.swift', 'Packages/ReaderCore/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-${{ github.event.repository.name }}-
 
       - name: Test ReaderCore
         working-directory: Packages/ReaderCore
@@ -56,8 +56,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: Packages/ReaderCore/.build
-          key: spm-${{ github.event.repository.name }}-${{ runner.os }}-${{ hashFiles('Packages/ReaderCore/Package.swift', 'Packages/ReaderCore/Package.resolved') }}
-          restore-keys: spm-${{ github.event.repository.name }}-${{ runner.os }}-
+          key: spm-${{ runner.os }}-${{ github.event.repository.name }}-${{ hashFiles('Packages/ReaderCore/Package.swift', 'Packages/ReaderCore/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-${{ github.event.repository.name }}-
 
       - name: Wait for KOSync server
         run: |
