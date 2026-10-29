@@ -291,6 +291,23 @@ final class AccessibilityAuditTests: XCTestCase {
             XCTContext.runActivity(named: "Audit finding") { $0.add(attachment) }
         }
         line += " detail=\"\(issue.detailedDescription)\""
+        if element == nil || !(element?.exists ?? false) {
+            // TEMPORARY DIAGNOSTIC: what the audit knows about an element XCUITest cannot resolve.
+            line += " issue=\(String(describing: issue).prefix(600))"
+            var count: UInt32 = 0
+            if let cls = object_getClass(issue), let props = class_copyPropertyList(cls, &count) {
+                line += " props=\((0..<Int(count)).map { String(cString: property_getName(props[$0])) })"
+                free(props)
+            }
+            for keyPath in ["elementSnapshot", "elementDescription", "elementFrame", "element"] {
+                if let object = issue as? NSObject, object.responds(to: NSSelectorFromString(keyPath)) {
+                    line += " \(keyPath)=\(String(describing: object.value(forKey: keyPath)).prefix(400))"
+                }
+            }
+            if let snapshot = try? app.navigationBars.firstMatch.snapshot() {
+                line += " navBar=\(snapshot.frame) navTexts=\(Self.snapshotElements(snapshot, of: [.staticText]).map { "\($0.label)@\($0.frame)" })"
+            }
+        }
         output(line)
         return line
     }
