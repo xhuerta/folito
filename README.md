@@ -1,156 +1,254 @@
-# WristReader
+<p align="center">
+  <img src="docs/readme/icon.svg" width="128" height="128" alt="WristReader app icon">
+</p>
 
-Lector de EPUB para el Apple Watch (watchOS). Funciona **sin cuenta y sin conexión** con tus propios archivos EPUB. Opcionalmente puede sincronizar el progreso de lectura con cualquier servidor compatible con el protocolo **KOReader Sync** (el de KOReader, el de Readest o uno alojado por ti). Se instala en tu reloj con una cuenta gratuita de Apple (Personal Team), sin pagar el programa de desarrollador ni usar capacidades especiales (sin iCloud, App Groups ni notificaciones push).
+<h1 align="center">WristReader</h1>
 
-## Usar sin cuenta
+<p align="center">
+  An EPUB reader for Apple Watch. Bring your own books; no account needed.
+</p>
 
-La sincronización es **opcional**; no hace falta ninguna cuenta (ni de Readest ni de KOReader) para leer.
+<p align="center">
+  <a href="https://xhuerta.github.io/wristreader-site/"><b>Website</b></a>
+  &nbsp;·&nbsp;
+  <a href="https://xhuerta.github.io/wristreader-site/privacy.html"><b>Privacy</b></a>
+  &nbsp;·&nbsp;
+  <a href="https://xhuerta.github.io/wristreader-site/support.html"><b>Support</b></a>
+</p>
 
-1. Importa tus EPUB en la app del iPhone (botón +, o "Abrir en WristReader" desde Archivos o el menú Compartir). Se envían solos al reloj.
-2. Lee en el reloj. La posición se guarda en el propio reloj y todo funciona sin conexión.
-3. Sin usuario y contraseña guardados, la app no hace ninguna petición de sincronización ni muestra avisos o indicadores de sync. La única función que usa la red por iniciativa tuya es la consulta de diccionario.
-4. Si más adelante quieres sincronizar, ve en el iPhone a *Settings › Progress Sync* (ver más abajo). Puedes desactivarla cuando quieras con *Turn Off Sync and Remove Login*, que borra las credenciales del iPhone y del reloj y vacía el progreso pendiente (también desde Ajustes del reloj → *Remove credentials*).
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/readme/chips-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/readme/chips-light.svg">
+    <img src="docs/readme/chips-light.svg" width="582" height="30" alt="Reads offline on the watch · Optional KOReader Sync · VoiceOver &amp; Dynamic Type">
+  </picture>
+</p>
 
-## Arquitectura
+<p align="center">
+  <a href="https://github.com/xhuerta/wristreader/actions/workflows/linux.yml"><img src="https://github.com/xhuerta/wristreader/actions/workflows/linux.yml/badge.svg" alt="Linux CI status"></a>
+  <a href="https://github.com/xhuerta/wristreader/actions/workflows/macos.yml"><img src="https://github.com/xhuerta/wristreader/actions/workflows/macos.yml/badge.svg" alt="macOS CI status"></a>
+</p>
+
+## What it does
+
+A full reading app, designed for the smallest screen you own.
+
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <img src="docs/readme/books.svg" width="44" height="44" alt=""><br>
+      <b>Your books, on your wrist</b><br>
+      Import <code>.epub</code> books on your iPhone (Files, share sheet or the import button); they are sent to your watch, where you read them, offline.
+    </td>
+    <td width="33%" valign="top">
+      <img src="docs/readme/typography.svg" width="44" height="44" alt=""><br>
+      <b>Typography your way</b><br>
+      Adjustable typography (typeface, size, spacing, themes) from the watch or the iPhone.
+    </td>
+    <td width="33%" valign="top">
+      <img src="docs/readme/lookup.svg" width="44" height="44" alt=""><br>
+      <b>Look up any word</b><br>
+      Word lookup on the watch using online dictionaries (Wiktionary, and dictionaryapi.dev for English).
+    </td>
+  </tr>
+  <tr>
+    <td width="33%" valign="top">
+      <img src="docs/readme/sync.svg" width="44" height="44" alt=""><br>
+      <b>Optional progress sync</b><br>
+      Continue in apps that speak the KOReader Sync protocol, such as KOReader and Readest. Off unless you connect a server you choose; the app does not provide one.
+    </td>
+    <td width="33%" valign="top">
+      <img src="docs/readme/accessibility.svg" width="44" height="44" alt=""><br>
+      <b>Built for everyone</b><br>
+      VoiceOver, larger text sizes and Dark Mode are supported.
+    </td>
+    <td width="33%" valign="top">
+      <img src="docs/readme/privacy.svg" width="44" height="44" alt=""><br>
+      <b>Private by design</b><br>
+      No DRM-protected books. No accounts with the developer, no ads, no analytics.
+    </td>
+  </tr>
+</table>
+
+WristReader works **without an account and offline** with your own EPUB files. Reading progress can optionally be synced with any server that speaks the **KOReader Sync** protocol (KOReader's, Readest's, or your own). It installs on your watch with a free Apple account (Personal Team): no paid developer program and no special capabilities (no iCloud, App Groups or push notifications).
+
+## Contents
+
+- [Using it without an account](#using-it-without-an-account)
+- [Architecture](#architecture)
+- [Building](#building) · [Signing](#signing-with-a-free-personal-team) · [Installing](#installing-on-iphone-and-apple-watch)
+- [Progress sync (optional)](#progress-sync-optional)
+- [Typography](#typography) · [Dictionary](#dictionary-word-lookup) · [Importing EPUBs](#importing-epubs) · [Languages](#languages)
+- [Releasing to TestFlight / App Store](#releasing-to-testflight--app-store-without-a-mac)
+- [Limitations](#limitations) · [Development](#development) · [Documentation](#documentation)
+
+## Using it without an account
+
+Sync is **optional**; you don't need any account (Readest, KOReader or otherwise) to read.
+
+1. Import your EPUBs in the iPhone app (the **+** button, or "Open in WristReader" from Files or the share sheet). They are sent to the watch automatically.
+2. Read on the watch. Your position is stored on the watch itself and everything works offline.
+3. With no username and password saved, the app makes no sync requests and shows no sync prompts or indicators. The only feature that uses the network at your request is dictionary lookup.
+4. If you later want to sync, go to *Settings › Progress Sync* on the iPhone (see [below](#progress-sync-optional)). You can turn it off at any time with *Turn Off Sync and Remove Login*, which deletes the credentials from the iPhone and the watch and clears pending progress (also available in the watch's Settings → *Remove credentials*).
+
+## Architecture
 
 ```
-Packages/ReaderCore   Paquete SwiftPM (lógica pura, probado también en Linux):
-                      lectura de EPUB, XPointer, cliente KOReader Sync, hash de documento.
-iOSApp/               App de iPhone (SwiftUI): importa EPUBs y los envía al reloj.
-WatchApp/             App de watchOS (SwiftUI): lector y sincronización.
-Config/               Ajustes de compilación (xcconfig).
-project.yml           Especificación de XcodeGen (el .xcodeproj no se versiona).
+Packages/ReaderCore   SwiftPM package (pure logic, also tested on Linux):
+                      EPUB parsing, XPointer, KOReader Sync client, document hash.
+iOSApp/               iPhone app (SwiftUI): imports EPUBs and sends them to the watch.
+WatchApp/             watchOS app (SwiftUI): reader and sync.
+Config/               Build settings (xcconfig).
+project.yml           XcodeGen spec (the .xcodeproj is not checked in).
 ```
 
-- La app del reloj es una app de watchOS de un solo target (`WKApplication = true`) emparejada con la app de iPhone mediante `WKCompanionAppBundleIdentifier`. La app de iPhone incluye (embebe) la del reloj.
-- Ambas apps dependen de `ReaderCore`.
-- La sincronización (opcional) habla directamente con un servidor compatible con KOReader Sync que tú configuras (la URL sugerida por defecto es `https://sync.koreader.rocks`, pero no se usa hasta que guardas usuario y contraseña).
+- The watch app is a single-target watchOS app (`WKApplication = true`) paired with the iPhone app via `WKCompanionAppBundleIdentifier`. The iPhone app embeds the watch app.
+- Both apps depend on `ReaderCore`.
+- Optional sync talks directly to a KOReader Sync–compatible server that you configure (the suggested default URL is `https://sync.koreader.rocks`, but it is not used until you save a username and password).
 
-## Compilar en un Mac con XcodeGen
+## Building
 
-Requisitos: macOS con Xcode 15 o superior y [XcodeGen](https://github.com/yonaskolb/XcodeGen).
+Requirements: macOS with Xcode 15 or later and [XcodeGen](https://github.com/yonaskolb/XcodeGen).
 
 ```sh
 brew install xcodegen
-cp Config/Local.xcconfig.example Config/Local.xcconfig   # edítalo (ver abajo)
+cp Config/Local.xcconfig.example Config/Local.xcconfig   # edit it (see below)
 xcodegen generate
 open WristReader.xcodeproj
 ```
 
-## Firma con Personal Team (gratuita)
+### Signing with a free Personal Team
 
-1. En Xcode: Settings → Accounts → añade tu Apple ID. Anota tu **Team ID** (10 caracteres).
-2. Edita `Config/Local.xcconfig` (ignorado por git):
+1. In Xcode: Settings → Accounts → add your Apple ID. Note your **Team ID** (10 characters).
+2. Edit `Config/Local.xcconfig` (ignored by git):
    ```
-   DEVELOPMENT_TEAM = TU_TEAM_ID
-   WR_BUNDLE_ID = com.tunombre.wristreader
+   DEVELOPMENT_TEAM = YOUR_TEAM_ID
+   WR_BUNDLE_ID = com.yourname.wristreader
    ```
-   El identificador debe ser **único globalmente**; el de la app del reloj será `WR_BUNDLE_ID.watchkitapp`. También puedes pasar `DEVELOPMENT_TEAM=...` a `xcodebuild`.
-3. Vuelve a ejecutar `xcodegen generate` si cambiaste algo.
+   The identifier must be **globally unique**; the watch app's will be `WR_BUNDLE_ID.watchkitapp`. You can also pass `DEVELOPMENT_TEAM=...` to `xcodebuild`.
+3. Run `xcodegen generate` again if you changed anything.
 
-Con la firma automática, Xcode crea los perfiles de aprovisionamiento. No se usa ninguna capacidad (entitlements) que requiera una cuenta de pago.
+With automatic signing, Xcode creates the provisioning profiles. No entitlements that require a paid account are used.
 
-## Instalar en el iPhone y en el Apple Watch
+### Installing on iPhone and Apple Watch
 
-1. Activa el **Modo desarrollador** en el iPhone (Ajustes → Privacidad y seguridad → Modo desarrollador) y en el Apple Watch (Ajustes → Privacidad y seguridad → Modo desarrollador, o desde la app Watch en el iPhone). Ambos se reinician.
-2. Conecta el iPhone por cable y confía en el ordenador. El reloj debe estar emparejado y desbloqueado.
-3. En Xcode selecciona el esquema `WristReader` y tu iPhone como destino, y pulsa Run. Esto instala también la app del reloj.
-4. Si no aparece en el reloj, abre la app Watch en el iPhone → WristReader → "Instalar". Alternativamente, elige el esquema `WristReaderWatch` y tu reloj como destino.
-5. En iPhone: Ajustes → General → VPN y gestión de dispositivos → confía en tu certificado de desarrollador.
+1. Enable **Developer Mode** on the iPhone (Settings → Privacy & Security → Developer Mode) and on the Apple Watch (Settings → Privacy & Security → Developer Mode, or from the Watch app on the iPhone). Both restart.
+2. Connect the iPhone by cable and trust the computer. The watch must be paired and unlocked.
+3. In Xcode select the `WristReader` scheme and your iPhone as the destination, then Run. This also installs the watch app.
+4. If it doesn't appear on the watch, open the Watch app on the iPhone → WristReader → "Install". Alternatively, choose the `WristReaderWatch` scheme and your watch as the destination.
+5. On the iPhone: Settings → General → VPN & Device Management → trust your developer certificate.
 
-**Límite de 7 días:** con Personal Team, la firma caduca a los 7 días. Hay que volver a instalar desde Xcode (Run) para renovarla. Los datos se conservan si reinstalas sin borrar la app. Además hay un máximo de 3 apps activas y de identificadores nuevos por semana.
+> [!NOTE]
+> **7-day limit:** with a Personal Team, the signature expires after 7 days. Reinstall from Xcode (Run) to renew it; data is kept if you reinstall without deleting the app. There is also a limit of 3 active apps and of new identifiers per week.
 
-## Configurar la sincronización (opcional)
+## Progress sync (optional)
 
-Solo si quieres continuar el mismo libro en otros lectores. WristReader usa el mismo servidor y el mismo método que tus otros lectores, de modo que el progreso se comparta.
+Only needed if you want to continue the same book in other readers. WristReader uses the same server and matching method as your other readers so progress is shared.
 
-### Readest
+| Reader | Where | Document matching method |
+| --- | --- | --- |
+| **Readest** | Settings → Integrations → **KOReader Sync**: same server as in WristReader (default `https://sync.koreader.rocks`), plus that server's username and password | **File Content** (hash of the file content) |
+| **KOReader** | Tools → **Progress sync** → set the custom server and account | **Binary** (hash of the binary file) |
 
-Settings → Integrations → **KOReader Sync**:
-- Servidor: el mismo que en WristReader (por defecto `https://sync.koreader.rocks`).
-- Usuario y contraseña de ese servidor.
-- Método de coincidencia de documentos: **File Content** (hash del contenido del archivo).
+Both methods compute the same partial MD5 hash of the file content, so the same EPUB is recognized on every device. It must be the **same file** (not repackaged).
 
-### KOReader
+**Server.** Use the public `https://sync.koreader.rocks` or host your own with [koreader-sync-server](https://github.com/koreader/koreader-sync-server). Enter the same URL in every app.
 
-Herramientas → **Sincronización de progreso** (Progress sync) → configura el servidor personalizado y cuenta.
-- Método de coincidencia de documentos: **Binary** (hash del archivo binario).
+### HTTP servers (ATS)
 
-Ambos métodos calculan el mismo hash MD5 parcial del contenido del archivo, por lo que el mismo EPUB se reconoce en todos los dispositivos. Debe ser el **mismo archivo** (sin reempaquetar).
+**https** is used by default. iOS and watchOS block `http://` via App Transport Security (ATS), so WristReader declares only `NSAllowsLocalNetworking` in both `Info.plist` files (via `project.yml`): it allows `http://` to the **local network** (IP addresses, `.local` names and dotless names such as `http://nas:5200`) without disabling ATS for anything else.
 
-### Servidor
-
-Puedes usar el servidor público `https://sync.koreader.rocks` o alojar el tuyo con [koreader-sync-server](https://github.com/koreader/koreader-sync-server). Introduce la misma URL en todas las apps.
-
-### Servidor HTTP (ATS)
-
-Por defecto se usa **https**. iOS y watchOS bloquean `http://` mediante App Transport Security (ATS), así que WristReader declara en ambos `Info.plist` (vía `project.yml`) únicamente `NSAllowsLocalNetworking`: permite `http://` hacia la **red local** (direcciones IP, nombres `.local` y nombres sin puntos como `http://nas:5200`) sin desactivar ATS para el resto.
-
-- Servidor en LAN por http: funciona tal cual. La app de iPhone muestra un aviso naranja al ver `http://` (el tráfico no va cifrado; úsalo solo en una red de confianza).
-- Servidor con nombre de dominio público por **http**: iOS lo bloquea. Lo recomendable es poner un proxy inverso con https. Si aun así lo necesitas, añade una excepción solo para ese dominio en `project.yml` (en los dos targets, `WristReader` y `WristReaderWatch`) y ejecuta `xcodegen generate`:
+- LAN server over http: works as is. The iPhone app shows an orange warning when it sees `http://` (traffic is not encrypted; use it only on a trusted network).
+- Public domain name over **http**: iOS blocks it. A reverse proxy with https is recommended. If you still need it, add an exception for that domain only in `project.yml` (in both targets, `WristReader` and `WristReaderWatch`) and run `xcodegen generate`:
 
 ```yaml
 NSAppTransportSecurity:
   NSAllowsLocalNetworking: true
   NSExceptionDomains:
-    sync.ejemplo.org:
+    sync.example.org:
       NSExceptionAllowsInsecureHTTPLoads: true
 ```
 
-No se usa `NSAllowsArbitraryLoads`.
+`NSAllowsArbitraryLoads` is not used.
 
-## Tipografía configurable
+## Typography
 
-En el reloj (menú del lector, icono de lista → *Typography*, o Ajustes) y en la app del iPhone (pestaña *Reading*, con vista previa en vivo) puedes cambiar: familia tipográfica (SF, serif/New York, redondeada, monoespaciada), tamaño, interlineado, márgenes, separación entre párrafos, alineación (izquierda/centrada), negrita, escala de los títulos, espaciado entre letras y tema (oscuro, tenue, sepia, alto contraste), además de varios *presets* y "Reset to defaults". En el reloj, *Match System Text Size* hace que el tamaño del libro siga el tamaño de texto del sistema.
+On the watch (reader menu, list icon → *Typography*, or Settings) and in the iPhone app (*Reading* tab, with live preview) you can change: typeface (SF, serif/New York, rounded, monospaced), size, line spacing, margins, paragraph spacing, alignment (left/centered), bold, heading scale, letter spacing and theme (dark, dim, sepia, high contrast), plus several presets and "Reset to defaults". On the watch, *Match System Text Size* makes the book's text size follow the system text size.
 
-- Los cambios hechos en el iPhone se envían al reloj por el canal de ajustes (`updateApplicationContext`) y los del reloj se publican al iPhone. Gana el **último cambio** (por marca de tiempo). Ver [docs/WATCH_CONNECTIVITY.md](docs/WATCH_CONNECTIVITY.md).
-- Al cambiar un ajuste el lector mantiene el bloque actual como ancla; las fuentes se calculan una vez por cambio y el texto con estilo se guarda en caché por bloque, por lo que el `LazyVStack` no se reconstruye entero.
-- Tamaño de letra: el ajuste antiguo se migra automáticamente.
-- Limitaciones de SwiftUI en watchOS: no hay texto justificado ni guionado automático (se ofrece izquierda/centrada y espaciado entre letras). No se incluyen fuentes personalizadas: añadirlas aumentaría el tamaño y habría que revisar su licencia; solo se usan las del sistema.
+- Changes made on the iPhone are sent to the watch over the settings channel (`updateApplicationContext`) and changes made on the watch are published to the iPhone. The **latest change** wins (by timestamp). See [docs/WATCH_CONNECTIVITY.md](docs/WATCH_CONNECTIVITY.md).
+- When a setting changes, the reader keeps the current block as the anchor; fonts are computed once per change and styled text is cached per block, so the `LazyVStack` is not rebuilt entirely.
+- Font size: the old setting is migrated automatically.
+- SwiftUI limitations on watchOS: no justified text or automatic hyphenation (left/centered alignment and letter spacing are offered instead). No custom fonts are bundled: they would increase the app size and their licenses would need review; only system fonts are used.
 
-## Diccionario (consulta de palabras)
+## Dictionary (word lookup)
 
-watchOS no permite seleccionar texto en `Text` ni mostrar el diccionario del sistema, así que hay un "modo consulta": toca un párrafo (o menú del lector → *Look up a word*), gira la **Digital Crown** para mover el cursor entre las palabras (también hay botones ‹ ›) y pulsa *Look up*. Se muestran categoría gramatical, definiciones y un ejemplo, con desplazamiento.
+watchOS doesn't allow selecting text in `Text` or showing the system dictionary, so there is a "lookup mode": tap a paragraph (or reader menu → *Look up a word*), turn the **Digital Crown** to move the cursor between words (there are also ‹ › buttons) and press *Look up*. It shows part of speech, definitions and an example, with scrolling.
 
-- **Necesita conexión de red** (Wi-Fi/LTE del reloj o a través del iPhone). Las palabras ya consultadas se guardan en una caché LRU en disco (máx. 200 entradas / ~600 KB) y funcionan sin conexión.
-- Fuente: la API REST de Wiktionary (edición inglesa, `en.wiktionary.org/api/rest_v1/page/definition/{palabra}`), que contiene palabras de todos los idiomas; se usa el idioma del libro (`dc:language`). Las definiciones salen **en inglés** también para libros en otros idiomas, porque las demás ediciones de Wiktionary no ofrecen este endpoint (devuelven HTTP 501). Para inglés hay respaldo en `api.dictionaryapi.dev`.
-- Si la forma exacta no existe, se prueban minúsculas y reducciones simples (plurales, -ed, -ing) como reintento.
-- Errores claros: sin conexión, no encontrada, servicio ocupado (límite de peticiones).
-- Contenido de Wiktionary bajo licencia CC BY-SA.
-- Ajustes del reloj: *Tap paragraph to look up* y *Clear dictionary cache*.
+- **Requires a network connection** (the watch's Wi-Fi/LTE or through the iPhone). Words already looked up are kept in an on-disk LRU cache (max 200 entries / ~600 KB) and work offline.
+- Source: the Wiktionary REST API (English edition, `en.wiktionary.org/api/rest_v1/page/definition/{word}`), which covers words from all languages; the book's language (`dc:language`) is used. Definitions are **in English** even for books in other languages, because other Wiktionary editions don't offer this endpoint (they return HTTP 501). For English there is a fallback to `api.dictionaryapi.dev`.
+- If the exact form doesn't exist, lowercase and simple reductions (plurals, -ed, -ing) are retried.
+- Clear errors: offline, not found, service busy (rate limited).
+- Wiktionary content is licensed under CC BY-SA.
+- Watch settings: *Tap paragraph to look up* and *Clear dictionary cache*.
 
-## Importar EPUBs
+## Importing EPUBs
 
-- Desde el iPhone: abre un `.epub` con "Abrir en WristReader" (menú Compartir de Archivos, Safari, etc.) o usa el botón de importar en la app. La app los transfiere al reloj.
-- Si el reloj aún no tenía la app instalada, no se pierde nada: los ajustes de sincronización y los libros pendientes se reenvían automáticamente cuando la sesión se activa, la app del reloj se instala, cambia la conectividad o abres la app del iPhone. El reloj informa de qué libros tiene, de modo que se reenvían los que falten.
-- La app expone su carpeta de documentos en la app Archivos (`UIFileSharingEnabled`).
+- From the iPhone: open an `.epub` with "Open in WristReader" (share sheet in Files, Safari, etc.) or use the import button in the app. The app transfers them to the watch.
+- If the watch app wasn't installed yet, nothing is lost: sync settings and pending books are resent automatically when the session activates, the watch app is installed, connectivity changes or you open the iPhone app. The watch reports which books it has, so missing ones are resent.
+- The app exposes its Documents folder in the Files app (`UIFileSharingEnabled`).
 
-## Idiomas
+## Languages
 
-Las apps del iPhone y del reloj están traducidas a inglés (idioma base), español, francés, alemán, italiano, portugués de Brasil, japonés y chino simplificado, con String Catalogs de Xcode (`Localizable.xcstrings` e `InfoPlist.xcstrings` en `iOSApp/Resources` y `WatchApp/Resources`). `python3 scripts/check_strings.py` (también en la CI de Linux) comprueba que no falte ninguna traducción; cómo añadir textos o idiomas en [docs/LOCALIZATION.md](docs/LOCALIZATION.md).
+The iPhone and watch apps are localized in English (base), Spanish, French, German, Italian, Portuguese (Brazil), Japanese and Simplified Chinese, using Xcode String Catalogs (`Localizable.xcstrings` and `InfoPlist.xcstrings` in `iOSApp/Resources` and `WatchApp/Resources`). `python3 scripts/check_strings.py` (also run in Linux CI) checks that no translation is missing; how to add strings or languages: [docs/LOCALIZATION.md](docs/LOCALIZATION.md).
 
-## Publicar en TestFlight / App Store sin Mac
+## Releasing to TestFlight / App Store without a Mac
 
-Todo el proceso (compilar, firmar con firma en la nube y subir a TestFlight) se hace desde GitHub Actions en un runner macOS, con una cuenta de pago del Apple Developer Program y una clave de API de App Store Connect (rol Admin). Guía paso a paso en inglés: [docs/RELEASE.md](docs/RELEASE.md).
+The whole process (build, sign with cloud signing and upload to TestFlight) runs in GitHub Actions on a macOS runner, with a paid Apple Developer Program membership and an App Store Connect API key (Admin role). Step-by-step guide: [docs/RELEASE.md](docs/RELEASE.md).
 
-- Flujo de trabajo: `.github/workflows/release.yml` (*Actions → Release → Run workflow*). Con `dry_run = true` (por defecto) no necesita secretos: genera el proyecto con XcodeGen, hace un archivo Release sin firmar y muestra qué se subiría. Con `dry_run = false` (o al subir una etiqueta `v1.0.0`) firma y sube la compilación.
-- Secretos: `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` (el .p8 en claro o en base64), `APPLE_TEAM_ID`. Variables: `BUNDLE_ID_BASE` (tu identificador; la app del reloj usa `.watchkitapp`) y, opcionalmente, `APP_NAME`.
-- Metadatos para App Store Connect (inglés y español), respuestas de privacidad, notas para el revisor y riesgos de rechazo: [docs/appstore/](docs/appstore/). Política de privacidad y página de soporte (GitHub Pages desde `/docs`): [docs/site/](docs/site/).
+- Workflow: `.github/workflows/release.yml` (*Actions → Release → Run workflow*). With `dry_run = true` (the default) it needs no secrets: it generates the project with XcodeGen, makes an unsigned Release archive and shows what would be uploaded. With `dry_run = false` (or when pushing a `v1.0.0` tag) it signs and uploads the build.
+- Secrets: `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` (the .p8 in plain text or base64), `APPLE_TEAM_ID`. Variables: `BUNDLE_ID_BASE` (your identifier; the watch app uses `.watchkitapp`) and, optionally, `APP_NAME`.
+- App Store Connect metadata (English and Spanish), privacy answers, reviewer notes and rejection risks: [docs/appstore/](docs/appstore/). Privacy policy and support page (the project website, English and Spanish): [docs/site/](docs/site/).
 
-## Limitaciones
+## Limitations
 
-- La granularidad de la posición es el **inicio del párrafo** (XPointer): al sincronizar con KOReader/Readest se llega al párrafo, no a la palabra o línea exacta.
-- Si el XPointer remoto no se puede resolver (por ejemplo, el libro se reflowa distinto), se recurre al **porcentaje** de progreso.
-- La app no usa iCloud ni App Groups por la restricción de la cuenta gratuita.
-- No se soportan EPUB con DRM.
+- Position granularity is the **start of the paragraph** (XPointer): syncing with KOReader/Readest lands on the paragraph, not the exact word or line.
+- If the remote XPointer can't be resolved (for example, the book reflows differently), the progress **percentage** is used instead.
+- The app doesn't use iCloud or App Groups because of the free-account restriction.
+- DRM-protected EPUBs are not supported.
 
-## Desarrollo
+## Development
 
-Probar el núcleo (funciona en macOS y Linux):
+Test the core (works on macOS and Linux):
 
 ```sh
 cd Packages/ReaderCore
 swift test
 ```
 
-CI en GitHub Actions: `.github/workflows/linux.yml` (tests de `ReaderCore` en `swift:6.0`) y `.github/workflows/macos.yml` (XcodeGen, tests de `ReaderCore` y ejecución real de los tests de la app iOS y watchOS en simuladores, sin firma; se suben los `.xcresult` como artefactos) y `.github/workflows/accessibility.yml` (auditoría de accesibilidad con UI tests, lenta: en cada push a `main`, a mano desde Actions o en PRs con la etiqueta `accessibility`; no bloquea los PRs). Qué se ejecuta dónde: [docs/TESTING.md](docs/TESTING.md). Más detalles de planes futuros en [ROADMAP.md](ROADMAP.md).
+CI on GitHub Actions:
+
+| Workflow | What it runs |
+| --- | --- |
+| [`linux.yml`](.github/workflows/linux.yml) | `ReaderCore` tests in `swift:6.0` |
+| [`macos.yml`](.github/workflows/macos.yml) | XcodeGen, `ReaderCore` tests, and the iOS and watchOS app tests on simulators, unsigned; `.xcresult` bundles are uploaded as artifacts |
+| [`accessibility.yml`](.github/workflows/accessibility.yml) | Accessibility audit with UI tests (slow): on every push to `main`, manually from Actions, or on PRs labeled `accessibility`; does not block PRs |
+
+What runs where: [docs/TESTING.md](docs/TESTING.md). Future plans: [ROADMAP.md](ROADMAP.md).
+
+## Documentation
+
+| Document | Contents |
+| --- | --- |
+| [RELEASE.md](docs/RELEASE.md) | TestFlight / App Store release pipeline |
+| [TESTING.md](docs/TESTING.md) | Test suites and where they run |
+| [ACCESSIBILITY.md](docs/ACCESSIBILITY.md) | Accessibility support and audit |
+| [LOCALIZATION.md](docs/LOCALIZATION.md) | Adding strings and languages |
+| [WATCH_CONNECTIVITY.md](docs/WATCH_CONNECTIVITY.md) | iPhone ↔ watch transfer and settings sync |
+| [DISCREPANCIES.md](docs/DISCREPANCIES.md) | Compatibility notes vs. KOReader/Readest: document hash, XPointer, KOSync |
+| [PRIVACY_DATA_MAP.md](docs/PRIVACY_DATA_MAP.md) | What data is stored and sent, and where |
+| [EXPORT_COMPLIANCE.md](docs/EXPORT_COMPLIANCE.md) | Export compliance (encryption) |
+| [ROADMAP.md](ROADMAP.md) | Future plans |
+
+---
+
+<sub>WristReader is an independent app. KOReader and Readest are names of third-party projects, used only to describe compatibility; WristReader is not affiliated with or endorsed by them. Apple, Apple Watch and iPhone are trademarks of Apple Inc.</sub>

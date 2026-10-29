@@ -3,7 +3,7 @@ import Security
 
 /// Minimal generic-password Keychain wrapper. No access groups (free Personal Team).
 struct KeychainStore {
-    var service: String = "com.example.wristreader.kosync"
+    var service: String = "com.xlahuerta.wristreader.kosync"
 
     func set(_ value: String, account: String) throws {
         let data = Data(value.utf8)

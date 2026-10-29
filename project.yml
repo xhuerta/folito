@@ -1,7 +1,7 @@
 name: WristReader
 
 options:
-  bundleIdPrefix: com.example
+  bundleIdPrefix: com.xlahuerta
   developmentLanguage: en
   deploymentTarget:
     iOS: "17.0"
@@ -71,7 +71,7 @@ targets:
         # ATS (#9): https stays the default. NSAllowsLocalNetworking lets plain http:// reach
         # local-network servers (IP addresses, *.local, dotless host names) without disabling ATS
         # elsewhere. For a self-hosted server on a public host name served over http, add a
-        # per-domain exception (see README, "Servidor HTTP (ATS)"), e.g.:
+        # per-domain exception (see README, "HTTP servers (ATS)"), e.g.:
         #   NSExceptionDomains:
         #     sync.example.org:
         #       NSExceptionAllowsInsecureHTTPLoads: true
@@ -134,7 +134,7 @@ targets:
         # ATS (#9): https stays the default. NSAllowsLocalNetworking lets plain http:// reach
         # local-network servers (IP addresses, *.local, dotless host names) without disabling ATS
         # elsewhere. For a self-hosted server on a public host name served over http, add a
-        # per-domain exception (see README, "Servidor HTTP (ATS)"), e.g.:
+        # per-domain exception (see README, "HTTP servers (ATS)"), e.g.:
         #   NSExceptionDomains:
         #     sync.example.org:
         #       NSExceptionAllowsInsecureHTTPLoads: true
