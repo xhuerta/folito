@@ -20,6 +20,11 @@ settings:
     SWIFT_VERSION: "5.9"
     CODE_SIGN_STYLE: Automatic
     ENABLE_USER_SCRIPT_SANDBOXING: YES
+    # Localization (docs/LOCALIZATION.md): each app has Resources/Localizable.xcstrings and
+    # Resources/InfoPlist.xcstrings, picked up as resources through the target's source path (XcodeGen
+    # also derives knownRegions from the catalogs' languages). Xcode extracts new strings into them on build.
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+    SWIFT_EMIT_LOC_STRINGS: YES
 
 packages:
   ReaderCore:
@@ -50,13 +55,13 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDevelopmentRegion: en
-        CFBundleLocalizations: [en, es]
+        CFBundleLocalizations: [en, es, fr, de, it, pt-BR, ja, zh-Hans]
         LSApplicationCategoryType: public.app-category.books
         # Only HTTPS (OS-provided TLS) and an MD5 hash used as the KOSync protocol's auth key: exempt.
         # See docs/EXPORT_COMPLIANCE.md.
         ITSAppUsesNonExemptEncryption: false
         # The user may point the app at a KOSync server on their LAN (IP / .local host).
-        # The localized text lives in Resources/{en,es}.lproj/InfoPlist.strings.
+        # Localized in iOSApp/Resources/InfoPlist.xcstrings (see docs/LOCALIZATION.md).
         NSLocalNetworkUsageDescription: WristReader connects to your own KOReader sync server on your local network to sync your reading progress.
         UILaunchScreen: {}
         UIApplicationSceneManifest:
@@ -118,7 +123,7 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDevelopmentRegion: en
-        CFBundleLocalizations: [en, es]
+        CFBundleLocalizations: [en, es, fr, de, it, pt-BR, ja, zh-Hans]
         ITSAppUsesNonExemptEncryption: false
         NSLocalNetworkUsageDescription: WristReader connects to your own KOReader sync server on your local network to sync your reading progress.
         WKApplication: true

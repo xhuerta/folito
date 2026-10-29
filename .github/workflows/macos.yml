@@ -133,3 +133,25 @@ jobs:
         with:
           name: watch-tests-xcresult
           path: watch-tests.xcresult
+
+      # The catalogs are hand-checked on Linux by scripts/check_strings.py; here they are compared with the keys
+      # the Swift compiler actually extracted while building both apps (SWIFT_EMIT_LOC_STRINGS). If the build
+      # rewrote a catalog, the rewritten files are uploaded so they can be committed as Xcode writes them.
+      - name: Compare String Catalogs with Xcode's extraction
+        if: always()
+        run: |
+          python3 scripts/compare_extracted_strings.py ~/Library/Developer/Xcode/DerivedData
+          if git status --porcelain -- '*.xcstrings' | grep -q .; then
+            echo "::warning::The build rewrote String Catalogs:"; git diff --stat -- '*.xcstrings'
+          else
+            echo "The build left the String Catalogs unchanged."
+          fi
+
+      - name: Upload String Catalogs as written by the build
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcstrings-after-build
+          path: |
+            iOSApp/Resources/*.xcstrings
+            WatchApp/Resources/*.xcstrings
