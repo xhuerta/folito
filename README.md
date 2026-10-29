@@ -9,11 +9,11 @@
 </p>
 
 <p align="center">
-  <a href="https://xhuerta.github.io/wristreader-site/"><b>Website</b></a>
+  <a href="https://xhuerta.github.io/folito-site/"><b>Website</b></a>
   &nbsp;·&nbsp;
-  <a href="https://xhuerta.github.io/wristreader-site/privacy.html"><b>Privacy</b></a>
+  <a href="https://xhuerta.github.io/folito-site/privacy.html"><b>Privacy</b></a>
   &nbsp;·&nbsp;
-  <a href="https://xhuerta.github.io/wristreader-site/support.html"><b>Support</b></a>
+  <a href="https://xhuerta.github.io/folito-site/support.html"><b>Support</b></a>
 </p>
 
 <p align="center">
@@ -25,8 +25,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/xhuerta/wristreader/actions/workflows/linux.yml"><img src="https://github.com/xhuerta/wristreader/actions/workflows/linux.yml/badge.svg" alt="Linux CI status"></a>
-  <a href="https://github.com/xhuerta/wristreader/actions/workflows/macos.yml"><img src="https://github.com/xhuerta/wristreader/actions/workflows/macos.yml/badge.svg" alt="macOS CI status"></a>
+  <a href="https://github.com/xhuerta/folito/actions/workflows/linux.yml"><img src="https://github.com/xhuerta/folito/actions/workflows/linux.yml/badge.svg" alt="Linux CI status"></a>
+  <a href="https://github.com/xhuerta/folito/actions/workflows/macos.yml"><img src="https://github.com/xhuerta/folito/actions/workflows/macos.yml/badge.svg" alt="macOS CI status"></a>
 </p>
 
 ## What it does

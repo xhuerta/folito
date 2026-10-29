@@ -45,7 +45,7 @@ only when the user taps a word and opens the definition (watch app; the lookup m
 
 | Recipient | Request | Data sent |
 |---|---|---|
-| Wikimedia Foundation, `https://en.wiktionary.org/api/rest_v1/page/definition/{word}` | HTTPS GET | The looked-up word (and normalised variants, e.g. lower-cased or de-inflected candidates, tried in turn), the app's `User-Agent` (`Folito/1.0 (https://github.com/xhuerta/wristreader; ...)`, required by Wikimedia policy), `Accept: application/json`, plus the IP address inherent to any request. |
+| Wikimedia Foundation, `https://en.wiktionary.org/api/rest_v1/page/definition/{word}` | HTTPS GET | The looked-up word (and normalised variants, e.g. lower-cased or de-inflected candidates, tried in turn), the app's `User-Agent` (`Folito/1.0 (https://github.com/xhuerta/folito; ...)`, required by Wikimedia policy), `Accept: application/json`, plus the IP address inherent to any request. |
 | api.dictionaryapi.dev, `https://api.dictionaryapi.dev/api/v2/entries/en/{word}` | HTTPS GET, English words only, used when Wiktionary has no entry | Same: the word, User-Agent, IP address. |
 
 Not sent: book title, author, surrounding text, position, account data, device ID. The word does not
