@@ -35,10 +35,10 @@ How `macos.yml` stays fast:
   destination and the runner's architecture only, while `scripts/ci/boot_simulator.sh` picks (or creates) and boots
   the simulator in the background; then `test-without-building` on that simulator. The `ios` job also builds the
   embedded watch app, as the scheme requires.
-- `SourcePackages` and `DerivedData` (build products, module cache) are cached, keyed on the package pins, the package
-  manifest, `project.yml`, the Xcode version and the architecture. Repository sources get fresh mtimes on every
-  checkout, so the apps and ReaderCore are always recompiled; the cache only spares the package checkouts and the
-  third-party package builds, so it cannot hide a compile error in this repository.
+- Only the SwiftPM checkouts (`SourcePackages`) are cached, keyed on `Package.resolved`. A DerivedData cache was
+  tried and measured: repository sources get fresh mtimes on every checkout and are always recompiled, so it only
+  spared the small third-party package compiles, and restoring/saving ~160 MB cost about as much. Every build is
+  therefore clean: no stale build products can hide an error.
 - No index store, `DEBUG_INFORMATION_FORMAT=dwarf`, `-skipPackagePluginValidation -skipMacroValidation`, unsigned;
   XcodeGen comes from its release zip instead of Homebrew.
 - Runner: arm64 `macos-15` compiles 3-4x faster than `macos-15-intel` (measured on PR #25: iOS build-for-testing

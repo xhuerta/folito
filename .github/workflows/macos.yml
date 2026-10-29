@@ -89,7 +89,6 @@ jobs:
           nohup scripts/ci/boot_simulator.sh ${{ matrix.platform }} "$RUNNER_TEMP/udid" > "$RUNNER_TEMP/boot.log" 2>&1 &
           uname -m
           xcodebuild -version
-          echo "XCODE_VERSION=$(xcodebuild -version | tr '\n' ' ' | sed 's/[^A-Za-z0-9.]/_/g')" >> "$GITHUB_ENV"
           echo "ARCH=$(uname -m)" >> "$GITHUB_ENV"
 
       - name: Install XcodeGen
@@ -105,27 +104,18 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
-      # SwiftPM checkouts and DerivedData. Repository sources always get fresh mtimes on checkout, so the apps
-      # and ReaderCore are always recompiled; what the cache saves is the package checkouts, the compiled
-      # third-party packages and the module cache. The key changes with the package pins, project.yml, Xcode
-      # and the architecture; it is saved once per key (a hit is not re-saved).
-      - name: Cache SwiftPM and DerivedData
+      # SwiftPM checkouts only. Caching DerivedData was measured on PR #25 and did not pay off: the repository's
+      # sources are recompiled on every checkout anyway, and restoring/saving ~160 MB cost as much as the few
+      # third-party package compiles it saved.
+      - name: Cache SwiftPM checkouts
         uses: actions/cache@v4
         with:
-          path: |
-            SourcePackages
-            DerivedData/Build
-            DerivedData/ModuleCache.noindex
-            DerivedData/CompilationCache.noindex
-          key: xc-${{ matrix.platform }}-${{ env.ARCH }}-${{ env.XCODE_VERSION }}-${{ hashFiles('Packages/ReaderCore/Package.resolved', 'Packages/ReaderCore/Package.swift', 'project.yml') }}
-          restore-keys: |
-            xc-${{ matrix.platform }}-${{ env.ARCH }}-${{ env.XCODE_VERSION }}-
+          path: SourcePackages
+          key: spm-src-${{ hashFiles('Packages/ReaderCore/Package.resolved') }}
+          restore-keys: spm-src-
 
       - name: Build for testing
         run: |
-          # The app targets are always recompiled (fresh checkout mtimes); drop restored string extractions so the
-          # String Catalog comparison below only sees this build's (a deleted source file leaves no stale keys).
-          find DerivedData/Build -path '*/WristReader*.build/*' -name '*.stringsdata' -delete 2>/dev/null || true
           xcodebuild build-for-testing $XCB_FLAGS \
             -scheme ${{ matrix.scheme }} \
             -destination "generic/platform=${{ matrix.sdk }}" \
