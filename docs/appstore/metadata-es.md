@@ -64,6 +64,6 @@ Categoría principal: Libros. Copyright: como en `metadata-en.md`. URLs para est
 
 | Campo | Valor |
 |---|---|
-| URL de soporte | `https://xhuerta.github.io/wristreader-site/es/support.html` |
-| URL de marketing | `https://xhuerta.github.io/wristreader-site/es/` |
-| URL de la política de privacidad | `https://xhuerta.github.io/wristreader-site/es/privacy.html` |
+| URL de soporte | `https://folito.app/es/support.html` |
+| URL de marketing | `https://folito.app/es/` |
+| URL de la política de privacidad | `https://folito.app/es/privacy.html` |

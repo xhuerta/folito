@@ -97,20 +97,20 @@ Apple requires uploads to be built with the current major Xcode/SDK (since 28 Ap
 1. Pages must be live (step 9) so you can fill in the **Privacy Policy URL** and **Support URL**.
 2. App Store Connect → your app → the version page. Paste metadata from `docs/appstore/metadata-en.md` and `metadata-es.md`. Upload screenshots (checklist in `docs/appstore/SCREENSHOTS.md`).
 3. **App Privacy**, **Accessibility**, **Age Rating**, **Export compliance** and **App Review information** answers: `docs/appstore/APP_PRIVACY.md`, `ACCESSIBILITY_LABELS.md`, `AGE_RATING.md`, `EXPORT_COMPLIANCE.md`, `REVIEW_NOTES.md`. Read `docs/appstore/REVIEW_RISKS.md` first. In *App Review Information* leave **Sign-in required** unticked: the app needs no account; sync is optional and uses a server the user supplies.
-   URLs: Support `https://xhuerta.github.io/wristreader-site/support.html`, Privacy Policy `https://xhuerta.github.io/wristreader-site/privacy.html`, Marketing (optional) `https://xhuerta.github.io/wristreader-site/` (Spanish localisation: same paths under `es/`).
+   URLs: Support `https://folito.app/support.html`, Privacy Policy `https://folito.app/privacy.html`, Marketing (optional) `https://folito.app/` (Spanish localisation: same paths under `es/`).
 4. Select the processed build, set pricing/availability, choose release method, **Add for Review** → **Submit**.
 
 ## 9. Publishing the site
 
-The support, privacy policy and landing pages are static HTML in `docs/site/` (English, Spanish under `es/`, no scripts, no trackers). They are served from a separate **public** repository, `xhuerta/wristreader-site`, so this repository can stay private.
+The support, privacy policy and landing pages are static HTML in `docs/site/` (English, Spanish under `es/`, no scripts, no trackers). They are served from a separate **public** repository, `xhuerta/folito-site`, so this repository can stay private.
 
 1. Fill the placeholders (`[CONTACT_EMAIL]`, `[DEVELOPER_NAME]`, `[DATE]`; see Owner TODO) in `docs/site/`.
-2. Copy the **contents** of `docs/site/` to the **root** of `xhuerta/wristreader-site` (so `index.html`, `privacy.html`, `support.html`, `style.css` and `es/` sit at the top level) and push to `main`. Re-copy whenever `docs/site/` changes; this repository is the source.
-3. In `xhuerta/wristreader-site`: Settings → **Pages** → *Build and deployment* → Source **Deploy from a branch** → branch **`main`**, folder **`/ (root)`** → Save.
+2. Copy the **contents** of `docs/site/` to the **root** of `xhuerta/folito-site` (so `index.html`, `privacy.html`, `support.html`, `style.css`, `CNAME` and `es/` sit at the top level) and push to `main`. Re-copy whenever `docs/site/` changes; this repository is the source. Keep `CNAME` (it holds the custom domain `folito.app`; `docs/site/CNAME` exists so a sync never deletes it), `.nojekyll` and the site repo's own `README.md`.
+3. In `xhuerta/folito-site`: Settings → **Pages** → *Build and deployment* → Source **Deploy from a branch** → branch **`main`**, folder **`/ (root)`** → Save. Custom domain: `folito.app` (DNS at the registrar points the apex and `www` at GitHub Pages), with **Enforce HTTPS** on.
 4. After a minute the pages are live:
-   * Marketing / home: `https://xhuerta.github.io/wristreader-site/`
-   * Privacy policy: `https://xhuerta.github.io/wristreader-site/privacy.html` (Spanish: `…/es/privacy.html`)
-   * Support: `https://xhuerta.github.io/wristreader-site/support.html` (Spanish: `…/es/support.html`)
+   * Marketing / home: `https://folito.app/`
+   * Privacy policy: `https://folito.app/privacy.html` (Spanish: `…/es/privacy.html`)
+   * Support: `https://folito.app/support.html` (Spanish: `…/es/support.html`)
 5. Use the same privacy and support URLs in App Store Connect and in the app (`AppLinks.swift`, PR #20). Guideline 5.1.1(i) requires the policy to be reachable inside the app too; Settings › About links to it once `AppLinks` is updated.
 6. Re-read the policy against `docs/PRIVACY_DATA_MAP.md` whenever networking code changes.
 
@@ -118,7 +118,7 @@ The support, privacy policy and landing pages are static HTML in `docs/site/` (E
 
 * Final **app name** and whether it is available (the name must be unique in the App Store; 30 characters max). "Folito" is a working title; see candidates in `docs/appstore/metadata-*.md`.
 * **Bundle id** (permanent once the app is created) and the SKU.
-* **Contact e-mail and developer name** (`[CONTACT_EMAIL]`, `[DEVELOPER_NAME]`). The site URLs are fixed at `https://xhuerta.github.io/wristreader-site/`.
+* **Contact e-mail and developer name** (`[CONTACT_EMAIL]`, `[DEVELOPER_NAME]`). The site URLs are fixed at `https://folito.app/`.
 * **Price and availability** (free vs paid, territories), and the seller/developer name shown (individual name vs organisation).
 * **No demo account is needed**: sync is optional (PR #18) and reviewers test by importing an EPUB. Decide only which public-domain EPUB to attach or link for review, and whether to bundle a sample book in a future version.
 * "Create account" was removed (PR #18), so guideline 5.1.1(v) account deletion does not apply; do not reintroduce it.
