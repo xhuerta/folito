@@ -20,6 +20,16 @@ jobs:
       - name: Check localizations
         run: python3 scripts/check_strings.py
 
+  site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # docs/site/ is generated from docs/site-src/ (templates + one strings file per language). Fails if a
+      # strings file is missing keys or has extra ones, or if the committed pages differ from a fresh build.
+      - name: Check the generated website
+        run: python3 scripts/site/build.py --check
+
   test-core:
     runs-on: ubuntu-latest
     container: swift:6.0

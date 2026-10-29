@@ -18,7 +18,7 @@ Apple's definition ([App privacy details](https://developer.apple.com/app-store/
    * **Search History** (the words the user looks up). Linked to the user: **No**. Used for tracking: **No**. Purpose: **App Functionality**.
 2. **Sync data** (username, password hash, book hash, reading position, device UUID): optional and sent only to a server the user chooses and operates or already uses, never to the developer or a partner. Not declared (the data map's reading). The conservative alternative, an owner decision listed in the data map section 5: additionally declare **User ID**, **Device ID** and **Other User Content**, all *not linked, no tracking, App Functionality*.
 3. **Tracking**: **No**. No data linked to the user. Tracking domains: none.
-4. **Privacy Policy URL**: `https://xhuerta.github.io/wristreader-site/privacy.html` (Spanish: `…/es/privacy.html`). It must be the same URL as the in-app link (`AppLinks.privacyPolicy` in `iOSApp/Support/AppLinks.swift`, PR #20, currently `https://example.com/...`).
+4. **Privacy Policy URL**: `https://folito.app/privacy.html` (Spanish: `…/es/privacy.html`). It must be the same URL as the in-app link (`AppLinks.privacyPolicy` in `iOSApp/Support/AppLinks.swift`, PR #20, currently `https://example.com/...`).
 5. **Privacy choices URL**: leave empty.
 
 ## Privacy manifest (in the app bundle)

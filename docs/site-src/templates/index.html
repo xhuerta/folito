@@ -1,0 +1,49 @@
+<main id="main">
+<section class="hero" aria-labelledby="title">
+<div class="wrap">
+<div class="hero-text">
+<img class="app-icon" src="{{ root }}assets/icon-256.png" width="112" height="112" alt="{{ meta.icon_alt }}">
+<h1 id="title">Folito</h1>
+<p class="tagline">{{ index.tagline }}</p>
+<p class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.4 2"/></svg>{{ index.pill }}</p>
+<ul class="chips"><li>{{ index.chip1 }}</li><li>{{ index.chip2 }}</li><li>{{ index.chip3 }}</li></ul>
+</div>
+<div class="watch-stage">
+<div class="watch" role="img" aria-label="{{ index.watch_label }}">
+<div class="strap top"></div>
+<div class="case"><span class="crown"></span><span class="button"></span>
+<div class="screen" aria-hidden="true">
+<div class="status"><span class="t">{{ index.watch_book }}</span><span class="clock">10:09</span></div>
+<p class="text">{{ index.watch_text }}</p>
+<div class="progress"><i></i><span>38%</span></div>
+</div>
+</div>
+<div class="strap bottom"></div>
+</div>
+</div>
+</div>
+</section>
+<section class="section" aria-labelledby="what">
+<div class="wrap">
+<h2 class="section-title" id="what">{{ index.what_title }}</h2>
+<p class="section-lede">{{ index.what_lede }}</p>
+<ul class="features">
+<li class="card feature"><div class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 5.6c2.6-1.1 5.6-1 9 1 3.4-2 6.4-2.1 9-1v13c-2.6-1.1-5.6-1-9 1-3.4-2-6.4-2.1-9-1z"/><path d="M12 6.6v13"/></svg></div><h3>{{ index.f1_title }}</h3><p>{{ index.f1_text }}</p></li>
+<li class="card feature"><div class="tile t-indigo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2.5 18.5 7.5 5.5l5 13"/><path d="M4.4 13.8h6.2"/><circle cx="17.6" cy="15.3" r="3.3"/><path d="M20.9 11.8v6.7"/></svg></div><h3>{{ index.f2_title }}</h3><p>{{ index.f2_text }}</p></li>
+<li class="card feature"><div class="tile t-orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.4 15.4 5.1 5.1"/><path d="M8 9h5M8 12h3.2"/></svg></div><h3>{{ index.f3_title }}</h3><p>{{ index.f3_text }}</p></li>
+<li class="card feature"><div class="tile t-teal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 12a8 8 0 0 1 13.9-5.4"/><path d="M18.3 2.8v4.1h-4.1"/><path d="M20 12a8 8 0 0 1-13.9 5.4"/><path d="M5.7 21.2v-4.1h4.1"/></svg></div><h3>{{ index.f4_title }}</h3><p>{{ index.f4_text }}</p></li>
+<li class="card feature"><div class="tile t-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9.2"/><circle cx="12" cy="7.4" r="1.2" fill="currentColor" stroke="none"/><path d="M7.6 10.1 12 11l4.4-.9"/><path d="M12 11v3.2l-2.4 4.2M12 14.2l2.4 4.2"/></svg></div><h3>{{ index.f5_title }}</h3><p>{{ index.f5_text }}</p></li>
+<li class="card feature"><div class="tile t-gray"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2.8 19 5.6v5.7c0 4.6-3 8.3-7 9.9-4-1.6-7-5.3-7-9.9V5.6z"/><path d="m8.8 12.1 2.2 2.2 4.3-4.5"/></svg></div><h3>{{ index.f6_title }}</h3><p>{{ index.f6_text }}</p></li>
+</ul>
+</div>
+</section>
+<section class="section" aria-labelledby="more">
+<div class="wrap">
+<h2 class="section-title" id="more">{{ index.more_title }}</h2>
+<ul class="list icons links-group">
+<li><a class="row" href="privacy.html"><span class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.6a4 4 0 0 1 8 0v2.9"/></svg></span><span class="label">{{ nav.privacy_policy }}</span><svg class="chev" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1.5 1.5 6 6-6 6"/></svg></a></li>
+<li><a class="row" href="support.html"><span class="tile t-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/><path d="M12 7.2v6"/><circle cx="12" cy="16.6" r=".9" fill="currentColor" stroke="none"/></svg></span><span class="label">{{ nav.support }}</span><svg class="chev" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1.5 1.5 6 6-6 6"/></svg></a></li>
+</ul>
+</div>
+</section>
+</main>

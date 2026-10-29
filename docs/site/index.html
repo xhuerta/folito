@@ -8,8 +8,16 @@
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
-<link rel="canonical" href="https://xhuerta.github.io/wristreader-site/index.html">
-<link rel="alternate" hreflang="es" href="es/index.html">
+<link rel="canonical" href="https://folito.app/index.html">
+<link rel="alternate" hreflang="en" href="https://folito.app/index.html">
+<link rel="alternate" hreflang="es" href="https://folito.app/es/index.html">
+<link rel="alternate" hreflang="fr" href="https://folito.app/fr/index.html">
+<link rel="alternate" hreflang="de" href="https://folito.app/de/index.html">
+<link rel="alternate" hreflang="it" href="https://folito.app/it/index.html">
+<link rel="alternate" hreflang="pt-BR" href="https://folito.app/pt-br/index.html">
+<link rel="alternate" hreflang="ja" href="https://folito.app/ja/index.html">
+<link rel="alternate" hreflang="zh-Hans" href="https://folito.app/zh-hans/index.html">
+<link rel="alternate" hreflang="x-default" href="https://folito.app/index.html">
 <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon-64.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
@@ -17,12 +25,19 @@
 <meta property="og:site_name" content="Folito">
 <meta property="og:title" content="Folito: EPUB Reader for Your Watch">
 <meta property="og:description" content="An EPUB reader for Apple Watch. Works without an account; reading-progress sync is optional.">
-<meta property="og:url" content="https://xhuerta.github.io/wristreader-site/index.html">
-<meta property="og:image" content="https://xhuerta.github.io/wristreader-site/assets/icon-512.png">
+<meta property="og:url" content="https://folito.app/index.html">
+<meta property="og:image" content="https://folito.app/assets/icon-512.png">
 <meta property="og:image:width" content="512">
 <meta property="og:image:height" content="512">
 <meta property="og:image:alt" content="Folito app icon">
 <meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="es_ES">
+<meta property="og:locale:alternate" content="fr_FR">
+<meta property="og:locale:alternate" content="de_DE">
+<meta property="og:locale:alternate" content="it_IT">
+<meta property="og:locale:alternate" content="pt_BR">
+<meta property="og:locale:alternate" content="ja_JP">
+<meta property="og:locale:alternate" content="zh_CN">
 <meta name="twitter:card" content="summary">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -34,8 +49,20 @@
 <nav class="nav" aria-label="Main">
 <a href="privacy.html">Privacy</a>
 <a href="support.html">Support</a>
-<span class="seg" role="group" aria-label="Language"><a href="index.html" lang="en" aria-current="true" aria-label="English">EN</a><a href="es/index.html" lang="es" hreflang="es" aria-label="Español">ES</a></span>
 </nav>
+<details class="lang-picker in-header">
+<summary><svg class="globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg><span class="vh">Language: </span><span class="lang-name">English</span><svg class="disclosure" viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1.5 1.75 4.5 4.5 4.5-4.5"/></svg></summary>
+<ul class="lang-menu" aria-label="Language">
+<li><a href="index.html" lang="en" hreflang="en" aria-current="true"><svg class="check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m2.5 8.6 3.6 3.6 7.4-8.4"/></svg><span>English</span></a></li>
+<li><a href="es/index.html" lang="es" hreflang="es"><span>Español</span></a></li>
+<li><a href="fr/index.html" lang="fr" hreflang="fr"><span>Français</span></a></li>
+<li><a href="de/index.html" lang="de" hreflang="de"><span>Deutsch</span></a></li>
+<li><a href="it/index.html" lang="it" hreflang="it"><span>Italiano</span></a></li>
+<li><a href="pt-br/index.html" lang="pt-BR" hreflang="pt-BR"><span>Português (Brasil)</span></a></li>
+<li><a href="ja/index.html" lang="ja" hreflang="ja"><span>日本語</span></a></li>
+<li><a href="zh-hans/index.html" lang="zh-Hans" hreflang="zh-Hans"><span>简体中文</span></a></li>
+</ul>
+</details>
 </div>
 </header>
 <main id="main">
@@ -95,11 +122,83 @@
 <li><a href="privacy.html">Privacy Policy</a></li>
 <li><a href="support.html">Support</a></li>
 </ul></nav>
-<span class="seg" role="group" aria-label="Language"><a href="index.html" lang="en" aria-current="true" aria-label="English">EN</a><a href="es/index.html" lang="es" hreflang="es" aria-label="Español">ES</a></span>
+<details class="lang-picker in-footer">
+<summary><svg class="globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg><span class="vh">Language: </span><span class="lang-name">English</span><svg class="disclosure" viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1.5 1.75 4.5 4.5 4.5-4.5"/></svg></summary>
+<ul class="lang-menu" aria-label="Language">
+<li><a href="index.html" lang="en" hreflang="en" aria-current="true"><svg class="check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m2.5 8.6 3.6 3.6 7.4-8.4"/></svg><span>English</span></a></li>
+<li><a href="es/index.html" lang="es" hreflang="es"><span>Español</span></a></li>
+<li><a href="fr/index.html" lang="fr" hreflang="fr"><span>Français</span></a></li>
+<li><a href="de/index.html" lang="de" hreflang="de"><span>Deutsch</span></a></li>
+<li><a href="it/index.html" lang="it" hreflang="it"><span>Italiano</span></a></li>
+<li><a href="pt-br/index.html" lang="pt-BR" hreflang="pt-BR"><span>Português (Brasil)</span></a></li>
+<li><a href="ja/index.html" lang="ja" hreflang="ja"><span>日本語</span></a></li>
+<li><a href="zh-hans/index.html" lang="zh-Hans" hreflang="zh-Hans"><span>简体中文</span></a></li>
+</ul>
+</details>
 </div>
 <p class="legal">Folito is an independent app. KOReader and Readest are names of third-party projects, used only to describe compatibility; Folito is not affiliated with or endorsed by them. Apple, Apple Watch and iPhone are trademarks of Apple Inc.</p>
 <p class="copy">&copy; 2026 Xabier Lahuerta</p>
 </div>
 </footer>
+<script>
+(function () {
+  function openPickers() { return document.querySelectorAll("details.lang-picker[open]"); }
+  document.addEventListener("click", function (e) {
+    openPickers().forEach(function (d) { if (!d.contains(e.target)) d.removeAttribute("open"); });
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape") return;
+    openPickers().forEach(function (d) {
+      var hadFocus = d.contains(document.activeElement);
+      d.removeAttribute("open");
+      if (hadFocus) d.querySelector("summary").focus();
+    });
+  });
+})();
+</script>
+<script>
+(function () {
+  var offers = {"es":{"lang":"es","href":"es/index.html","view":"Ver en español","dismiss":"Cerrar"},"fr":{"lang":"fr","href":"fr/index.html","view":"Voir en français","dismiss":"Fermer"},"de":{"lang":"de","href":"de/index.html","view":"Auf Deutsch ansehen","dismiss":"Schließen"},"it":{"lang":"it","href":"it/index.html","view":"Visualizza in italiano","dismiss":"Chiudi"},"pt-BR":{"lang":"pt-BR","href":"pt-br/index.html","view":"Ver em português","dismiss":"Fechar"},"ja":{"lang":"ja","href":"ja/index.html","view":"日本語で表示","dismiss":"閉じる"},"zh-Hans":{"lang":"zh-Hans","href":"zh-hans/index.html","view":"查看简体中文版","dismiss":"关闭"}};
+  var KEY = "folito.langSuggestDismissed";
+  try { if (localStorage.getItem(KEY)) return; } catch (e) {}
+  function match(tag) {
+    tag = String(tag || "").toLowerCase();
+    if (/^zh-(hant|tw|hk|mo)/.test(tag)) return null;
+    if (/^zh/.test(tag)) return "zh-Hans";
+    if (/^pt/.test(tag)) return "pt-BR";
+    return tag.split("-")[0];
+  }
+  var prefs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language];
+  var offer = null;
+  for (var i = 0; i < prefs.length && !offer; i++) {
+    var code = match(prefs[i]);
+    if (code === "en") return;
+    if (code && offers[code]) offer = offers[code];
+  }
+  if (!offer) return;
+  var bar = document.createElement("div");
+  bar.className = "lang-suggest";
+  bar.setAttribute("lang", offer.lang);
+  var wrap = document.createElement("div");
+  wrap.className = "wrap";
+  var link = document.createElement("a");
+  link.href = offer.href;
+  link.hreflang = offer.lang;
+  link.textContent = offer.view;
+  var close = document.createElement("button");
+  close.type = "button";
+  close.setAttribute("aria-label", offer.dismiss);
+  close.textContent = "\u00d7";
+  close.addEventListener("click", function () {
+    try { localStorage.setItem(KEY, "1"); } catch (e) {}
+    bar.remove();
+  });
+  wrap.appendChild(link);
+  wrap.appendChild(close);
+  bar.appendChild(wrap);
+  var main = document.getElementById("main");
+  main.parentNode.insertBefore(bar, main);
+})();
+</script>
 </body>
 </html>

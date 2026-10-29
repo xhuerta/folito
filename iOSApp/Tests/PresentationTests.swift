@@ -127,10 +127,24 @@ final class PresentationTests: XCTestCase {
     }
 
     func testLinksPointAtTheSupportSiteInTheReadersLanguage() {
-        let base = "https://xhuerta.github.io/wristreader-site/"
+        let base = "https://folito.app/"
         XCTAssertEqual(AppLinks.page("privacy.html", languageCode: "en-US").absoluteString, base + "privacy.html")
         XCTAssertEqual(AppLinks.page("privacy.html", languageCode: "es-MX").absoluteString, base + "es/privacy.html")
         XCTAssertEqual(AppLinks.page("support.html", languageCode: nil).absoluteString, base + "support.html")
+
+        // One case per published language (scripts/site/build.py), plus regional variants and fallbacks.
+        let expected: [String: String] = [
+            "en": "", "en-GB": "", "es": "es/", "es-419": "es/", "fr-CA": "fr/", "de-AT": "de/", "it": "it/",
+            "pt-BR": "pt-br/", "pt-PT": "pt-br/", "ja-JP": "ja/", "zh-Hans": "zh-hans/", "zh-Hans-CN": "zh-hans/",
+            "zh-CN": "zh-hans/", "zh": "zh-hans/", "zh-Hant-TW": "", "zh-TW": "", "zh-HK": "",
+            "nl-NL": "", "ko": "", "": "",
+        ]
+        for (code, folder) in expected {
+            XCTAssertEqual(AppLinks.page("privacy.html", languageCode: code).absoluteString,
+                           base + folder + "privacy.html", "language \(code)")
+            XCTAssertEqual(AppLinks.page("support.html", languageCode: code).absoluteString,
+                           base + folder + "support.html", "language \(code)")
+        }
     }
 
     func testEveryAcknowledgedComponentShipsItsLicenceText() throws {
