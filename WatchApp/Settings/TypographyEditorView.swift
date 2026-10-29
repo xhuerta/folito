@@ -7,17 +7,40 @@ struct TypographyEditorView: View {
     private var readerAccessibility = ReaderAccessibilityReader()
     @State private var confirmReset = false
 
+    // TEMPORARY BISECT (Debug only): TYPOGRAPHY_BISECT selects a variant to find an update loop.
+    #if DEBUG
+    private let bisect = ProcessInfo.processInfo.environment["TYPOGRAPHY_BISECT"].flatMap(Int.init) ?? 0
+    #else
+    private let bisect = 0
+    #endif
+
     var body: some View {
         let t = typography.value
         List {
+            if bisect != 1 {
             Section("Preview") {
                 // Rendered with this watch's accessibility settings, exactly like the reader.
+                if bisect == 4 {
+                    TypographyPreview(typography: t, accessibility: readerAccessibility.value)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(Text("Text preview"))
+                        .accessibilityIdentifier("typographyPreview")
+                } else if bisect == 5 {
+                    TypographyPreview(typography: t, accessibility: .none)
+                        .listRowInsets(EdgeInsets())
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel(Text("Text preview"))
+                        .accessibilityIdentifier("typographyPreview")
+                } else {
                 TypographyPreview(typography: t, accessibility: readerAccessibility.value)
                     .listRowInsets(EdgeInsets())
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                     .accessibilityElement(children: .combine)
                     .accessibilityLabel(Text("Text preview"))
                     .accessibilityIdentifier("typographyPreview")
+                }
+            }
             }
             Section("Presets") {
                 ForEach(ReaderTypography.Preset.allCases, id: \.self) { preset in
@@ -25,12 +48,15 @@ struct TypographyEditorView: View {
                 }
             }
             Section {
+                if bisect != 2 {
                 Picker("Font", selection: typography.binding(\.fontFamily)) {
                     ForEach(ReaderTypography.FontFamily.allCases, id: \.self) { Text($0.localizedName).tag($0) }
                 }
-                TextSizeStepper()
+                }
+                if bisect != 6 { TextSizeStepper() }
                 Toggle("Match System Text Size", isOn: typography.binding(\.matchSystemTextSize))
                 Toggle("Bold Text", isOn: typography.binding(\.boldText))
+                if bisect != 3 {
                 Stepper(value: typography.binding(\.headingScale), in: ReaderTypography.headingScaleRange, step: 0.25) {
                     row(Text("Headings"), t.headingScale.formatted(.percent.precision(.fractionLength(0))))
                 }
@@ -41,12 +67,14 @@ struct TypographyEditorView: View {
                 }
                 .accessibilityLabel(Text("Letter Spacing"))
                 .accessibilityValue(Text("\(Self.signed(t.tracking)) points", comment: "VoiceOver value of letter spacing, e.g. '+0.25 points'"))
+                }
             } header: {
                 Text("Font")
             } footer: {
                 Text("With Match System Text Size on, the text size follows the Text Size setting of your Apple Watch, starting from the size above.")
             }
             Section("Layout") {
+                if bisect != 3 {
                 Stepper(value: typography.binding(\.lineSpacing), in: ReaderTypography.lineSpacingRange, step: 1) {
                     row(Text("Line Spacing"), Self.points(t.lineSpacing))
                 }
@@ -62,13 +90,18 @@ struct TypographyEditorView: View {
                 }
                 .accessibilityLabel(Text("Margins"))
                 .accessibilityValue(Text("\(Int(t.horizontalMargin)) points", comment: "VoiceOver value of a spacing in points"))
+                }
+                if bisect != 2 {
                 Picker("Alignment", selection: typography.binding(\.alignment)) {
                     ForEach(ReaderTypography.Alignment.allCases, id: \.self) { Text($0.localizedName).tag($0) }
                 }
+                }
             }
             Section {
+                if bisect != 2 {
                 Picker("Theme", selection: typography.binding(\.theme)) {
                     ForEach(ReaderTypography.Theme.allCases, id: \.self) { Text($0.localizedName).tag($0) }
+                }
                 }
             } header: {
                 Text("Theme")

@@ -169,7 +169,7 @@ jobs:
             -project Folito.xcodeproj \
             -scheme FolitoWatch \
             -destination "id=$UDID" \
-            -only-testing:FolitoWatchUITests \
+            -only-testing:FolitoWatchUITests/TypographyBisectTests \
             -clonedSourcePackagesDirPath SourcePackages \
             -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
             -resultBundlePath watch-uitests.xcresult \
@@ -185,10 +185,18 @@ jobs:
             awk '/com.apple.main-thread/{p=1; print; next} p && /^    [0-9]+ Thread_/{exit} p' "$f" | head -90 | cut -c1-230
           done
 
+      - name: Upload samples (TEMPORARY DIAGNOSTIC)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: watch-samples
+          path: samples
+          if-no-files-found: ignore
+
       - name: Findings summary
         if: always()
         run: |
-          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:|Accessibility audit issue|Accessibility audit timed out" watch-uitests.log || true
+          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:|Accessibility audit issue|Accessibility audit timed out|BISECT" watch-uitests.log || true
           xcrun xcresulttool get test-results summary --path watch-uitests.xcresult || true
 
       - name: Upload xcresult
