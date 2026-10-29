@@ -11,7 +11,11 @@ import ReaderCore
 ///    or `sync_cleared` / `kosync_cleared == true` + settingsStamp (sync turned off on the phone),
 ///    and (independently, last writer wins) typography + typographyStamp
 ///  - delete: `{ type: "delete_book", documentHash: <hash> }` (userInfo or message)
-///  - watch -> phone (applicationContext): `{ type: "library", hashes: [<documentHash>], typography?, typographyStamp? }`
+///  - dictionary file metadata: `{ type: "dictionary", dictionaryId, sha256, size }`; payload = compact
+///    dictionary (docs/DICTIONARIES.md), installed only if its size and SHA-256 match
+///  - delete dictionary: `{ type: "delete_dictionary", dictionaryId: <id> }` (userInfo)
+///  - watch -> phone (applicationContext): `{ type: "library", hashes: [<documentHash>], dictionaries: [<id>],
+///    typography?, typographyStamp? }`
 /// WCSessionDelegate callbacks arrive on a background queue; all heavy work is hopped off the main actor.
 final class ConnectivityReceiver: NSObject, WCSessionDelegate {
     static let typeKey = "type"
@@ -31,6 +35,29 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
     static let settingsStampKey = "settings.appliedStamp"
     static let libraryType = "library"
     static let hashesKey = "hashes"
+    static let dictionaryType = "dictionary"
+    static let deleteDictionaryType = "delete_dictionary"
+    static let dictionaryIdKey = "dictionaryId"
+    static let dictionariesKey = "dictionaries"
+    static let sha256Key = "sha256"
+    static let sizeKey = "size"
+
+    /// A dictionary file transfer: its id, expected SHA-256 and size; nil for any other file (books).
+    static func dictionaryTransfer(from metadata: [String: Any]?) -> (id: String, sha256: String, size: Int64)? {
+        guard let metadata, (metadata[typeKey] as? String) == dictionaryType,
+              let id = metadata[dictionaryIdKey] as? String, !id.isEmpty,
+              let sha = metadata[sha256Key] as? String, sha.count == 64 else { return nil }
+        let size = (metadata[sizeKey] as? NSNumber)?.int64Value ?? -1
+        guard size > 0 else { return nil }
+        return (id, sha, size)
+    }
+
+    /// Id of the dictionary to delete (`type == "delete_dictionary"`), nil for any other message.
+    static func deleteDictionaryId(from info: [String: Any]) -> String? {
+        guard (info[typeKey] as? String) == deleteDictionaryType,
+              let id = info[dictionaryIdKey] as? String, !id.isEmpty else { return nil }
+        return id
+    }
 
     /// The phone resends its settings (same stamp) on every activation / state change; apply them only
     /// when newer than what was applied, so a Reset on the watch is not undone by a stale resend.
@@ -42,22 +69,30 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
 
     /// Context published to the phone: the hashes of the books stored on the watch.
     /// The watch's typography rides along so the phone can mirror it (last writer wins by stamp).
-    static func libraryContext(hashes: [String], typography: ReaderTypography? = nil) -> [String: Any] {
-        var context: [String: Any] = [typeKey: libraryType, hashesKey: hashes.sorted()]
+    static func libraryContext(hashes: [String], dictionaries: [String] = [],
+                               typography: ReaderTypography? = nil) -> [String: Any] {
+        var context: [String: Any] = [typeKey: libraryType, hashesKey: hashes.sorted(),
+                                      dictionariesKey: dictionaries.sorted()]
         if let typography { context.merge(TypographySync.context(for: typography)) { _, new in new } }
         return context
     }
 
     private let library: BookLibrary
+    private let dictionaries: InstalledDictionaries
+    private let onDictionariesChanged: @MainActor () -> Void
     private let typography: @MainActor () -> ReaderTypography
     private let onTypography: @MainActor (ReaderTypography) -> Void
     private let onSettingsChanged: @MainActor () -> Void
 
     init(library: BookLibrary,
+         dictionaries: InstalledDictionaries,
+         onDictionariesChanged: @escaping @MainActor () -> Void,
          typography: @escaping @MainActor () -> ReaderTypography,
          onTypography: @escaping @MainActor (ReaderTypography) -> Void,
          onSettingsChanged: @escaping @MainActor () -> Void) {
         self.library = library
+        self.dictionaries = dictionaries
+        self.onDictionariesChanged = onDictionariesChanged
         self.typography = typography
         self.onTypography = onTypography
         self.onSettingsChanged = onSettingsChanged
@@ -86,19 +121,25 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
         handle(applicationContext)
     }
 
-    /// Tells the phone which books are on the watch so it can (re)send the missing ones.
+    /// Tells the phone which books and dictionaries are on the watch so it can (re)send the missing ones.
     func publishLibrary() {
         let library = self.library
         let typography = self.typography
+        let dictionaryIds = dictionaries.infos.map(\.id)
         Task { @MainActor in
             let session = WCSession.default
             guard WCSession.isSupported(), session.activationState == .activated else { return }
             let hashes = library.entries.map(\.documentHash)
-            try? session.updateApplicationContext(Self.libraryContext(hashes: hashes, typography: typography()))
+            try? session.updateApplicationContext(Self.libraryContext(hashes: hashes, dictionaries: dictionaryIds,
+                                                                      typography: typography()))
         }
     }
 
     func session(_ session: WCSession, didReceive file: WCSessionFile) {
+        if let transfer = Self.dictionaryTransfer(from: file.metadata) {
+            receiveDictionary(file.fileURL, id: transfer.id, sha256: transfer.sha256, size: transfer.size)
+            return
+        }
         // The system deletes `file.fileURL` when this method returns: copy synchronously.
         let copy = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".book")
         do { try FileManager.default.copyItem(at: file.fileURL, to: copy) } catch { return }
@@ -112,6 +153,25 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
 
     func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
         handle(message)
+    }
+
+    /// Moves the received file out of the inbox synchronously (the system deletes it when the delegate
+    /// returns; a move is cheap for tens of MB), then verifies and installs it off the main thread.
+    private func receiveDictionary(_ url: URL, id: String, sha256: String, size: Int64) {
+        let staged = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".folidict")
+        do { try FileManager.default.moveItem(at: url, to: staged) } catch {
+            do { try FileManager.default.copyItem(at: url, to: staged) } catch { return }
+        }
+        let dictionaries = self.dictionaries
+        let changed = onDictionariesChanged
+        Task.detached(priority: .utility) { [weak self] in
+            // A damaged transfer is dropped; the phone resends whatever the watch does not report.
+            let installed = (try? dictionaries.install(fileAt: staged, size: size, sha256: sha256))
+            try? FileManager.default.removeItem(at: staged)
+            guard installed != nil else { return }
+            await changed()
+            self?.publishLibrary()
+        }
     }
 
     // MARK: Handling
@@ -129,6 +189,12 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
             }
         }
         let deleteHash = Self.deleteHash(from: info)
+        if let id = Self.deleteDictionaryId(from: info) {
+            dictionaries.remove(id: id)
+            let changed = onDictionariesChanged
+            Task { @MainActor in changed() }
+            publishLibrary()
+        }
         let incomingTypography = TypographySync.decode(from: info)
         let library = self.library
         let notify = onSettingsChanged

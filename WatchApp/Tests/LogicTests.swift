@@ -320,6 +320,23 @@ final class MiscLogicTests: XCTestCase {
         XCTAssertNil(ConnectivityReceiver.deleteHash(from: ["type": "delete_book"]))
     }
 
+    func testDictionaryMessageSchema() {
+        // Shapes sent by the iPhone (WatchSchema.dictionaryMetadata / deleteDictionary).
+        let sha = String(repeating: "ab", count: 32)
+        let t = ConnectivityReceiver.dictionaryTransfer(from: ["type": "dictionary", "dictionaryId": "readerdict-en",
+                                                              "sha256": sha, "size": NSNumber(value: 1234)])
+        XCTAssertEqual(t?.id, "readerdict-en")
+        XCTAssertEqual(t?.sha256, sha)
+        XCTAssertEqual(t?.size, 1234)
+        XCTAssertNil(ConnectivityReceiver.dictionaryTransfer(from: nil))
+        XCTAssertNil(ConnectivityReceiver.dictionaryTransfer(from: ["type": "book", "documentHash": "abc"]), "books are not dictionaries")
+        XCTAssertNil(ConnectivityReceiver.dictionaryTransfer(from: ["type": "dictionary", "dictionaryId": "x", "sha256": "short", "size": 1]))
+        XCTAssertNil(ConnectivityReceiver.dictionaryTransfer(from: ["type": "dictionary", "dictionaryId": "x", "sha256": sha]))
+        XCTAssertEqual(ConnectivityReceiver.deleteDictionaryId(from: ["type": "delete_dictionary", "dictionaryId": "x"]), "x")
+        XCTAssertNil(ConnectivityReceiver.deleteDictionaryId(from: ["type": "delete_book", "dictionaryId": "x"]))
+        XCTAssertNil(ConnectivityReceiver.deleteDictionaryId(from: ["type": "delete_dictionary"]))
+    }
+
     func testSettingsStampPolicy() {
         XCTAssertTrue(ConnectivityReceiver.shouldApplySettings(incomingStamp: nil, lastApplied: 50))
         XCTAssertTrue(ConnectivityReceiver.shouldApplySettings(incomingStamp: 51, lastApplied: 50))
@@ -331,6 +348,9 @@ final class MiscLogicTests: XCTestCase {
         let c = ConnectivityReceiver.libraryContext(hashes: ["b", "a"])
         XCTAssertEqual(c["type"] as? String, "library")
         XCTAssertEqual(c["hashes"] as? [String], ["a", "b"])
+        XCTAssertEqual(c["dictionaries"] as? [String], [])
+        let d = ConnectivityReceiver.libraryContext(hashes: [], dictionaries: ["readerdict-fr", "readerdict-en"])
+        XCTAssertEqual(d["dictionaries"] as? [String], ["readerdict-en", "readerdict-fr"])
     }
 
     func testSafeName() {

@@ -64,22 +64,29 @@ enum WatchMessages {
 
     static func dictionary(_ error: DictionaryError) -> String {
         switch error {
-        case .offline:
-            return String(localized: "You're offline. Connect to Wi-Fi or your iPhone to look up new words; words you looked up before still work.",
-                          comment: "Dictionary lookup failed: no network")
+        case .noDictionary:
+            return String(localized: "No dictionary on this watch yet. Download one in Folito on your iPhone: Settings, Dictionaries.",
+                          comment: "Dictionary lookup failed: no offline dictionary is installed")
         case .notFound:
             return String(localized: "No definition found for this word. Try another form of it, such as the singular.",
                           comment: "Dictionary lookup: the word is not in the dictionary")
-        case .rateLimited:
-            return String(localized: "The dictionary is busy. Wait a moment, then try again.",
-                          comment: "Dictionary lookup failed: rate limited")
-        case .server(let status):
-            return String(localized: "The dictionary service isn't working right now (error \(status)). Try again later.",
-                          comment: "Dictionary lookup failed with an HTTP status code (the number)")
-        case .invalidResponse:
-            return String(localized: "The dictionary sent an answer Folito can't read. Try again later.",
-                          comment: "Dictionary lookup failed: response could not be parsed")
+        case .unreadable:
+            return String(localized: "A dictionary on this watch is damaged. Delete it in Folito on your iPhone and download it again.",
+                          comment: "Dictionary lookup failed: an installed dictionary file could not be read")
         }
+    }
+
+    /// CC BY-SA credit of an installed dictionary: authors, licence, compiler, and that it was changed.
+    static func dictionaryCredit(_ info: CompactDictionaryInfo) -> String {
+        String(localized: "Definitions from \(info.dataSource) by its contributors, under the \(info.license) licence. Compiled by \(info.publisher). Shortened and reformatted by Folito.",
+               comment: "Dictionary credit. 1: data source (Wiktionary), 2: licence (CC BY-SA 4.0), 3: who compiled the file (reader.dict)")
+    }
+
+    /// "English · 41 MB" for a dictionary installed on the watch.
+    static func dictionaryLabel(_ info: CompactDictionaryInfo, size: Int64?, locale: Locale = .current) -> String {
+        let language = locale.localizedString(forLanguageCode: info.language) ?? info.language
+        guard let size else { return language }
+        return language + " \u{00B7} " + ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
     }
 
     // MARK: Sync status glyph

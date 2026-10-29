@@ -1,17 +1,21 @@
 import Foundation
 
-/// One definition of a word, with optional usage examples.
+/// One definition of a word, with optional usage examples and sub-senses (more specific meanings that the
+/// source lists under this one).
 public struct DictionarySense: Codable, Equatable, Sendable {
     public var definition: String
     public var examples: [String]
+    public var subsenses: [String]
 
-    public init(definition: String, examples: [String] = []) {
+    public init(definition: String, examples: [String] = [], subsenses: [String] = []) {
         self.definition = definition
         self.examples = examples
+        self.subsenses = subsenses
     }
 }
 
-/// Senses grouped under a part of speech ("noun", "verb", ...).
+/// Senses grouped under a part of speech ("noun", "verb", ...) or another section heading of the source
+/// ("Synonyms", ...).
 public struct DictionaryMeaning: Codable, Equatable, Sendable {
     public var partOfSpeech: String
     public var senses: [DictionarySense]
@@ -23,13 +27,14 @@ public struct DictionaryMeaning: Codable, Equatable, Sendable {
 }
 
 public struct DictionaryEntry: Codable, Equatable, Sendable {
-    /// The form that matched (may differ from the tapped word after a lemma retry).
+    /// The headword that matched (may differ from the tapped word: a lemma, or the base form of an
+    /// inflected form).
     public var word: String
     /// Primary language subtag the entry belongs to ("en", "es", ...).
     public var language: String
     public var pronunciation: String?
     public var meanings: [DictionaryMeaning]
-    /// Human-readable provider name, for attribution.
+    /// Human-readable name of the dictionary, for attribution.
     public var source: String
 
     public init(word: String, language: String, pronunciation: String? = nil,
@@ -44,28 +49,30 @@ public struct DictionaryEntry: Codable, Equatable, Sendable {
     public var isEmpty: Bool { meanings.allSatisfy { $0.senses.isEmpty } }
 }
 
-public enum DictionaryError: Error, Equatable, Sendable {
-    case offline
-    case notFound
-    case rateLimited
-    case server(status: Int)
-    case invalidResponse
-
-    /// Short text for the watch UI.
-    public var userMessage: String {
-        switch self {
-        case .offline: return "You're offline. Only words already looked up are available without a connection."
-        case .notFound: return "No definition found."
-        case .rateLimited: return "The dictionary is busy. Try again in a moment."
-        case .server(let status): return "Dictionary error (HTTP \(status))."
-        case .invalidResponse: return "Unexpected dictionary response."
-        }
-    }
+/// Limits keeping a result readable on a watch screen, and the converted dictionaries small.
+public enum DictionaryLimits {
+    public static let meanings = 6
+    public static let sensesPerMeaning = 8
+    public static let subsensesPerSense = 4
+    public static let examplesPerSense = 1
+    public static let maxDefinitionLength = 400
+    /// Entries merged into one result when several headwords share a lookup key ("Polish" / "polish").
+    public static let entriesPerLookup = 3
 }
 
-/// Looks words up. Implementations: `DictionaryService` (online + cache) and `MockDictionaryProvider`.
+public enum DictionaryError: Error, Equatable, Sendable {
+    /// No dictionary is installed on this device.
+    case noDictionary
+    /// The installed dictionaries have no entry for the word or any of its candidate forms.
+    case notFound
+    /// An installed dictionary file could not be read (damaged or from a newer app version).
+    case unreadable
+}
+
+/// Looks words up. Implementations: `OfflineDictionaryService` (installed dictionaries) and
+/// `MockDictionaryProvider`.
 public protocol DictionaryProviding: Sendable {
-    /// `language` is a BCP-47 tag from the book metadata (nil = English).
+    /// `language` is a BCP-47 tag from the book metadata (nil = unknown).
     func lookup(_ word: String, language: String?) async throws -> DictionaryEntry
 }
 
@@ -94,14 +101,15 @@ public struct MockDictionaryProvider: DictionaryProviding {
             word: "run", language: "en", pronunciation: "/ɹʌn/",
             meanings: [
                 DictionaryMeaning(partOfSpeech: "verb", senses: [
-                    DictionarySense(definition: "To move swiftly on foot.", examples: ["I run every morning."]),
+                    DictionarySense(definition: "To move swiftly on foot.", examples: ["I run every morning."],
+                                    subsenses: ["To compete in a race."]),
                     DictionarySense(definition: "To operate or function."),
                 ]),
                 DictionaryMeaning(partOfSpeech: "noun", senses: [
                     DictionarySense(definition: "An act of running."),
                 ]),
             ],
-            source: "Wiktionary")
+            source: "Wiktionary (reader.dict)")
         return MockDictionaryProvider(entries: ["run": run, "running": run])
     }
 }

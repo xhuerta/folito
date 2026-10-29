@@ -1,11 +1,29 @@
 import SwiftUI
+import ReaderCore
 
-/// Settings tab: progress sync and About (privacy policy, support, version, acknowledgements).
+/// Settings tab: dictionaries, progress sync and About (privacy policy, support, version, acknowledgements).
 struct SettingsView: View {
     @ObservedObject var settings: SyncSettings
+    @ObservedObject var dictionaries: DictionaryManager
+    @ObservedObject var connectivity: PhoneConnectivity
 
     var body: some View {
         Form {
+            Section {
+                NavigationLink {
+                    DictionariesView(manager: dictionaries, connectivity: connectivity)
+                } label: {
+                    LabeledContent {
+                        Text(verbatim: "\(dictionaries.installedInfos.count)").systemSecondaryText()
+                    } label: {
+                        Label("Dictionaries", systemImage: "character.book.closed")
+                    }
+                }
+                .accessibilityIdentifier("dictionariesLink")
+            } footer: {
+                Text("Download dictionaries to look up words on your Apple Watch, even offline.").systemSecondaryText()
+            }
+
             Section {
                 NavigationLink {
                     SyncSettingsView(settings: settings)
@@ -65,6 +83,15 @@ struct AcknowledgementsView: View {
             } footer: {
                 Text("Folito uses these open-source components. Tap one to read its licence.").systemSecondaryText()
             }
+            Section {
+                DictionaryCreditsText()
+                Link(destination: DictionaryCatalog.all[0].licenseURL) {
+                    Label("Licence (CC BY-SA 4.0)", systemImage: "doc.text")
+                }
+                .accessibilityHint("Opens in your web browser.")
+            } header: {
+                Text("Dictionary Data").systemSecondaryText()
+            }
         }
         .navigationTitle("Acknowledgements")
         .navigationBarTitleDisplayMode(.inline)
@@ -100,6 +127,7 @@ struct LicenseView: View {
 
 #Preview {
     NavigationStack {
-        SettingsView(settings: SyncSettings(clientFactory: { _ in MockKOSyncClient() }))
+        SettingsView(settings: SyncSettings(clientFactory: { _ in MockKOSyncClient() }),
+                     dictionaries: DictionaryManager(), connectivity: PhoneConnectivity())
     }
 }

@@ -25,7 +25,7 @@ READ ON YOUR WRIST
 • Import DRM-free .epub files from Files, the share sheet or the in-app import button; they are sent to your watch automatically.
 • Read offline. Scroll with the Digital Crown, jump between chapters, and keep a library of your books.
 • Adjust typeface, size, line spacing, margins, alignment, weight and theme (dark, dim, sepia, high contrast), from the watch or the iPhone, with live preview.
-• Look up a word: move through the paragraph with the Digital Crown and see its definition (requires a network connection; definitions are in English and come from Wiktionary and dictionaryapi.dev).
+• Look up a word: move through the paragraph with the Digital Crown and see its definition (works offline with free Wiktionary-based dictionaries you download in the iPhone app: English, Spanish, French, German, Italian, Portuguese, Japanese and Chinese).
 
 ACCESSIBLE
 • VoiceOver on iPhone and Apple Watch, with headings you can jump between in a book.

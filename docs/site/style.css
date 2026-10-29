@@ -17,6 +17,8 @@
   --hero-glow: rgba(10, 108, 216, .16);
   --note-bg: #FFFFFF;
   --shadow: 0 1px 2px rgba(0, 0, 0, .04), 0 8px 24px rgba(0, 0, 0, .06);
+  --menu-bg: #FFFFFF;
+  --menu-hover: rgba(118, 118, 128, .12);
   --radius: 14px;
   --radius-lg: 22px;
   --max: 64rem;
@@ -41,8 +43,25 @@
     --hero-glow: rgba(77, 166, 255, .18);
     --note-bg: #1C1C1E;
     --shadow: none;
+    --menu-bg: #2C2C2E;
+    --menu-hover: rgba(118, 118, 128, .24);
   }
 }
+
+/* Japanese and Simplified Chinese: system CJK faces, no negative tracking, CJK line breaking. */
+:root:lang(ja) {
+  --font: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans CJK JP", "Noto Sans JP", "Yu Gothic UI", Meiryo, sans-serif;
+  --font-serif: "Hiragino Mincho ProN", "Noto Serif CJK JP", "Yu Mincho", serif;
+}
+:root:lang(zh-Hans) {
+  --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  --font-serif: "Songti SC", "Noto Serif CJK SC", "SimSun", serif;
+}
+:lang(ja), :lang(zh-Hans) { letter-spacing: 0 !important; line-break: strict; }
+:lang(ja) :is(p, li, h1, h2, h3), :lang(zh-Hans) :is(p, li, h1, h2, h3) { overflow-wrap: anywhere; }
+
+/* Notice on machine-assisted translations of the privacy policy. */
+.translation-note { color: var(--label-2); font-size: 14px; margin: 0 0 10px; padding: 10px 14px; border-radius: 10px; background: var(--surface-2); }
 
 *, *::before, *::after { box-sizing: border-box; }
 
@@ -102,13 +121,54 @@ strong { font-weight: 600; }
   .nav a { padding: 6px 7px; }
 }
 
-/* Segmented language control */
-.seg { display: inline-flex; padding: 2px; border-radius: 9px; background: rgba(118, 118, 128, .14); margin-left: 4px; }
-.seg a, .seg span { font-size: 13px; font-weight: 600; line-height: 1; padding: 6px 9px; border-radius: 7px; color: var(--label); }
-.nav .seg a { padding: 6px 9px; font-size: 13px; }
-.seg [aria-current] { background: var(--surface); box-shadow: 0 1px 3px rgba(0, 0, 0, .14); color: var(--label); }
-.seg a:hover { text-decoration: none; background: rgba(118, 118, 128, .14); }
-@media (prefers-color-scheme: dark) { .seg { background: rgba(118, 118, 128, .26); } .seg [aria-current] { background: #636366; } }
+/* Language picker: a <details> disclosure styled like an iOS pull-down menu. Works without JavaScript. */
+.vh { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.lang-picker { position: relative; flex: none; }
+.lang-picker summary {
+  list-style: none; cursor: pointer; display: flex; align-items: center; gap: 6px;
+  color: var(--label); font-size: 15px; line-height: 1.2; padding: 6px 9px; border-radius: 8px; white-space: nowrap; min-height: 32px;
+}
+.lang-picker summary::-webkit-details-marker { display: none; }
+.lang-picker summary:hover, .lang-picker[open] summary { background: var(--surface-2); }
+.lang-picker .globe { width: 18px; height: 18px; flex: none; }
+.lang-picker .disclosure { width: 11px; height: 8px; flex: none; color: var(--label-2); overflow: visible; }
+.lang-picker[open] .disclosure { transform: rotate(180deg); }
+.lang-menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 20;
+  list-style: none; margin: 0; padding: 0;
+  min-width: 14.5rem; max-width: calc(100vw - 32px);
+  background: var(--menu-bg);
+  border-radius: 13px; overflow: hidden;
+  box-shadow: 0 0 0 .5px var(--separator), 0 10px 38px rgba(0, 0, 0, .2);
+}
+.lang-picker.in-footer { margin-left: auto; }
+.lang-picker.in-footer .lang-menu { top: auto; bottom: calc(100% + 6px); }
+.lang-menu li + li { border-top: .5px solid var(--separator); }
+.lang-menu a {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 16px 11px 42px; min-height: 44px;
+  color: var(--label); font-size: 16px; line-height: 1.3; white-space: nowrap;
+}
+.lang-menu a[aria-current] { padding-left: 16px; font-weight: 600; }
+.lang-menu a:hover { text-decoration: none; background: var(--menu-hover); }
+.lang-menu a:focus-visible { outline-offset: -3px; border-radius: 0; }
+.lang-menu .check { width: 16px; height: 16px; flex: none; color: var(--accent); }
+.site-footer .lang-picker summary { font-size: 14px; }
+@media (max-width: 599px) {
+  .bar .lang-picker .lang-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .bar .lang-picker summary { padding: 6px 7px; gap: 4px; }
+}
+@media (prefers-reduced-motion: no-preference) { .lang-picker .disclosure { transition: transform .2s ease; } }
+
+/* Suggests the visitor's browser language on the root page (added by a small script; never redirects). */
+.lang-suggest { background: var(--surface); border-bottom: .5px solid var(--separator); font-size: 15px; }
+.lang-suggest .wrap { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
+.lang-suggest a { font-weight: 600; }
+.lang-suggest button {
+  font: inherit; font-size: 22px; line-height: 1; color: var(--label-2); background: none; border: 0;
+  width: 44px; height: 44px; margin-right: -12px; border-radius: 22px; cursor: pointer;
+}
+.lang-suggest button:hover { background: var(--surface-2); }
 
 /* ---------- Hero ---------- */
 .hero {
@@ -280,4 +340,3 @@ a.row:hover { text-decoration: none; background: var(--surface-2); }
 .site-footer nav a { color: var(--label); font-size: 14px; }
 .site-footer .legal { margin: 0 0 8px; max-width: 52rem; }
 .site-footer .copy { margin: 0; }
-.site-footer .seg { margin-left: 0; }

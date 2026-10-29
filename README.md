@@ -48,7 +48,7 @@ A full reading app, designed for the smallest screen you own.
     <td width="33%" valign="top">
       <img src="docs/readme/lookup.svg" width="44" height="44" alt=""><br>
       <b>Look up any word</b><br>
-      Word lookup on the watch using online dictionaries (Wiktionary, and dictionaryapi.dev for English).
+      Offline word lookup on the watch with free Wiktionary-based dictionaries you download in the iPhone app.
     </td>
   </tr>
   <tr>
@@ -89,7 +89,7 @@ Sync is **optional**; you don't need any account (Readest, KOReader or otherwise
 
 1. Import your EPUBs in the iPhone app (the **+** button, or "Open in Folito" from Files or the share sheet). They are sent to the watch automatically.
 2. Read on the watch. Your position is stored on the watch itself and everything works offline.
-3. With no sync service chosen (*None*), the app makes no sync requests and shows no sync prompts or indicators. The only feature that uses the network at your request is dictionary lookup.
+3. With no sync service chosen (*None*), the app makes no sync requests and shows no sync prompts or indicators. The only other network use is downloading a dictionary when you tap *Download* in *Settings › Dictionaries*; looking words up is offline.
 4. If you later want to sync, go to *Settings › Progress Sync* on the iPhone (see [below](#progress-sync-optional)). You can turn it off at any time with *Turn Off Sync and Remove Login* (*Sign Out* for Readest), which deletes the credentials from the iPhone and the watch and clears pending progress (also available in the watch's Settings → *Remove credentials*).
 
 ## Architecture
@@ -199,12 +199,11 @@ On the watch (reader menu, list icon → *Typography*, or Settings) and in the i
 
 watchOS doesn't allow selecting text in `Text` or showing the system dictionary, so there is a "lookup mode": tap a paragraph (or reader menu → *Look up a word*), turn the **Digital Crown** to move the cursor between words (there are also ‹ › buttons) and press *Look up*. It shows part of speech, definitions and an example, with scrolling.
 
-- **Requires a network connection** (the watch's Wi-Fi/LTE or through the iPhone). Words already looked up are kept in an on-disk LRU cache (max 200 entries / ~600 KB) and work offline.
-- Source: the Wiktionary REST API (English edition, `en.wiktionary.org/api/rest_v1/page/definition/{word}`), which covers words from all languages; the book's language (`dc:language`) is used. Definitions are **in English** even for books in other languages, because other Wiktionary editions don't offer this endpoint (they return HTTP 501). For English there is a fallback to `api.dictionaryapi.dev`.
-- If the exact form doesn't exist, lowercase and simple reductions (plurals, -ed, -ing) are retried.
-- Clear errors: offline, not found, service busy (rate limited).
-- Wiktionary content is licensed under CC BY-SA.
-- Watch settings: *Tap paragraph to look up* and *Clear dictionary cache*.
+- **Works offline.** In the iPhone app, *Settings › Dictionaries* lists one monolingual dictionary per app language (en, es, fr, de, it, pt, ja, zh) with its size, source and licence. *Download* fetches it, converts it to a compact indexed file and sends it to the watch; *Update* and *Delete* work the same way.
+- Source: [reader.dict](https://www.reader-dict.com) StarDict files built from Wiktionary (CC BY-SA 4.0). Credits are shown in the dictionary list, in *Settings › Acknowledgements* and on the watch (*Settings › Dictionary Credits*).
+- The dictionary of the book's language (`dc:language`) is tried first, then the other installed ones. Lowercase forms, inflected forms listed by the source ("ran" → "run") and simple reductions (plurals, -ed, -ing) are tried.
+- Details (format, pipeline, licences, adding a source): [docs/DICTIONARIES.md](docs/DICTIONARIES.md).
+- Watch settings: *Tap paragraph to look up* and the list of installed dictionaries.
 
 ## Importing EPUBs
 
@@ -222,7 +221,7 @@ The whole process (build, sign with cloud signing and upload to TestFlight) runs
 
 - Workflow: `.github/workflows/release.yml` (*Actions → Release → Run workflow*). With `dry_run = true` (the default) it needs no secrets: it generates the project with XcodeGen, makes an unsigned Release archive and shows what would be uploaded. With `dry_run = false` (or when pushing a `v1.0.0` tag) it signs and uploads the build.
 - Secrets: `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` (the .p8 in plain text or base64), `APPLE_TEAM_ID`. Variables: `BUNDLE_ID_BASE` (your identifier; the watch app uses `.watchkitapp`) and, optionally, `APP_NAME`.
-- App Store Connect metadata (English and Spanish), privacy answers, reviewer notes and rejection risks: [docs/appstore/](docs/appstore/). Privacy policy and support page (the project website, English and Spanish): [docs/site/](docs/site/).
+- App Store Connect metadata (English and Spanish), privacy answers, reviewer notes and rejection risks: [docs/appstore/](docs/appstore/). Privacy policy and support page (the project website, in the app's 8 languages): [docs/site/](docs/site/), generated from [docs/site-src/](docs/site-src/) by `python3 scripts/site/build.py`.
 
 ## Limitations
 

@@ -6,8 +6,8 @@ Source of truth for what data leaves the device, to whom and why. The privacy po
 
 Summary: the developer operates **no server** and receives **no data**. There is no analytics, advertising,
 crash-reporting or third-party SDK, and no tracking. Network traffic goes only to (a) the progress-sync
-service the user chooses and signs in to (a KOReader Sync server, or Readest Cloud), and (b) two public
-dictionary APIs when the user looks up a word. At most one sync service is active at a time.
+service the user chooses and signs in to (a KOReader Sync server, or Readest Cloud; at most one at a time) and
+(b) the reader.dict website when the user downloads a dictionary on the iPhone. Word lookups are offline.
 
 ## 1. Network traffic (complete list)
 
@@ -62,29 +62,28 @@ notes, statistics or files). Recipient: Readest (the user's own account, governe
 policy). The developer is not a party and receives nothing. Signing out on the iPhone removes the session from
 both devices and asks Supabase to revoke it.
 
-### 1b. Dictionary lookups: public APIs, on user action only
+### 1b. Dictionary downloads (iPhone only, on user action only)
 
-Code: `Packages/ReaderCore/Sources/ReaderCore/Dictionary/OnlineDictionary.swift`
-(`URLSessionDictionaryFetcher`, ephemeral session: no cookies, no persistent cache, 10 s timeout). Triggered
-only when the user taps a word and opens the definition (watch app; the lookup model is also compiled in
-`WatchApp/Dictionary`). Results are cached on device so a repeated word is not requested again.
+Code: `iOSApp/Dictionaries/DictionaryManager.swift` (`FileDownload`, ephemeral `URLSession`: no cookies, no
+persistent cache). Triggered only when the user taps *Download*, *Update* or *Download Again* in
+*Settings › Dictionaries*, plus a HEAD request per installed dictionary while that screen is open (update check).
+**Word lookups make no network request**: they run on the watch against the installed files
+(`OfflineDictionaryService`, docs/DICTIONARIES.md). The watch app has no dictionary networking at all.
 
 | Recipient | Request | Data sent |
 |---|---|---|
-| Wikimedia Foundation, `https://en.wiktionary.org/api/rest_v1/page/definition/{word}` | HTTPS GET | The looked-up word (and normalised variants, e.g. lower-cased or de-inflected candidates, tried in turn), the app's `User-Agent` (`Folito/1.0 (https://github.com/xhuerta/folito; ...)`, required by Wikimedia policy), `Accept: application/json`, plus the IP address inherent to any request. |
-| api.dictionaryapi.dev, `https://api.dictionaryapi.dev/api/v2/entries/en/{word}` | HTTPS GET, English words only, used when Wiktionary has no entry | Same: the word, User-Agent, IP address. |
+| reader.dict, `https://www.reader-dict.com/file/{lang}/dict-{lang}-{lang}-noetym.zip` | HTTPS GET (download), HTTPS HEAD (update check) | The file URL (reveals the chosen dictionary language), `User-Agent: Folito/1.0 (https://github.com/xhuerta/folito; dictionary download)`, plus the IP address inherent to any request. |
 
-Not sent: book title, author, surrounding text, position, account data, device ID. The word does not
-identify the user by itself, but a sequence of looked-up words could in principle reveal reading interests to
-those services' logs; their own privacy policies apply to what they retain.
+Not sent: any looked-up word, book title, author, text, position, account data or device ID.
 
 ### 1c. Not network, but data movement to document
 
 - iPhone to Apple Watch (WatchConnectivity, local to the user's paired devices, handled by Apple's frameworks):
-  processed books, reading typography settings, and the active sync connector's credentials so the watch can
-  sync on its own (see `docs/WATCH_CONNECTIVITY.md`): for KOSync the server URL, username and password (the
-  real password; the watch computes the MD5 itself), for Readest the account email and the session (access +
-  refresh token, never the password). They travel only between the user's own paired devices.
+  processed books, converted dictionaries, reading typography settings, and the active sync connector's
+  credentials so the watch can sync on its own (see `docs/WATCH_CONNECTIVITY.md`): for KOSync the server URL,
+  username and password (the real password; the watch computes the MD5 itself), for Readest the account email
+  and the session (access + refresh token, never the password). They travel only between the user's own
+  paired devices.
 - No iCloud, CloudKit, Keychain access groups or app groups are used.
 
 ## 2. Data stored on device only
@@ -96,7 +95,7 @@ those services' logs; their own privacy policies apply to what they retain.
 | Readest email and session (access + refresh token) | Keychain (iPhone and watch; the watch updates its copy when the session is refreshed) | No password. Removed on Sign Out. |
 | Library (processed EPUBs) | `Application Support/Folito/Books` (iPhone), watch app's Application Support | Files the user imports; never uploaded. |
 | Reading position, typography, device UUID, pending sync queue | UserDefaults | |
-| Dictionary cache | On-device cache file (Application Support) | |
+| Offline dictionaries | `Application Support/Folito/Dictionaries` (iPhone and watch) | Downloaded/converted files; deleted from *Settings › Dictionaries* on the iPhone (removes them from the watch too). Download validators (ETag) and checksums in UserDefaults. |
 
 ## 3. Privacy manifest declarations (`iOSApp/PrivacyInfo.xcprivacy`, `WatchApp/PrivacyInfo.xcprivacy`)
 
@@ -106,8 +105,9 @@ those services' logs; their own privacy policies apply to what they retain.
   `modificationDate`, `stat`, `getattrlist`...; the code only copies, writes and deletes files), disk space
   APIs, system boot time (`systemUptime`, `mach_absolute_time`), active keyboard APIs. Re-check if code that
   uses these is added.
-- Collected data types: **Search History** (the dictionary words sent to Wiktionary / dictionaryapi.dev),
-  not linked to identity, not used for tracking, purpose App Functionality.
+- Collected data types: **none**. (Until the offline dictionaries, looked-up words went to Wiktionary /
+  dictionaryapi.dev and were declared as Search History; lookups are now on device.) Downloading a dictionary
+  file from reader.dict sends no user data beyond the request itself, like any file download.
   Rationale for what is *not* declared: Apple defines "collect" as data transmitted off device to the developer
   or third-party partners. Sync data (username or Readest email, hashed password or session token, book hashes,
   reading position, device UUID) goes only to a service the user runs or chooses and signs in to with their own
@@ -117,8 +117,7 @@ those services' logs; their own privacy policies apply to what they retain.
 
 ## 4. Suggested App Store Connect "App Privacy" answers
 
-- Data collection: dictionary words are sent to third-party services: declare **Search History**
-  (Other Data is also acceptable), not linked to the user, not used for tracking, purpose App Functionality.
+- Data collection: **Data Not Collected** (see section 5, item 1, for the sync reading).
 - Tracking: No. No data types linked to the user.
 - Privacy policy URL: required (policy to be written from this file).
 
@@ -129,6 +128,6 @@ those services' logs; their own privacy policies apply to what they retain.
    fixed, named third party (not user-run), which makes the conservative reading more likely to be expected. The conservative alternative is to also declare Other User Content /
    Device ID / User ID, "not linked", purpose App Functionality; the current files take the "developer
    receives nothing" reading. Verify with Apple's "App privacy details" documentation.
-2. Wikimedia User-Agent contains the GitHub project URL; replace with a real contact URL/email if the repo moves.
+2. The download User-Agent contains the GitHub project URL; replace it with a real contact URL/email if the repo moves.
 3. Local network permission: iOS shows a prompt the first time the app contacts a LAN address
    (`NSLocalNetworkUsageDescription`, localised en/es, in the iOS and watch Info.plists).
