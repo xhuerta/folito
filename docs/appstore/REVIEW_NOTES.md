@@ -17,12 +17,12 @@ NO ACCOUNT IS NEEDED. Everything can be reviewed without signing in: import a bo
 How to test:
 1. Install the iPhone app and open it once with the paired Apple Watch nearby and unlocked. The watch app installs from the Watch app on the iPhone (or automatically).
 2. Import an EPUB: download the attached public-domain book (or https://www.gutenberg.org/ebooks/11.epub.noimages) and either open it from the Files app / share sheet and choose Folito, or tap "Import EPUB" (+) in the Library tab and pick the file in Files. Any DRM-free .epub works. The book appears in the Library and is sent to the watch within a few seconds.
-3. On the watch, open Folito, choose the book and scroll with the Digital Crown. Reading Options (top-right button) has text size, typography, chapters and dictionary. Look up a word needs an internet connection (Wiktionary / dictionaryapi.dev).
+3. On the watch, open Folito, choose the book and scroll with the Digital Crown. Reading Options (top-right button) has text size, typography, chapters and dictionary. Look up a word works offline once a dictionary is installed: in the iPhone app, Settings > Dictionaries > Download (e.g. English, about 50 MB); it is sent to the watch automatically.
 4. On the iPhone, the Reading tab changes typography for the watch with a live preview. Settings > About has the privacy policy, support link and open-source licences.
 
 Optional progress sync: Settings > Progress Sync connects to a KOReader Sync ("kosync") server that the USER supplies (self-hosted or one they already use with KOReader). It is off by default, needs an existing account on that server, and can be turned off at any time ("Turn Off Sync and Remove Login" removes the login from the iPhone and the watch). It is not required to evaluate the app. Plain http:// is allowed only for the user's own local-network server (NSAllowsLocalNetworking); all internet traffic is HTTPS.
 
-No in-app purchases, no user-generated content shared with others, no analytics, no ads, no tracking. Dictionary lookups send only the selected word to Wiktionary / dictionaryapi.dev.
+No in-app purchases, no user-generated content shared with others, no analytics, no ads, no tracking. Dictionary lookups happen on the watch and send nothing; the only dictionary traffic is the file download from reader-dict.com that the user starts on the iPhone.
 Contact: xlahuerta@protonmail.com
 ```
 

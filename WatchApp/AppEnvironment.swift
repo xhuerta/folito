@@ -9,8 +9,11 @@ final class AppEnvironment: ObservableObject {
     let library: BookLibrary
     let sync: SyncCoordinator
     let typography: TypographyModel
-    let dictionaryCache: DictionaryCache
+    /// Offline dictionaries sent by the iPhone (see docs/DICTIONARIES.md).
+    let dictionaries: InstalledDictionaries
     let dictionary: DictionaryProviding
+    /// What Settings shows; refreshed whenever a dictionary is installed or removed.
+    @Published private(set) var dictionaryInfos: [CompactDictionaryInfo] = []
     private var connectivity: ConnectivityReceiver?
 
     init() {
@@ -20,11 +23,19 @@ final class AppEnvironment: ObservableObject {
         self.library = BookLibrary(storage: UITesting.makeBookStorage(), positions: positions)
         self.sync = SyncCoordinator()
         self.typography = TypographyModel(store: TypographyStore(defaults: UITesting.defaults))
-        let cacheURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Folito/Dictionary/cache.json")
-        let cache = DictionaryCache(fileURL: cacheURL)
-        self.dictionaryCache = cache
-        self.dictionary = DictionaryService.online(cache: cache)
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        // The online lookup's cache of earlier versions is no longer used.
+        try? FileManager.default.removeItem(at: support.appendingPathComponent("Folito/Dictionary"))
+        let dictionaries = InstalledDictionaries(directory: UITesting.dictionaryDirectory
+            ?? support.appendingPathComponent("Folito/Dictionaries"))
+        self.dictionaries = dictionaries
+        self.dictionary = OfflineDictionaryService(installed: dictionaries)
+        self.dictionaryInfos = dictionaries.infos
+    }
+
+    /// Re-reads the installed dictionaries (after the iPhone installed or removed one).
+    func dictionariesChanged() {
+        dictionaryInfos = dictionaries.infos
     }
 
     func start() {
@@ -33,6 +44,8 @@ final class AppEnvironment: ObservableObject {
         let sync = self.sync
         let typography = self.typography
         let receiver = ConnectivityReceiver(library: library,
+                                            dictionaries: dictionaries,
+                                            onDictionariesChanged: { [weak self] in self?.dictionariesChanged() },
                                             typography: { typography.value },
                                             onTypography: { typography.applyRemote($0) },
                                             onSettingsChanged: { sync.configurationChanged() })
@@ -50,11 +63,11 @@ final class AppEnvironment: ObservableObject {
         sync.configurationChanged()
     }
 
-    /// Settings > Reset: clears preferences, positions, pending sync and credentials. Books are kept.
+    /// Settings > Reset: clears preferences, positions, pending sync and credentials. Books and
+    /// dictionaries are kept.
     func resetAll() {
         ReaderSettings.resetPreferences()
         typography.reset()
-        dictionaryCache.removeAll()
         AttributedBlockCache.shared.removeAll()
         positions.removeAll()
         sync.resetPending()

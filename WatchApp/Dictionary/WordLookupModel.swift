@@ -89,7 +89,7 @@ final class WordLookupModel: ObservableObject {
             haptics.play(.lookupFailed)
         } catch {
             if Task.isCancelled { return }
-            state = .failed(.offline)
+            state = .failed(.unreadable)
             haptics.play(.lookupFailed)
         }
     }

@@ -23,11 +23,19 @@ struct SettingsView: View {
             }
             Section {
                 Toggle("Tap Paragraph to Look Up", isOn: $tapToLookUp)
-                Button("Clear Dictionary Cache") { env.dictionaryCache.removeAll() }
+                if env.dictionaryInfos.isEmpty {
+                    Text("No dictionaries yet.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                } else {
+                    ForEach(env.dictionaryInfos, id: \.id) { info in
+                        Text(WatchMessages.dictionaryLabel(info, size: FileDigest.size(of: env.dictionaries.url(for: info.id))))
+                    }
+                    NavigationLink("Dictionary Credits") { DictionaryCreditsView(infos: env.dictionaryInfos) }
+                }
             } header: {
-                Text("Dictionary")
+                Text("Dictionaries")
             } footer: {
-                Text("Definitions need a network connection; words already looked up work offline.")
+                Text("Dictionaries work offline. Download or delete them in Folito on your iPhone: Settings, Dictionaries.")
             }
             Section {
                 if sync.isConfigured {
@@ -86,5 +94,28 @@ struct SettingsView: View {
         checking = true
         defer { checking = false }
         connection = await sync.testConnection()
+    }
+}
+
+/// Source and licence of each installed dictionary (CC BY-SA requires the credit to be shown).
+struct DictionaryCreditsView: View {
+    let infos: [CompactDictionaryInfo]
+
+    var body: some View {
+        List {
+            ForEach(infos, id: \.id) { info in
+                Section {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(WatchMessages.dictionaryLabel(info, size: nil)).font(.headline)
+                        Text(WatchMessages.dictionaryCredit(info))
+                            .font(.footnote)
+                        Text(verbatim: info.licenseURL)
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+            }
+        }
+        .navigationTitle("Credits")
     }
 }

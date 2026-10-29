@@ -70,7 +70,7 @@
 <h1>Política de privacidad</h1>
 <p class="translation-note">Esta traducción se ha realizado con ayuda de traducción automática y se ofrece solo como referencia. En caso de discrepancia, prevalece la <a href="../privacy.html" hreflang="en">versión en inglés</a>.</p>
 <p class="muted">Última actualización: 28 de octubre de 2026. Se aplica a las apps Folito para iPhone y Apple Watch.</p>
-<div class="card note lead-card"><span class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2.8 19 5.6v5.7c0 4.6-3 8.3-7 9.9-4-1.6-7-5.3-7-9.9V5.6z"/><path d="m8.8 12.1 2.2 2.2 4.3-4.5"/></svg></span><p>En resumen: Folito funciona sin ninguna cuenta. No tiene analítica, publicidad ni seguimiento, y el desarrollador no opera ningún servidor ni recibe datos. La app solo contacta con un servidor de sincronización si decides configurarlo y, cuando consultas una palabra, con los diccionarios en línea indicados abajo.</p></div>
+<div class="card note lead-card"><span class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2.8 19 5.6v5.7c0 4.6-3 8.3-7 9.9-4-1.6-7-5.3-7-9.9V5.6z"/><path d="m8.8 12.1 2.2 2.2 4.3-4.5"/></svg></span><p>En resumen: Folito funciona sin ninguna cuenta. No tiene analítica, publicidad ni seguimiento, y el desarrollador no opera ningún servidor ni recibe datos. La app solo contacta con un servidor de sincronización si decides configurarlo y, cuando descargas un diccionario, con el sitio de descarga indicado abajo.</p></div>
 
 <section class="group">
 <h2>Responsable</h2>
@@ -84,7 +84,7 @@
 <ul>
 <li><strong>Tus libros</strong> (archivos EPUB que importas) se procesan y guardan en el almacenamiento de la app en el iPhone y se envían al Apple Watch mediante WatchConnectivity de Apple, directamente entre tus dispositivos emparejados. La app nunca los sube.</li>
 <li><strong>Tus posiciones de lectura, ajustes de tipografía, un identificador aleatorio del dispositivo</strong> (ver abajo) y, si la sincronización está activada, <strong>el progreso pendiente de sincronizar</strong> se guardan en los ajustes de la app en el dispositivo. Los ajustes de tipografía también se envían al reloj emparejado.</li>
-<li><strong>Las definiciones consultadas</strong> se guardan en caché en el reloj para no pedir dos veces la misma palabra. Puedes borrar la caché en los ajustes de la app del reloj (<em>Borrar caché del diccionario</em>).</li>
+<li><strong>Los diccionarios</strong> que descargas se guardan en tu iPhone y en tu Apple Watch. Las palabras se consultan en el propio reloj, así que lo que buscas nunca sale del dispositivo. Puedes eliminar diccionarios en la app del iPhone (<em>Ajustes › Diccionarios</em>).</li>
 <li><strong>Tu inicio de sesión de sincronización</strong>, solo si activas la sincronización (dirección del servidor, usuario, contraseña), se guarda en el Llavero del iPhone y, como el reloj sincroniza por sí mismo, también se envía al reloj emparejado mediante WatchConnectivity y se guarda en su propio Llavero. Nunca se envía al desarrollador, y por internet solo va al servidor de sincronización que indicaste (ver la sección siguiente).</li>
 <li>La app no usa iCloud. Al borrar la app se eliminan estos datos de ese dispositivo.</li>
 </ul>
@@ -106,7 +106,7 @@
 <section class="group">
 <h2>Consulta de palabras</h2>
 <div class="card">
-<p>Solo cuando consultas una palabra en el reloj, la palabra seleccionada (y, si no existe la forma exacta, variantes sencillas como su minúscula o forma sin flexión, probadas por orden) se envía por HTTPS a <strong>en.wiktionary.org</strong> (Fundación Wikimedia) y, solo para palabras en inglés que Wiktionary no tenga, a <strong>api.dictionaryapi.dev</strong>. Cada petición contiene la palabra en la dirección web y un User-Agent con el nombre de la app y la página pública del proyecto; esos servicios ven tu dirección IP y la tratan según sus propias políticas (<a href="https://foundation.wikimedia.org/wiki/Policy:Privacy_policy">política de privacidad de Wikimedia</a>, en inglés). No se envía nada más: ni el título, autor o texto del libro, ni tu posición de lectura, tu inicio de sesión o el identificador del dispositivo. Una serie de palabras consultadas podría, en principio, dar pistas a esos servicios sobre lo que lees. Las peticiones no usan cookies ni caché web persistente.</p>
+<p>Consultar una palabra no envía nada a ningún sitio: los diccionarios están en tu reloj. Solo cuando pulsas <em>Descargar</em> o <em>Actualizar</em> en <em>Ajustes › Diccionarios</em>, el iPhone descarga por HTTPS un archivo de diccionario de <strong>www.reader-dict.com</strong> (reader.dict, que elabora los archivos a partir de Wiktionary). La petición solo contiene la dirección del archivo, que indica el idioma elegido, y un User-Agent con el nombre de la app; el sitio ve tu dirección IP y la trata según su propia política. Mientras esa pantalla está abierta, la app también pregunta al sitio (con la misma información y sin descargar el archivo) si un diccionario instalado ha cambiado. Después el iPhone convierte el archivo y lo envía al reloj por la conexión con el Apple Watch. Nunca se envía ninguna palabra, título, texto ni posición de lectura.</p>
 </div>
 </section>
 <section class="group">
@@ -128,7 +128,7 @@
 <section class="group">
 <h2>Tus opciones y derechos</h2>
 <div class="card">
-<p>La sincronización es opcional. Para dejar de sincronizar, abre <em>Ajustes › Sincronización del progreso</em> en el iPhone y pulsa <em>Desactivar sincronización y eliminar inicio de sesión</em>: el inicio de sesión se borra del iPhone y del Apple Watch y se descarta el progreso pendiente (tus libros y posiciones de lectura se conservan). También puedes quitarlo solo en el reloj (<em>Ajustes › Eliminar credenciales</em>), borrar la caché del diccionario o eliminar la app en cualquier momento. Para los datos que guarde un servidor de sincronización o un servicio de diccionario, contacta con ese servicio. Para dudas sobre esta política, escribe a <a href="mailto:xlahuerta@protonmail.com">xlahuerta@protonmail.com</a>.</p>
+<p>La sincronización es opcional. Para dejar de sincronizar, abre <em>Ajustes › Sincronización del progreso</em> en el iPhone y pulsa <em>Desactivar sincronización y eliminar inicio de sesión</em>: el inicio de sesión se borra del iPhone y del Apple Watch y se descarta el progreso pendiente (tus libros y posiciones de lectura se conservan). También puedes quitarlo solo en el reloj (<em>Ajustes › Eliminar credenciales</em>), eliminar diccionarios o eliminar la app en cualquier momento. Para los datos que guarde un servidor de sincronización o el sitio de descarga de diccionarios, contacta con ese servicio. Para dudas sobre esta política, escribe a <a href="mailto:xlahuerta@protonmail.com">xlahuerta@protonmail.com</a>.</p>
 </div>
 </section>
 <section class="group">
