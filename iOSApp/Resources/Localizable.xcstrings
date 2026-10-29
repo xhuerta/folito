@@ -2421,48 +2421,48 @@
         }
       }
     },
-    "Open the Watch app on this iPhone, find WristReader under Available Apps and tap Install. Your books are sent automatically once it’s installed." : {
+    "Open the Watch app on this iPhone, find Folito under Available Apps and tap Install. Your books are sent automatically once it’s installed." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Öffne die App „Watch“ auf diesem iPhone, suche WristReader unter „Verfügbare Apps“ und tippe auf „Installieren“. Deine Bücher werden nach der Installation automatisch gesendet."
+            "value" : "Öffne die App „Watch“ auf diesem iPhone, suche Folito unter „Verfügbare Apps“ und tippe auf „Installieren“. Deine Bücher werden nach der Installation automatisch gesendet."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Abre la app Watch en este iPhone, busca WristReader en “Apps disponibles” y toca Instalar. Tus libros se envían automáticamente una vez instalada."
+            "value" : "Abre la app Watch en este iPhone, busca Folito en “Apps disponibles” y toca Instalar. Tus libros se envían automáticamente una vez instalada."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ouvrez l’app Watch sur cet iPhone, recherchez WristReader sous « Apps disponibles » et touchez Installer. Vos livres sont envoyés automatiquement une fois l’app installée."
+            "value" : "Ouvrez l’app Watch sur cet iPhone, recherchez Folito sous « Apps disponibles » et touchez Installer. Vos livres sont envoyés automatiquement une fois l’app installée."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Apri l’app Watch su questo iPhone, trova WristReader in “App disponibili” e tocca Installa. I libri vengono inviati automaticamente dopo l’installazione."
+            "value" : "Apri l’app Watch su questo iPhone, trova Folito in “App disponibili” e tocca Installa. I libri vengono inviati automaticamente dopo l’installazione."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "このiPhoneでWatch Appを開き、“利用可能なApp”でWristReaderを探して“インストール”をタップしてください。インストールされると、ブックは自動的に送信されます。"
+            "value" : "このiPhoneでWatch Appを開き、“利用可能なApp”でFolitoを探して“インストール”をタップしてください。インストールされると、ブックは自動的に送信されます。"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Abra o app Watch neste iPhone, encontre o WristReader em Apps Disponíveis e toque em Instalar. Seus livros são enviados automaticamente após a instalação."
+            "value" : "Abra o app Watch neste iPhone, encontre o Folito em Apps Disponíveis e toque em Instalar. Seus livros são enviados automaticamente após a instalação."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在此 iPhone 上打开 Watch App，在“可用 App”下找到 WristReader 并轻点“安装”。安装后，你的图书会自动发送。"
+            "value" : "在此 iPhone 上打开 Watch App，在“可用 App”下找到 Folito 并轻点“安装”。安装后，你的图书会自动发送。"
           }
         }
       }
@@ -3762,49 +3762,49 @@
         }
       }
     },
-    "Something went wrong while converting “%@”. Try again; if it keeps failing, the file may use a format WristReader doesn’t support." : {
+    "Something went wrong while converting “%@”. Try again; if it keeps failing, the file may use a format Folito doesn’t support." : {
       "comment" : "Generic import error; the placeholder is the file name",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Beim Konvertieren von „%@“ ist ein Fehler aufgetreten. Versuche es erneut. Wenn es weiterhin fehlschlägt, verwendet die Datei möglicherweise ein Format, das WristReader nicht unterstützt."
+            "value" : "Beim Konvertieren von „%@“ ist ein Fehler aufgetreten. Versuche es erneut. Wenn es weiterhin fehlschlägt, verwendet die Datei möglicherweise ein Format, das Folito nicht unterstützt."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Se ha producido un error al convertir “%@”. Vuelve a intentarlo; si sigue fallando, es posible que el archivo use un formato que WristReader no admite."
+            "value" : "Se ha producido un error al convertir “%@”. Vuelve a intentarlo; si sigue fallando, es posible que el archivo use un formato que Folito no admite."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Un problème est survenu lors de la conversion de « %@ ». Réessayez ; si l’erreur persiste, le fichier utilise peut-être un format non pris en charge par WristReader."
+            "value" : "Un problème est survenu lors de la conversion de « %@ ». Réessayez ; si l’erreur persiste, le fichier utilise peut-être un format non pris en charge par Folito."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Si è verificato un problema durante la conversione di “%@”. Riprova; se continua a non riuscire, il file potrebbe usare un formato non supportato da WristReader."
+            "value" : "Si è verificato un problema durante la conversione di “%@”. Riprova; se continua a non riuscire, il file potrebbe usare un formato non supportato da Folito."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "「%@」の変換中に問題が発生しました。もう一度お試しください。失敗が続く場合は、WristReaderが対応していない形式のファイルである可能性があります。"
+            "value" : "「%@」の変換中に問題が発生しました。もう一度お試しください。失敗が続く場合は、Folitoが対応していない形式のファイルである可能性があります。"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ocorreu um erro ao converter “%@”. Tente novamente; se continuar falhando, o arquivo pode usar um formato não compatível com o WristReader."
+            "value" : "Ocorreu um erro ao converter “%@”. Tente novamente; se continuar falhando, o arquivo pode usar um formato não compatível com o Folito."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "转换“%@”时出错。请再试一次；如果仍然失败，该文件可能使用了 WristReader 不支持的格式。"
+            "value" : "转换“%@”时出错。请再试一次；如果仍然失败，该文件可能使用了 Folito 不支持的格式。"
           }
         }
       }
@@ -4696,49 +4696,49 @@
         }
       }
     },
-    "The server sent a response WristReader couldn’t understand. Check that the URL points to a KOReader sync server." : {
+    "The server sent a response Folito couldn’t understand. Check that the URL points to a KOReader sync server." : {
       "comment" : "Sync error",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Der Server hat eine Antwort gesendet, die WristReader nicht versteht. Überprüfe, ob die URL auf einen KOReader-Sync-Server verweist."
+            "value" : "Der Server hat eine Antwort gesendet, die Folito nicht versteht. Überprüfe, ob die URL auf einen KOReader-Sync-Server verweist."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "El servidor ha enviado una respuesta que WristReader no entiende. Comprueba que la URL corresponde a un servidor de sincronización de KOReader."
+            "value" : "El servidor ha enviado una respuesta que Folito no entiende. Comprueba que la URL corresponde a un servidor de sincronización de KOReader."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Le serveur a envoyé une réponse que WristReader ne comprend pas. Vérifiez que l’URL pointe vers un serveur de synchronisation KOReader."
+            "value" : "Le serveur a envoyé une réponse que Folito ne comprend pas. Vérifiez que l’URL pointe vers un serveur de synchronisation KOReader."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Il server ha inviato una risposta che WristReader non riesce a interpretare. Verifica che l’URL punti a un server di sincronizzazione KOReader."
+            "value" : "Il server ha inviato una risposta che Folito non riesce a interpretare. Verifica che l’URL punti a un server di sincronizzazione KOReader."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "サーバからWristReaderが理解できない応答が返されました。URLがKOReader同期サーバを指していることを確認してください。"
+            "value" : "サーバからFolitoが理解できない応答が返されました。URLがKOReader同期サーバを指していることを確認してください。"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "O servidor enviou uma resposta que o WristReader não entendeu. Verifique se a URL aponta para um servidor de sincronização do KOReader."
+            "value" : "O servidor enviou uma resposta que o Folito não entendeu. Verifique se a URL aponta para um servidor de sincronização do KOReader."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "服务器发送了 WristReader 无法理解的响应。请检查 URL 是否指向 KOReader 同步服务器。"
+            "value" : "服务器发送了 Folito 无法理解的响应。请检查 URL 是否指向 KOReader 同步服务器。"
           }
         }
       }
@@ -5394,187 +5394,187 @@
         }
       }
     },
-    "WristReader Isn’t on Your Apple Watch" : {
+    "Folito Isn’t on Your Apple Watch" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "WristReader ist nicht auf deiner Apple Watch"
+            "value" : "Folito ist nicht auf deiner Apple Watch"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "WristReader no está en tu Apple Watch"
+            "value" : "Folito no está en tu Apple Watch"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "WristReader n’est pas sur votre Apple Watch"
+            "value" : "Folito n’est pas sur votre Apple Watch"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "WristReader non è su Apple Watch"
+            "value" : "Folito non è su Apple Watch"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "WristReaderがApple Watchにありません"
+            "value" : "FolitoがApple Watchにありません"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "O WristReader Não Está no Apple Watch"
+            "value" : "O Folito Não Está no Apple Watch"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Apple Watch 上没有 WristReader"
+            "value" : "Apple Watch 上没有 Folito"
           }
         }
       }
     },
-    "WristReader couldn’t read “%@”. If it is stored in iCloud Drive or another cloud service, open it once in the Files app so it is downloaded, then try again." : {
+    "Folito couldn’t read “%@”. If it is stored in iCloud Drive or another cloud service, open it once in the Files app so it is downloaded, then try again." : {
       "comment" : "Alert message; the placeholder is the file name",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "WristReader konnte „%@“ nicht lesen. Wenn die Datei in iCloud Drive oder einem anderen Cloud-Dienst gespeichert ist, öffne sie einmal in der App „Dateien“, damit sie geladen wird, und versuche es dann erneut."
+            "value" : "Folito konnte „%@“ nicht lesen. Wenn die Datei in iCloud Drive oder einem anderen Cloud-Dienst gespeichert ist, öffne sie einmal in der App „Dateien“, damit sie geladen wird, und versuche es dann erneut."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "WristReader no ha podido leer “%@”. Si está guardado en iCloud Drive u otro servicio en la nube, ábrelo una vez en la app Archivos para que se descargue y vuelve a intentarlo."
+            "value" : "Folito no ha podido leer “%@”. Si está guardado en iCloud Drive u otro servicio en la nube, ábrelo una vez en la app Archivos para que se descargue y vuelve a intentarlo."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "WristReader n’a pas pu lire « %@ ». S’il est stocké dans iCloud Drive ou un autre service cloud, ouvrez-le une fois dans l’app Fichiers pour le télécharger, puis réessayez."
+            "value" : "Folito n’a pas pu lire « %@ ». S’il est stocké dans iCloud Drive ou un autre service cloud, ouvrez-le une fois dans l’app Fichiers pour le télécharger, puis réessayez."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "WristReader non è riuscito a leggere “%@”. Se è archiviato su iCloud Drive o su un altro servizio cloud, aprilo una volta nell’app File per scaricarlo, quindi riprova."
+            "value" : "Folito non è riuscito a leggere “%@”. Se è archiviato su iCloud Drive o su un altro servizio cloud, aprilo una volta nell’app File per scaricarlo, quindi riprova."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "WristReaderは「%@」を読み取れませんでした。iCloud Driveやほかのクラウドサービスに保存されている場合は、“ファイル”Appで一度開いてダウンロードしてから、もう一度お試しください。"
+            "value" : "Folitoは「%@」を読み取れませんでした。iCloud Driveやほかのクラウドサービスに保存されている場合は、“ファイル”Appで一度開いてダウンロードしてから、もう一度お試しください。"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "O WristReader não conseguiu ler “%@”. Se ele estiver no iCloud Drive ou em outro serviço de nuvem, abra-o uma vez no app Arquivos para que seja baixado e tente novamente."
+            "value" : "O Folito não conseguiu ler “%@”. Se ele estiver no iCloud Drive ou em outro serviço de nuvem, abra-o uma vez no app Arquivos para que seja baixado e tente novamente."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "WristReader 无法读取“%@”。如果该文件存储在 iCloud 云盘或其他云服务中，请先在“文件”App 中打开一次以下载它，然后再试一次。"
+            "value" : "Folito 无法读取“%@”。如果该文件存储在 iCloud 云盘或其他云服务中，请先在“文件”App 中打开一次以下载它，然后再试一次。"
           }
         }
       }
     },
-    "WristReader uses these open-source components. Tap one to read its licence." : {
+    "Folito uses these open-source components. Tap one to read its licence." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "WristReader verwendet diese Open-Source-Komponenten. Tippe auf eine, um ihre Lizenz zu lesen."
+            "value" : "Folito verwendet diese Open-Source-Komponenten. Tippe auf eine, um ihre Lizenz zu lesen."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "WristReader usa estos componentes de código abierto. Toca uno para leer su licencia."
+            "value" : "Folito usa estos componentes de código abierto. Toca uno para leer su licencia."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "WristReader utilise ces composants open source. Touchez-en un pour lire sa licence."
+            "value" : "Folito utilise ces composants open source. Touchez-en un pour lire sa licence."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "WristReader utilizza questi componenti open source. Toccane uno per leggerne la licenza."
+            "value" : "Folito utilizza questi componenti open source. Toccane uno per leggerne la licenza."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "WristReaderは以下のオープンソースコンポーネントを使用しています。タップするとライセンスを読めます。"
+            "value" : "Folitoは以下のオープンソースコンポーネントを使用しています。タップするとライセンスを読めます。"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "O WristReader usa estes componentes de código aberto. Toque em um para ler a licença."
+            "value" : "O Folito usa estes componentes de código aberto. Toque em um para ler a licença."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "WristReader 使用了以下开源组件。轻点任一组件即可阅读其许可证。"
+            "value" : "Folito 使用了以下开源组件。轻点任一组件即可阅读其许可证。"
           }
         }
       }
     },
-    "WristReader works fully without an account. Sync is optional: it only lets you continue the same book on other readers." : {
+    "Folito works fully without an account. Sync is optional: it only lets you continue the same book on other readers." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "WristReader funktioniert vollständig ohne Account. Sync ist optional: Damit kannst du dasselbe Buch nur auf anderen Readern weiterlesen."
+            "value" : "Folito funktioniert vollständig ohne Account. Sync ist optional: Damit kannst du dasselbe Buch nur auf anderen Readern weiterlesen."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "WristReader funciona por completo sin cuenta. La sincronización es opcional: solo sirve para continuar el mismo libro en otros lectores."
+            "value" : "Folito funciona por completo sin cuenta. La sincronización es opcional: solo sirve para continuar el mismo libro en otros lectores."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "WristReader fonctionne entièrement sans compte. La synchronisation est facultative : elle permet seulement de poursuivre le même livre sur d’autres liseuses."
+            "value" : "Folito fonctionne entièrement sans compte. La synchronisation est facultative : elle permet seulement de poursuivre le même livre sur d’autres liseuses."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "WristReader funziona completamente senza account. La sincronizzazione è opzionale: serve solo a continuare lo stesso libro su altri lettori."
+            "value" : "Folito funziona completamente senza account. La sincronizzazione è opzionale: serve solo a continuare lo stesso libro su altri lettori."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "WristReaderはアカウントなしですべての機能を使えます。同期はオプションで、ほかのリーダーで同じブックの続きを読むためだけに使います。"
+            "value" : "Folitoはアカウントなしですべての機能を使えます。同期はオプションで、ほかのリーダーで同じブックの続きを読むためだけに使います。"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "O WristReader funciona totalmente sem conta. A sincronização é opcional: ela só permite continuar o mesmo livro em outros leitores."
+            "value" : "O Folito funciona totalmente sem conta. A sincronização é opcional: ela só permite continuar o mesmo livro em outros leitores."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "WristReader 无需账户即可完整使用。同步是可选的：它仅用于在其他阅读器上继续阅读同一本书。"
+            "value" : "Folito 无需账户即可完整使用。同步是可选的：它仅用于在其他阅读器上继续阅读同一本书。"
           }
         }
       }

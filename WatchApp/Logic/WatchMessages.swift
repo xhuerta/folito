@@ -8,14 +8,14 @@ enum WatchMessages {
 
     static func bookOpenFailure(_ error: Error) -> String {
         if let e = error as? BookStorageError, case .unsupportedFormat = e {
-            return String(localized: "This book was prepared by a newer version of WristReader. Update the app on your iPhone and Apple Watch, then send the book again.",
+            return String(localized: "This book was prepared by a newer version of Folito. Update the app on your iPhone and Apple Watch, then send the book again.",
                           comment: "Opening a book failed: its file format is newer than this app")
         }
         if let e = error as? CocoaError, e.code == .fileReadNoSuchFile || e.code == .fileNoSuchFile {
-            return String(localized: "This book's file is missing from your watch. Delete it here and send it again from WristReader on your iPhone.",
+            return String(localized: "This book's file is missing from your watch. Delete it here and send it again from Folito on your iPhone.",
                           comment: "Opening a book failed: its file is gone")
         }
-        return String(localized: "This book's file is damaged. Delete it here and send it again from WristReader on your iPhone.",
+        return String(localized: "This book's file is damaged. Delete it here and send it again from Folito on your iPhone.",
                       comment: "Opening a book failed: the stored file could not be read")
     }
 
@@ -29,16 +29,16 @@ enum WatchMessages {
         case .ok?:
             return String(localized: "Connected. Progress syncs with your server.", comment: "Sync server status")
         case .unauthorized?:
-            return String(localized: "Wrong username or password. Fix them in WristReader on your iPhone.",
+            return String(localized: "Wrong username or password. Fix them in Folito on your iPhone.",
                           comment: "Sync server status: rejected credentials")
         case .offline?:
             return String(localized: "Can't reach the server. Check that your watch or iPhone is online, then try again.",
                           comment: "Sync server status: no connection")
         case .notConfigured?:
-            return String(localized: "Sync isn't set up. Set it up in WristReader on your iPhone.",
+            return String(localized: "Sync isn't set up. Set it up in Folito on your iPhone.",
                           comment: "Sync server status: no credentials")
         case .failed?:
-            return String(localized: "The server didn't respond as expected. Check the server address in WristReader on your iPhone.",
+            return String(localized: "The server didn't respond as expected. Check the server address in Folito on your iPhone.",
                           comment: "Sync server status: unexpected server response")
         }
     }
@@ -60,7 +60,7 @@ enum WatchMessages {
             return String(localized: "The dictionary service isn't working right now (error \(status)). Try again later.",
                           comment: "Dictionary lookup failed with an HTTP status code (the number)")
         case .invalidResponse:
-            return String(localized: "The dictionary sent an answer WristReader can't read. Try again later.",
+            return String(localized: "The dictionary sent an answer Folito can't read. Try again later.",
                           comment: "Dictionary lookup failed: response could not be parsed")
         }
     }

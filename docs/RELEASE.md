@@ -1,4 +1,4 @@
-# Releasing WristReader without a Mac
+# Releasing Folito without a Mac
 
 ## Owner TODO (every remaining placeholder and decision)
 
@@ -8,7 +8,7 @@ Placeholders still in the repository (search for the bracketed text):
 * [x] `[DEVELOPER_NAME]`: `docs/site/privacy.html`, `docs/site/es/privacy.html` (responsible party), `docs/appstore/metadata-en.md` (copyright). Filled: Xabier Lahuerta.
 * [x] `[DATE]`: "Last updated" in `docs/site/privacy.html` and `docs/site/es/privacy.html` set to 28 October 2026; update it whenever the policy changes.
 * [x] In-app links: `iOSApp/Support/AppLinks.swift` (PR #20) points to the GitHub Pages site (Spanish pages for Spanish speakers).
-* [ ] GitHub: `APPLE_TEAM_ID`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` secrets and the `BUNDLE_ID_BASE` variable (step 5; optional, the default is `com.xlahuerta.wristreader` from `Config/Base.xcconfig`).
+* [ ] GitHub: `APPLE_TEAM_ID`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` secrets and the `BUNDLE_ID_BASE` variable (step 5; optional, the default is `com.xlahuerta.folito` from `Config/Base.xcconfig`).
 
 Decisions and checks only the owner can make (details in [What only the owner can decide](#what-only-the-owner-can-decide)):
 
@@ -35,8 +35,8 @@ At <https://developer.apple.com/account/resources/identifiers/list> → **+** �
 
 | App | Bundle id | Example |
 |---|---|---|
-| iPhone app | your base id | `com.yourname.wristreader` |
-| Watch app | base id + `.watchkitapp` | `com.yourname.wristreader.watchkitapp` |
+| iPhone app | your base id | `com.yourname.folito` |
+| Watch app | base id + `.watchkitapp` | `com.yourname.folito.watchkitapp` |
 
 Use an *Explicit* id. No capabilities are needed (the app uses no iCloud, App Groups or push). The base id is what you will store in the `BUNDLE_ID_BASE` variable; the watch id is derived by `project.yml` and must be exactly `<base>.watchkitapp`. Registering them up front avoids relying on automatic creation during the first CI run.
 
@@ -70,7 +70,7 @@ Repository → Settings → Secrets and variables → Actions.
 | Name | Value |
 |---|---|
 | `BUNDLE_ID_BASE` | Your base bundle id (step 2). Overrides `WR_BUNDLE_ID`. Must not be `com.example.*` and must not end in `.watchkitapp`. |
-| `APP_NAME` | Optional. Home-screen display name (`CFBundleDisplayName`) for both apps, e.g. the final App Store name. Leave empty to keep `WristReader`. |
+| `APP_NAME` | Optional. Home-screen display name (`CFBundleDisplayName`) for both apps, e.g. the final App Store name. Leave empty to keep `Folito`. |
 
 The key is written to a temporary `600` file, passed to `xcodebuild` by path, masked in logs, and deleted in an `always()` step. Secrets are only exposed to the steps that need them.
 
@@ -88,8 +88,8 @@ Apple requires uploads to be built with the current major Xcode/SDK (since 28 Ap
 
 ## 7. Install with TestFlight
 
-* **Internal testing** (up to 100 App Store Connect users, no review): App Store Connect → your app → **TestFlight** → *Internal Testing* → create a group, add yourself, assign the build. Install **TestFlight** from the App Store on your iPhone, sign in with the same Apple ID and install WristReader.
-* **The watch app** installs through the iPhone: open the **Watch** app on the iPhone → scroll to WristReader → *Install* (or enable *Automatic App Install*). TestFlight itself shows the watch app as part of the iPhone app; the watch needs to be paired, unlocked and on the same iPhone.
+* **Internal testing** (up to 100 App Store Connect users, no review): App Store Connect → your app → **TestFlight** → *Internal Testing* → create a group, add yourself, assign the build. Install **TestFlight** from the App Store on your iPhone, sign in with the same Apple ID and install Folito.
+* **The watch app** installs through the iPhone: open the **Watch** app on the iPhone → scroll to Folito → *Install* (or enable *Automatic App Install*). TestFlight itself shows the watch app as part of the iPhone app; the watch needs to be paired, unlocked and on the same iPhone.
 * **External testing** (up to 10,000 people via email or a public link): the first build of a version goes through *Beta App Review* (Apple checks it against the App Review Guidelines) and needs test information including contact details; reuse `docs/appstore/REVIEW_NOTES.md` (no sign-in or demo account needed). Builds expire after 90 days.
 
 ## 8. Submit for App Store review
@@ -116,7 +116,7 @@ The support, privacy policy and landing pages are static HTML in `docs/site/` (E
 
 ## What only the owner can decide
 
-* Final **app name** and whether it is available (the name must be unique in the App Store; 30 characters max). "WristReader" is a working title; see candidates in `docs/appstore/metadata-*.md`.
+* Final **app name** and whether it is available (the name must be unique in the App Store; 30 characters max). "Folito" is a working title; see candidates in `docs/appstore/metadata-*.md`.
 * **Bundle id** (permanent once the app is created) and the SKU.
 * **Contact e-mail and developer name** (`[CONTACT_EMAIL]`, `[DEVELOPER_NAME]`). The site URLs are fixed at `https://xhuerta.github.io/wristreader-site/`.
 * **Price and availability** (free vs paid, territories), and the seller/developer name shown (individual name vs organisation).

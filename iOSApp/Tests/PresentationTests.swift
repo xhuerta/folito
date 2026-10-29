@@ -1,6 +1,6 @@
 import XCTest
 import ReaderCore
-@testable import WristReader
+@testable import Folito
 
 /// Pure presentation logic: error wording, formatting, watch state, About data.
 final class PresentationTests: XCTestCase {

@@ -26,7 +26,7 @@ public struct KOSyncProgress: Codable, Sendable, Equatable {
     public var timestamp: Int?
 
     public init(document: String, progress: String, percentage: Double,
-                device: String = "WristReader", device_id: String, timestamp: Int? = nil) {
+                device: String = "Folito", device_id: String, timestamp: Int? = nil) {
         self.document = document
         self.progress = progress
         self.percentage = percentage

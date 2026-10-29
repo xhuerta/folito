@@ -1,6 +1,6 @@
 import XCTest
 import ReaderCore
-@testable import WristReader
+@testable import Folito
 
 final class TypographySyncTests: XCTestCase {
     func testSettingsContextOmitsEmptyAndDefaultStamp() {

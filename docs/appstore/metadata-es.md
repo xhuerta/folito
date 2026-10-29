@@ -2,17 +2,15 @@
 
 Para pegar en App Store Connect. Límites: nombre y subtítulo 30; texto promocional 170; descripción 4000; palabras clave 100; novedades 4000.
 
-## Nombre (elige uno; Apple comprueba la disponibilidad al crear el registro de la app)
+## Nombre
 
-1. `WristReader` (11)
-2. `WristReader: Lector EPUB` (24)
-3. `Lector EPUB de muñeca` (21)
+`Folito` (6). No se traduce.
 
 No incluyas «KOReader», «Readest», «Kindle», «Apple» ni otras marcas de terceros en el nombre.
 
 ## Subtítulo (≤ 30)
 
-`Lector EPUB para Apple Watch` (28)
+`Lector EPUB para tu reloj` (25)
 
 ## Texto promocional (≤ 170)
 
@@ -21,7 +19,7 @@ No incluyas «KOReader», «Readest», «Kindle», «Apple» ni otras marcas de 
 ## Descripción
 
 ```
-WristReader es un lector de EPUB para Apple Watch. Usa tus propios libros: impórtalos en el iPhone y léelos en la muñeca. No hace falta ninguna cuenta.
+Folito es un lector de EPUB para Apple Watch. Usa tus propios libros: impórtalos en el iPhone y léelos en la muñeca. No hace falta ninguna cuenta.
 
 LEE EN LA MUÑECA
 • Importa archivos .epub sin DRM desde Archivos, el menú Compartir o el botón de importar de la app; se envían al reloj automáticamente.
@@ -47,7 +45,7 @@ CONVIENE SABER
 • Abre la app del iPhone al menos una vez para que se configure el reloj.
 • No admite libros con DRM.
 • La interfaz de la app está por ahora en inglés.
-• KOReader y Readest son proyectos independientes; WristReader no está afiliada con ellos.
+• KOReader y Readest son proyectos independientes; Folito no está afiliada con ellos.
 ```
 
 ## Palabras clave (≤ 100)

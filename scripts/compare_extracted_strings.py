@@ -27,8 +27,8 @@ ROOT = Path(__file__).resolve().parent.parent
 
 # Xcode target name -> its Localizable catalog. Keep in sync with project.yml and check_strings.py.
 TARGETS = {
-    "WristReader": "iOSApp/Resources/Localizable.xcstrings",
-    "WristReaderWatch": "WatchApp/Resources/Localizable.xcstrings",
+    "Folito": "iOSApp/Resources/Localizable.xcstrings",
+    "FolitoWatch": "WatchApp/Resources/Localizable.xcstrings",
 }
 
 TARGET_RE = re.compile(r"/([^/]+)\.build/Objects-normal/")

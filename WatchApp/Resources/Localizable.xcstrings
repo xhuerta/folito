@@ -3577,48 +3577,48 @@
         }
       }
     },
-    "Send an EPUB from WristReader on your iPhone. Books you send can be read here offline." : {
+    "Send an EPUB from Folito on your iPhone. Books you send can be read here offline." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sende ein EPUB aus WristReader auf deinem iPhone. Gesendete Bücher kannst du hier offline lesen."
+            "value" : "Sende ein EPUB aus Folito auf deinem iPhone. Gesendete Bücher kannst du hier offline lesen."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Envía un EPUB desde WristReader en el iPhone. Los libros que envíes se pueden leer aquí sin conexión."
+            "value" : "Envía un EPUB desde Folito en el iPhone. Los libros que envíes se pueden leer aquí sin conexión."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Envoyez un EPUB depuis WristReader sur votre iPhone. Les livres envoyés se lisent ici hors ligne."
+            "value" : "Envoyez un EPUB depuis Folito sur votre iPhone. Les livres envoyés se lisent ici hors ligne."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Invia un EPUB da WristReader su iPhone. I libri inviati si possono leggere qui offline."
+            "value" : "Invia un EPUB da Folito su iPhone. I libri inviati si possono leggere qui offline."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "iPhoneのWristReaderからEPUBを送信してください。送信したブックはここでオフラインで読めます。"
+            "value" : "iPhoneのFolitoからEPUBを送信してください。送信したブックはここでオフラインで読めます。"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Envie um EPUB pelo WristReader no iPhone. Os livros enviados podem ser lidos aqui offline."
+            "value" : "Envie um EPUB pelo Folito no iPhone. Os livros enviados podem ser lidos aqui offline."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "从 iPhone 上的 WristReader 发送 EPUB。发送的图书可在此离线阅读。"
+            "value" : "从 iPhone 上的 Folito 发送 EPUB。发送的图书可在此离线阅读。"
           }
         }
       }
@@ -4134,49 +4134,49 @@
         }
       }
     },
-    "Sync isn't set up. Set it up in WristReader on your iPhone." : {
+    "Sync isn't set up. Set it up in Folito on your iPhone." : {
       "comment" : "Sync server status: no credentials",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sync ist nicht eingerichtet. Richte es in WristReader auf deinem iPhone ein."
+            "value" : "Sync ist nicht eingerichtet. Richte es in Folito auf deinem iPhone ein."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La sincronización no está configurada. Configúrala en WristReader en el iPhone."
+            "value" : "La sincronización no está configurada. Configúrala en Folito en el iPhone."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La synchronisation n’est pas configurée. Configurez-la dans WristReader sur votre iPhone."
+            "value" : "La synchronisation n’est pas configurée. Configurez-la dans Folito sur votre iPhone."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La sincronizzazione non è configurata. Configurala in WristReader su iPhone."
+            "value" : "La sincronizzazione non è configurata. Configurala in Folito su iPhone."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "同期が設定されていません。iPhoneのWristReaderで設定してください。"
+            "value" : "同期が設定されていません。iPhoneのFolitoで設定してください。"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "A sincronização não está configurada. Configure-a no WristReader do iPhone."
+            "value" : "A sincronização não está configurada. Configure-a no Folito do iPhone."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "尚未设置同步。请在 iPhone 上的 WristReader 中设置。"
+            "value" : "尚未设置同步。请在 iPhone 上的 Folito 中设置。"
           }
         }
       }
@@ -4553,49 +4553,49 @@
         }
       }
     },
-    "The dictionary sent an answer WristReader can't read. Try again later." : {
+    "The dictionary sent an answer Folito can't read. Try again later." : {
       "comment" : "Dictionary lookup failed: response could not be parsed",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Das Wörterbuch hat eine Antwort gesendet, die WristReader nicht lesen kann. Versuche es später erneut."
+            "value" : "Das Wörterbuch hat eine Antwort gesendet, die Folito nicht lesen kann. Versuche es später erneut."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "El diccionario ha enviado una respuesta que WristReader no puede leer. Inténtalo más tarde."
+            "value" : "El diccionario ha enviado una respuesta que Folito no puede leer. Inténtalo más tarde."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Le dictionnaire a envoyé une réponse que WristReader ne peut pas lire. Réessayez plus tard."
+            "value" : "Le dictionnaire a envoyé une réponse que Folito ne peut pas lire. Réessayez plus tard."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Il dizionario ha inviato una risposta che WristReader non riesce a leggere. Riprova più tardi."
+            "value" : "Il dizionario ha inviato una risposta che Folito non riesce a leggere. Riprova più tardi."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "辞書からWristReaderが読み取れない応答が返されました。しばらくしてからもう一度お試しください。"
+            "value" : "辞書からFolitoが読み取れない応答が返されました。しばらくしてからもう一度お試しください。"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "O dicionário enviou uma resposta que o WristReader não consegue ler. Tente novamente mais tarde."
+            "value" : "O dicionário enviou uma resposta que o Folito não consegue ler. Tente novamente mais tarde."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "词典返回了 WristReader 无法读取的响应。请稍后再试。"
+            "value" : "词典返回了 Folito 无法读取的响应。请稍后再试。"
           }
         }
       }
@@ -4647,49 +4647,49 @@
         }
       }
     },
-    "The server didn't respond as expected. Check the server address in WristReader on your iPhone." : {
+    "The server didn't respond as expected. Check the server address in Folito on your iPhone." : {
       "comment" : "Sync server status: unexpected server response",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Der Server hat nicht wie erwartet geantwortet. Überprüfe die Serveradresse in WristReader auf deinem iPhone."
+            "value" : "Der Server hat nicht wie erwartet geantwortet. Überprüfe die Serveradresse in Folito auf deinem iPhone."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "El servidor no ha respondido como se esperaba. Comprueba la dirección del servidor en WristReader en el iPhone."
+            "value" : "El servidor no ha respondido como se esperaba. Comprueba la dirección del servidor en Folito en el iPhone."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Le serveur n’a pas répondu comme prévu. Vérifiez l’adresse du serveur dans WristReader sur votre iPhone."
+            "value" : "Le serveur n’a pas répondu comme prévu. Vérifiez l’adresse du serveur dans Folito sur votre iPhone."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Il server non ha risposto come previsto. Controlla l’indirizzo del server in WristReader su iPhone."
+            "value" : "Il server non ha risposto come previsto. Controlla l’indirizzo del server in Folito su iPhone."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "サーバから想定外の応答がありました。iPhoneのWristReaderでサーバのアドレスを確認してください。"
+            "value" : "サーバから想定外の応答がありました。iPhoneのFolitoでサーバのアドレスを確認してください。"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "O servidor não respondeu como esperado. Verifique o endereço do servidor no WristReader do iPhone."
+            "value" : "O servidor não respondeu como esperado. Verifique o endereço do servidor no Folito do iPhone."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "服务器未按预期响应。请在 iPhone 上的 WristReader 中检查服务器地址。"
+            "value" : "服务器未按预期响应。请在 iPhone 上的 Folito 中检查服务器地址。"
           }
         }
       }
@@ -4787,143 +4787,143 @@
         }
       }
     },
-    "This book was prepared by a newer version of WristReader. Update the app on your iPhone and Apple Watch, then send the book again." : {
+    "This book was prepared by a newer version of Folito. Update the app on your iPhone and Apple Watch, then send the book again." : {
       "comment" : "Opening a book failed: its file format is newer than this app",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dieses Buch wurde von einer neueren Version von WristReader vorbereitet. Aktualisiere die App auf iPhone und Apple Watch und sende das Buch erneut."
+            "value" : "Dieses Buch wurde von einer neueren Version von Folito vorbereitet. Aktualisiere die App auf iPhone und Apple Watch und sende das Buch erneut."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Este libro se preparó con una versión más reciente de WristReader. Actualiza la app en el iPhone y el Apple Watch y vuelve a enviar el libro."
+            "value" : "Este libro se preparó con una versión más reciente de Folito. Actualiza la app en el iPhone y el Apple Watch y vuelve a enviar el libro."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ce livre a été préparé par une version plus récente de WristReader. Mettez à jour l’app sur votre iPhone et votre Apple Watch, puis renvoyez le livre."
+            "value" : "Ce livre a été préparé par une version plus récente de Folito. Mettez à jour l’app sur votre iPhone et votre Apple Watch, puis renvoyez le livre."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Questo libro è stato preparato da una versione più recente di WristReader. Aggiorna l’app su iPhone e Apple Watch, quindi invia di nuovo il libro."
+            "value" : "Questo libro è stato preparato da una versione più recente di Folito. Aggiorna l’app su iPhone e Apple Watch, quindi invia di nuovo il libro."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "このブックは新しいバージョンのWristReaderで準備されました。iPhoneとApple WatchのAppをアップデートしてから、ブックを再送信してください。"
+            "value" : "このブックは新しいバージョンのFolitoで準備されました。iPhoneとApple WatchのAppをアップデートしてから、ブックを再送信してください。"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Este livro foi preparado por uma versão mais recente do WristReader. Atualize o app no iPhone e no Apple Watch e envie o livro novamente."
+            "value" : "Este livro foi preparado por uma versão mais recente do Folito. Atualize o app no iPhone e no Apple Watch e envie o livro novamente."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "此图书由更新版本的 WristReader 准备。请在 iPhone 和 Apple Watch 上更新 App，然后重新发送图书。"
+            "value" : "此图书由更新版本的 Folito 准备。请在 iPhone 和 Apple Watch 上更新 App，然后重新发送图书。"
           }
         }
       }
     },
-    "This book's file is damaged. Delete it here and send it again from WristReader on your iPhone." : {
+    "This book's file is damaged. Delete it here and send it again from Folito on your iPhone." : {
       "comment" : "Opening a book failed: the stored file could not be read",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Die Datei dieses Buchs ist beschädigt. Lösche es hier und sende es erneut aus WristReader auf deinem iPhone."
+            "value" : "Die Datei dieses Buchs ist beschädigt. Lösche es hier und sende es erneut aus Folito auf deinem iPhone."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "El archivo de este libro está dañado. Elimínalo aquí y vuelve a enviarlo desde WristReader en el iPhone."
+            "value" : "El archivo de este libro está dañado. Elimínalo aquí y vuelve a enviarlo desde Folito en el iPhone."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Le fichier de ce livre est endommagé. Supprimez-le ici et renvoyez-le depuis WristReader sur votre iPhone."
+            "value" : "Le fichier de ce livre est endommagé. Supprimez-le ici et renvoyez-le depuis Folito sur votre iPhone."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Il file di questo libro è danneggiato. Eliminalo qui e invialo di nuovo da WristReader su iPhone."
+            "value" : "Il file di questo libro è danneggiato. Eliminalo qui e invialo di nuovo da Folito su iPhone."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "このブックのファイルは破損しています。ここで削除して、iPhoneのWristReaderから再送信してください。"
+            "value" : "このブックのファイルは破損しています。ここで削除して、iPhoneのFolitoから再送信してください。"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "O arquivo deste livro está danificado. Apague-o aqui e envie-o novamente pelo WristReader no iPhone."
+            "value" : "O arquivo deste livro está danificado. Apague-o aqui e envie-o novamente pelo Folito no iPhone."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "此图书的文件已损坏。请在此处删除，然后从 iPhone 上的 WristReader 重新发送。"
+            "value" : "此图书的文件已损坏。请在此处删除，然后从 iPhone 上的 Folito 重新发送。"
           }
         }
       }
     },
-    "This book's file is missing from your watch. Delete it here and send it again from WristReader on your iPhone." : {
+    "This book's file is missing from your watch. Delete it here and send it again from Folito on your iPhone." : {
       "comment" : "Opening a book failed: its file is gone",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Die Datei dieses Buchs fehlt auf deiner Watch. Lösche es hier und sende es erneut aus WristReader auf deinem iPhone."
+            "value" : "Die Datei dieses Buchs fehlt auf deiner Watch. Lösche es hier und sende es erneut aus Folito auf deinem iPhone."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "El archivo de este libro no está en el reloj. Elimínalo aquí y vuelve a enviarlo desde WristReader en el iPhone."
+            "value" : "El archivo de este libro no está en el reloj. Elimínalo aquí y vuelve a enviarlo desde Folito en el iPhone."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Le fichier de ce livre est absent de votre montre. Supprimez-le ici et renvoyez-le depuis WristReader sur votre iPhone."
+            "value" : "Le fichier de ce livre est absent de votre montre. Supprimez-le ici et renvoyez-le depuis Folito sur votre iPhone."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Il file di questo libro non è presente sull’orologio. Eliminalo qui e invialo di nuovo da WristReader su iPhone."
+            "value" : "Il file di questo libro non è presente sull’orologio. Eliminalo qui e invialo di nuovo da Folito su iPhone."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "このブックのファイルがApple Watchにありません。ここで削除して、iPhoneのWristReaderから再送信してください。"
+            "value" : "このブックのファイルがApple Watchにありません。ここで削除して、iPhoneのFolitoから再送信してください。"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "O arquivo deste livro não está no relógio. Apague-o aqui e envie-o novamente pelo WristReader no iPhone."
+            "value" : "O arquivo deste livro não está no relógio. Apague-o aqui e envie-o novamente pelo Folito no iPhone."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "手表上缺少此图书的文件。请在此处删除，然后从 iPhone 上的 WristReader 重新发送。"
+            "value" : "手表上缺少此图书的文件。请在此处删除，然后从 iPhone 上的 Folito 重新发送。"
           }
         }
       }
@@ -5252,49 +5252,49 @@
         }
       }
     },
-    "Wrong username or password. Fix them in WristReader on your iPhone." : {
+    "Wrong username or password. Fix them in Folito on your iPhone." : {
       "comment" : "Sync server status: rejected credentials",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Falscher Benutzername oder falsches Passwort. Korrigiere sie in WristReader auf deinem iPhone."
+            "value" : "Falscher Benutzername oder falsches Passwort. Korrigiere sie in Folito auf deinem iPhone."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nombre de usuario o contraseña incorrectos. Corrígelos en WristReader en el iPhone."
+            "value" : "Nombre de usuario o contraseña incorrectos. Corrígelos en Folito en el iPhone."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nom d’utilisateur ou mot de passe incorrect. Corrigez-les dans WristReader sur votre iPhone."
+            "value" : "Nom d’utilisateur ou mot de passe incorrect. Corrigez-les dans Folito sur votre iPhone."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nome utente o password errati. Correggili in WristReader su iPhone."
+            "value" : "Nome utente o password errati. Correggili in Folito su iPhone."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ユーザ名またはパスワードが正しくありません。iPhoneのWristReaderで修正してください。"
+            "value" : "ユーザ名またはパスワードが正しくありません。iPhoneのFolitoで修正してください。"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nome de usuário ou senha incorretos. Corrija-os no WristReader do iPhone."
+            "value" : "Nome de usuário ou senha incorretos. Corrija-os no Folito do iPhone."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "用户名或密码错误。请在 iPhone 上的 WristReader 中更正。"
+            "value" : "用户名或密码错误。请在 iPhone 上的 Folito 中更正。"
           }
         }
       }

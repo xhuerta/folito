@@ -2,7 +2,7 @@ import XCTest
 import SwiftUI
 import WatchKit
 import ReaderCore
-@testable import WristReaderWatch
+@testable import FolitoWatch
 
 // Logic behind the watch's accessibility / HIG work: messages, formatting, the adjustable word cursor,
 // haptics and accessibility-aware rendering. Contrast ratios are tested in ReaderCore

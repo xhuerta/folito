@@ -30,13 +30,13 @@ LANGUAGES = ["en", "es", "fr", "de", "it", "pt-BR", "ja", "zh-Hans"]
 
 # target name -> (Localizable catalog, other catalogs, source directories, excluded directory names)
 TARGETS = {
-    "WristReader (iOS)": (
+    "Folito (iOS)": (
         "iOSApp/Resources/Localizable.xcstrings",
         ["iOSApp/Resources/InfoPlist.xcstrings"],
         ["iOSApp", "Shared"],
         {"Tests", "UITests"},
     ),
-    "WristReaderWatch (watchOS)": (
+    "FolitoWatch (watchOS)": (
         "WatchApp/Resources/Localizable.xcstrings",
         ["WatchApp/Resources/InfoPlist.xcstrings"],
         ["WatchApp", "Shared"],

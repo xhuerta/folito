@@ -1,6 +1,6 @@
 import XCTest
 import ReaderCore
-@testable import WristReaderWatch
+@testable import FolitoWatch
 
 private func makeBook() -> ProcessedBook {
     // Chapter 0: blocks of 10, 20 chars; chapter 1: empty; chapter 2: one block of 70 chars.

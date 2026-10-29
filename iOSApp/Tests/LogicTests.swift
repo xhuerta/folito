@@ -1,5 +1,5 @@
 import XCTest
-@testable import WristReader
+@testable import Folito
 
 final class LogicTests: XCTestCase {
     func testCredentialsDefaultsAndNormalises() {
@@ -86,7 +86,7 @@ final class LogicTests: XCTestCase {
 @MainActor
 final class SyncOptionalTests: XCTestCase {
     private func make() -> (SyncSettings, KeychainStore, UserDefaults) {
-        let kc = KeychainStore(service: "test.wristreader.\(UUID().uuidString)")
+        let kc = KeychainStore(service: "test.folito.\(UUID().uuidString)")
         let d = UserDefaults(suiteName: "test.\(UUID().uuidString)")!
         return (SyncSettings(keychain: kc, defaults: d, clientFactory: { _ in MockKOSyncClient() }), kc, d)
     }
