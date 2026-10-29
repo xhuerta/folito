@@ -10,6 +10,7 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
     @Published private(set) var isReachable = false
     /// documentHash of book transfers still in flight.
     @Published private(set) var outstandingHashes: Set<String> = []
+    /// Last connectivity error, for debugging only (never shown in the UI, so it is not localized).
     @Published private(set) var lastError: String?
 
     /// Called on the main queue when a book transfer finishes successfully.
@@ -58,7 +59,7 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
 
     func send(book entry: LibraryEntry, fileURL: URL, formatVersion: Int) {
         guard let session, session.activationState == .activated else {
-            lastError = "Watch session is not active."; return
+            lastError = "Watch session is not active."; return // i18n-ignore: diagnostics, not shown in the UI
         }
         // Not installed yet: the book stays unsent and `syncWatchState()` sends it once the watch app appears.
         guard canSend else { return }
@@ -80,7 +81,7 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
         let cleared = settings == nil ? clearedStampProvider?() : nil
         guard let info = WatchSchema.settingsContext(kosync: kosync, clearedStamp: cleared, typography: typography) else { return }
         do { try session.updateApplicationContext(info) }
-        catch { lastError = "Could not send settings: \(error.localizedDescription)" }
+        catch { lastError = "Could not send settings: \(error.localizedDescription)" } // i18n-ignore
     }
 
     /// Brings the watch up to date: current settings and every book it has not confirmed. Idempotent;
@@ -166,7 +167,7 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
         DispatchQueue.main.async {
             if let hash { self.outstandingHashes.remove(hash) }
             if let error {
-                self.lastError = "Transfer failed: \(error.localizedDescription)"
+                self.lastError = "Transfer failed: \(error.localizedDescription)" // i18n-ignore
             } else if let hash {
                 self.onTransferFinished?(hash)
             }

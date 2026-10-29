@@ -10,6 +10,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  strings:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Every String Catalog key translated in all supported languages, matching format specifiers, and
+      # no UI string in the Swift sources missing from its target's catalog. See docs/LOCALIZATION.md.
+      - name: Check localizations
+        run: python3 scripts/check_strings.py
+
   test-core:
     runs-on: ubuntu-latest
     container: swift:6.0

@@ -167,7 +167,7 @@ struct EntryList: View {
                     ForEach(Array(meaning.senses.enumerated()), id: \.offset) { n, sense in
                         // One VoiceOver element per sense: number, definition and examples.
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("\(n + 1). \(sense.definition)").font(.footnote)
+                            Text(verbatim: "\(n + 1). \(sense.definition)").font(.footnote)
                             ForEach(sense.examples, id: \.self) { example in
                                 Text(verbatim: "\u{201C}\(example)\u{201D}").font(.caption2).italic().foregroundStyle(.secondary)
                             }

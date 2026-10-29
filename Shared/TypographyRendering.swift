@@ -150,7 +150,7 @@ struct BlockStyledText: View, Equatable {
             if spec.showsBullet {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     // Decorative: VoiceOver reads the item's text only.
-                    Text("\u{2022}").accessibilityHidden(true)
+                    Text(verbatim: "\u{2022}").accessibilityHidden(true)
                     base
                 }
             } else {
@@ -193,14 +193,34 @@ struct TypographyPreview: View {
     /// `.none` (its settings are not the watch's).
     var accessibility: ReaderAccessibility = .none
 
-    private static let sample: [Block] = [
-        Block(text: "Chapter One", style: .heading1, xpointer: "", globalOffset: -1),
-        Block(text: "It was a bright cold day in April, and the clocks were striking thirteen.",
-              spans: [StyleSpan(location: 9, length: 6, bold: true, italic: false),
-                      StyleSpan(location: 16, length: 4, bold: false, italic: true)],
-              xpointer: "", globalOffset: -2),
-        Block(text: "\u{201C}Words on the wrist,\u{201D} he said.", style: .quote, xpointer: "", globalOffset: -3),
-    ]
+    /// Localized sample text. The emphasized words are looked up in the translated sentence, so a
+    /// translation only has to contain them verbatim (otherwise the sentence is shown without emphasis).
+    private static let sample: [Block] = {
+        let heading = String(localized: "Chapter One",
+                             comment: "Typography preview: sample chapter heading")
+        let sentence = String(localized: "It was a bright cold day in April, and the clocks were striking thirteen.",
+                              comment: "Typography preview: sample paragraph (opening line of Orwell's 1984; use the published translation if there is one). Must contain the words translated for 'bright' and 'cold' exactly as written there.")
+        let boldWord = String(localized: "bright",
+                              comment: "Typography preview: the word of the sample paragraph shown in bold. Must appear exactly like this in the translated sample paragraph.")
+        let italicWord = String(localized: "cold",
+                                comment: "Typography preview: the word of the sample paragraph shown in italics. Must appear exactly like this in the translated sample paragraph.")
+        let quote = String(localized: "\u{201C}Words on the wrist,\u{201D} he said.",
+                           comment: "Typography preview: sample quotation; use the quotation marks of your language")
+        let spans = [span(of: boldWord, in: sentence, bold: true, italic: false),
+                     span(of: italicWord, in: sentence, bold: false, italic: true)].compactMap { $0 }
+        return [
+            Block(text: heading, style: .heading1, xpointer: "", globalOffset: -1),
+            Block(text: sentence, spans: spans, xpointer: "", globalOffset: -2),
+            Block(text: quote, style: .quote, xpointer: "", globalOffset: -3),
+        ]
+    }()
+
+    /// UTF-16 range of `word` in `text` as a style span (nil when the translation does not contain it).
+    private static func span(of word: String, in text: String, bold: Bool, italic: Bool) -> StyleSpan? {
+        let range = (text as NSString).range(of: word)
+        guard range.location != NSNotFound, range.length > 0 else { return nil }
+        return StyleSpan(location: range.location, length: range.length, bold: bold, italic: italic)
+    }
 
     var body: some View {
         let style = ReaderRenderStyle(typography, accessibility: accessibility)
