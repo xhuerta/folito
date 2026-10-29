@@ -82,6 +82,7 @@ struct UserFacingError: Equatable, Identifiable {
                 break
             }
         }
+        if let e = error as? ReadestError { return readestMessage(for: e) }
         guard let e = error as? KOSyncError else {
             return String(localized: "The server couldn’t be reached. Check the server URL and your internet connection, then try again.",
                           comment: "Generic sync error")
@@ -106,6 +107,30 @@ struct UserFacingError: Equatable, Identifiable {
                           comment: "Sync error")
         case .notImplemented:
             return String(localized: "This server doesn’t support that request.", comment: "Sync error")
+        }
+    }
+
+    /// Message for a failed Readest Cloud request.
+    static func readestMessage(for error: ReadestError) -> String {
+        switch error {
+        case .invalidCredentials:
+            return String(localized: "Readest didn’t accept this email and password. Check them, or create an account in the Readest app first.",
+                          comment: "Readest sync error: wrong email or password")
+        case .unauthorized, .notSignedIn:
+            return String(localized: "Your Readest session has ended. Sign in again.",
+                          comment: "Readest sync error: session expired or revoked")
+        case .rateLimited:
+            return String(localized: "Too many attempts. Wait a few minutes, then try again.",
+                          comment: "Readest sync error: rate limited")
+        case .offline:
+            return String(localized: "Readest couldn’t be reached. Check your internet connection, then try again.",
+                          comment: "Readest sync error: no connection")
+        case .server(let status, _):
+            return String(localized: "The server reported an error (HTTP \(status)). Try again later.",
+                          comment: "Sync error; the placeholder is an HTTP status code")
+        case .notFound, .invalidResponse:
+            return String(localized: "Readest sent a response Folito couldn’t understand. Try again later.",
+                          comment: "Readest sync error: unexpected response")
         }
     }
 

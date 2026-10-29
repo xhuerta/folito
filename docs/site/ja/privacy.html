@@ -69,7 +69,7 @@
 <div class="doc">
 <h1>プライバシーポリシー</h1>
 <p class="translation-note">この翻訳は機械翻訳の支援を受けて作成された参考訳です。内容に相違がある場合は、<a href="../privacy.html" hreflang="en">英語版</a>が優先されます。</p>
-<p class="muted">最終更新日：2026年10月28日。iPhone および Apple Watch 用の Folito アプリに適用されます。</p>
+<p class="muted">最終更新日：2026年10月29日。iPhone および Apple Watch 用の Folito アプリに適用されます。</p>
 <div class="card note lead-card"><span class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2.8 19 5.6v5.7c0 4.6-3 8.3-7 9.9-4-1.6-7-5.3-7-9.9V5.6z"/><path d="m8.8 12.1 2.2 2.2 4.3-4.5"/></svg></span><p>要約：Folito はアカウントなしで使えます。分析、広告、トラッキングはなく、開発者はサーバを運営せず、データを受け取りません。アプリが通信するのは、設定した場合の同期サーバと、辞書をダウンロードするときの下記のダウンロードサイトだけです。</p></div>
 
 <section class="group">
@@ -86,6 +86,7 @@
 <li><strong>読書位置、タイポグラフィ設定、ランダムなデバイス識別子</strong>（下記参照）、および同期がオンの場合は<strong>同期待ちの進捗</strong>が、デバイス上のアプリの設定に保存されます。タイポグラフィ設定は、ペアリングされた Apple Watch にも送信されます。</li>
 <li>ダウンロードした<strong>辞書</strong>は iPhone と Apple Watch に保存されます。単語の検索は Apple Watch 上で行われるため、調べた内容がデバイスの外に出ることはありません。辞書は iPhone アプリで削除できます（<em>設定 › 辞書</em>）。</li>
 <li><strong>同期のログイン情報</strong>（サーバアドレス、ユーザ名、パスワード）は、同期をオンにした場合にのみ、iPhone のキーチェーンに保存されます。また、Apple Watch は単独で同期するため、WatchConnectivity を介してペアリングされた Apple Watch にも送信され、Apple Watch 自身のキーチェーンに保存されます。開発者に送信されることはなく、インターネット経由では、あなたが入力した同期サーバにのみ送信されます（次のセクションを参照）。</li>
+<li><strong>Readestのセッション</strong>（同期にReadestを選んだ場合のみ）：Readestのメールアドレスとセッショントークン（Readestのパスワードは保存しません）がiPhoneのキーチェーンに保存され、ペアリングされたApple Watchに送信されて、Watch自身のキーチェーンに保存されます。</li>
 <li>アプリは iCloud を使用しません。アプリを削除すると、そのデバイスからこれらのデータが削除されます。</li>
 </ul>
 </div>
@@ -101,6 +102,18 @@
 <li>デバイス名「Folito」と、初回起動時にアプリが生成するランダムな識別子（デバイスのハードウェアから導出されたものではなく、広告識別子でもありません）</li>
 </ul>
 <p>アプリはタイムスタンプを送信しません。サーバが独自に記録します。インターネット上のあらゆるリクエストと同様に、サーバにはあなたの IP アドレスが見えます。そのサーバは開発者ではなく、運営者（あなた自身、またはあなたが選んだサービス）によって運営されており、そのサーバ独自のプライバシーポリシーと保持ルールが適用されます。アプリはそこに保存されたデータを削除できません（サーバの運営者にお問い合わせください）。<code>http://</code> を使用する場合（ローカルネットワークのアドレスでのみ許可されます。初回は iOS がローカルネットワークへのアクセス許可を求めます）、通信は暗号化されません。同期をオンにしない場合、同期のリクエストは一切行われません。</p>
+</div>
+</section>
+<section class="group">
+<h2>Readestとの読書進捗の同期（任意、あなたのReadestアカウント）</h2>
+<div class="card">
+<p>KOReader Syncサーバの代わりに、<em>Settings › Progress Sync</em>で<strong>Readest</strong>を選び、お持ちのReadestアカウントでサインインできます。同時に有効にできる同期サービスは1つだけです。Readestは開発者が運営していない第三者のサービスで、FolitoはReadestと提携していません。サインイン時、メールアドレスとパスワードはHTTPSで一度だけReadestのサインインサービス（ReadestのためにSupabaseが運営）に送信されます。Folitoはパスワードを保存せず、受け取ったセッションのみを保存します。同期がオンの間、アプリはReadest（<code>web.readest.com</code>）に次の情報を送信します：</p>
+<ul>
+<li>Readestアカウントを識別するセッショントークン（Apple Watchが約1時間ごとに更新）；</li>
+<li>本の2つの識別子：EPUBファイルの内容から計算したハッシュと、本のタイトル・著者・識別子のハッシュ（ファイルそのもの、読める形のタイトルや本文は送信しません）；</li>
+<li>その本での読書位置（位置の参照、段落番号と段落数）と、その位置に到達した日時。</li>
+</ul>
+<p>デバイスの識別子はReadestに送信されません。Readestは読書位置をあなたのReadestアカウントに保存し、ReadestアプリとKOReader用Readestプラグインがそれを読み取ります。Readestの<a href="https://readest.com/privacy-policy">プライバシーポリシー</a>と利用規約が適用され、そこに保存されたデータはReadestで管理されます（アプリから削除することはできません）。<em>Settings › Progress Sync</em>の<em>Sign Out</em>で、iPhoneとApple Watchからセッションが削除され、Readestにセッションの終了を求めます。Readestを選ばない場合、Readestには何も送信されません。</p>
 </div>
 </section>
 <section class="group">
@@ -129,6 +142,7 @@
 <h2>あなたの選択と権利</h2>
 <div class="card">
 <p>同期はオプションです。同期を停止するには、iPhone で<em>設定 › 進捗の同期</em>を開き、<em>同期をオフにしてログイン情報を削除</em>をタップします。ログイン情報が iPhone と Apple Watch から削除され、同期待ちの進捗は破棄されます（本と読書位置は保持されます）。Apple Watch だけでログイン情報を削除することもできます（<em>設定 › 資格情報を削除</em>）。また、辞書の削除やアプリの削除はいつでも行えます。同期サーバや辞書のダウンロードサイトが保持するデータについては、そのサービスにお問い合わせください。このポリシーに関するご質問は <a href="mailto:xlahuerta@protonmail.com">xlahuerta@protonmail.com</a> までお送りください。</p>
+<p>Readestを使っている場合は、<em>Settings › Progress Sync</em>で<em>Sign Out</em>をタップすると、両方のデバイスからセッションが削除されます。Readestアカウントとそこに保存された進捗はReadestで管理されます。</p>
 </div>
 </section>
 <section class="group">

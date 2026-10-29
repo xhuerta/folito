@@ -69,7 +69,7 @@
 <div class="doc">
 <h1>Politique de confidentialité</h1>
 <p class="translation-note">Cette traduction a été réalisée avec l’aide d’outils de traduction automatique et est fournie à titre indicatif. En cas de divergence, la <a href="../privacy.html" hreflang="en">version anglaise</a> fait foi.</p>
-<p class="muted">Dernière mise à jour : 28 octobre 2026. S’applique aux apps Folito pour iPhone et Apple Watch.</p>
+<p class="muted">Dernière mise à jour : 29 octobre 2026. S’applique aux apps Folito pour iPhone et Apple Watch.</p>
 <div class="card note lead-card"><span class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2.8 19 5.6v5.7c0 4.6-3 8.3-7 9.9-4-1.6-7-5.3-7-9.9V5.6z"/><path d="m8.8 12.1 2.2 2.2 4.3-4.5"/></svg></span><p>En bref : Folito fonctionne sans aucun compte. Il n’y a ni statistiques, ni publicité, ni pistage, et le développeur n’exploite aucun serveur et ne reçoit aucune donnée. L’app contacte uniquement un serveur de synchronisation si vous choisissez d’en configurer un et, lorsque vous téléchargez un dictionnaire, le site de téléchargement indiqué ci-dessous.</p></div>
 
 <section class="group">
@@ -86,6 +86,7 @@
 <li><strong>Vos positions de lecture, vos réglages de typographie, un identifiant d’appareil aléatoire</strong> (voir ci-dessous) et, si la synchronisation est activée, <strong>la progression en attente de synchronisation</strong> sont stockés dans les réglages de l’app sur l’appareil. Vos réglages de typographie sont également envoyés à votre montre jumelée.</li>
 <li><strong>Les dictionnaires</strong> que vous téléchargez sont stockés sur votre iPhone et votre Apple Watch. Les mots sont recherchés sur la montre elle-même : ce que vous cherchez ne quitte jamais l’appareil. Vous pouvez supprimer les dictionnaires dans l’app iPhone (<em>Réglages › Dictionnaires</em>).</li>
 <li><strong>Vos identifiants de synchronisation</strong>, uniquement si vous activez la synchronisation (adresse du serveur, nom d’utilisateur, mot de passe), sont stockés dans le trousseau de votre iPhone et, comme la montre se synchronise de manière autonome, sont également envoyés à votre montre jumelée via WatchConnectivity et stockés dans le trousseau propre à la montre. Ils ne sont jamais envoyés au développeur et, sur Internet, ils ne sont transmis qu’au serveur de synchronisation que vous avez saisi (voir la section suivante).</li>
+<li><strong>Votre session Readest</strong>, uniquement si vous choisissez Readest pour la synchronisation : votre adresse e-mail Readest et un jeton de session (jamais votre mot de passe Readest) sont stockés dans le trousseau de votre iPhone et envoyés à votre montre jumelée, qui les stocke dans son propre trousseau.</li>
 <li>L’app n’utilise pas iCloud. La suppression de l’app efface ces données de l’appareil concerné.</li>
 </ul>
 </div>
@@ -101,6 +102,18 @@
 <li>le nom d’appareil « Folito » et un identifiant aléatoire généré par l’app lors du premier lancement (il n’est pas dérivé du matériel de votre appareil et n’est pas un identifiant publicitaire).</li>
 </ul>
 <p>L’app n’envoie pas d’horodatage ; le serveur enregistre le sien. Comme pour toute requête sur Internet, le serveur voit votre adresse IP. Ce serveur est géré par la personne qui l’exploite (vous, ou un service que vous avez choisi), et non par le développeur ; sa propre politique de confidentialité et ses propres règles de conservation s’appliquent, et l’app ne peut pas supprimer les données qui y sont stockées (adressez-vous à l’exploitant du serveur). Si vous utilisez <code>http://</code> (autorisé uniquement pour les adresses du réseau local ; iOS demande l’autorisation d’accès au réseau local la première fois), le trafic n’est pas chiffré. Si vous n’activez pas la synchronisation, aucune requête de synchronisation n’est effectuée.</p>
+</div>
+</section>
+<section class="group">
+<h2>Synchronisation de la progression avec Readest (facultative, votre compte Readest)</h2>
+<div class="card">
+<p>Au lieu d’un serveur KOReader Sync, vous pouvez choisir <strong>Readest</strong> dans <em>Settings › Progress Sync</em> et vous connecter avec un compte Readest existant ; un seul service de synchronisation est actif à la fois. Readest est un service tiers, non exploité par le développeur, et Folito n’y est pas affilié. À la connexion, votre adresse e-mail et votre mot de passe sont envoyés une fois via HTTPS au service de connexion de Readest (exploité pour Readest par Supabase) ; Folito ne conserve pas votre mot de passe, seulement la session reçue. Tant que la synchronisation est activée, l’app envoie à Readest (<code>web.readest.com</code>) :</p>
+<ul>
+<li>le jeton de session qui identifie votre compte Readest (renouvelé environ une fois par heure par la montre) ;</li>
+<li>deux identifiants du livre : une empreinte calculée à partir du contenu du fichier EPUB et une empreinte du titre, des auteurs et de l’identifiant du livre (ni le fichier, ni son titre ou son texte sous forme lisible) ;</li>
+<li>votre position de lecture dans ce livre (une référence de position, le numéro et le nombre de paragraphes) et le moment où vous l’avez atteinte.</li>
+</ul>
+<p>Aucun identifiant d’appareil n’est envoyé à Readest. Readest conserve votre position de lecture dans votre compte Readest, où les apps Readest et le plugin Readest pour KOReader la lisent ; la <a href="https://readest.com/privacy-policy">politique de confidentialité</a> et les conditions de Readest s’appliquent, et les données qui y sont stockées se gèrent dans Readest (l’app ne peut pas les supprimer). <em>Sign Out</em> dans <em>Settings › Progress Sync</em> supprime la session de votre iPhone et de votre Apple Watch et demande à Readest d’y mettre fin. Si vous ne choisissez pas Readest, rien n’est envoyé à Readest.</p>
 </div>
 </section>
 <section class="group">
@@ -129,6 +142,7 @@
 <h2>Vos choix et vos droits</h2>
 <div class="card">
 <p>La synchronisation est facultative. Pour arrêter la synchronisation, ouvrez <em>Réglages › Synchronisation de la progression</em> sur l’iPhone et touchez <em>Désactiver la synchronisation et supprimer l’identifiant</em> : les identifiants sont supprimés de votre iPhone et de votre Apple Watch, et la progression en attente de synchronisation est abandonnée (vos livres et vos positions de lecture sont conservés). Vous pouvez également supprimer les identifiants sur la montre uniquement (<em>Réglages › Supprimer les identifiants</em>), supprimer des dictionnaires ou supprimer l’app à tout moment. Pour les données conservées par un serveur de synchronisation ou le site de téléchargement des dictionnaires, contactez ce service. Pour toute question concernant cette politique, écrivez à <a href="mailto:xlahuerta@protonmail.com">xlahuerta@protonmail.com</a>.</p>
+<p>Si vous utilisez Readest, touchez <em>Sign Out</em> dans <em>Settings › Progress Sync</em> pour supprimer la session des deux appareils ; votre compte Readest et la progression qui y est stockée se gèrent dans Readest.</p>
 </div>
 </section>
 <section class="group">

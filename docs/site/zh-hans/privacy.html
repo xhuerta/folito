@@ -69,7 +69,7 @@
 <div class="doc">
 <h1>隐私政策</h1>
 <p class="translation-note">本译文借助机器翻译完成，仅供参考。如与原文有任何出入，以<a href="../privacy.html" hreflang="en">英文版本</a>为准。</p>
-<p class="muted">最后更新：2026 年 10 月 28 日。适用于 iPhone 和 Apple Watch 版 Folito App。</p>
+<p class="muted">最后更新：2026 年 10 月 29 日。适用于 iPhone 和 Apple Watch 版 Folito App。</p>
 <div class="card note lead-card"><span class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2.8 19 5.6v5.7c0 4.6-3 8.3-7 9.9-4-1.6-7-5.3-7-9.9V5.6z"/><path d="m8.8 12.1 2.2 2.2 4.3-4.5"/></svg></span><p>简而言之：Folito 无需任何账户即可使用。它没有分析、广告或跟踪，开发者不运营任何服务器，也不接收任何数据。App 只会在你选择设置同步服务器时与之通信，并在你下载词典时访问下文所述的下载网站。</p></div>
 
 <section class="group">
@@ -86,6 +86,7 @@
 <li><strong>你的阅读位置、排版设置、一个随机设备标识符</strong>（见下文），以及在开启同步时<strong>等待同步的进度</strong>，会存储在设备上的 App 设置中。你的排版设置也会发送到已配对的手表。</li>
 <li>你下载的<strong>词典</strong>存储在你的 iPhone 和 Apple Watch 上。查词在手表本身上进行，因此你查询的内容永远不会离开设备。你可以在 iPhone App 中删除词典（<em>设置 › 词典</em>）。</li>
 <li><strong>你的同步登录信息</strong>（服务器地址、用户名、密码）仅在你开启同步时才会存储在 iPhone 的钥匙串中；由于手表会独立同步，这些信息还会通过 WatchConnectivity 发送到已配对的手表，并存储在手表自己的钥匙串中。这些信息绝不会发送给开发者，在互联网上只会发送到你输入的同步服务器（见下一节）。</li>
+<li><strong>你的 Readest 会话</strong>（仅当你选择 Readest 同步时）：你的 Readest 邮箱和会话令牌（从不保存你的 Readest 密码）存储在 iPhone 的钥匙串中，并发送到配对的手表，由手表存储在自己的钥匙串中。</li>
 <li>本 App 不使用 iCloud。删除 App 会从该设备上移除这些数据。</li>
 </ul>
 </div>
@@ -101,6 +102,18 @@
 <li>设备名称“Folito”以及 App 首次启动时生成的随机标识符（它并非根据你设备的硬件生成，也不是广告标识符）。</li>
 </ul>
 <p>App 不会发送时间戳；服务器会记录自己的时间戳。与任何互联网请求一样，服务器能看到你的 IP 地址。该服务器由其运营者（你本人或你选择的服务）而非开发者运营；适用其自身的隐私政策和数据保留规则，App 无法删除存储在该服务器上的数据（请联系服务器运营者）。如果你使用 <code>http://</code>（仅允许用于本地网络地址；首次使用时 iOS 会请求本地网络权限），传输内容不会加密。如果你不开启同步，App 不会发出任何同步请求。</p>
+</div>
+</section>
+<section class="group">
+<h2>与 Readest 同步阅读进度（可选，你的 Readest 账户）</h2>
+<div class="card">
+<p>除了 KOReader Sync 服务器，你也可以在 <em>Settings › Progress Sync</em> 中选择 <strong>Readest</strong>，并使用已有的 Readest 账户登录；同一时间只有一个同步服务处于启用状态。Readest 是第三方服务，并非由开发者运营，Folito 与其无关联。登录时，你的邮箱和密码会通过 HTTPS 发送一次到 Readest 的登录服务（由 Supabase 为 Readest 运营）；Folito 不存储你的密码，只保存收到的会话。同步开启期间，App 会向 Readest（<code>web.readest.com</code>）发送：</p>
+<ul>
+<li>用于识别你的 Readest 账户的会话令牌（由手表大约每小时更新一次）；</li>
+<li>两个图书标识符：根据 EPUB 文件内容计算的哈希，以及图书标题、作者和标识符的哈希（不发送文件本身，也不发送可读形式的标题或正文）；</li>
+<li>你在该书中的阅读位置（位置引用、段落编号和段落总数）以及到达该位置的时间。</li>
+</ul>
+<p>不会向 Readest 发送任何设备标识符。Readest 将你的阅读位置保存在你的 Readest 账户中，供 Readest App 和 KOReader 的 Readest 插件读取；适用 Readest 的<a href="https://readest.com/privacy-policy">隐私政策</a>和条款，存储在那里的数据在 Readest 中管理（App 无法删除）。在 <em>Settings › Progress Sync</em> 中点按 <em>Sign Out</em> 会从 iPhone 和 Apple Watch 中移除会话，并请求 Readest 结束该会话。如果你不选择 Readest，则不会向 Readest 发送任何内容。</p>
 </div>
 </section>
 <section class="group">
@@ -129,6 +142,7 @@
 <h2>你的选择和权利</h2>
 <div class="card">
 <p>同步是可选的。要停止同步，请在 iPhone 上打开<em>设置 › 进度同步</em>，然后轻点<em>关闭同步并移除登录信息</em>：登录信息会从你的 iPhone 和 Apple Watch 中移除，等待同步的进度会被丢弃（你的图书和阅读位置会保留）。你也可以仅在手表上移除登录信息（<em>设置 › 移除凭证</em>），删除词典，或随时删除 App。对于同步服务器或词典下载网站所保存的数据，请联系相应服务。如对本政策有任何疑问，请发送邮件至 <a href="mailto:xlahuerta@protonmail.com">xlahuerta@protonmail.com</a>。</p>
+<p>如果你使用 Readest，请在 <em>Settings › Progress Sync</em> 中点按 <em>Sign Out</em>，从两台设备上移除会话；你的 Readest 账户及其中保存的进度在 Readest 中管理。</p>
 </div>
 </section>
 <section class="group">

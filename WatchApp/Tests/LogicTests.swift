@@ -207,6 +207,10 @@ final class SyncCoordinatorTests: XCTestCase {
         XCTAssertTrue(CredentialsStore.isClearRequest(["type": "settings", "kosync_cleared": true, "settingsStamp": 9]))
         XCTAssertFalse(CredentialsStore.isClearRequest(["type": "settings", "kosync_cleared": false]))
         XCTAssertFalse(CredentialsStore.isClearRequest(["type": "settings", "kosync_user": "u"]))
+        XCTAssertTrue(CredentialsStore.isClearRequest(["type": "settings", "sync_cleared": true, "settingsStamp": 9]))
+        XCTAssertTrue(CredentialsStore.hasSyncSettings(SyncSettingsWire.encode(connectorID: "readest", credentials: SyncCredentials(["readest_email": "a@b.c"]))))
+        XCTAssertTrue(CredentialsStore.hasSyncSettings(["kosync_user": "u"]))
+        XCTAssertFalse(CredentialsStore.hasSyncSettings(["type": "settings", "typography": "{}"]))
         XCTAssertTrue(ConnectivityReceiver.shouldApplySettings(incomingStamp: 9, lastApplied: 8))
         XCTAssertFalse(ConnectivityReceiver.shouldApplySettings(incomingStamp: 8, lastApplied: 8))
     }
@@ -237,6 +241,39 @@ final class SyncCoordinatorTests: XCTestCase {
         XCTAssertNil(d.data(forKey: SyncCoordinator.legacyKey))
         XCTAssertEqual(rec.lock.withLock { rec.pushed.map(\.document) }, ["a"])
         XCTAssertEqual(sync.pendingCount, 0)
+    }
+
+    /// Connector-neutral path (Readest-like connector without device ids): the open-time offer and the
+    /// pushed position carry the full book identity and Folito's pagination.
+    @MainActor
+    func testConnectorReceivesBookIdentityAndPagination() async throws {
+        final class Rec: SyncConnector, @unchecked Sendable {
+            let lock = NSLock()
+            var pushed: [(ReadingPosition, BookIdentity)] = []
+            var descriptor: SyncConnectorDescriptor { ReadestConnectorFactory().descriptor }
+            func authorize() async throws {}
+            func fetchProgress(for book: BookIdentity) async throws -> ReadingPosition? {
+                ReadingPosition(xpointer: "/body/DocFragment[2]/body/p", percentage: 0.6)
+            }
+            func pushProgress(_ position: ReadingPosition, for book: BookIdentity) async throws {
+                lock.lock(); pushed.append((position, book)); lock.unlock()
+            }
+        }
+        let rec = Rec()
+        let sync = SyncCoordinator(defaults: defaults(), connector: { rec })
+        let book = BookIdentity(partialMD5: "abc", metaHash: "meta", title: "T", authors: ["A"])
+        let decision = await sync.decisionOnOpen(book: book, localPercentage: 0.1)
+        guard case .offerRemote(let remote) = decision else { return XCTFail("expected an offer") }
+        XCTAssertEqual(remote.percentage, 0.6)
+        sync.report(book: book, xpointer: "/body/p", percentage: 0.3, page: 3, pageCount: 10, immediately: true)
+        try await Task.sleep(nanoseconds: 500_000_000)
+        let pushed = rec.lock.withLock { rec.pushed }
+        XCTAssertEqual(pushed.first?.1, book)
+        XCTAssertEqual(pushed.first?.0.page, 3)
+        XCTAssertEqual(pushed.first?.0.pageCount, 10)
+        XCTAssertEqual(pushed.first?.0.deviceID, sync.device.id)
+        let test = await sync.testConnection()
+        XCTAssertEqual(test, .ok)
     }
 
     @MainActor

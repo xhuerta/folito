@@ -9,47 +9,35 @@ enum SyncStatus: Equatable {
 /// Maps errors to the user-visible status. Pure, unit-tested.
 enum SyncErrorClassifier {
     static func status(for error: Error) -> SyncStatus {
-        if let e = error as? KOSyncError {
-            switch e {
-            case .offline: return .offline
-            default: return .error
-            }
-        }
-        if let u = error as? URLError {
-            switch u.code {
-            case .notConnectedToInternet, .networkConnectionLost, .timedOut, .cannotConnectToHost,
-                 .cannotFindHost, .dnsLookupFailed, .dataNotAllowed, .internationalRoamingOff:
-                return .offline
-            default: return .error
-            }
-        }
-        return .error
+        SyncErrors.isOffline(error) ? .offline : .error
     }
 }
 
-/// Bridges `SyncQueue` (which owns one client for its lifetime) to credentials that can change at any
-/// time: they are looked up on every call. Without credentials every push fails with `.unauthorized`,
-/// which `SyncQueue` keeps queued without counting an attempt.
-struct CredentialsBackedClient: KOSyncClientProtocol {
-    let credentials: @Sendable () -> KOSyncCredentials?
-    let makeClient: @Sendable (KOSyncCredentials) -> KOSyncClientProtocol
+/// Bridges `SyncQueue` (which owns one connector for its lifetime) to settings that can change at any
+/// time: the active connector is resolved on every call. Without one every call fails with
+/// `.notConfigured`, which `SyncQueue` keeps queued without counting an attempt.
+struct ActiveSyncConnector: SyncConnector {
+    let resolve: @Sendable () -> SyncConnector?
     /// Reports the outcome of each push (nil = success) so the UI status can follow the queue's worker.
     let observer: SyncObserver
 
-    private func client() throws -> KOSyncClientProtocol {
-        guard let c = credentials() else { throw KOSyncError.unauthorized }
-        return makeClient(c)
+    var descriptor: SyncConnectorDescriptor { resolve()?.descriptor ?? UnconfiguredConnector.descriptorValue }
+
+    private func connector() throws -> SyncConnector {
+        guard let c = resolve() else { throw SyncConnectorError.notConfigured }
+        return c
     }
 
-    func authorize() async throws { try await client().authorize() }
-    func createUser() async throws { try await client().createUser() }
-    func fetchProgress(document: String) async throws -> KOSyncProgress? {
-        try await client().fetchProgress(document: document)
+    func authorize() async throws { try await connector().authorize() }
+
+    func fetchProgress(for book: BookIdentity) async throws -> ReadingPosition? {
+        try await connector().fetchProgress(for: book)
     }
-    func pushProgress(_ progress: KOSyncProgress) async throws {
-        let c = try client()
+
+    func pushProgress(_ position: ReadingPosition, for book: BookIdentity) async throws {
+        let c = try connector()
         do {
-            try await c.pushProgress(progress)
+            try await c.pushProgress(position, for: book)
             observer.pushed(nil)
         } catch {
             observer.pushed(error)
@@ -83,7 +71,8 @@ final class SyncObserver: @unchecked Sendable {
 
 /// Thin sync layer for the watch: conflict check on open, plus progress pushes delegated to
 /// ReaderCore's `SyncQueue` (latest entry per document, debounce, exponential backoff, attempt cap,
-/// persistence). Policy: PUT when leaving a book and when the app goes to background (immediate),
+/// persistence). Connector-agnostic: the active `SyncConnector` (KOReader Sync, Readest, ...) comes from
+/// `CredentialsStore`. Policy: push when leaving a book and when the app goes to background (immediate),
 /// roughly every 60 s while reading (debounced), and offline retries via the queue's backoff.
 @MainActor
 final class SyncCoordinator: ObservableObject {
@@ -98,8 +87,7 @@ final class SyncCoordinator: ObservableObject {
     let device: DeviceIdentity
     let queue: SyncQueue
     private let policy: SyncConflictPolicy
-    private let credentials: @Sendable () -> KOSyncCredentials?
-    private let makeClient: @Sendable (KOSyncCredentials) -> KOSyncClientProtocol
+    private let connector: @Sendable () -> SyncConnector?
     private var chain: Task<Void, Never>?
 
     init(device: DeviceIdentity = DeviceIdentity(),
@@ -107,23 +95,22 @@ final class SyncCoordinator: ObservableObject {
          policy: SyncConflictPolicy = DefaultSyncConflictPolicy(),
          config: SyncQueue.Config = SyncQueue.Config(),
          clock: SyncClock = SystemSyncClock(),
-         credentials: @escaping @Sendable () -> KOSyncCredentials? = { CredentialsStore.current() },
-         makeClient: @escaping @Sendable (KOSyncCredentials) -> KOSyncClientProtocol = { KOSyncClient(credentials: $0) }) {
+         connector: @escaping @Sendable () -> SyncConnector? = { CredentialsStore.activeConnector() }) {
         self.device = device
         self.policy = policy
-        self.credentials = credentials
-        self.makeClient = makeClient
+        self.connector = connector
         let observer = SyncObserver()
         let restored = defaults.data(forKey: Self.queueKey)
         self.queue = SyncQueue(
-            client: CredentialsBackedClient(credentials: credentials, makeClient: makeClient, observer: observer),
+            connector: ActiveSyncConnector(resolve: connector, observer: observer),
             clock: clock, config: config, restoring: restored,
             onChange: { data in
                 defaults.set(data, forKey: Self.queueKey)
                 let count = (try? JSONDecoder().decode([PendingProgress].self, from: data))?.count ?? 0
                 observer.pendingChanged(count)
             })
-        self.isConfigured = credentials() != nil
+        let active = connector()
+        self.isConfigured = active != nil
         self.pendingCount = restored.flatMap { try? JSONDecoder().decode([PendingProgress].self, from: $0) }?.count ?? 0
         observer.install(
             onPush: { [weak self] error in
@@ -134,16 +121,30 @@ final class SyncCoordinator: ObservableObject {
 
         let legacy = Self.takeLegacyPending(defaults)
         let queue = self.queue
-        let configured = isConfigured
+        let activeID = active?.descriptor.id
         Task {
-            if configured {
-                for p in legacy { await queue.enqueue(p) }
+            if let activeID {
+                // The legacy store only ever held KOSync progress.
+                if activeID == KOSyncConnectorFactory.id { for p in legacy { await queue.enqueue(p) } }
+                await queue.retainOnly(connectorID: activeID)
                 await queue.resume()
             } else if restored != nil || !legacy.isEmpty {
                 // Sync is optional: progress queued by an older build while unconfigured is dropped.
                 await queue.removeAll()
             }
         }
+    }
+
+    /// KOSync-only initializer (tests and previews written before connectors).
+    convenience init(device: DeviceIdentity = DeviceIdentity(),
+                     defaults: UserDefaults = .standard,
+                     policy: SyncConflictPolicy = DefaultSyncConflictPolicy(),
+                     config: SyncQueue.Config = SyncQueue.Config(),
+                     clock: SyncClock = SystemSyncClock(),
+                     credentials: @escaping @Sendable () -> KOSyncCredentials?,
+                     makeClient: @escaping @Sendable (KOSyncCredentials) -> KOSyncClientProtocol = { KOSyncClient(credentials: $0) }) {
+        self.init(device: device, defaults: defaults, policy: policy, config: config, clock: clock,
+                  connector: { credentials().map { KOSyncConnector(client: makeClient($0)) as SyncConnector } })
     }
 
     private static func takeLegacyPending(_ defaults: UserDefaults) -> [KOSyncProgress] {
@@ -153,18 +154,23 @@ final class SyncCoordinator: ObservableObject {
         return dict.values.sorted { ($0.timestamp ?? 0) < ($1.timestamp ?? 0) }
     }
 
-    private func client() -> KOSyncClientProtocol? {
-        credentials().map(makeClient)
-    }
-
-    /// Call when settings changed (new credentials) or the app returns to foreground.
+    /// Call when settings changed (new credentials or another service) or the app returns to foreground.
     func configurationChanged() {
-        isConfigured = credentials() != nil
-        if isConfigured {
-            retryPending()
-        } else {
+        guard let active = connector() else {
+            isConfigured = false
             // Credentials removed (or never set): nothing may stay queued and the UI shows no sync state.
             resetPending()
+            return
+        }
+        isConfigured = true
+        // Switching services: positions queued for the previous one are never sent to the new one.
+        let queue = self.queue
+        let id = active.descriptor.id
+        let previous = chain
+        chain = Task {
+            await previous?.value
+            await queue.retainOnly(connectorID: id)
+            await queue.resume()
         }
     }
 
@@ -178,12 +184,12 @@ final class SyncCoordinator: ObservableObject {
 
     // MARK: Open-book check
 
-    /// GETs the remote progress and applies the conflict policy. Failures degrade to `.keepLocal`.
-    func decisionOnOpen(document: String, localPercentage: Double) async -> SyncDecision {
-        guard let client = client() else { return .keepLocal }
+    /// Fetches the remote position and applies the conflict policy. Failures degrade to `.keepLocal`.
+    func decisionOnOpen(book: BookIdentity, localPercentage: Double) async -> ProgressDecision {
+        guard let connector = connector() else { return .keepLocal }
         status = .syncing
         do {
-            let remote = try await client.fetchProgress(document: document)
+            let remote = try await connector.fetchProgress(for: book)
             status = .idle
             return policy.decide(localPercentage: localPercentage, remote: remote, ownDeviceID: device.id)
         } catch {
@@ -192,33 +198,43 @@ final class SyncCoordinator: ObservableObject {
         }
     }
 
+    func decisionOnOpen(document: String, localPercentage: Double) async -> ProgressDecision {
+        await decisionOnOpen(book: BookIdentity(partialMD5: document), localPercentage: localPercentage)
+    }
+
     // MARK: Push
 
-    /// Records the latest position for `document`. With `immediately == false` the push is debounced
-    /// by the queue; otherwise it is flushed now and, on a transient failure, retried with backoff.
-    func report(document: String, xpointer: String, percentage: Double, immediately: Bool) {
+    /// Records the latest position for `book`. With `immediately == false` the push is debounced by the
+    /// queue; otherwise it is flushed now and, on a transient failure, retried with backoff.
+    func report(book: BookIdentity, xpointer: String, percentage: Double, page: Int? = nil, pageCount: Int? = nil,
+                immediately: Bool) {
         // Sync is optional: without credentials nothing is queued or persisted (PositionStore keeps the
-        // local position). When credentials arrive later the open-time GET + conflict policy apply.
-        let configured = credentials() != nil
-        isConfigured = configured
-        guard configured else { return }
-        let progress = KOSyncProgress(document: document, progress: xpointer,
-                                      percentage: min(max(percentage, 0), 1),
-                                      device: device.name, device_id: device.id,
-                                      timestamp: Int(Date().timeIntervalSince1970))
+        // local position). When credentials arrive later the open-time check + conflict policy apply.
+        guard let active = connector() else { isConfigured = false; return }
+        isConfigured = true
+        let entry = SyncEntry(
+            connectorID: active.descriptor.id, book: book,
+            position: ReadingPosition(xpointer: xpointer, percentage: min(max(percentage, 0), 1),
+                                      page: page, pageCount: pageCount, timestamp: Date(),
+                                      deviceID: device.id, deviceName: device.name))
         let queue = self.queue
         // Chained so that two quick reports reach the queue in call order.
         let previous = chain
         chain = Task {
             await previous?.value
             if immediately {
-                await queue.enqueue(progress)
+                await queue.enqueue(entry)
                 let result = await queue.flush()
                 if !result.retained.isEmpty && !result.unauthorized { await queue.resume() }
             } else {
-                await queue.schedule(progress)
+                await queue.schedule(entry)
             }
         }
+    }
+
+    func report(document: String, xpointer: String, percentage: Double, immediately: Bool) {
+        report(book: BookIdentity(partialMD5: document), xpointer: xpointer, percentage: percentage,
+               immediately: immediately)
     }
 
     /// Forgets queued progress for a deleted book.
@@ -237,18 +253,22 @@ final class SyncCoordinator: ObservableObject {
 
     enum ConnectionResult: Equatable {
         case notConfigured, ok, unauthorized, offline, failed
+        /// The service ended the session (Readest refresh token rejected): sign in again on the iPhone.
+        case signInAgain
     }
 
     func testConnection() async -> ConnectionResult {
-        guard let client = client() else { return .notConfigured }
+        guard let connector = connector() else { return .notConfigured }
         status = .syncing
         do {
-            try await client.authorize()
+            try await connector.authorize()
             status = .idle
             return .ok
         } catch {
             status = SyncErrorClassifier.status(for: error)
-            if let e = error as? KOSyncError, e == .unauthorized { return .unauthorized }
+            if SyncErrors.isUnauthorized(error) {
+                return connector.descriptor.usesSession ? .signInAgain : .unauthorized
+            }
             return status == .offline ? .offline : .failed
         }
     }

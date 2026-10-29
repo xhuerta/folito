@@ -69,7 +69,7 @@
 <div class="doc">
 <h1>Informativa sulla privacy</h1>
 <p class="translation-note">Questa traduzione è stata realizzata con l’ausilio della traduzione automatica ed è fornita solo a titolo informativo. In caso di discrepanze, prevale la <a href="../privacy.html" hreflang="en">versione inglese</a>.</p>
-<p class="muted">Ultimo aggiornamento: 28 ottobre 2026. Si applica alle app Folito per iPhone e Apple Watch.</p>
+<p class="muted">Ultimo aggiornamento: 29 ottobre 2026. Si applica alle app Folito per iPhone e Apple Watch.</p>
 <div class="card note lead-card"><span class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2.8 19 5.6v5.7c0 4.6-3 8.3-7 9.9-4-1.6-7-5.3-7-9.9V5.6z"/><path d="m8.8 12.1 2.2 2.2 4.3-4.5"/></svg></span><p>In breve: Folito funziona senza alcun account. Non ci sono analisi, pubblicità né tracciamento, e lo sviluppatore non gestisce alcun server e non riceve dati. L’app contatta solo un server di sincronizzazione se scegli di configurarne uno e, quando scarichi un dizionario, il sito di download indicato sotto.</p></div>
 
 <section class="group">
@@ -86,6 +86,7 @@
 <li><strong>Le tue posizioni di lettura, le impostazioni tipografiche, un identificativo casuale del dispositivo</strong> (vedi sotto) e, se la sincronizzazione è attiva, <strong>i progressi in attesa di sincronizzazione</strong> vengono archiviati nelle impostazioni dell’app sul dispositivo. Le impostazioni tipografiche vengono inviate anche all’orologio abbinato.</li>
 <li><strong>I dizionari</strong> che scarichi vengono archiviati su iPhone e su Apple Watch. Le parole vengono cercate sull’orologio stesso, quindi ciò che cerchi non lascia mai il dispositivo. Puoi eliminare i dizionari nell’app per iPhone (<em>Impostazioni › Dizionari</em>).</li>
 <li><strong>Le tue credenziali di sincronizzazione</strong>, solo se attivi la sincronizzazione (indirizzo del server, nome utente, password), vengono archiviate nel portachiavi di iPhone e, poiché l’orologio si sincronizza in modo autonomo, vengono inviate anche all’orologio abbinato tramite WatchConnectivity e archiviate nel portachiavi dell’orologio stesso. Non vengono mai inviate allo sviluppatore e, via internet, raggiungono solo il server di sincronizzazione che hai inserito (vedi la sezione successiva).</li>
+<li><strong>La tua sessione Readest</strong>, solo se scegli Readest per la sincronizzazione: la tua email Readest e un token di sessione (mai la password di Readest) sono memorizzati nel portachiavi dell’iPhone e inviati all’orologio abbinato, che li memorizza nel proprio portachiavi.</li>
 <li>L’app non usa iCloud. Eliminando l’app, questi dati vengono rimossi dal dispositivo.</li>
 </ul>
 </div>
@@ -101,6 +102,18 @@
 <li>il nome del dispositivo “Folito” e un identificativo casuale generato dall’app al primo avvio (non deriva dall’hardware del dispositivo e non è un identificativo pubblicitario).</li>
 </ul>
 <p>L’app non invia alcuna marca temporale; il server registra la propria. Come per qualsiasi richiesta su internet, il server vede il tuo indirizzo IP. Quel server è gestito da chi lo amministra (tu o un servizio che hai scelto), non dallo sviluppatore; si applicano la sua informativa sulla privacy e le sue regole di conservazione, e l’app non può eliminare i dati archiviati lì (rivolgiti al gestore del server). Se usi <code>http://</code> (consentito solo per indirizzi della rete locale; iOS chiede il permesso di accesso alla rete locale la prima volta), il traffico non è cifrato. Se non attivi la sincronizzazione, non viene effettuata alcuna richiesta di sincronizzazione.</p>
+</div>
+</section>
+<section class="group">
+<h2>Sincronizzazione dell’avanzamento con Readest (facoltativa, il tuo account Readest)</h2>
+<div class="card">
+<p>Invece di un server KOReader Sync puoi scegliere <strong>Readest</strong> in <em>Settings › Progress Sync</em> e accedere con un account Readest che hai già; è attivo un solo servizio di sincronizzazione alla volta. Readest è un servizio di terze parti, non gestito dallo sviluppatore, e Folito non è affiliato a esso. All’accesso, email e password vengono inviate una volta via HTTPS al servizio di accesso di Readest (gestito per Readest da Supabase); Folito non memorizza la password, solo la sessione ricevuta. Finché la sincronizzazione è attiva, l’app invia a Readest (<code>web.readest.com</code>):</p>
+<ul>
+<li>il token di sessione che identifica il tuo account Readest (rinnovato dall’orologio circa una volta all’ora);</li>
+<li>due identificatori del libro: un hash calcolato dal contenuto del file EPUB e un hash di titolo, autori e identificatore del libro (non il file, né il titolo o il testo in forma leggibile);</li>
+<li>la tua posizione di lettura in quel libro (un riferimento di posizione, il numero e il totale dei paragrafi) e quando l’hai raggiunta.</li>
+</ul>
+<p>A Readest non viene inviato alcun identificatore del dispositivo. Readest conserva la posizione di lettura nel tuo account Readest, dove la leggono le app Readest e il plugin Readest per KOReader; si applicano l’<a href="https://readest.com/privacy-policy">informativa sulla privacy</a> e i termini di Readest, e i dati conservati lì si gestiscono in Readest (l’app non può eliminarli). <em>Sign Out</em> in <em>Settings › Progress Sync</em> rimuove la sessione da iPhone e Apple Watch e chiede a Readest di chiuderla. Se non scegli Readest, a Readest non viene inviato nulla.</p>
 </div>
 </section>
 <section class="group">
@@ -129,6 +142,7 @@
 <h2>Le tue scelte e i tuoi diritti</h2>
 <div class="card">
 <p>La sincronizzazione è facoltativa. Per interromperla, apri <em>Impostazioni › Sincronizzazione progressi</em> su iPhone e tocca <em>Disattiva sincronizzazione e rimuovi credenziali</em>: le credenziali vengono rimosse da iPhone e da Apple Watch e i progressi in attesa di sincronizzazione vengono scartati (i tuoi libri e le posizioni di lettura vengono conservati). Puoi anche rimuovere le credenziali solo sull’orologio (<em>Impostazioni › Rimuovi credenziali</em>), eliminare i dizionari o eliminare l’app in qualsiasi momento. Per i dati conservati da un server di sincronizzazione o dal sito di download dei dizionari, contatta quel servizio. Per domande su questa informativa, scrivi a <a href="mailto:xlahuerta@protonmail.com">xlahuerta@protonmail.com</a>.</p>
+<p>Se usi Readest, tocca <em>Sign Out</em> in <em>Settings › Progress Sync</em> per rimuovere la sessione da entrambi i dispositivi; il tuo account Readest e l’avanzamento salvato si gestiscono in Readest.</p>
 </div>
 </section>
 <section class="group">
