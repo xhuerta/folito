@@ -8,7 +8,7 @@ Placeholders still in the repository (search for the bracketed text):
 * [x] `[DEVELOPER_NAME]`: `docs/site/privacy.html`, `docs/site/es/privacy.html` (responsible party), `docs/appstore/metadata-en.md` (copyright). Filled: Xabier Lahuerta.
 * [x] `[DATE]`: "Last updated" in `docs/site/privacy.html` and `docs/site/es/privacy.html` set to 28 October 2026; update it whenever the policy changes.
 * [x] In-app links: `iOSApp/Support/AppLinks.swift` (PR #20) points to the GitHub Pages site (Spanish pages for Spanish speakers).
-* [ ] GitHub: `APPLE_TEAM_ID`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` secrets and the `BUNDLE_ID_BASE` variable (step 5).
+* [ ] GitHub: `APPLE_TEAM_ID`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` secrets and the `BUNDLE_ID_BASE` variable (step 5; optional, the default is `com.xlahuerta.wristreader` from `Config/Base.xcconfig`).
 
 Decisions and checks only the owner can make (details in [What only the owner can decide](#what-only-the-owner-can-decide)):
 

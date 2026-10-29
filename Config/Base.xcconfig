@@ -1,7 +1,7 @@
 // Shared defaults. Do not put personal values here; use Config/Local.xcconfig.
 
-// Base bundle id of the iPhone app. The watch app appends ".watchkitapp".
-WR_BUNDLE_ID = com.example.wristreader
+// Base bundle id of the iPhone app (registered in App Store Connect). The watch app appends ".watchkitapp".
+WR_BUNDLE_ID = com.xlahuerta.wristreader
 
 // User-visible app name (home screen / App Store). Override in Config/Local.xcconfig if needed.
 WR_APP_NAME = WristReader
