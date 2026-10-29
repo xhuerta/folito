@@ -3,7 +3,9 @@ import ReaderCore
 
 @main
 struct WristReaderApp: App {
-    @StateObject private var library = LibraryStore()
+    // Debug builds honour the UI-testing launch arguments (isolated, optionally seeded library); Release
+    // builds always use the real library. See UITestingSupport.swift.
+    @StateObject private var library = UITesting.makeLibrary()
     @StateObject private var connectivity = PhoneConnectivity()
     @StateObject private var settings = SyncSettings()
     @StateObject private var typography = TypographyModel()
@@ -19,20 +21,24 @@ struct WristReaderApp: App {
                 NavigationStack { TypographySettingsView(typography: typography) }
                     .tabItem { Label("Reading", systemImage: "textformat.size") }
                 NavigationStack { SettingsView(settings: settings) }
-                    .tabItem { Label("Sync", systemImage: "arrow.triangle.2.circlepath") }
+                    .tabItem { Label("Settings", systemImage: "gear") }
             }
             .onOpenURL { url in
                 if url.isFileURL { library.importEPUB(from: url) }
             }
             .onAppear(perform: wire)
-            .onChange(of: scenePhase) { phase in
+            .onChange(of: scenePhase) { _, phase in
                 if phase == .active { connectivity.syncWatchState() }
             }
         }
     }
 
     private func wire() {
-        library.onImported = { entry in sendToWatch(entry) } // auto-send
+        library.onImported = { entry in
+            sendToWatch(entry) // auto-send
+            Announcer.announce(String(localized: "Imported “\(entry.title)”.",
+                                      comment: "VoiceOver announcement after an import; the placeholder is the book title"))
+        }
         library.onDeleted = { connectivity.sendDelete(hash: $0.documentHash) }
         connectivity.onTransferFinished = { library.markSent(hash: $0) }
         // Settings and unconfirmed books are (re)sent whenever the session activates, the watch app

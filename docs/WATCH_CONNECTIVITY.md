@@ -79,6 +79,8 @@ lost in transit. The phone also reads `receivedApplicationContext` on its own ac
 `ReaderTypography` (ReaderCore) is a versioned, clamped, tolerant-decoding Codable: font family, size, line
 spacing, margins, paragraph spacing, alignment, bold, heading scale, tracking, theme and `stamp`.
 Unknown or out-of-range values decode to defaults, so differing app versions never fail to apply it.
+Version 2 adds `matchSystemTextSize` (Bool, default false; version-1 JSON decodes with it off). The
+iPhone has no control for it yet but preserves the value when it re-encodes the JSON.
 
 Wire format: `typography` (JSON string) + `typographyStamp` (Int, Unix time of the last edit; every local
 edit uses `max(now, previousStamp + 1)`, so edits within the same second still order).

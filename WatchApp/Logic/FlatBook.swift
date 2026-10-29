@@ -30,7 +30,8 @@ struct FlatBook {
             starts.append(blocks.count)
             if !chapter.blocks.isEmpty {
                 let title = chapter.title?.trimmingCharacters(in: .whitespacesAndNewlines)
-                let shown = (title?.isEmpty == false) ? title! : "Chapter \(ci + 1)"
+                let shown = (title?.isEmpty == false) ? title!
+                    : String(localized: "Chapter \(ci + 1)", comment: "Name of an untitled chapter in the contents list")
                 refs.append(ChapterRef(chapterIndex: ci, title: shown, startIndex: blocks.count))
             }
             for block in chapter.blocks {
