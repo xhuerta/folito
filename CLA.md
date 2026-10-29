@@ -8,11 +8,11 @@
   request instead of by email.
 -->
 
-# WristReader Individual Contributor License Agreement
+# Folito Individual Contributor License Agreement
 
 Version 1.0
 
-Thank you for your interest in contributing to WristReader (the "Project"),
+Thank you for your interest in contributing to Folito (the "Project"),
 owned and maintained by Xabier Lahuerta (the "Project Owner"). To clarify the
 intellectual property license granted with Contributions from any person, the
 Project Owner must have a signed Contributor License Agreement ("Agreement")

@@ -1,10 +1,10 @@
 // Shared defaults. Do not put personal values here; use Config/Local.xcconfig.
 
 // Base bundle id of the iPhone app (registered in App Store Connect). The watch app appends ".watchkitapp".
-WR_BUNDLE_ID = com.xlahuerta.wristreader
+WR_BUNDLE_ID = com.xlahuerta.folito
 
 // User-visible app name (home screen / App Store). Override in Config/Local.xcconfig if needed.
-WR_APP_NAME = WristReader
+WR_APP_NAME = Folito
 
 // Version shown in the App Store, and the build number. CI overrides both on the xcodebuild
 // command line, e.g. `xcodebuild ... CURRENT_PROJECT_VERSION=$GITHUB_RUN_NUMBER`.

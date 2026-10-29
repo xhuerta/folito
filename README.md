@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/readme/icon.svg" width="128" height="128" alt="WristReader app icon">
+  <img src="docs/readme/icon.svg" width="128" height="128" alt="Folito app icon">
 </p>
 
-<h1 align="center">WristReader</h1>
+<h1 align="center">Folito</h1>
 
 <p align="center">
   An EPUB reader for Apple Watch. Bring your own books; no account needed.
@@ -70,7 +70,7 @@ A full reading app, designed for the smallest screen you own.
   </tr>
 </table>
 
-WristReader works **without an account and offline** with your own EPUB files. Reading progress can optionally be synced with any server that speaks the **KOReader Sync** protocol (KOReader's, Readest's, or your own). It installs on your watch with a free Apple account (Personal Team): no paid developer program and no special capabilities (no iCloud, App Groups or push notifications).
+Folito works **without an account and offline** with your own EPUB files. Reading progress can optionally be synced with any server that speaks the **KOReader Sync** protocol (KOReader's, Readest's, or your own). It installs on your watch with a free Apple account (Personal Team): no paid developer program and no special capabilities (no iCloud, App Groups or push notifications).
 
 ## Contents
 
@@ -87,7 +87,7 @@ WristReader works **without an account and offline** with your own EPUB files. R
 
 Sync is **optional**; you don't need any account (Readest, KOReader or otherwise) to read.
 
-1. Import your EPUBs in the iPhone app (the **+** button, or "Open in WristReader" from Files or the share sheet). They are sent to the watch automatically.
+1. Import your EPUBs in the iPhone app (the **+** button, or "Open in Folito" from Files or the share sheet). They are sent to the watch automatically.
 2. Read on the watch. Your position is stored on the watch itself and everything works offline.
 3. With no username and password saved, the app makes no sync requests and shows no sync prompts or indicators. The only feature that uses the network at your request is dictionary lookup.
 4. If you later want to sync, go to *Settings › Progress Sync* on the iPhone (see [below](#progress-sync-optional)). You can turn it off at any time with *Turn Off Sync and Remove Login*, which deletes the credentials from the iPhone and the watch and clears pending progress (also available in the watch's Settings → *Remove credentials*).
@@ -115,7 +115,7 @@ Requirements: macOS with Xcode 15 or later and [XcodeGen](https://github.com/yon
 brew install xcodegen
 cp Config/Local.xcconfig.example Config/Local.xcconfig   # edit it (see below)
 xcodegen generate
-open WristReader.xcodeproj
+open Folito.xcodeproj
 ```
 
 ### Signing with a free Personal Team
@@ -124,7 +124,7 @@ open WristReader.xcodeproj
 2. Edit `Config/Local.xcconfig` (ignored by git):
    ```
    DEVELOPMENT_TEAM = YOUR_TEAM_ID
-   WR_BUNDLE_ID = com.yourname.wristreader
+   WR_BUNDLE_ID = com.yourname.folito
    ```
    The identifier must be **globally unique**; the watch app's will be `WR_BUNDLE_ID.watchkitapp`. You can also pass `DEVELOPMENT_TEAM=...` to `xcodebuild`.
 3. Run `xcodegen generate` again if you changed anything.
@@ -135,8 +135,8 @@ With automatic signing, Xcode creates the provisioning profiles. No entitlements
 
 1. Enable **Developer Mode** on the iPhone (Settings → Privacy & Security → Developer Mode) and on the Apple Watch (Settings → Privacy & Security → Developer Mode, or from the Watch app on the iPhone). Both restart.
 2. Connect the iPhone by cable and trust the computer. The watch must be paired and unlocked.
-3. In Xcode select the `WristReader` scheme and your iPhone as the destination, then Run. This also installs the watch app.
-4. If it doesn't appear on the watch, open the Watch app on the iPhone → WristReader → "Install". Alternatively, choose the `WristReaderWatch` scheme and your watch as the destination.
+3. In Xcode select the `Folito` scheme and your iPhone as the destination, then Run. This also installs the watch app.
+4. If it doesn't appear on the watch, open the Watch app on the iPhone → Folito → "Install". Alternatively, choose the `FolitoWatch` scheme and your watch as the destination.
 5. On the iPhone: Settings → General → VPN & Device Management → trust your developer certificate.
 
 > [!NOTE]
@@ -144,11 +144,11 @@ With automatic signing, Xcode creates the provisioning profiles. No entitlements
 
 ## Progress sync (optional)
 
-Only needed if you want to continue the same book in other readers. WristReader uses the same server and matching method as your other readers so progress is shared.
+Only needed if you want to continue the same book in other readers. Folito uses the same server and matching method as your other readers so progress is shared.
 
 | Reader | Where | Document matching method |
 | --- | --- | --- |
-| **Readest** | Settings → Integrations → **KOReader Sync**: same server as in WristReader (default `https://sync.koreader.rocks`), plus that server's username and password | **File Content** (hash of the file content) |
+| **Readest** | Settings → Integrations → **KOReader Sync**: same server as in Folito (default `https://sync.koreader.rocks`), plus that server's username and password | **File Content** (hash of the file content) |
 | **KOReader** | Tools → **Progress sync** → set the custom server and account | **Binary** (hash of the binary file) |
 
 Both methods compute the same partial MD5 hash of the file content, so the same EPUB is recognized on every device. It must be the **same file** (not repackaged).
@@ -157,10 +157,10 @@ Both methods compute the same partial MD5 hash of the file content, so the same 
 
 ### HTTP servers (ATS)
 
-**https** is used by default. iOS and watchOS block `http://` via App Transport Security (ATS), so WristReader declares only `NSAllowsLocalNetworking` in both `Info.plist` files (via `project.yml`): it allows `http://` to the **local network** (IP addresses, `.local` names and dotless names such as `http://nas:5200`) without disabling ATS for anything else.
+**https** is used by default. iOS and watchOS block `http://` via App Transport Security (ATS), so Folito declares only `NSAllowsLocalNetworking` in both `Info.plist` files (via `project.yml`): it allows `http://` to the **local network** (IP addresses, `.local` names and dotless names such as `http://nas:5200`) without disabling ATS for anything else.
 
 - LAN server over http: works as is. The iPhone app shows an orange warning when it sees `http://` (traffic is not encrypted; use it only on a trusted network).
-- Public domain name over **http**: iOS blocks it. A reverse proxy with https is recommended. If you still need it, add an exception for that domain only in `project.yml` (in both targets, `WristReader` and `WristReaderWatch`) and run `xcodegen generate`:
+- Public domain name over **http**: iOS blocks it. A reverse proxy with https is recommended. If you still need it, add an exception for that domain only in `project.yml` (in both targets, `Folito` and `FolitoWatch`) and run `xcodegen generate`:
 
 ```yaml
 NSAppTransportSecurity:
@@ -194,7 +194,7 @@ watchOS doesn't allow selecting text in `Text` or showing the system dictionary,
 
 ## Importing EPUBs
 
-- From the iPhone: open an `.epub` with "Open in WristReader" (share sheet in Files, Safari, etc.) or use the import button in the app. The app transfers them to the watch.
+- From the iPhone: open an `.epub` with "Open in Folito" (share sheet in Files, Safari, etc.) or use the import button in the app. The app transfers them to the watch.
 - If the watch app wasn't installed yet, nothing is lost: sync settings and pending books are resent automatically when the session activates, the watch app is installed, connectivity changes or you open the iPhone app. The watch reports which books it has, so missing ones are resent.
 - The app exposes its Documents folder in the Files app (`UIFileSharingEnabled`).
 
@@ -253,18 +253,18 @@ What runs where: [docs/TESTING.md](docs/TESTING.md). Future plans: [ROADMAP.md](
 
 ## License
 
-WristReader is **source-available**, not open source in the OSI sense. It is licensed under the [Functional Source License 1.1, ALv2 Future License](LICENSE.md) (SPDX: `FSL-1.1-ALv2`), © 2026 Xabier Lahuerta.
+Folito is **source-available**, not open source in the OSI sense. It is licensed under the [Functional Source License 1.1, ALv2 Future License](LICENSE.md) (SPDX: `FSL-1.1-ALv2`), © 2026 Xabier Lahuerta.
 
 - **You can** read the code, modify it, build the app for yourself, use it for non-commercial education or research, and [contribute](CONTRIBUTING.md).
-- **You can't** ship a competing product: a commercial app or service that substitutes for WristReader or offers substantially the same functionality.
+- **You can't** ship a competing product: a commercial app or service that substitutes for Folito or offers substantially the same functionality.
 - **Each release becomes Apache-2.0** two years after it is published.
-- The WristReader name and icon are not covered by the license; forks need their own. See [TRADEMARKS.md](TRADEMARKS.md).
+- The Folito name and icon are not covered by the license; forks need their own. See [TRADEMARKS.md](TRADEMARKS.md).
 
 Contributions require signing the [CLA](CLA.md) (a one-line comment on your first pull request). [LICENSE.md](LICENSE.md) is the authoritative text.
 
 ## Third-party components
 
-The apps link these packages, fetched by Swift Package Manager (not vendored in this repository). Their licenses are unaffected by WristReader's license; their full license and NOTICE texts ship inside the iPhone app (*Settings › About › Acknowledgements*, from [`iOSApp/Resources/Acknowledgements`](iOSApp/Resources/Acknowledgements)).
+The apps link these packages, fetched by Swift Package Manager (not vendored in this repository). Their licenses are unaffected by Folito's license; their full license and NOTICE texts ship inside the iPhone app (*Settings › About › Acknowledgements*, from [`iOSApp/Resources/Acknowledgements`](iOSApp/Resources/Acknowledgements)).
 
 | Component | License |
 | --- | --- |
@@ -274,4 +274,4 @@ The apps link these packages, fetched by Swift Package Manager (not vendored in 
 
 ---
 
-<sub>WristReader is an independent app. KOReader and Readest are names of third-party projects, used only to describe compatibility; WristReader is not affiliated with or endorsed by them. Apple, Apple Watch and iPhone are trademarks of Apple Inc.</sub>
+<sub>Folito is an independent app. KOReader and Readest are names of third-party projects, used only to describe compatibility; Folito is not affiliated with or endorsed by them. Apple, Apple Watch and iPhone are trademarks of Apple Inc.</sub>

@@ -4,4 +4,4 @@
 DEVELOPMENT_TEAM = ABCDE12345
 
 // Must be globally unique for a free Personal Team.
-WR_BUNDLE_ID = com.yourname.wristreader
+WR_BUNDLE_ID = com.yourname.folito

@@ -14,7 +14,7 @@ struct UserFacingError: Equatable, Identifiable {
     static func fileUnreadable(fileName: String) -> UserFacingError {
         UserFacingError(
             title: String(localized: "Couldn’t Open File", comment: "Alert title: an imported file could not be read"),
-            message: String(localized: "WristReader couldn’t read “\(fileName)”. If it is stored in iCloud Drive or another cloud service, open it once in the Files app so it is downloaded, then try again.",
+            message: String(localized: "Folito couldn’t read “\(fileName)”. If it is stored in iCloud Drive or another cloud service, open it once in the Files app so it is downloaded, then try again.",
                             comment: "Alert message; the placeholder is the file name"))
     }
 
@@ -57,7 +57,7 @@ struct UserFacingError: Equatable, Identifiable {
                 comment: "Import error when the disk is full"))
         }
         return UserFacingError(title: title, message: String(
-            localized: "Something went wrong while converting “\(fileName)”. Try again; if it keeps failing, the file may use a format WristReader doesn’t support.",
+            localized: "Something went wrong while converting “\(fileName)”. Try again; if it keeps failing, the file may use a format Folito doesn’t support.",
             comment: "Generic import error; the placeholder is the file name"))
     }
 
@@ -102,7 +102,7 @@ struct UserFacingError: Equatable, Identifiable {
             return String(localized: "The server reported an error (HTTP \(status)). Try again later.",
                           comment: "Sync error; the placeholder is an HTTP status code")
         case .invalidResponse:
-            return String(localized: "The server sent a response WristReader couldn’t understand. Check that the URL points to a KOReader sync server.",
+            return String(localized: "The server sent a response Folito couldn’t understand. Check that the URL points to a KOReader sync server.",
                           comment: "Sync error")
         case .notImplemented:
             return String(localized: "This server doesn’t support that request.", comment: "Sync error")

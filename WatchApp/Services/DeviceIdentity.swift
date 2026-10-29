@@ -2,7 +2,7 @@ import Foundation
 
 /// Stable per-install identity sent to the sync server so devices can tell each other apart.
 struct DeviceIdentity {
-    static let deviceName = "WristReader"
+    static let deviceName = "Folito"
     private static let key = "sync.deviceID"
 
     let id: String

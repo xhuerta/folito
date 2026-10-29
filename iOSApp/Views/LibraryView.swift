@@ -159,9 +159,9 @@ private struct WatchStatusSection: View {
         case .appNotInstalled:
             Section {
                 ContentUnavailableView {
-                    Label("WristReader Isn’t on Your Apple Watch", systemImage: "applewatch")
+                    Label("Folito Isn’t on Your Apple Watch", systemImage: "applewatch")
                 } description: {
-                    Text("Open the Watch app on this iPhone, find WristReader under Available Apps and tap Install. Your books are sent automatically once it’s installed.").foregroundStyle(.secondaryText)
+                    Text("Open the Watch app on this iPhone, find Folito under Available Apps and tap Install. Your books are sent automatically once it’s installed.").foregroundStyle(.secondaryText)
                 }
             }
         case .ready(let reachable):

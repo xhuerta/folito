@@ -12,23 +12,23 @@ test targets.
 |---|---|---|---|
 | ReaderCore unit tests | Linux (`linux.yml`) and macOS (`macos.yml`, `swift test`) | `swift test` in `Packages/ReaderCore` | 190 (14 skipped: env-gated) |
 | KOSync integration | Linux, service container | job `kosync-integration` (`KOSYNC_TEST_URL`) | see section 1 |
-| iOS app tests (`WristReaderTests`: LogicTests, PresentationTests, TypographySyncTests, SecondaryTextContrastTests, …) | macOS runner, iPhone simulator | `xcodebuild test -scheme WristReader -skip-testing:WristReaderUITests` | 35 (1 skipped) |
-| watchOS app tests (`WristReaderWatchTests`: LogicTests, TypographyDictionaryTests, AccessibilityTests) | macOS runner, Apple Watch simulator | `xcodebuild test -scheme WristReaderWatch -skip-testing:WristReaderWatchUITests` | 64 |
-| iOS accessibility audit (`WristReaderUITests`) | macOS runner, iPhone simulator; **not on every PR** (see below) | `accessibility.yml`, `xcodebuild test -scheme WristReader -only-testing:WristReaderUITests` | 5 |
-| watchOS accessibility UI tests (`WristReaderWatchUITests`: audit + label / trait / AX5 checks) | macOS runner, Apple Watch simulator; **not on every PR** (see below) | `accessibility.yml`, `xcodebuild test -scheme WristReaderWatch -only-testing:WristReaderWatchUITests` | 15 |
+| iOS app tests (`FolitoTests`: LogicTests, PresentationTests, TypographySyncTests, SecondaryTextContrastTests, …) | macOS runner, iPhone simulator | `xcodebuild test -scheme Folito -skip-testing:FolitoUITests` | 35 (1 skipped) |
+| watchOS app tests (`FolitoWatchTests`: LogicTests, TypographyDictionaryTests, AccessibilityTests) | macOS runner, Apple Watch simulator | `xcodebuild test -scheme FolitoWatch -skip-testing:FolitoWatchUITests` | 64 |
+| iOS accessibility audit (`FolitoUITests`) | macOS runner, iPhone simulator; **not on every PR** (see below) | `accessibility.yml`, `xcodebuild test -scheme Folito -only-testing:FolitoUITests` | 5 |
+| watchOS accessibility UI tests (`FolitoWatchUITests`: audit + label / trait / AX5 checks) | macOS runner, Apple Watch simulator; **not on every PR** (see below) | `accessibility.yml`, `xcodebuild test -scheme FolitoWatch -only-testing:FolitoWatchUITests` | 15 |
 
-The macOS workflow (`macos.yml`, PR-blocking) builds and runs only unit tests (`-skip-testing:WristReaderUITests`,
-`-skip-testing:WristReaderWatchUITests`), with per-test time limits (`-test-timeouts-enabled YES`, 180 s default /
+The macOS workflow (`macos.yml`, PR-blocking) builds and runs only unit tests (`-skip-testing:FolitoUITests`,
+`-skip-testing:FolitoWatchUITests`), with per-test time limits (`-test-timeouts-enabled YES`, 180 s default /
 300 s maximum). The accessibility UI tests are slow, so they run in `accessibility.yml` (iOS and watch jobs in
 parallel) on pushes to `main`, manually (Actions › *Accessibility audit* › *Run workflow*) and on PRs labelled
 `accessibility`; it is not a required check. Details in [ACCESSIBILITY.md](ACCESSIBILITY.md#automated-audit).
 
 The macOS job uploads `ios-tests.xcresult` / `watch-tests.xcresult` as artifacts and prints a per-case summary. The
 watch UI tests are described in `docs/ACCESSIBILITY.md` (Apple Watch, *Automated checks*).
-Notes on the watch bundle: the watch app's `PRODUCT_NAME` is `WristReader`, so `TEST_HOST`/`BUNDLE_LOADER` are set
+Notes on the watch bundle: the watch app's `PRODUCT_NAME` is `Folito`, so `TEST_HOST`/`BUNDLE_LOADER` are set
 explicitly in `project.yml`; the app also sets `WKRunsIndependentlyOfCompanionApp` so it can be installed on a watch
 simulator without a paired iPhone (otherwise the test host fails to launch: "Unknown application display identifier").
-Locally on a Mac: `xcodegen generate && xcodebuild test -project WristReader.xcodeproj -scheme WristReaderWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 10 (46mm)' CODE_SIGNING_ALLOWED=NO`.
+Locally on a Mac: `xcodegen generate && xcodebuild test -project Folito.xcodeproj -scheme FolitoWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 10 (46mm)' CODE_SIGNING_ALLOWED=NO`.
 
 ## 1. Real KOSync server (koreader-sync-server)
 
@@ -52,7 +52,7 @@ Locally on a Mac: `xcodegen generate && xcodebuild test -project WristReader.xco
 ## 2. Real EPUBs (Project Gutenberg)
 
 `scripts/check_real_books.sh [SCRATCH_DIR]` downloads 8 public-domain books to a scratch dir (never committed), runs
-`RealWorldBooksTests` (env `WRISTREADER_EPUB_DIR`, optional `WRISTREADER_REPORT_DIR`, `WRISTREADER_SKIP_INVARIANTS`) and
+`RealWorldBooksTests` (env `FOLITO_EPUB_DIR`, optional `FOLITO_REPORT_DIR`, `FOLITO_SKIP_INVARIANTS`) and
 cross-checks hashes. Invariants per book: parse OK, JSON round trip, spine order, `globalOffset` contiguous and sum ==
 `totalCharacters`, no blank blocks / U+FFFD / control chars, spans inside text, unique xpointers, **every block xpointer
 resolves back to its own (chapter, block) with 0 trimmed steps**, `locate()` -> `resolve()` round trip at mid-block
@@ -99,7 +99,7 @@ re-parses the chapter's block xpointers on every call, ~1.3 ms/call in release -
 Run on a 512 KB thread stack with a 20-60 s deadline per case; the parser must return a typed `EPUBError` or succeed.
 Covered: empty/tiny/garbage files, missing file, directory, truncation at ~70 lengths, deterministic byte-flip fuzzing of
 6 fixtures (150 mutants), missing container/OPF, hostile `rootfile` paths, non-package root, empty/dangling spine,
-non-XHTML or missing spine items, lying zip headers, zip bomb (100 MB of `a` in 100 KB; `WRISTREADER_HEAVY=1`), many
+non-XHTML or missing spine items, lying zip headers, zip bomb (100 MB of `a` in 100 KB; `FOLITO_HEAVY=1`), many
 medium entries (total budget), 20 k entries, 3000 spine items, billion laughs, XXE, odd numeric/named entities,
 nesting depth 200...300 000 (XHTML) and 100 000 (OPF), 20 000 attributes, 2 MB single paragraph, tag soup with 20 k PIs,
 UTF-16 LE/BE, UTF-8 BOM, Latin-1, invalid UTF-8, zip-slip names; plus 3000 random/hostile XPointer strings

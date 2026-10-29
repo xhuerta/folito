@@ -2,7 +2,7 @@
 
 App Store Connect → your app → **Accessibility** lets you declare, per device (iPhone, Apple Watch), which features users can rely on to complete the app's **common tasks** (here: import a book, read it, change typography, look up a word, optionally set up sync). Apple asks you to claim a feature only if those tasks work with it; see the "Accessibility Nutrition Labels" pages in [App Store Connect Help](https://developer.apple.com/help/app-store-connect/) and the per-feature evaluation criteria linked from there (link not verified from here; re-read them before declaring).
 
-Evidence: `docs/ACCESSIBILITY.md` (PR #20, `feat/native-polish`; not on this branch yet). That document's *Known gaps* says the apps had **not yet been run on a simulator or device** when it was written, so every "Yes" below is conditional on the owner running the manual checklists in `docs/ACCESSIBILITY.md` and the `WristReaderUITests` audit passing in CI.
+Evidence: `docs/ACCESSIBILITY.md` (PR #20, `feat/native-polish`; not on this branch yet). That document's *Known gaps* says the apps had **not yet been run on a simulator or device** when it was written, so every "Yes" below is conditional on the owner running the manual checklists in `docs/ACCESSIBILITY.md` and the `FolitoUITests` audit passing in CI.
 
 | Feature | iPhone | Apple Watch | Basis in `docs/ACCESSIBILITY.md` |
 |---|---|---|---|

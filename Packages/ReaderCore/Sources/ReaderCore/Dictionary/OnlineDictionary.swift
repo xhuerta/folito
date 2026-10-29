@@ -11,7 +11,7 @@ public protocol DictionaryHTTPFetching: Sendable {
 
 public struct URLSessionDictionaryFetcher: DictionaryHTTPFetching, @unchecked Sendable {
     /// Wikimedia asks API clients for a descriptive User-Agent with contact information.
-    public static let userAgent = "WristReader/1.0 (https://github.com/xhuerta/wristreader; watchOS EPUB reader)"
+    public static let userAgent = "Folito/1.0 (https://github.com/xhuerta/wristreader; watchOS EPUB reader)"
     private let session: URLSession
 
     public init(session: URLSession? = nil) {

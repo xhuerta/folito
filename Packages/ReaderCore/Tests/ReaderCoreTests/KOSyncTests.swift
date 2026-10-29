@@ -91,7 +91,7 @@ final class KOSyncClientTests: XCTestCase {
         let c = makeClient()
         MockURLProtocol.handler = { _ in (200, self.json(#"{"document":"abc","timestamp":1700000000}"#)) }
         try await c.pushProgress(KOSyncProgress(document: "abc123", progress: "/body/DocFragment[2]/body/p[1]/text().0",
-                                                percentage: 0.25, device: "WristReader", device_id: "DEV1", timestamp: 5))
+                                                percentage: 0.25, device: "Folito", device_id: "DEV1", timestamp: 5))
         let r = MockURLProtocol.captured[0]
         XCTAssertEqual(r.method, "PUT")
         XCTAssertEqual(r.url.path, "/syncs/progress")

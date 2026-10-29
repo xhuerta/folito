@@ -63,7 +63,7 @@ struct AcknowledgementsView: View {
                     }
                 }
             } footer: {
-                Text("WristReader uses these open-source components. Tap one to read its licence.").foregroundStyle(.secondaryText)
+                Text("Folito uses these open-source components. Tap one to read its licence.").foregroundStyle(.secondaryText)
             }
         }
         .navigationTitle("Acknowledgements")

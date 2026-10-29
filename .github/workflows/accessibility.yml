@@ -55,7 +55,7 @@ jobs:
         run: xcodegen generate
 
       # Per-test time limits make a hung audit fail that test instead of stalling the job.
-      - name: iOS accessibility audit (WristReaderUITests)
+      - name: iOS accessibility audit (FolitoUITests)
         timeout-minutes: 25
         run: |
           set -o pipefail
@@ -74,10 +74,10 @@ jobs:
           UDID=${UDID%% *}
           [ -n "$UDID" ] || { xcrun simctl list devices available; exit 1; }
           xcodebuild test \
-            -project WristReader.xcodeproj \
-            -scheme WristReader \
+            -project Folito.xcodeproj \
+            -scheme Folito \
             -destination "id=$UDID" \
-            -only-testing:WristReaderUITests \
+            -only-testing:FolitoUITests \
             -clonedSourcePackagesDirPath SourcePackages \
             -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
             -resultBundlePath ios-uitests.xcresult \
@@ -129,7 +129,7 @@ jobs:
 
       # Audit + label / trait / largest-text-size checks (WatchApp/UITests). Per-test time limits make a hung
       # test fail instead of stalling the job.
-      - name: watchOS accessibility UI tests (WristReaderWatchUITests)
+      - name: watchOS accessibility UI tests (FolitoWatchUITests)
         timeout-minutes: 25
         run: |
           set -o pipefail
@@ -161,10 +161,10 @@ jobs:
               sleep 8
             done ) &
           xcodebuild test \
-            -project WristReader.xcodeproj \
-            -scheme WristReaderWatch \
+            -project Folito.xcodeproj \
+            -scheme FolitoWatch \
             -destination "id=$UDID" \
-            -only-testing:WristReaderWatchUITests \
+            -only-testing:FolitoWatchUITests \
             -clonedSourcePackagesDirPath SourcePackages \
             -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
             -resultBundlePath watch-uitests.xcresult \
