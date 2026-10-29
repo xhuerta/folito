@@ -17,6 +17,7 @@ struct TypographyEditorView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                     .accessibilityElement(children: .combine)
                     .accessibilityLabel(Text("Text preview"))
+                    .accessibilityIdentifier("typographyPreview")
             }
             Section("Presets") {
                 ForEach(ReaderTypography.Preset.allCases, id: \.self) { preset in

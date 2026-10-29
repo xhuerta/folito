@@ -43,6 +43,7 @@ struct ReaderView: View {
                             .onTapGesture { if tapToLookUp { model.beginLookup(at: index) } }
                             // Available from the VoiceOver actions rotor even with tap-to-look-up off.
                             .accessibilityAction(named: Text("Look Up a Word")) { model.beginLookup(at: index) }
+                            .accessibilityIdentifier("readerBlock")
                             .id(index)
                             .background(
                                 GeometryReader { geo in
@@ -87,6 +88,7 @@ struct ReaderView: View {
                     Label("Reading Options", systemImage: "list.bullet")
                 }
                 .accessibilityHint(Text("Text size, chapters and dictionary."))
+                .accessibilityIdentifier("readerOptionsButton")
             }
             // Status only, never while the wrist is down (Always On shows just the page).
             if showSyncInfo && sync.isConfigured && !isLuminanceReduced {
