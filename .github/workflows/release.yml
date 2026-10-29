@@ -1,6 +1,6 @@
 name: Release
 
-# Builds WristReader (iPhone app + embedded watch app), signs it with Apple cloud signing using an
+# Builds Folito (iPhone app + embedded watch app), signs it with Apple cloud signing using an
 # App Store Connect API key, and uploads it to TestFlight. See docs/RELEASE.md.
 #
 #  * workflow_dispatch with dry_run=true (default), or a pull_request touching this pipeline: needs NO secrets. Runs XcodeGen and an UNSIGNED
@@ -92,11 +92,11 @@ jobs:
           set -euo pipefail
           mkdir -p build
           xcodebuild archive \
-            -project WristReader.xcodeproj \
-            -scheme WristReader \
+            -project Folito.xcodeproj \
+            -scheme Folito \
             -configuration Release \
             -destination 'generic/platform=iOS' \
-            -archivePath build/WristReader.xcarchive \
+            -archivePath build/Folito.xcarchive \
             -clonedSourcePackagesDirPath SourcePackages \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             WR_BUNDLE_ID="$WR_BUNDLE_ID" \
@@ -108,8 +108,8 @@ jobs:
         if: ${{ env.WR_DRY_RUN == 'true' }}
         run: |
           set -euo pipefail
-          APP=build/WristReader.xcarchive/Products/Applications/WristReader.app
-          WATCH="$APP/Watch/WristReader.app"
+          APP=build/Folito.xcarchive/Products/Applications/Folito.app
+          WATCH="$APP/Watch/Folito.app"
           [ -d "$APP" ]   || { echo "::error::iOS app missing from archive"; exit 1; }
           [ -d "$WATCH" ] || { echo "::error::watch app is not embedded in the iOS app (expected $WATCH)"; ls -R "$APP" | head -50; exit 1; }
           get() { plutil -extract "$2" raw -o - "$1/Info.plist"; }
@@ -155,11 +155,11 @@ jobs:
           set -euo pipefail
           mkdir -p build
           xcodebuild archive \
-            -project WristReader.xcodeproj \
-            -scheme WristReader \
+            -project Folito.xcodeproj \
+            -scheme Folito \
             -configuration Release \
             -destination 'generic/platform=iOS' \
-            -archivePath build/WristReader.xcarchive \
+            -archivePath build/Folito.xcarchive \
             -clonedSourcePackagesDirPath SourcePackages \
             -allowProvisioningUpdates \
             -authenticationKeyPath "$ASC_KEY_PATH" \
@@ -184,7 +184,7 @@ jobs:
           plutil -lint build/ExportOptions.plist
           # destination=upload in ExportOptions.plist makes this command upload the build.
           xcodebuild -exportArchive \
-            -archivePath build/WristReader.xcarchive \
+            -archivePath build/Folito.xcarchive \
             -exportOptionsPlist build/ExportOptions.plist \
             -exportPath build/export \
             -allowProvisioningUpdates \
@@ -206,15 +206,15 @@ jobs:
 
       - name: Package archive
         if: ${{ env.WR_DRY_RUN != 'true' && success() }}
-        run: ditto -c -k --keepParent build/WristReader.xcarchive build/WristReader.xcarchive.zip
+        run: ditto -c -k --keepParent build/Folito.xcarchive build/Folito.xcarchive.zip
 
       - name: Upload build artifacts
         if: ${{ env.WR_DRY_RUN != 'true' && success() }}
         uses: actions/upload-artifact@v4
         with:
-          name: wristreader-${{ env.WR_VERSION }}-${{ env.WR_BUILD }}
+          name: folito-${{ env.WR_VERSION }}-${{ env.WR_BUILD }}
           path: |
-            build/WristReader.xcarchive.zip
+            build/Folito.xcarchive.zip
             build/export
             build/*.log
           retention-days: 14

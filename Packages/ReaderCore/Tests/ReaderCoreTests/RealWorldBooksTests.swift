@@ -2,16 +2,16 @@ import XCTest
 import Foundation
 @testable import ReaderCore
 
-/// Runs the real parser over every `*.epub` in `WRISTREADER_EPUB_DIR` (e.g. Project Gutenberg downloads kept
-/// OUTSIDE the repo) and checks structural invariants. If `WRISTREADER_REPORT_DIR` is set, writes
+/// Runs the real parser over every `*.epub` in `FOLITO_EPUB_DIR` (e.g. Project Gutenberg downloads kept
+/// OUTSIDE the repo) and checks structural invariants. If `FOLITO_REPORT_DIR` is set, writes
 /// `<name>.book.json` (the ProcessedBook the watch would receive) and `report.tsv` there.
-/// `WRISTREADER_SKIP_INVARIANTS=1` only parses + encodes (for timing / memory runs; the invariant pass is slow in debug).
+/// `FOLITO_SKIP_INVARIANTS=1` only parses + encodes (for timing / memory runs; the invariant pass is slow in debug).
 final class RealWorldBooksTests: XCTestCase {
     func testEveryBookInDirectory() throws {
-        guard let dir = ProcessInfo.processInfo.environment["WRISTREADER_EPUB_DIR"] else {
-            throw XCTSkip("WRISTREADER_EPUB_DIR not set")
+        guard let dir = ProcessInfo.processInfo.environment["FOLITO_EPUB_DIR"] else {
+            throw XCTSkip("FOLITO_EPUB_DIR not set")
         }
-        let reportDir = ProcessInfo.processInfo.environment["WRISTREADER_REPORT_DIR"].map { URL(fileURLWithPath: $0) }
+        let reportDir = ProcessInfo.processInfo.environment["FOLITO_REPORT_DIR"].map { URL(fileURLWithPath: $0) }
         if let reportDir { try FileManager.default.createDirectory(at: reportDir, withIntermediateDirectories: true) }
         let files = try FileManager.default.contentsOfDirectory(atPath: dir).filter { $0.hasSuffix(".epub") }.sorted()
         XCTAssertFalse(files.isEmpty)
@@ -22,7 +22,7 @@ final class RealWorldBooksTests: XCTestCase {
             let t0 = Date()
             let book = try EPUBParser().process(epubAt: url)
             let secs = Date().timeIntervalSince(t0)
-            if ProcessInfo.processInfo.environment["WRISTREADER_SKIP_INVARIANTS"] == nil { try Self.checkInvariants(book, name: f) }
+            if ProcessInfo.processInfo.environment["FOLITO_SKIP_INVARIANTS"] == nil { try Self.checkInvariants(book, name: f) }
             let enc = JSONEncoder()
             let json = try enc.encode(book)
             let decoded = try JSONDecoder().decode(ProcessedBook.self, from: json)

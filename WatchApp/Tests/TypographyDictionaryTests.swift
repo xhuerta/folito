@@ -1,6 +1,6 @@
 import XCTest
 import ReaderCore
-@testable import WristReaderWatch
+@testable import FolitoWatch
 
 @MainActor
 final class TypographyModelTests: XCTestCase {

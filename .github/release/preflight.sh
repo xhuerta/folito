@@ -49,7 +49,7 @@ if [ "$dry" = "false" ]; then
     case "$bundle" in com.example.*|*.watchkitapp) problems+=("BUNDLE_ID_BASE must be your own identifier (not com.example.* and without the .watchkitapp suffix)");; esac
   fi
 else
-  [ -n "$bundle" ] || bundle="com.xlahuerta.wristreader"
+  [ -n "$bundle" ] || bundle="com.xlahuerta.folito"
 fi
 
 if [ "${#missing[@]}" -gt 0 ] || [ "${#problems[@]}" -gt 0 ]; then

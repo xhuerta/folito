@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Release sanity checks for built WristReader bundles (pure stdlib; runs on macOS CI).
+"""Release sanity checks for built Folito bundles (pure stdlib; runs on macOS CI).
 
 Usage: validate_release.py [--source-root DIR] [--ios-app PATH.app] [--watch-app PATH.app]...
   Without app paths only the source asset catalogs are checked.

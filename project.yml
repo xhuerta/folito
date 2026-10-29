@@ -1,4 +1,4 @@
-name: WristReader
+name: Folito
 
 options:
   bundleIdPrefix: com.xlahuerta
@@ -31,7 +31,7 @@ packages:
     path: Packages/ReaderCore
 
 targets:
-  WristReader:
+  Folito:
     type: application
     platform: iOS
     sources:
@@ -45,7 +45,7 @@ targets:
     dependencies:
       - package: ReaderCore
       # Embeds the watch app into the iPhone app bundle.
-      - target: WristReaderWatch
+      - target: FolitoWatch
         embed: true
     info:
       path: GeneratedInfo/iOS-Info.plist
@@ -62,7 +62,7 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         # The user may point the app at a KOSync server on their LAN (IP / .local host).
         # Localized in iOSApp/Resources/InfoPlist.xcstrings (see docs/LOCALIZATION.md).
-        NSLocalNetworkUsageDescription: WristReader connects to your own KOReader sync server on your local network to sync your reading progress.
+        NSLocalNetworkUsageDescription: Folito connects to your own KOReader sync server on your local network to sync your reading progress.
         UILaunchScreen: {}
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
@@ -97,13 +97,13 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(WR_BUNDLE_ID)
-        PRODUCT_NAME: WristReader
+        PRODUCT_NAME: Folito
         TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         GENERATE_INFOPLIST_FILE: NO
 
-  WristReaderWatch:
+  FolitoWatch:
     type: application
     platform: watchOS
     sources:
@@ -125,7 +125,7 @@ targets:
         CFBundleDevelopmentRegion: en
         CFBundleLocalizations: [en, es, fr, de, it, pt-BR, ja, zh-Hans]
         ITSAppUsesNonExemptEncryption: false
-        NSLocalNetworkUsageDescription: WristReader connects to your own KOReader sync server on your local network to sync your reading progress.
+        NSLocalNetworkUsageDescription: Folito connects to your own KOReader sync server on your local network to sync your reading progress.
         WKApplication: true
         WKCompanionAppBundleIdentifier: $(WR_BUNDLE_ID)
         # Required for the app to be installable on a watch simulator that has no paired iPhone
@@ -143,9 +143,9 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(WR_BUNDLE_ID).watchkitapp
-        PRODUCT_NAME: WristReader
-        # Distinct from the iOS app's module so WatchApp/Tests can `@testable import WristReaderWatch`.
-        PRODUCT_MODULE_NAME: WristReaderWatch
+        PRODUCT_NAME: Folito
+        # Distinct from the iOS app's module so WatchApp/Tests can `@testable import FolitoWatch`.
+        PRODUCT_MODULE_NAME: FolitoWatch
         SDKROOT: watchos
         TARGETED_DEVICE_FAMILY: "4"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -153,14 +153,14 @@ targets:
         SKIP_INSTALL: YES
         GENERATE_INFOPLIST_FILE: NO
 
-  WristReaderTests:
+  FolitoTests:
     type: bundle.unit-test
     platform: iOS
     sources:
       - path: iOSApp/Tests
         optional: true
     dependencies:
-      - target: WristReader
+      - target: Folito
       - package: ReaderCore
     settings:
       base:
@@ -169,80 +169,80 @@ targets:
 
   # Automated accessibility audits (XCUIApplication.performAccessibilityAudit, iOS 17+). Launches the app with
   # -UITesting / -UITestingSeedSampleBook (handled in Debug builds only). See docs/ACCESSIBILITY.md.
-  WristReaderUITests:
+  FolitoUITests:
     type: bundle.ui-testing
     platform: iOS
     sources:
       - path: iOSApp/UITests
     dependencies:
-      - target: WristReader
+      - target: Folito
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(WR_BUNDLE_ID).uitests
-        TEST_TARGET_NAME: WristReader
+        TEST_TARGET_NAME: Folito
         GENERATE_INFOPLIST_FILE: YES
 
-  WristReaderWatchTests:
+  FolitoWatchTests:
     type: bundle.unit-test
     platform: watchOS
     sources:
       - path: WatchApp/Tests
         optional: true
     dependencies:
-      - target: WristReaderWatch
+      - target: FolitoWatch
       - package: ReaderCore
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(WR_BUNDLE_ID).watchtests
-        # The watch app's PRODUCT_NAME is WristReader (not the target name), so XcodeGen's default
-        # TEST_HOST (.../WristReaderWatch.app/WristReaderWatch) does not exist; point at the real product.
-        TEST_HOST: $(BUILT_PRODUCTS_DIR)/WristReader.app/WristReader
+        # The watch app's PRODUCT_NAME is Folito (not the target name), so XcodeGen's default
+        # TEST_HOST (.../FolitoWatch.app/FolitoWatch) does not exist; point at the real product.
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/Folito.app/Folito
         BUNDLE_LOADER: $(TEST_HOST)
         GENERATE_INFOPLIST_FILE: YES
 
   # Watch accessibility UI tests: XCUIApplication.performAccessibilityAudit (available on watchOS 10+) plus
   # explicit label / trait / largest-text-size checks. Launches the watch app with -UITesting /
   # -UITestingSeedSampleBook (handled in Debug builds only). See docs/ACCESSIBILITY.md.
-  WristReaderWatchUITests:
+  FolitoWatchUITests:
     type: bundle.ui-testing
     platform: watchOS
     sources:
       - path: WatchApp/UITests
     dependencies:
-      - target: WristReaderWatch
+      - target: FolitoWatch
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(WR_BUNDLE_ID).watchuitests
-        TEST_TARGET_NAME: WristReaderWatch
+        TEST_TARGET_NAME: FolitoWatch
         GENERATE_INFOPLIST_FILE: YES
 
 schemes:
-  WristReader:
+  Folito:
     build:
       targets:
-        WristReader: all
+        Folito: all
     run:
       config: Debug
     test:
       config: Debug
       targets:
-        - WristReaderTests
-        - WristReaderUITests
+        - FolitoTests
+        - FolitoUITests
     profile:
       config: Release
     archive:
       config: Release
-  WristReaderWatch:
+  FolitoWatch:
     build:
       targets:
-        WristReaderWatch: all
+        FolitoWatch: all
     run:
       config: Debug
     test:
       config: Debug
       targets:
-        - WristReaderWatchTests
-        - WristReaderWatchUITests
+        - FolitoWatchTests
+        - FolitoWatchUITests
     profile:
       config: Release
     archive:

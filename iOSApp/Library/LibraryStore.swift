@@ -1,7 +1,7 @@
 import Foundation
 import ReaderCore
 
-/// Owns the on-disk library (Application Support/WristReader) and the import pipeline.
+/// Owns the on-disk library (Application Support/Folito) and the import pipeline.
 @MainActor
 final class LibraryStore: ObservableObject {
     @Published private(set) var entries: [LibraryEntry] = []
@@ -21,7 +21,7 @@ final class LibraryStore: ObservableObject {
     init(parser: EPUBParsing = EPUBParser(), rootDirectory: URL? = nil) {
         self.parser = parser
         let root = rootDirectory ?? (FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("WristReader", isDirectory: true))
+            .appendingPathComponent("Folito", isDirectory: true))
         booksDirectory = root.appendingPathComponent("Books", isDirectory: true)
         indexURL = root.appendingPathComponent("library.json")
         try? fm.createDirectory(at: booksDirectory, withIntermediateDirectories: true)

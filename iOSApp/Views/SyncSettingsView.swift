@@ -18,7 +18,7 @@ struct SyncSettingsView: View {
                     Label("Sync is off", systemImage: "icloud.slash")
                         .font(.headline)
                         .foregroundStyle(.secondaryText)
-                    Text("WristReader works fully without an account. Sync is optional: it only lets you continue the same book on other readers.")
+                    Text("Folito works fully without an account. Sync is optional: it only lets you continue the same book on other readers.")
                         .font(.footnote)
                         .foregroundStyle(.secondaryText)
                 }

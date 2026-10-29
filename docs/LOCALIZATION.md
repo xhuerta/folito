@@ -1,6 +1,6 @@
 # Localization
 
-WristReader (iPhone app and Apple Watch app) is localized with Xcode String Catalogs.
+Folito (iPhone app and Apple Watch app) is localized with Xcode String Catalogs.
 
 | Language | Code |
 | --- | --- |
@@ -75,7 +75,7 @@ hand-written key might say `%@`; such a key would never be found at run time). I
 as the build left them (artifact `xcstrings-after-build`). Locally:
 
 ```sh
-xcodebuild build -project WristReader.xcodeproj -scheme WristReader -destination 'generic/platform=iOS Simulator'
+xcodebuild build -project Folito.xcodeproj -scheme Folito -destination 'generic/platform=iOS Simulator'
 python3 scripts/compare_extracted_strings.py ~/Library/Developer/Xcode/DerivedData
 ```
 

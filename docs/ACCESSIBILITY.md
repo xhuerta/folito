@@ -1,6 +1,6 @@
 # Accessibility
 
-WristReader aims to behave like Apple's built-in apps: standard SwiftUI components, system text styles and
+Folito aims to behave like Apple's built-in apps: standard SwiftUI components, system text styles and
 colours, and the platform conventions described in the
 [Human Interface Guidelines](https://developer.apple.com/design/human-interface-guidelines/accessibility).
 Each platform has its own section below.
@@ -13,7 +13,7 @@ Each platform has its own section below.
 is an inset-grouped `Form` with *Progress Sync* (pushed screen) and *About* (Privacy Policy, Support,
 Version, Acknowledgements with the full licence texts). Toolbar items use standard placements. Empty
 states use `ContentUnavailableView`: an empty library ("No Books", with an *Import EPUB* button), no
-Apple Watch paired, and WristReader not installed on the watch. All icons are SF Symbols. There are no
+Apple Watch paired, and Folito not installed on the watch. All icons are SF Symbols. There are no
 custom card styles, fonts or colours in the UI chrome.
 
 **VoiceOver.**
@@ -67,7 +67,7 @@ handling (any future custom animation must check `accessibilityReduceMotion`).
 
 ### Automated audit
 
-`WristReaderUITests` (`iOSApp/UITests/AccessibilityAuditTests.swift`) launches the app and calls
+`FolitoUITests` (`iOSApp/UITests/AccessibilityAuditTests.swift`) launches the app and calls
 `XCUIApplication.performAccessibilityAudit` on: the empty library, a library with one book, Settings,
 Progress Sync, Acknowledgements and Reading.
 
@@ -93,8 +93,8 @@ Run locally:
 
 ```sh
 xcodegen generate
-xcodebuild test -project WristReader.xcodeproj -scheme WristReader \
-  -destination 'platform=iOS Simulator,name=iPhone 16' -only-testing:WristReaderUITests
+xcodebuild test -project Folito.xcodeproj -scheme Folito \
+  -destination 'platform=iOS Simulator,name=iPhone 16' -only-testing:FolitoUITests
 ```
 
 #### Accepted audit findings
@@ -221,7 +221,7 @@ momentum and detents, like other system apps. In the word picker the crown moves
 
 **Errors.** Messages say what happened and what to do (`WatchMessages`, unit-tested), for example "Can't
 reach the server. Check that your watch or iPhone is online, then try again." or "This book's file is
-damaged. Delete it here and send it again from WristReader on your iPhone." There is no bare "Error".
+damaged. Delete it here and send it again from Folito on your iPhone." There is no bare "Error".
 
 **Localizability.** Literal strings in `Text`/`Button`/`Label` are localizable keys; other strings use
 `String(localized:comment:)`; sentences with values are single format strings ("%@ read"), never
@@ -236,7 +236,7 @@ unfinished book never shows 100%). ReaderCore's English option titles are not sh
   typography JSON, tolerant decoding and the wire format of `matchSystemTextSize`.
 - Watch (`WatchApp/Tests/AccessibilityTests.swift`): percent formatting, error-message mapping, the
   adjustable word cursor and its haptics (spy), accessibility-aware render styles and the style cache.
-- Watch UI tests (`WristReaderWatchUITests`, `WatchApp/UITests/`): see *Automated checks* below.
+- Watch UI tests (`FolitoWatchUITests`, `WatchApp/UITests/`): see *Automated checks* below.
 
 ### Automated checks
 
@@ -280,9 +280,9 @@ simulator, and the job always prints the findings and uploads `watch-accessibili
 
 ```sh
 xcodegen generate
-xcodebuild test -project WristReader.xcodeproj -scheme WristReaderWatch \
+xcodebuild test -project Folito.xcodeproj -scheme FolitoWatch \
   -destination 'platform=watchOS Simulator,name=Apple Watch Series 10 (46mm)' \
-  -only-testing:WristReaderWatchUITests CODE_SIGNING_ALLOWED=NO
+  -only-testing:FolitoWatchUITests CODE_SIGNING_ALLOWED=NO
 ```
 
 #### Accepted audit findings

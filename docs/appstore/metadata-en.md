@@ -2,17 +2,15 @@
 
 Paste into App Store Connect → your app → version page / App Information. Character limits: name and subtitle 30 (verified in Apple's docs); promotional text 170, description 4000, keywords 100, what's new 4000 (commonly cited limits, confirmed by the App Store Connect form itself when you paste). Checked lengths are in brackets.
 
-## Name (pick one; availability is decided by Apple when you create the app record)
+## Name
 
-1. `WristReader` (11) – working title, matches the bundle/project name
-2. `WristReader: EPUB Reader` (24)
-3. `Wrist EPUB Reader` (17)
+`Folito` (6). Not translated.
 
 Do not put "KOReader", "Readest", "Kindle", "Apple" or other third-party marks in the name (see REVIEW_RISKS.md, 5.2).
 
 ## Subtitle (≤ 30)
 
-`EPUB reader for Apple Watch` (27)
+`EPUB Reader for Your Watch` (26)
 
 ## Promotional text (≤ 170)
 
@@ -21,7 +19,7 @@ Do not put "KOReader", "Readest", "Kindle", "Apple" or other third-party marks i
 ## Description
 
 ```
-WristReader is an EPUB reader for Apple Watch. Bring your own books: import them on your iPhone and read them on your wrist. No account is needed.
+Folito is an EPUB reader for Apple Watch. Bring your own books: import them on your iPhone and read them on your wrist. No account is needed.
 
 READ ON YOUR WRIST
 • Import DRM-free .epub files from Files, the share sheet or the in-app import button; they are sent to your watch automatically.
@@ -46,14 +44,14 @@ PRIVATE BY DESIGN
 GOOD TO KNOW
 • Open the iPhone app at least once so the watch can be set up.
 • DRM-protected books are not supported.
-• KOReader and Readest are independent projects; WristReader is not affiliated with them.
+• KOReader and Readest are independent projects; Folito is not affiliated with them.
 ```
 
 ## Keywords (≤ 100, comma-separated, no spaces)
 
 `ebook,book,books,wrist,offline,dictionary,ereader,reading,library,smartwatch,voiceover,sync,kosync` (98)
 
-(Words already in the name/subtitle, such as "EPUB", "reader" and "Apple Watch", are indexed automatically; do not repeat them. Do not add competitor or third-party trademarks.)
+(Words already in the name/subtitle, such as "EPUB", "reader" and "watch", are indexed automatically; do not repeat them. Do not add competitor or third-party trademarks.)
 
 ## What's New (version 1.0)
 

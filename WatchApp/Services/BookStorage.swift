@@ -25,7 +25,7 @@ final class BookStorage: @unchecked Sendable {
 
     init(root: URL? = nil) {
         let base = root ?? fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("WristReader", isDirectory: true)
+            .appendingPathComponent("Folito", isDirectory: true)
         directory = base.appendingPathComponent("Books", isDirectory: true)
         indexURL = base.appendingPathComponent("library.json")
         try? fm.createDirectory(at: directory, withIntermediateDirectories: true)

@@ -1,4 +1,4 @@
-# WristReader: privacy data map
+# Folito: privacy data map
 
 Source of truth for what data leaves the device, to whom and why. The privacy policy and the App Store
 "App Privacy" answers must match this file. Audited against the code (every `URLSession` use,
@@ -26,7 +26,7 @@ is never called (`KOSyncClient.createUser()` exists in ReaderCore only for proto
 | Password | **no, never in clear.** Only its lowercase MD5 hex, header `x-auth-key` | This is the KOReader sync protocol's required auth key. |
 | Book identifier | yes, `document` | KOReader "partial MD5" of the EPUB file (a hash, not the file, title or text). |
 | Reading position | yes, `progress` (XPointer string) and `percentage` | Per book. |
-| Device name / ID | yes, `device` = constant "WristReader", `device_id` = random UUID generated on first launch and stored in UserDefaults | Not derived from hardware identifiers; not the advertising ID or vendor ID. |
+| Device name / ID | yes, `device` = constant "Folito", `device_id` = random UUID generated on first launch and stored in UserDefaults | Not derived from hardware identifiers; not the advertising ID or vendor ID. |
 | Timestamp | no | Server-assigned. |
 
 Endpoints: `GET /users/auth`, `PUT /syncs/progress`, `GET /syncs/progress/{document}`.
@@ -45,7 +45,7 @@ only when the user taps a word and opens the definition (watch app; the lookup m
 
 | Recipient | Request | Data sent |
 |---|---|---|
-| Wikimedia Foundation, `https://en.wiktionary.org/api/rest_v1/page/definition/{word}` | HTTPS GET | The looked-up word (and normalised variants, e.g. lower-cased or de-inflected candidates, tried in turn), the app's `User-Agent` (`WristReader/1.0 (https://github.com/xhuerta/wristreader; ...)`, required by Wikimedia policy), `Accept: application/json`, plus the IP address inherent to any request. |
+| Wikimedia Foundation, `https://en.wiktionary.org/api/rest_v1/page/definition/{word}` | HTTPS GET | The looked-up word (and normalised variants, e.g. lower-cased or de-inflected candidates, tried in turn), the app's `User-Agent` (`Folito/1.0 (https://github.com/xhuerta/wristreader; ...)`, required by Wikimedia policy), `Accept: application/json`, plus the IP address inherent to any request. |
 | api.dictionaryapi.dev, `https://api.dictionaryapi.dev/api/v2/entries/en/{word}` | HTTPS GET, English words only, used when Wiktionary has no entry | Same: the word, User-Agent, IP address. |
 
 Not sent: book title, author, surrounding text, position, account data, device ID. The word does not
@@ -65,7 +65,7 @@ those services' logs; their own privacy policies apply to what they retain.
 | Data | Where | Notes |
 |---|---|---|
 | KOSync server URL, username, password | Keychain (iPhone and watch each have their own item; no access groups) | Never leaves the device except as described in 1a/1c. |
-| Library (processed EPUBs) | `Application Support/WristReader/Books` (iPhone), watch app's Application Support | Files the user imports; never uploaded. |
+| Library (processed EPUBs) | `Application Support/Folito/Books` (iPhone), watch app's Application Support | Files the user imports; never uploaded. |
 | Reading position, typography, device UUID, pending sync queue | UserDefaults | |
 | Dictionary cache | On-device cache file (Application Support) | |
 

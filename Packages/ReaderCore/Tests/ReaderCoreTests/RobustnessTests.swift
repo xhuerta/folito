@@ -169,7 +169,7 @@ final class RobustnessTests: XCTestCase {
     }
 
     func testHighlyCompressibleBombIsBounded() throws {
-        guard ProcessInfo.processInfo.environment["WRISTREADER_HEAVY"] != nil else { throw XCTSkip("WRISTREADER_HEAVY not set (~15s)") }
+        guard ProcessInfo.processInfo.environment["FOLITO_HEAVY"] != nil else { throw XCTSkip("FOLITO_HEAVY not set (~15s)") }
         // 100 MB of 'a' compresses to ~100KB; per-entry limit is 64MB so the entry must be refused.
         let bomb = Data(repeating: 0x61, count: 100 * 1024 * 1024)
         let url = try zip([("c1.xhtml", Data("<html><body><p>".utf8) + bomb + Data("</p></body></html>".utf8))])

@@ -1,7 +1,7 @@
 import UIKit
 import XCTest
 import ReaderCore
-@testable import WristReader
+@testable import Folito
 
 /// `UIColor.secondaryText` (the app's own secondary text colour) must reach WCAG AA 4.5:1 on every system
 /// background it can appear on, in light and dark mode, with and without Increase Contrast.

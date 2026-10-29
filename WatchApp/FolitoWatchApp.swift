@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct WristReaderWatchApp: App {
+struct FolitoWatchApp: App {
     @StateObject private var env = AppEnvironment()
     @Environment(\.scenePhase) private var scenePhase
 
