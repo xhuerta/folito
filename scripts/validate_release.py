@@ -118,9 +118,12 @@ def check_bundle(app, kind):
                 fail(f"{label}: NSPrivacyTracking must be declared false")
             else:
                 ok(f"{label}: privacy manifest present")
-    for lang in ("en", "es"):
-        if not os.path.isfile(os.path.join(app, f"{lang}.lproj", "InfoPlist.strings")):
-            fail(f"{label}: {lang}.lproj/InfoPlist.strings missing")
+    # Compiled from Resources/{InfoPlist,Localizable}.xcstrings (see docs/LOCALIZATION.md).
+    for lang in ("en", "es", "fr", "de", "it", "pt-BR", "ja", "zh-Hans"):
+        # English UI strings fall back to the keys, so en.lproj may hold InfoPlist.strings only.
+        for table in ("InfoPlist",) if lang == "en" else ("InfoPlist", "Localizable"):
+            if not os.path.isfile(os.path.join(app, f"{lang}.lproj", f"{table}.strings")):
+                fail(f"{label}: {lang}.lproj/{table}.strings missing")
     bid = info.get("CFBundleIdentifier", "")
     if os.environ.get("RELEASE_STRICT") and bid.startswith("com.example"):
         fail(f"{label}: RELEASE_STRICT set but bundle id is still the placeholder {bid}")

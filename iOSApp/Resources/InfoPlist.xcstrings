@@ -1,0 +1,60 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "NSLocalNetworkUsageDescription" : {
+      "comment" : "Privacy - Local Network Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WristReader verbindet sich mit deinem eigenen KOReader-Sync-Server in deinem lokalen Netzwerk, um deinen Lesefortschritt zu synchronisieren."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WristReader connects to your own KOReader sync server on your local network to sync your reading progress."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WristReader se conecta a tu propio servidor de sincronización KOReader en tu red local para sincronizar tu progreso de lectura."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WristReader se connecte à votre propre serveur de synchronisation KOReader sur votre réseau local pour synchroniser votre progression de lecture."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WristReader si connette al tuo server di sincronizzazione KOReader sulla rete locale per sincronizzare i progressi di lettura."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WristReaderは、読書の進捗を同期するために、ローカルネットワーク上のご自身のKOReader同期サーバに接続します。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O WristReader se conecta ao seu servidor de sincronização KOReader na rede local para sincronizar seu progresso de leitura."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WristReader 会连接到你在局域网中的 KOReader 同步服务器，以同步你的阅读进度。"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

@@ -123,6 +123,9 @@ jobs:
 
       - name: Build for testing
         run: |
+          # The app targets are always recompiled (fresh checkout mtimes); drop restored string extractions so the
+          # String Catalog comparison below only sees this build's (a deleted source file leaves no stale keys).
+          find DerivedData/Build -path '*/WristReader*.build/*' -name '*.stringsdata' -delete 2>/dev/null || true
           xcodebuild build-for-testing $XCB_FLAGS \
             -scheme ${{ matrix.scheme }} \
             -destination "generic/platform=${{ matrix.sdk }}" \
@@ -169,3 +172,26 @@ jobs:
             ${{ matrix.platform }}-tests.xcresult
             build.log
           if-no-files-found: ignore
+
+      # The catalogs are hand-checked on Linux by scripts/check_strings.py; here they are compared with the keys
+      # the Swift compiler actually extracted while building both apps (SWIFT_EMIT_LOC_STRINGS). The iOS job
+      # builds the embedded watch app too, so it covers both targets. If the build rewrote a catalog, the
+      # rewritten files are uploaded so they can be committed as Xcode writes them.
+      - name: Compare String Catalogs with Xcode's extraction
+        if: always() && matrix.platform == 'ios'
+        run: |
+          python3 scripts/compare_extracted_strings.py DerivedData
+          if git status --porcelain -- '*.xcstrings' | grep -q .; then
+            echo "::warning::The build rewrote String Catalogs:"; git diff --stat -- '*.xcstrings'
+          else
+            echo "The build left the String Catalogs unchanged."
+          fi
+
+      - name: Upload String Catalogs as written by the build
+        if: always() && matrix.platform == 'ios'
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcstrings-after-build
+          path: |
+            iOSApp/Resources/*.xcstrings
+            WatchApp/Resources/*.xcstrings
