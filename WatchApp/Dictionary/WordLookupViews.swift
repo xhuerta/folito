@@ -121,7 +121,7 @@ struct DefinitionView: View {
                             .accessibilityHidden(true)
                         Text(WatchMessages.dictionary(error))
                             .font(.footnote).multilineTextAlignment(.center)
-                        if error != .notFound {
+                        if error == .unreadable {
                             Button("Try Again") { Task { await model.lookup() } }
                         }
                     }
@@ -137,10 +137,9 @@ struct DefinitionView: View {
 
     private func icon(for error: DictionaryError) -> String {
         switch error {
-        case .offline: return "wifi.slash"
+        case .noDictionary: return "character.book.closed"
         case .notFound: return "questionmark.circle"
-        case .rateLimited: return "hourglass"
-        default: return "exclamationmark.triangle"
+        case .unreadable: return "exclamationmark.triangle"
         }
     }
 }
@@ -163,17 +162,24 @@ struct EntryList: View {
                 }
             }
             ForEach(Array(entry.meanings.enumerated()), id: \.offset) { _, meaning in
-                Section(meaning.partOfSpeech.capitalized) {
+                Section {
                     ForEach(Array(meaning.senses.enumerated()), id: \.offset) { n, sense in
-                        // One VoiceOver element per sense: number, definition and examples.
+                        // One VoiceOver element per sense: number, definition, sub-senses and examples.
                         VStack(alignment: .leading, spacing: 2) {
                             Text(verbatim: "\(n + 1). \(sense.definition)").font(.footnote)
+                            ForEach(Array(sense.subsenses.enumerated()), id: \.offset) { _, sub in
+                                Text(verbatim: "\u{2022} \(sub)").font(.caption2)
+                                    .padding(.leading, 6)
+                            }
                             ForEach(sense.examples, id: \.self) { example in
                                 Text(verbatim: "\u{201C}\(example)\u{201D}").font(.caption2).italic().foregroundStyle(.secondary)
                             }
                         }
                         .accessibilityElement(children: .combine)
                     }
+                } header: {
+                    // Headings come from the dictionary in its own language ("Noun", "Sustantivo f.").
+                    if !meaning.partOfSpeech.isEmpty { Text(verbatim: meaning.partOfSpeech) }
                 }
             }
             Section {
