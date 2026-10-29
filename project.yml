@@ -1,7 +1,7 @@
 name: WristReader
 
 options:
-  bundleIdPrefix: com.example
+  bundleIdPrefix: com.xlahuerta
   developmentLanguage: en
   deploymentTarget:
     iOS: "17.0"

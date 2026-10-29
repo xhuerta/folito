@@ -72,8 +72,8 @@ jobs:
           fi
           python3 scripts/validate_release.py "${ARGS[@]}"
         env:
-          # Set RELEASE_STRICT to "1" (repository variable) once real bundle ids replace com.example.
-          RELEASE_STRICT: ${{ vars.RELEASE_STRICT }}
+          # Real bundle ids are in place: fail if a com.example.* id ever comes back.
+          RELEASE_STRICT: "1"
 
       - name: Show warnings
         if: always()
