@@ -136,11 +136,11 @@ jobs:
         run: |
           until [ -s "$RUNNER_TEMP/udid" ] && grep -q booted "$RUNNER_TEMP/boot.log"; do
             if ! pgrep -f boot_simulator.sh >/dev/null && ! grep -q booted "$RUNNER_TEMP/boot.log"; then
-              cat "$RUNNER_TEMP/boot.log"; exit 1
+              tail -40 "$RUNNER_TEMP/boot.log"; exit 1
             fi
             sleep 2
           done
-          cat "$RUNNER_TEMP/boot.log"
+          grep -v -E "^\s|^\[|^$" "$RUNNER_TEMP/boot.log" || true
           echo "UDID=$(cat "$RUNNER_TEMP/udid")" >> "$GITHUB_ENV"
 
       - name: Run tests
