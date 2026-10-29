@@ -65,8 +65,8 @@ First release: read your own EPUB books on Apple Watch without an account, with 
 |---|---|
 | Primary category | Books |
 | Secondary category (optional) | Productivity or Reference (owner choice) |
-| Support URL | `https://xhuerta.github.io/wristreader-site/support.html` (live once the site repo is published, see `docs/RELEASE.md`; fill `xlahuerta@protonmail.com` first) |
-| Marketing URL | `https://xhuerta.github.io/wristreader-site/` (optional field) |
-| Privacy Policy URL | `https://xhuerta.github.io/wristreader-site/privacy.html` (must equal the in-app link, `AppLinks.privacyPolicy`) |
+| Support URL | `https://folito.app/support.html` (live once the site repo is published, see `docs/RELEASE.md`; fill `xlahuerta@protonmail.com` first) |
+| Marketing URL | `https://folito.app/` (optional field) |
+| Privacy Policy URL | `https://folito.app/privacy.html` (must equal the in-app link, `AppLinks.privacyPolicy`) |
 | Copyright | `© 2026 Xabier Lahuerta` |
 | Price | owner decision |

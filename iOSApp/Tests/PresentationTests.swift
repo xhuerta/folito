@@ -134,7 +134,7 @@ final class PresentationTests: XCTestCase {
     }
 
     func testLinksPointAtTheSupportSiteInTheReadersLanguage() {
-        let base = "https://xhuerta.github.io/wristreader-site/"
+        let base = "https://folito.app/"
         XCTAssertEqual(AppLinks.page("privacy.html", languageCode: "en-US").absoluteString, base + "privacy.html")
         XCTAssertEqual(AppLinks.page("privacy.html", languageCode: "es-MX").absoluteString, base + "es/privacy.html")
         XCTAssertEqual(AppLinks.page("support.html", languageCode: nil).absoluteString, base + "support.html")

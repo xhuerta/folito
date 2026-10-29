@@ -19,7 +19,7 @@ Apple's definition ([App privacy details](https://developer.apple.com/app-store/
    * **Search History** (the words the user looks up). Linked to the user: **No**. Used for tracking: **No**. Purpose: **App Functionality**.
 2. **Sync data** (KOSync: username, password hash, book hash, reading position, device UUID; Readest: email, session token, book and metadata hashes, reading position): optional and sent only to a service the user chooses and signs in to with their own account, never to the developer or a partner of the developer. Not declared (the data map's reading). The conservative alternative, an owner decision listed in the data map section 5, is stronger now that Readest Cloud is a fixed, named third-party service: additionally declare **Email Address** and **User ID** (Readest account), **Device ID** (KOSync), and **Other User Content** (book hashes and reading positions), all *not linked to the user's identity by the developer, no tracking, App Functionality*. Recommendation: take the conservative alternative before shipping Readest sync.
 3. **Tracking**: **No**. No data linked to the user. Tracking domains: none.
-4. **Privacy Policy URL**: `https://xhuerta.github.io/wristreader-site/privacy.html` (Spanish: `…/es/privacy.html`). It must be the same URL as the in-app link (`AppLinks.privacyPolicy` in `iOSApp/Support/AppLinks.swift`, PR #20, currently `https://example.com/...`).
+4. **Privacy Policy URL**: `https://folito.app/privacy.html` (Spanish: `…/es/privacy.html`). It must be the same URL as the in-app link (`AppLinks.privacyPolicy` in `iOSApp/Support/AppLinks.swift`, PR #20, currently `https://example.com/...`).
 5. **Privacy choices URL**: leave empty.
 
 ## Privacy manifest (in the app bundle)

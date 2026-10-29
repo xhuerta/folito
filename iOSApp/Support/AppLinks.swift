@@ -2,8 +2,8 @@ import Foundation
 
 /// Every external link the iPhone app shows. Single source of truth: change them here only.
 enum AppLinks {
-    /// Support site, published from docs/site to the public repo xhuerta/wristreader-site (GitHub Pages).
-    static let site = URL(string: "https://xhuerta.github.io/wristreader-site/")!
+    /// Support site, published from docs/site to the public repo xhuerta/folito-site (GitHub Pages, custom domain folito.app).
+    static let site = URL(string: "https://folito.app/")!
 
     /// Same URL as App Store Connect's privacy policy field (guideline 5.1.1(i)).
     static var privacyPolicy: URL { page("privacy.html") }
