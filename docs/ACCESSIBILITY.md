@@ -44,16 +44,17 @@ text is never line-limited. The reading preview is content: it intentionally use
 size (the one sent to the watch) and keeps a fixed watch-like width.
 
 **Colour and contrast.** UI chrome uses system colours (`.primary`, `.green`, `.orange`, `.red`, `.tint`),
-the AccentColor and one app colour for supporting text, `secondaryText` (`iOSApp/Views/SecondaryText.swift`).
-The system's `secondaryLabel` is a 60% gray that measures about 3.5:1 on white and 3.2:1 on the grouped
-background, below WCAG AA's 4.5:1 for text at footnote/subheadline sizes, so every piece of text the app
-colours itself (author line, file size and watch state in library rows, slider values, the sync explanations,
-the watch connection note) uses `secondaryText` instead: opaque system grays, #636366 in light mode (5.3:1 on
-the grouped background, 6.0:1 on white) and #AEAEB2 in dark mode (at least 6:1 on every dark background),
+the AccentColor and one app colour for all secondary text, `secondaryText` (`iOSApp/Views/SecondaryText.swift`).
+The system's `secondaryLabel` is a 60% gray: the CI audit measured #8A8A8E on white (3.44:1) and #85858B on the
+grouped background (3.29:1), below WCAG AA's 4.5:1 for text at footnote/subheadline sizes. So every piece of
+secondary text uses `secondaryText` instead: the text the app styles itself (author line, file size and watch
+state in library rows, slider values, the sync explanations, the watch connection note) and also the text a
+system component would draw in `secondaryLabel` (section headers and footers, `LabeledContent` values such as
+"On"/"Off", the version and licence names, `ContentUnavailableView` descriptions such as "No Books"), which the
+app colours explicitly. `secondaryText` is made of opaque system grays, #636366 in light mode (5.3:1 on the
+grouped background, 6.0:1 on white) and #AEAEB2 in dark mode (at least 6:1 on every dark background),
 #48484A / #D1D1D6 with Increase Contrast. `SecondaryTextContrastTests` checks ≥ 4.5:1 against every system
-background in light/dark, normal/increased contrast, base/elevated. Text whose colour a system component
-chooses (section headers and footers, `LabeledContent` values, `ContentUnavailableView` descriptions) keeps
-the system's colour, like in Apple's apps; see "Accepted audit findings". The only hard-coded colours besides
+background in light/dark, normal/increased contrast, base/elevated. The only hard-coded colours besides
 these are the reader themes in the preview (shared with the watch). Coloured status labels colour only the
 symbol; the text stays primary or `secondaryText`, because coloured text such as system green on white falls
 below 4.5:1. Increase Contrast, Reduce Transparency, Bold Text, Smart Invert and Dark Mode are handled by the
@@ -102,7 +103,6 @@ xcodebuild test -project Folito.xcodeproj -scheme Folito \
 | Element | Audit type | Why it is accepted |
 |---|---|---|
 | Reading preview (`typographyPreview`) | Dynamic Type, Contrast, Text clipped | It is content, not chrome: it renders the book text exactly as the watch will, at the reader's chosen point size and theme colours (for example the *Dim* theme). Scaling it with Dynamic Type would make the preview wrong. Its accessibility value describes the settings in words. |
-| System-coloured secondary text: section headers ("Books", "About", "Preview", "Presets", "Font", "Layout", "Theme", "Server"), section footers, `LabeledContent` values ("On"/"Off", the version, licence names) and `ContentUnavailableView` descriptions ("No Apple Watch", "No Books") | Contrast, only "Contrast nearly passed" | The system draws these in its semantic `secondaryLabel`: the CI audit measured #8A8A8E on white (3.44:1: row values such as "Off", "MIT", empty-state descriptions) and #85858B on the grouped background (3.29:1: section headers and footers); the app does not choose the colour, and it follows Dark Mode and Increase Contrast. Each of these texts is marked with `.systemSecondaryText()`, which only sets the accessibility identifier `systemSecondaryText`; the test accepts the finding only on elements with that identifier. A "Contrast failed" finding on them, or any contrast finding on text the app colours itself, still fails the test. |
 
 Every finding (accepted or not) is printed in the CI log ("Accessibility audit issue (accepted|FAILS)") with
 its element, frame, the audit's detailed description and, for contrast findings, the contrast measured from

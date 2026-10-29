@@ -154,7 +154,7 @@ jobs:
           # TEMPORARY DIAGNOSTIC: sample the watch app's threads every 10 s while the tests run.
           mkdir -p samples
           ( for i in $(seq 1 300); do
-              pid=$(pgrep -f '/WristReader.app/WristReader$' | head -1)
+              pid=$(pgrep -f '/Folito.app/Folito$' | head -1)
               if [ -n "$pid" ]; then
                 sudo sample "$pid" 2 -mayDie -file "samples/$(date +%H%M%S)-$pid.txt" >/dev/null 2>&1 || true
               fi
