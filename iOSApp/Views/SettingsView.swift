@@ -29,14 +29,14 @@ struct SettingsView: View {
                     SyncSettingsView(settings: settings)
                 } label: {
                     LabeledContent {
-                        if settings.isSyncOn { Text("On").systemSecondaryText() } else { Text("Off").systemSecondaryText() }
+                        if settings.isSyncOn { Text("On").foregroundStyle(.secondaryText) } else { Text("Off").foregroundStyle(.secondaryText) }
                     } label: {
                         Label("Progress Sync", systemImage: "arrow.triangle.2.circlepath")
                     }
                 }
                 .accessibilityIdentifier("syncSettingsLink")
             } footer: {
-                Text("Optional. Continue the same book in KOReader and other compatible reading apps.").systemSecondaryText()
+                Text("Optional. Continue the same book in KOReader and other compatible reading apps.").foregroundStyle(.secondaryText)
             }
 
             Section {
@@ -49,7 +49,7 @@ struct SettingsView: View {
                 }
                 .accessibilityHint("Opens in your web browser.")
                 LabeledContent("Version") {
-                    Text(verbatim: AppVersion.displayString()).systemSecondaryText()
+                    Text(verbatim: AppVersion.displayString()).foregroundStyle(.secondaryText)
                 }
                 NavigationLink {
                     AcknowledgementsView()
@@ -57,9 +57,10 @@ struct SettingsView: View {
                     Label("Acknowledgements", systemImage: "doc.text")
                 }
             } header: {
-                Text("About").systemSecondaryText()
+                Text("About").foregroundStyle(.secondaryText)
             }
         }
+        .readableScrollEdges()
         .navigationTitle("Settings")
     }
 }
@@ -74,14 +75,14 @@ struct AcknowledgementsView: View {
                         LicenseView(component: component)
                     } label: {
                         LabeledContent {
-                            Text(verbatim: component.license).systemSecondaryText()
+                            Text(verbatim: component.license).foregroundStyle(.secondaryText)
                         } label: {
                             Text(verbatim: component.name)
                         }
                     }
                 }
             } footer: {
-                Text("Folito uses these open-source components. Tap one to read its licence.").systemSecondaryText()
+                Text("Folito uses these open-source components. Tap one to read its licence.").foregroundStyle(.secondaryText)
             }
             Section {
                 DictionaryCreditsText()
@@ -93,6 +94,7 @@ struct AcknowledgementsView: View {
                 Text("Dictionary Data").systemSecondaryText()
             }
         }
+        .readableScrollEdges()
         .navigationTitle("Acknowledgements")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -120,6 +122,7 @@ struct LicenseView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding()
         }
+        .readableScrollEdges()
         .navigationTitle(component.name)
         .navigationBarTitleDisplayMode(.inline)
     }

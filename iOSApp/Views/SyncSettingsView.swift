@@ -17,13 +17,15 @@ struct SyncSettingsView: View {
                 } else {
                     Label("Sync is off", systemImage: "icloud.slash")
                         .font(.headline)
+                        // Wrap instead of truncating at the largest text sizes (the audit flagged it as clipped).
+                        .fixedSize(horizontal: false, vertical: true)
                         .foregroundStyle(.secondaryText)
                     Text("Folito works fully without an account. Sync is optional: it only lets you continue the same book on other readers.")
                         .font(.footnote)
                         .foregroundStyle(.secondaryText)
                 }
             } footer: {
-                Text("Works with any KOReader Sync-compatible server, for example KOReader’s, Readest’s or one you host yourself. Sync stays off until you save a username and password.").systemSecondaryText()
+                Text("Works with any KOReader Sync-compatible server, for example KOReader’s, Readest’s or one you host yourself. Sync stays off until you save a username and password.").foregroundStyle(.secondaryText)
             }
 
             Section {
@@ -44,13 +46,13 @@ struct SyncSettingsView: View {
                 }
             } header: {
                 if settings.isSyncOn {
-                    Text("Server").systemSecondaryText()
+                    Text("Server").foregroundStyle(.secondaryText)
                 } else {
-                    Text("Optional: Connect a Sync Server").systemSecondaryText()
+                    Text("Optional: Connect a Sync Server").foregroundStyle(.secondaryText)
                 }
             } footer: {
                 // App Review 5.1.1(v): the app does not create accounts (KOSync cannot delete them).
-                Text("Use an account you already have. To get one, create it on the sync server itself, for example in KOReader (Tools › Progress sync › Register) or on your own server.").systemSecondaryText()
+                Text("Use an account you already have. To get one, create it on the sync server itself, for example in KOReader (Tools › Progress sync › Register) or on your own server.").foregroundStyle(.secondaryText)
             }
 
             Section {
@@ -83,17 +85,20 @@ struct SyncSettingsView: View {
 
             if settings.isSyncOn {
                 Section {
-                    Button("Turn Off Sync and Remove Login", role: .destructive) { confirmTurnOff = true }
+                    Button(role: .destructive) { confirmTurnOff = true } label: {
+                        Text("Turn Off Sync and Remove Login").foregroundStyle(.destructiveText)
+                    }
                 } footer: {
-                    Text("Removes the login from this iPhone and from your Apple Watch, and clears progress waiting to sync. Your books and reading positions are kept.").systemSecondaryText()
+                    Text("Removes the login from this iPhone and from your Apple Watch, and clears progress waiting to sync. Your books and reading positions are kept.").foregroundStyle(.secondaryText)
                 }
             }
 
             Section {
             } footer: {
-                Text("The password is stored in the iPhone Keychain. Once you turn sync on, it is also sent to your paired Apple Watch and stored in the watch’s own Keychain, so the watch can sync on its own. Use a password you don’t use anywhere else; KOReader Sync only sends its MD5 hash.").systemSecondaryText()
+                Text("The password is stored in the iPhone Keychain. Once you turn sync on, it is also sent to your paired Apple Watch and stored in the watch’s own Keychain, so the watch can sync on its own. Use a password you don’t use anywhere else; KOReader Sync only sends its MD5 hash.").foregroundStyle(.secondaryText)
             }
         }
+        .readableScrollEdges()
         .navigationTitle("Progress Sync")
         .navigationBarTitleDisplayMode(.inline)
         .confirmationDialog("Turn off sync and remove the saved login from this iPhone and your Apple Watch?",

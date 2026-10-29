@@ -23,22 +23,32 @@ struct TypographySettingsView: View {
                     .accessibilityValue(ReadingSettingsText.previewSummary(typography.value))
                     .accessibilityIdentifier("typographyPreview")
             } header: {
-                Text("Preview").systemSecondaryText()
+                Text("Preview").foregroundStyle(.secondaryText)
             }
             Section {
-                ScrollView(.horizontal) {
-                    HStack {
-                        ForEach(ReaderTypography.Preset.allCases, id: \.self) { preset in
-                            Button(ReadingSettingsText.name(preset)) { typography.apply(preset) }
-                                .buttonStyle(.bordered)
-                                .accessibilityHint("Applies this reading style.")
+                // A grid, not a horizontal scroll view: every preset stays fully on screen (a half-visible button
+                // at the edge is unreadable), and at accessibility sizes the presets stack in one column.
+                let columns = dynamicTypeSize.isAccessibilitySize
+                    ? [GridItem(.flexible())]
+                    : [GridItem(.adaptive(minimum: 130), spacing: 8)]
+                LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
+                    ForEach(ReaderTypography.Preset.allCases, id: \.self) { preset in
+                        Button {
+                            typography.apply(preset)
+                        } label: {
+                            Text(ReadingSettingsText.name(preset))
+                                .frame(maxWidth: .infinity)
                         }
+                        .buttonStyle(.bordered)
+                        // Primary label colour: the accent colour on the bordered button's gray fill measured
+                        // 4.17:1, below 4.5:1.
+                        .tint(.primary)
+                        .accessibilityHint("Applies this reading style.")
                     }
-                    .padding(.vertical, 4)
                 }
-                .scrollIndicators(.hidden)
+                .padding(.vertical, 4)
             } header: {
-                Text("Presets").systemSecondaryText()
+                Text("Presets").foregroundStyle(.secondaryText)
             }
             Section {
                 adaptivePicker("Font", selection: typography.binding(\.fontFamily),
@@ -54,7 +64,7 @@ struct TypographySettingsView: View {
                     DisplayFormat.signedPoints($0)
                 }
             } header: {
-                Text("Font").systemSecondaryText()
+                Text("Font").foregroundStyle(.secondaryText)
             }
             Section {
                 slider("Line Spacing", typography.binding(\.lineSpacing), ReaderTypography.lineSpacingRange, 1) {
@@ -69,21 +79,24 @@ struct TypographySettingsView: View {
                 adaptivePicker("Alignment", selection: typography.binding(\.alignment),
                                options: ReaderTypography.Alignment.allCases) { ReadingSettingsText.name($0) }
             } header: {
-                Text("Layout").systemSecondaryText()
+                Text("Layout").foregroundStyle(.secondaryText)
             }
             Section {
                 Picker("Theme", selection: typography.binding(\.theme)) {
                     ForEach(ReaderTypography.Theme.allCases, id: \.self) { Text(ReadingSettingsText.name($0)).tag($0) }
                 }
             } header: {
-                Text("Theme").systemSecondaryText()
+                Text("Theme").foregroundStyle(.secondaryText)
             }
             Section {
-                Button("Reset to Defaults", role: .destructive) { confirmReset = true }
+                Button(role: .destructive) { confirmReset = true } label: {
+                    Text("Reset to Defaults").foregroundStyle(.destructiveText)
+                }
             } footer: {
-                Text("Justified text and automatic hyphenation aren’t available on Apple Watch. Changes are sent to your watch; if you also change them on the watch, the most recent change wins.").systemSecondaryText()
+                Text("Justified text and automatic hyphenation aren’t available on Apple Watch. Changes are sent to your watch; if you also change them on the watch, the most recent change wins.").foregroundStyle(.secondaryText)
             }
         }
+        .readableScrollEdges()
         .navigationTitle("Reading")
         .confirmationDialog("Reset all reading settings to their defaults?", isPresented: $confirmReset,
                             titleVisibility: .visible) {

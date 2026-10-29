@@ -28,7 +28,15 @@ struct TypographyEditorView: View {
                 Picker("Font", selection: typography.binding(\.fontFamily)) {
                     ForEach(ReaderTypography.FontFamily.allCases, id: \.self) { Text($0.localizedName).tag($0) }
                 }
-                TextSizeStepper()
+                // The size itself is set with the Text Size stepper on the screen that opens this one (Settings or
+                // Reading Options). A second stepper bound to the same value, live at the same time as that one,
+                // kept watchOS re-rendering both screens without end (the app never went idle: CI thread samples
+                // showed WatchStepper updates on every frame), so this row only shows the size.
+                LabeledContent {
+                    Text("\(Int(t.fontSize)) pt", comment: "Reader text size in typographic points, e.g. '16 pt'")
+                } label: {
+                    Text("Text Size")
+                }
                 Toggle("Match System Text Size", isOn: typography.binding(\.matchSystemTextSize))
                 Toggle("Bold Text", isOn: typography.binding(\.boldText))
                 Stepper(value: typography.binding(\.headingScale), in: ReaderTypography.headingScaleRange, step: 0.25) {

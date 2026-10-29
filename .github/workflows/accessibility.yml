@@ -59,13 +59,23 @@ jobs:
         timeout-minutes: 25
         run: |
           set -o pipefail
+          # A standard 6.1"/6.3" iPhone (e.g. "iPhone 16 Pro") on the newest iOS runtime, not whichever iPhone
+          # happens to be listed last (often the 4.7" iPhone SE, where the audit's larger text sizes push rows
+          # under the tab bar; see docs/ACCESSIBILITY.md).
           UDID=$(xcrun simctl list devices available -j | python3 -c "
-          import json,sys
+          import json,re,sys
           d=json.load(sys.stdin)['devices']
-          c=[x for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone')]
-          print(c[-1]['udid'] if c else '')")
+          def ver(k): return [int(n) for n in re.findall(r'\d+', k.split('.')[-1])]
+          rts=sorted((k for k in d if 'iOS' in k and any(x['name'].startswith('iPhone') for x in d[k])), key=ver)
+          c=[x for x in d[rts[-1]] if x['name'].startswith('iPhone')] if rts else []
+          pick=[x for p in (r'iPhone \d+ Pro$', r'iPhone \d+$') for x in c if re.fullmatch(p, x['name'])] or c
+          print(pick[0]['udid'] + ' ' + pick[0]['name'] if pick else '')")
           echo "iOS simulator: $UDID"
+          UDID=${UDID%% *}
           [ -n "$UDID" ] || { xcrun simctl list devices available; exit 1; }
+          # Boot the simulator and wait until it is fully up: a cold boot inside xcodebuild can make the UI-test
+          # runner time out ("Timed out waiting for AX loaded notification") before any test runs.
+          xcrun simctl bootstatus "$UDID" -b
           xcodebuild test \
             -project Folito.xcodeproj \
             -scheme Folito \
@@ -79,7 +89,7 @@ jobs:
       - name: Findings summary
         if: always()
         run: |
-          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:|Accessibility audit issue|Accessibility audit timed out" ios-uitests.log || true
+          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:|Accessibility audit issue|Accessibility audit timed out|EXPERIMENT" ios-uitests.log || true
           xcrun xcresulttool get test-results summary --path ios-uitests.xcresult || true
 
       - name: Upload xcresult
@@ -144,6 +154,17 @@ jobs:
             UDID=$(xcrun simctl create "CI Watch" "$DT" "$RT")
           fi
           echo "watchOS simulator: $UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          # TEMPORARY DIAGNOSTIC: sample the watch app's main thread every few seconds while the tests run.
+          mkdir -p samples
+          ( set +e +o pipefail
+            for i in $(seq 1 600); do
+              pid=$(pgrep -f 'Folito\.app/Folito( |$)' | head -1)
+              if [ -n "$pid" ]; then
+                sample "$pid" 2 -mayDie -file "samples/$(date +%H%M%S)-$pid.txt" >> samples/errors.log 2>&1
+              fi
+              sleep 3
+            done ) &
           xcodebuild test \
             -project Folito.xcodeproj \
             -scheme FolitoWatch \
@@ -153,6 +174,24 @@ jobs:
             -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
             -resultBundlePath watch-uitests.xcresult \
             CODE_SIGNING_ALLOWED=NO 2>&1 | tee watch-uitests.log
+
+      - name: Main-thread samples (TEMPORARY DIAGNOSTIC)
+        if: always()
+        run: |
+          ls samples | wc -l; tail -5 samples/errors.log || true
+          for f in samples/[0-9]*.txt; do
+            [ -f "$f" ] || continue
+            echo "===== $f"
+            awk '/com.apple.main-thread/{p=1; print; next} p && /^    [0-9]+ Thread_/{exit} p' "$f" | head -90 | cut -c1-230
+          done
+
+      - name: Upload samples (TEMPORARY DIAGNOSTIC)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: watch-samples
+          path: samples
+          if-no-files-found: ignore
 
       - name: Findings summary
         if: always()
