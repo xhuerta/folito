@@ -208,7 +208,7 @@ The whole process (build, sign with cloud signing and upload to TestFlight) runs
 
 - Workflow: `.github/workflows/release.yml` (*Actions → Release → Run workflow*). With `dry_run = true` (the default) it needs no secrets: it generates the project with XcodeGen, makes an unsigned Release archive and shows what would be uploaded. With `dry_run = false` (or when pushing a `v1.0.0` tag) it signs and uploads the build.
 - Secrets: `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` (the .p8 in plain text or base64), `APPLE_TEAM_ID`. Variables: `BUNDLE_ID_BASE` (your identifier; the watch app uses `.watchkitapp`) and, optionally, `APP_NAME`.
-- App Store Connect metadata (English and Spanish), privacy answers, reviewer notes and rejection risks: [docs/appstore/](docs/appstore/). Privacy policy and support page (the project website, English and Spanish): [docs/site/](docs/site/).
+- App Store Connect metadata (English and Spanish), privacy answers, reviewer notes and rejection risks: [docs/appstore/](docs/appstore/). Privacy policy and support page (the project website, in the app's 8 languages): [docs/site/](docs/site/), generated from [docs/site-src/](docs/site-src/) by `python3 scripts/site/build.py`.
 
 ## Limitations
 
