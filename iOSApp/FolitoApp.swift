@@ -9,6 +9,7 @@ struct FolitoApp: App {
     @StateObject private var connectivity = PhoneConnectivity()
     @StateObject private var settings = SyncSettings()
     @StateObject private var typography = TypographyModel()
+    @StateObject private var dictionaries = UITesting.makeDictionaryManager()
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
@@ -20,7 +21,7 @@ struct FolitoApp: App {
                 .tabItem { Label("Library", systemImage: "books.vertical") }
                 NavigationStack { TypographySettingsView(typography: typography) }
                     .tabItem { Label("Reading", systemImage: "textformat.size") }
-                NavigationStack { SettingsView(settings: settings) }
+                NavigationStack { SettingsView(settings: settings, dictionaries: dictionaries, connectivity: connectivity) }
                     .tabItem { Label("Settings", systemImage: "gear") }
             }
             .onOpenURL { url in
@@ -54,6 +55,14 @@ struct FolitoApp: App {
         connectivity.typographyProvider = { typography.value }
         connectivity.onWatchTypography = { typography.applyRemote($0) }
         typography.onLocalChange = { _ in connectivity.syncWatchState() }
+        // Dictionaries: a new or updated one is sent right away; missing ones whenever the watch reports.
+        connectivity.dictionariesProvider = { dictionaries.transferList() }
+        dictionaries.onInstalled = { id in
+            if let item = dictionaries.transferList().first(where: { $0.id == id }) {
+                connectivity.send(dictionary: id, fileURL: item.fileURL, sha256: item.sha256, size: item.size)
+            }
+        }
+        dictionaries.onDeleted = { connectivity.sendDeleteDictionary(id: $0) }
         connectivity.activate()
     }
 
