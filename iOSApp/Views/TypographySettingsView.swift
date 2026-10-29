@@ -26,17 +26,27 @@ struct TypographySettingsView: View {
                 Text("Preview").foregroundStyle(.secondaryText)
             }
             Section {
-                ScrollView(.horizontal) {
-                    HStack {
-                        ForEach(ReaderTypography.Preset.allCases, id: \.self) { preset in
-                            Button(ReadingSettingsText.name(preset)) { typography.apply(preset) }
-                                .buttonStyle(.bordered)
-                                .accessibilityHint("Applies this reading style.")
+                // A grid, not a horizontal scroll view: every preset stays fully on screen (a half-visible button
+                // at the edge is unreadable), and at accessibility sizes the presets stack in one column.
+                let columns = dynamicTypeSize.isAccessibilitySize
+                    ? [GridItem(.flexible())]
+                    : [GridItem(.adaptive(minimum: 130), spacing: 8)]
+                LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
+                    ForEach(ReaderTypography.Preset.allCases, id: \.self) { preset in
+                        Button {
+                            typography.apply(preset)
+                        } label: {
+                            Text(ReadingSettingsText.name(preset))
+                                .frame(maxWidth: .infinity)
                         }
+                        .buttonStyle(.bordered)
+                        // Primary label colour: the accent colour on the bordered button's gray fill measured
+                        // 4.17:1, below 4.5:1.
+                        .tint(.primary)
+                        .accessibilityHint("Applies this reading style.")
                     }
-                    .padding(.vertical, 4)
                 }
-                .scrollIndicators(.hidden)
+                .padding(.vertical, 4)
             } header: {
                 Text("Presets").foregroundStyle(.secondaryText)
             }

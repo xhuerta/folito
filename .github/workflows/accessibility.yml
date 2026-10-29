@@ -89,7 +89,7 @@ jobs:
       - name: Findings summary
         if: always()
         run: |
-          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:|Accessibility audit issue|Accessibility audit timed out" ios-uitests.log || true
+          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:|Accessibility audit issue|Accessibility audit timed out|EXPERIMENT" ios-uitests.log || true
           xcrun xcresulttool get test-results summary --path ios-uitests.xcresult || true
 
       - name: Upload xcresult
@@ -155,17 +155,6 @@ jobs:
           fi
           echo "watchOS simulator: $UDID"
           xcrun simctl bootstatus "$UDID" -b
-          # TEMPORARY DIAGNOSTIC: sample the watch app's threads every 10 s while the tests run.
-          mkdir -p samples
-          ( for i in $(seq 1 900); do
-              pid=$(pgrep -f 'Folito.app/Folito' | head -1)
-              if [ -n "$pid" ]; then
-                [ -f samples/ps.txt ] || ps -o pid,command -p "$pid" > samples/ps.txt
-                sample "$pid" 1 -mayDie -file "samples/$(date +%H%M%S)-$pid.txt" >> samples/sample-errors.txt 2>&1 \
-                  || sudo sample "$pid" 1 -mayDie -file "samples/$(date +%H%M%S)-$pid.txt" >> samples/sample-errors.txt 2>&1 || true
-              fi
-              sleep 2
-            done ) &
           xcodebuild test \
             -project Folito.xcodeproj \
             -scheme FolitoWatch \
@@ -175,25 +164,6 @@ jobs:
             -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
             -resultBundlePath watch-uitests.xcresult \
             CODE_SIGNING_ALLOWED=NO 2>&1 | tee watch-uitests.log
-
-      - name: Thread samples (TEMPORARY DIAGNOSTIC)
-        if: always()
-        run: |
-          ls samples | head -400 || true
-          cat samples/ps.txt samples/sample-errors.txt 2>/dev/null | tail -20 || true
-          for f in samples/[0-9]*.txt; do
-            [ -f "$f" ] || continue
-            echo "===== $f"
-            sed -n '/Sort by top of stack/,$p' "$f" | sed -n '2,8p'
-          done
-
-      - name: Upload samples (TEMPORARY DIAGNOSTIC)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: watch-samples
-          path: samples
-          if-no-files-found: ignore
 
       - name: Findings summary
         if: always()
