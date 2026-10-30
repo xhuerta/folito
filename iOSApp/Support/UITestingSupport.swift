@@ -34,6 +34,12 @@ enum UITesting {
         return store
     }
 
+    /// Dictionaries live next to the isolated library when UI testing (none installed).
+    @MainActor
+    static func makeDictionaryManager() -> DictionaryManager {
+        DictionaryManager(rootDirectory: libraryRoot)
+    }
+
     /// A tiny public-domain text (Lewis Carroll, 1865), built in code: no EPUB file ships in the app.
     static let sampleBook: ProcessedBook = {
         let text = "Alice was beginning to get very tired of sitting by her sister on the bank, and of having nothing to do." // i18n-ignore: UI-test fixture (Debug only)
@@ -50,5 +56,7 @@ enum UITesting {
     #else
     @MainActor
     static func makeLibrary() -> LibraryStore { LibraryStore() }
+    @MainActor
+    static func makeDictionaryManager() -> DictionaryManager { DictionaryManager() }
     #endif
 }

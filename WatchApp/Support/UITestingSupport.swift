@@ -41,6 +41,11 @@ enum UITesting {
         return storage
     }
 
+    /// UI tests start with no dictionaries in a throwaway directory; nil = the normal location.
+    static let dictionaryDirectory: URL? = isActive
+        ? FileManager.default.temporaryDirectory.appendingPathComponent("UITesting-dict-\(UUID().uuidString)", isDirectory: true)
+        : nil
+
     /// Stores `book` exactly as a transfer from the iPhone would (LZFSE-compressed JSON) and indexes it.
     private static func seed(_ book: ProcessedBook, into storage: BookStorage, scratch: URL) {
         let file = scratch.appendingPathComponent("seed.book")
@@ -70,5 +75,6 @@ enum UITesting {
     static let isActive = false
     static var defaults: UserDefaults { .standard }
     static func makeBookStorage() -> BookStorage { BookStorage() }
+    static let dictionaryDirectory: URL? = nil
     #endif
 }

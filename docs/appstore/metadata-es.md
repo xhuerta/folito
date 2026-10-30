@@ -25,7 +25,7 @@ LEE EN LA MUÑECA
 • Importa archivos .epub sin DRM desde Archivos, el menú Compartir o el botón de importar de la app; se envían al reloj automáticamente.
 • Lee sin conexión. Desplázate con la corona digital, salta entre capítulos y mantén una biblioteca con tus libros.
 • Ajusta fuente, tamaño, interlineado, márgenes, alineación, grosor y tema (oscuro, tenue, sepia, alto contraste) desde el reloj o el iPhone, con vista previa en vivo.
-• Consulta una palabra: muévete por el párrafo con la corona digital y mira su definición (requiere conexión a internet; las definiciones salen en inglés y proceden de Wiktionary y dictionaryapi.dev).
+• Consulta una palabra: muévete por el párrafo con la corona digital y mira su definición (funciona sin conexión con diccionarios gratuitos basados en Wiktionary que descargas en la app del iPhone: inglés, español, francés, alemán, italiano, portugués, japonés y chino).
 
 ACCESIBLE
 • VoiceOver en iPhone y Apple Watch, con encabezados para saltar por el libro.

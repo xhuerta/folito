@@ -163,9 +163,9 @@ final class WordLookupModelTests: XCTestCase {
         await missing.lookup()
         XCTAssertEqual(missing.state, .failed(.notFound))
 
-        let offline = WordLookupModel(text: "run", language: "en", provider: MockDictionaryProvider(error: .offline))
-        await offline.lookup()
-        XCTAssertEqual(offline.state, .failed(.offline))
+        let none = WordLookupModel(text: "run", language: "en", provider: MockDictionaryProvider(error: .noDictionary))
+        await none.lookup()
+        XCTAssertEqual(none.state, .failed(.noDictionary))
     }
 
     func testStaleResultIsDropped() async {

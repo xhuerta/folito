@@ -108,4 +108,29 @@ struct UserFacingError: Equatable, Identifiable {
             return String(localized: "This server doesn’t support that request.", comment: "Sync error")
         }
     }
+
+    // MARK: Dictionaries
+
+    /// Downloading or converting a dictionary failed. `language` is the dictionary's language name.
+    static func dictionaryFailed(language: String, error: Error) -> UserFacingError {
+        let title = String(localized: "Couldn’t Install Dictionary", comment: "Alert title: downloading or converting a dictionary failed")
+        if let e = error as? CocoaError, e.code == .fileWriteOutOfSpace {
+            return UserFacingError(title: title, message: String(
+                localized: "There isn’t enough free storage on this iPhone. Free up some space and try again.",
+                comment: "Import error when the disk is full"))
+        }
+        if error is URLError || error is FileDownload.Failure {
+            return UserFacingError(title: title, message: String(
+                localized: "The \(language) dictionary couldn’t be downloaded. Check your internet connection and try again.",
+                comment: "Dictionary error; the placeholder is a language name"))
+        }
+        if let e = error as? DictionaryImportError, e == .checksumMismatch {
+            return UserFacingError(title: title, message: String(
+                localized: "The \(language) dictionary arrived incomplete or damaged. Try again.",
+                comment: "Dictionary error: size or checksum mismatch; the placeholder is a language name"))
+        }
+        return UserFacingError(title: title, message: String(
+            localized: "The \(language) dictionary file couldn’t be converted. Try again later; the source may have changed its format.",
+            comment: "Dictionary error: conversion failed; the placeholder is a language name"))
+    }
 }

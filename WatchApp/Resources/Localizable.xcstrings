@@ -885,52 +885,6 @@
         }
       }
     },
-    "Clear Dictionary Cache" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wörterbuch-Cache löschen"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Borrar caché del diccionario"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vider le cache du dictionnaire"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Svuota cache dizionario"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "辞書キャッシュを消去"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Limpar Cache do Dicionário"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "清除词典缓存"
-          }
-        }
-      }
-    },
     "Comfortable" : {
       "comment" : "Typography preset",
       "localizations" : {
@@ -1209,52 +1163,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "深色"
-          }
-        }
-      }
-    },
-    "Definitions need a network connection; words already looked up work offline." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Definitionen benötigen eine Netzwerkverbindung; bereits nachgeschlagene Wörter funktionieren offline."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Las definiciones necesitan conexión a la red; las palabras ya consultadas funcionan sin conexión."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Les définitions nécessitent une connexion réseau ; les mots déjà recherchés restent disponibles hors ligne."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Le definizioni richiedono una connessione di rete; le parole già cercate funzionano offline."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "定義の表示にはネットワーク接続が必要です。調べたことのある単語はオフラインでも表示できます。"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "As definições exigem conexão de rede; palavras já consultadas funcionam offline."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "查询释义需要网络连接；已查过的单词可离线查看。"
           }
         }
       }
@@ -4506,147 +4414,6 @@
         }
       }
     },
-    "The dictionary is busy. Wait a moment, then try again." : {
-      "comment" : "Dictionary lookup failed: rate limited",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Das Wörterbuch ist ausgelastet. Warte einen Moment und versuche es erneut."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "El diccionario está ocupado. Espera un momento y vuelve a intentarlo."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Le dictionnaire est occupé. Patientez un instant, puis réessayez."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Il dizionario è occupato. Attendi un momento, quindi riprova."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "辞書が混み合っています。しばらく待ってから、もう一度お試しください。"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "O dicionário está ocupado. Aguarde um momento e tente novamente."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "词典繁忙。请稍候再试。"
-          }
-        }
-      }
-    },
-    "The dictionary sent an answer Folito can't read. Try again later." : {
-      "comment" : "Dictionary lookup failed: response could not be parsed",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Das Wörterbuch hat eine Antwort gesendet, die Folito nicht lesen kann. Versuche es später erneut."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "El diccionario ha enviado una respuesta que Folito no puede leer. Inténtalo más tarde."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Le dictionnaire a envoyé une réponse que Folito ne peut pas lire. Réessayez plus tard."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Il dizionario ha inviato una risposta che Folito non riesce a leggere. Riprova più tardi."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "辞書からFolitoが読み取れない応答が返されました。しばらくしてからもう一度お試しください。"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "O dicionário enviou uma resposta que o Folito não consegue ler. Tente novamente mais tarde."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "词典返回了 Folito 无法读取的响应。请稍后再试。"
-          }
-        }
-      }
-    },
-    "The dictionary service isn't working right now (error %lld). Try again later." : {
-      "comment" : "Dictionary lookup failed with an HTTP status code (the number)",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Der Wörterbuchdienst funktioniert gerade nicht (Fehler %lld). Versuche es später erneut."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "El servicio de diccionario no funciona en este momento (error %lld). Inténtalo más tarde."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Le service de dictionnaire ne fonctionne pas pour le moment (erreur %lld). Réessayez plus tard."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Il servizio del dizionario non funziona al momento (errore %lld). Riprova più tardi."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "辞書サービスは現在利用できません（エラー%lld）。しばらくしてからもう一度お試しください。"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "O serviço de dicionário não está funcionando agora (erro %lld). Tente novamente mais tarde."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "词典服务目前无法使用（错误 %lld）。请稍后再试。"
-          }
-        }
-      }
-    },
     "The server didn't respond as expected. Check the server address in Folito on your iPhone." : {
       "comment" : "Sync server status: unexpected server response",
       "localizations" : {
@@ -5299,53 +5066,6 @@
         }
       }
     },
-    "You're offline. Connect to Wi-Fi or your iPhone to look up new words; words you looked up before still work." : {
-      "comment" : "Dictionary lookup failed: no network",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Du bist offline. Verbinde dich mit einem WLAN oder deinem iPhone, um neue Wörter nachzuschlagen; bereits nachgeschlagene Wörter funktionieren weiterhin."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No tienes conexión. Conéctate a una red Wi-Fi o al iPhone para consultar palabras nuevas; las que ya consultaste siguen disponibles."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous êtes hors ligne. Connectez-vous au Wi-Fi ou à votre iPhone pour rechercher de nouveaux mots ; les mots déjà recherchés restent disponibles."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sei offline. Connettiti a una rete Wi-Fi o a iPhone per cercare nuove parole; quelle già cercate restano disponibili."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "オフラインです。新しい単語を調べるにはWi-FiまたはiPhoneに接続してください。調べたことのある単語は引き続き表示できます。"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Você está offline. Conecte-se a uma rede Wi-Fi ou ao iPhone para consultar novas palavras; as palavras já consultadas continuam funcionando."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你已离线。请连接 Wi-Fi 或 iPhone 以查询新单词；之前查过的单词仍可查看。"
-          }
-        }
-      }
-    },
     "another device" : {
       "comment" : "Used in '43% read on another device' when the device name is unknown",
       "localizations" : {
@@ -5530,6 +5250,382 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "“腕上的文字，”他说。"
+          }
+        }
+      }
+    },
+    "No dictionary on this watch yet. Download one in Folito on your iPhone: Settings, Dictionaries." : {
+      "comment" : "Dictionary lookup failed: no offline dictionary is installed",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noch kein Wörterbuch auf dieser Watch. Lade eins in Folito auf deinem iPhone: Einstellungen, Wörterbücher."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todavía no hay ningún diccionario en este reloj. Descarga uno en Folito en tu iPhone: Ajustes, Diccionarios."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun dictionnaire sur cette montre pour l’instant. Téléchargez-en un dans Folito sur votre iPhone : Réglages, Dictionnaires."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ancora nessun dizionario su questo orologio. Scaricane uno in Folito su iPhone: Impostazioni, Dizionari."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このWatchにはまだ辞書がありません。iPhoneのFolitoでダウンロードしてください：設定、辞書。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ainda não há dicionários neste relógio. Baixe um no Folito no iPhone: Ajustes, Dicionários."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此手表上还没有词典。请在 iPhone 上的 Folito 中下载：设置，词典。"
+          }
+        }
+      }
+    },
+    "A dictionary on this watch is damaged. Delete it in Folito on your iPhone and download it again." : {
+      "comment" : "Dictionary lookup failed: an installed dictionary file could not be read",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein Wörterbuch auf dieser Watch ist beschädigt. Lösche es in Folito auf deinem iPhone und lade es erneut."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un diccionario de este reloj está dañado. Elimínalo en Folito en tu iPhone y vuelve a descargarlo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un dictionnaire de cette montre est endommagé. Supprimez-le dans Folito sur votre iPhone, puis téléchargez-le à nouveau."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un dizionario su questo orologio è danneggiato. Eliminalo in Folito su iPhone e scaricalo di nuovo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このWatchの辞書が破損しています。iPhoneのFolitoで削除して、もう一度ダウンロードしてください。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Um dicionário neste relógio está danificado. Apague-o no Folito no iPhone e baixe-o novamente."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此手表上的一本词典已损坏。请在 iPhone 上的 Folito 中删除它，然后重新下载。"
+          }
+        }
+      }
+    },
+    "Definitions from %@ by its contributors, under the %@ licence. Compiled by %@. Shortened and reformatted by Folito." : {
+      "comment" : "Dictionary credit. 1: data source (Wiktionary), 2: licence (CC BY-SA 4.0), 3: who compiled the file (reader.dict)",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Definitionen aus %1$@ von dessen Mitwirkenden, unter der Lizenz %2$@. Zusammengestellt von %3$@. Von Folito gekürzt und neu formatiert."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Definiciones de %1$@, por sus colaboradores, con licencia %2$@. Recopiladas por %3$@. Acortadas y reformateadas por Folito."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Définitions issues de %1$@, par ses contributeurs, sous licence %2$@. Compilées par %3$@. Abrégées et remises en forme par Folito."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Definizioni da %1$@, a cura dei suoi contributori, con licenza %2$@. Raccolte da %3$@. Abbreviate e riformattate da Folito."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "定義の出典：%1$@の投稿者（%2$@ライセンス）。%3$@が編集。Folitoが短縮・再整形。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Definições do %1$@, por seus colaboradores, sob a licença %2$@. Compiladas por %3$@. Resumidas e reformatadas pelo Folito."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "释义来自 %1$@ 的贡献者，采用 %2$@ 许可协议。由 %3$@ 汇编。Folito 进行了缩减和重新排版。"
+          }
+        }
+      }
+    },
+    "Credits" : {
+      "comment" : "Section header: sources and licence of the dictionaries",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quellen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Créditos"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crédits"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crediti"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "クレジット"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Créditos"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "致谢"
+          }
+        }
+      }
+    },
+    "No dictionaries yet." : {
+      "comment" : "Watch settings: no offline dictionary installed",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noch keine Wörterbücher."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todavía no hay diccionarios."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun dictionnaire pour l’instant."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ancora nessun dizionario."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "辞書はまだありません。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ainda não há dicionários."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有词典。"
+          }
+        }
+      }
+    },
+    "Dictionary Credits" : {
+      "comment" : "Watch settings: link to the sources and licences of the installed dictionaries",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wörterbuch-Quellen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Créditos de los diccionarios"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crédits des dictionnaires"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crediti dei dizionari"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "辞書のクレジット"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Créditos dos Dicionários"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "词典致谢"
+          }
+        }
+      }
+    },
+    "Dictionaries" : {
+      "comment" : "Settings item and screen title: offline dictionaries",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wörterbücher"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diccionarios"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dictionnaires"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dizionari"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "辞書"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dicionários"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "词典"
+          }
+        }
+      }
+    },
+    "Dictionaries work offline. Download or delete them in Folito on your iPhone: Settings, Dictionaries." : {
+      "comment" : "Watch settings footer under the installed dictionaries",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wörterbücher funktionieren offline. Lade oder lösche sie in Folito auf deinem iPhone: Einstellungen, Wörterbücher."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los diccionarios funcionan sin conexión. Descárgalos o elimínalos en Folito en tu iPhone: Ajustes, Diccionarios."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les dictionnaires fonctionnent hors ligne. Téléchargez-les ou supprimez-les dans Folito sur votre iPhone : Réglages, Dictionnaires."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I dizionari funzionano offline. Scaricali o eliminali in Folito su iPhone: Impostazioni, Dizionari."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "辞書はオフラインで使えます。ダウンロードや削除はiPhoneのFolitoで行います：設定、辞書。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Os dicionários funcionam offline. Baixe ou apague-os no Folito no iPhone: Ajustes, Dicionários."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "词典可离线使用。请在 iPhone 上的 Folito 中下载或删除：设置，词典。"
           }
         }
       }

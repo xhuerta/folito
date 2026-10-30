@@ -44,7 +44,7 @@ final class ReadingProgressFormatTests: XCTestCase {
 
 final class WatchMessagesTests: XCTestCase {
     private let allConnections: [SyncCoordinator.ConnectionResult?] = [nil, .ok, .unauthorized, .offline, .notConfigured, .failed]
-    private let allDictionaryErrors: [DictionaryError] = [.offline, .notFound, .rateLimited, .server(status: 503), .invalidResponse]
+    private let allDictionaryErrors: [DictionaryError] = [.noDictionary, .notFound, .unreadable]
 
     private func assertSpecific(_ message: String, file: StaticString = #filePath, line: UInt = #line) {
         XCTAssertGreaterThan(message.count, 12, message, file: file, line: line)
@@ -64,7 +64,19 @@ final class WatchMessagesTests: XCTestCase {
         let messages = allDictionaryErrors.map(WatchMessages.dictionary)
         messages.forEach { assertSpecific($0) }
         XCTAssertEqual(Set(messages).count, messages.count)
-        XCTAssertTrue(WatchMessages.dictionary(.server(status: 503)).contains("503"))
+        XCTAssertTrue(WatchMessages.dictionary(.noDictionary).contains("iPhone"))
+    }
+
+    func testDictionaryLabelsAndCredit() {
+        let info = DictionaryCatalog.all[0].compactInfo()
+        let en = Locale(identifier: "en_US")
+        XCTAssertEqual(WatchMessages.dictionaryLabel(info, size: nil, locale: en), "English")
+        XCTAssertTrue(WatchMessages.dictionaryLabel(info, size: 41_000_000, locale: en).hasPrefix("English \u{00B7} "))
+        let credit = WatchMessages.dictionaryCredit(info)
+        assertSpecific(credit)
+        XCTAssertTrue(credit.contains("Wiktionary"))
+        XCTAssertTrue(credit.contains("CC BY-SA 4.0"))
+        XCTAssertTrue(credit.contains("reader.dict"))
     }
 
     func testBookOpenFailures() {

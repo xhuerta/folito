@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Soporte - Folito</title>
-<meta name="description" content="Un lector de EPUB para Apple Watch. Funciona sin cuenta; la sincronización del progreso es opcional.">
+<meta name="description" content="Ayuda de Folito, el lector EPUB para Apple Watch: primeros pasos, importar libros, sincronización opcional con KOReader Sync, diccionarios y FAQ.">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
@@ -18,13 +18,14 @@
 <link rel="alternate" hreflang="ja" href="https://folito.app/ja/support.html">
 <link rel="alternate" hreflang="zh-Hans" href="https://folito.app/zh-hans/support.html">
 <link rel="alternate" hreflang="x-default" href="https://folito.app/support.html">
+<link rel="icon" href="../favicon.ico" sizes="16x16 32x32 48x48">
 <link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon-32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="../assets/favicon-64.png">
 <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Folito">
 <meta property="og:title" content="Soporte - Folito">
-<meta property="og:description" content="Un lector de EPUB para Apple Watch. Funciona sin cuenta; la sincronización del progreso es opcional.">
+<meta property="og:description" content="Ayuda de Folito, el lector EPUB para Apple Watch: primeros pasos, importar libros, sincronización opcional con KOReader Sync, diccionarios y FAQ.">
 <meta property="og:url" content="https://folito.app/es/support.html">
 <meta property="og:image" content="https://folito.app/assets/icon-512.png">
 <meta property="og:image:width" content="512">
@@ -45,7 +46,7 @@
 <a class="skip" href="#main">Saltar al contenido</a>
 <header class="bar">
 <div class="wrap">
-<a class="brand" href="index.html"><img src="../assets/icon-256.png" width="28" height="28" alt=""><span>Folito</span></a>
+<a class="brand" href="./"><img src="../assets/icon-256.png" width="28" height="28" alt=""><span>Folito</span></a>
 <nav class="nav" aria-label="Principal">
 <a href="privacy.html">Privacidad</a>
 <a href="support.html" aria-current="page">Soporte</a>
@@ -94,7 +95,7 @@
 <details><summary><span>¿Qué servidores funcionan?</span><svg class="chev" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1.5 1.5 6 6-6 6"/></svg></summary><div class="answer"><p>Cualquier servidor compatible con KOReader Sync (kosync), incluido el servidor público de KOReader y los autoalojados. La app no proporciona servidor.</p></div></details>
 <details><summary><span>El progreso no coincide en KOReader o Readest.</span><svg class="chev" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1.5 1.5 6 6-6 6"/></svg></summary><div class="answer"><p>Debe ser el mismo archivo EPUB, sin modificar, en todos los dispositivos. En Readest elige el método de coincidencia <em>File Content</em>; en KOReader, <em>Binary</em>.</p></div></details>
 <details><summary><span>Mi servidor http:// no conecta.</span><svg class="chev" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1.5 1.5 6 6-6 6"/></svg></summary><div class="answer"><p>iOS bloquea http plano hacia hosts de internet. Usa https o una dirección de red local (iOS pide permiso de red local la primera vez).</p></div></details>
-<details><summary><span>La consulta de palabras dice sin conexión o no encontrada.</span><svg class="chev" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1.5 1.5 6 6-6 6"/></svg></summary><div class="answer"><p>Necesita red y usa Wiktionary (edición en inglés) y, para palabras en inglés que no estén allí, dictionaryapi.dev; las definiciones salen en inglés.</p></div></details>
+<details><summary><span>La consulta de palabras dice que no hay diccionario o que no hay definición.</span><svg class="chev" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1.5 1.5 6 6-6 6"/></svg></summary><div class="answer"><p>Descarga un diccionario del idioma del libro en la app del iPhone (<em>Ajustes › Diccionarios</em>). Se envía al reloj y luego funciona sin conexión. Si una palabra no aparece, Folito prueba formas base sencillas y tus otros diccionarios instalados. Las definiciones están en el idioma del diccionario (las palabras en español se explican en español).</p></div></details>
 <details><summary><span>Accesibilidad</span><svg class="chev" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1.5 1.5 6 6-6 6"/></svg></summary><div class="answer"><p>Las apps de iPhone y reloj admiten VoiceOver y tamaños de texto grandes (Dynamic Type), respetan el modo oscuro, Aumentar contraste y Texto en negrita, y no usan animaciones propias. En el reloj, los temas de lectura cumplen los contrastes WCAG y <em>Tipografía › Igualar tamaño de texto del sistema</em> hace que el texto del libro siga el tamaño de texto del reloj.</p></div></details>
 <details><summary><span>¿Admite libros con DRM?</span><svg class="chev" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1.5 1.5 6 6-6 6"/></svg></summary><div class="answer"><p>No.</p></div></details>
 </div>
@@ -106,7 +107,7 @@
 <div class="wrap">
 <div class="top">
 <nav aria-label="Pie de página"><ul>
-<li><a href="index.html">Folito</a></li>
+<li><a href="./">Folito</a></li>
 <li><a href="privacy.html">Política de privacidad</a></li>
 <li><a href="support.html">Soporte</a></li>
 </ul></nav>

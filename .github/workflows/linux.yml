@@ -30,6 +30,10 @@ jobs:
       - name: Check the generated website
         run: python3 scripts/site/build.py --check
 
+      # robots.txt / sitemap.xml validation, folder URLs, JSON-LD, the Smart App Banner switch, title lengths.
+      - name: Test the site generator
+        run: python3 -B -m unittest discover -s scripts/site -v
+
   test-core:
     runs-on: ubuntu-latest
     container: swift:6.0

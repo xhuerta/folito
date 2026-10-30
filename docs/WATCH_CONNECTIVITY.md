@@ -69,9 +69,29 @@ The watch generates its own `device_id` UUID; it is never sent from the phone.
 ## Delete (`WCSession.transferUserInfo`)
 `{ "type": "delete_book", "documentHash": "<hash>" }` — watch removes the book (and local progress).
 
+## Dictionary transfer (`WCSession.transferFile`)
+File: a compact dictionary (`.folidict`, format in docs/DICTIONARIES.md), converted on the phone.
+
+| key | type | meaning |
+|---|---|---|
+| `type` | String | `"dictionary"` |
+| `dictionaryId` | String | catalog id, e.g. `readerdict-en` (also the file name on both devices) |
+| `sha256` | String | lower-case hex SHA-256 of the file |
+| `size` | Int64 | file size in bytes |
+
+The watch moves the file out of the inbox, checks size and SHA-256 and that the footer opens, then replaces
+any dictionary with the same id. A file that fails the checks is dropped; the phone resends whatever the
+watch does not list. A newly installed or updated dictionary is sent right away; a transfer of the same id
+still in flight is cancelled first.
+
+Delete (`transferUserInfo`): `{ "type": "delete_dictionary", "dictionaryId": "<id>" }`. Dictionaries are
+managed on the phone only; the watch lists them read-only.
+
 ## Library report (watch -> phone, `WCSession.updateApplicationContext`)
-`{ "type": "library", "hashes": ["<documentHash>", ...] }` — published by the watch on activation and after
-every import/delete. The phone reconciles `sentToWatch` with it (skipping transfers still in flight) and
+`{ "type": "library", "hashes": ["<documentHash>", ...], "dictionaries": ["<dictionaryId>", ...] }` — published
+by the watch on activation and after every import/delete (books or dictionaries). For dictionaries the phone
+waits for the first report (older watch builds send none) and does not resend a file delivered in the last
+10 minutes, which the watch may still be verifying. The phone reconciles `sentToWatch` with it (skipping transfers still in flight) and
 sends whatever is missing, which covers a reinstalled watch app, books deleted on the watch and transfers
 lost in transit. The phone also reads `receivedApplicationContext` on its own activation.
 

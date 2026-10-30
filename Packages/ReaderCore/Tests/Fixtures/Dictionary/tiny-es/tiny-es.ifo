@@ -1,0 +1,10 @@
+StarDict's dict ifo file
+version=3.0.0
+bookname=tiny-es
+wordcount=2
+synwordcount=1
+idxfilesize=26
+author=Folito tests
+description=Test fixture.
+date=2026-10-01
+sametypesequence=h

@@ -17,6 +17,9 @@ enum WatchSchema {
         /// `true` = the user turned sync off on the phone; the watch removes its credentials and queue.
         static let kosyncCleared = "kosync_cleared"
         static let hashes = "hashes"
+        static let dictionaryId = "dictionaryId"
+        static let dictionaries = "dictionaries"
+        static let sha256 = "sha256"
     }
     enum MessageType {
         static let book = "book"
@@ -24,6 +27,26 @@ enum WatchSchema {
         static let deleteBook = "delete_book"
         /// Watch -> phone (applicationContext): hashes of the books stored on the watch.
         static let library = "library"
+        /// Phone -> watch (transferFile): a compact offline dictionary.
+        static let dictionary = "dictionary"
+        static let deleteDictionary = "delete_dictionary"
+    }
+
+    /// File metadata of a dictionary transfer; the watch installs it only if size and SHA-256 match.
+    static func dictionaryMetadata(id: String, sha256: String, size: Int64) -> [String: Any] {
+        [Key.type: MessageType.dictionary, Key.dictionaryId: id, Key.sha256: sha256, Key.size: size]
+    }
+
+    static func deleteDictionary(id: String) -> [String: Any] {
+        [Key.type: MessageType.deleteDictionary, Key.dictionaryId: id]
+    }
+
+    /// Ids of the dictionaries the watch reports in its `library` context; nil for any other message or
+    /// a watch app too old to report them.
+    static func libraryDictionaries(from context: [String: Any]) -> Set<String>? {
+        guard (context[Key.type] as? String) == MessageType.library,
+              let list = context[Key.dictionaries] as? [String] else { return nil }
+        return Set(list)
     }
 
     static func bookMetadata(for entry: LibraryEntry, formatVersion: Int) -> [String: Any] {
