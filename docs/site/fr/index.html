@@ -3,29 +3,30 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Folito : lecteur EPUB pour votre montre</title>
-<meta name="description" content="Un lecteur EPUB pour Apple Watch. Fonctionne sans compte ; la synchronisation de la progression de lecture est facultative.">
+<title>Folito : lecteur EPUB pour Apple Watch</title>
+<meta name="description" content="Folito est un lecteur EPUB pour Apple Watch : importez vos livres sur l’iPhone et lisez-les hors ligne à votre poignet. Sans compte ; synchro facultative.">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
-<link rel="canonical" href="https://folito.app/fr/index.html">
-<link rel="alternate" hreflang="en" href="https://folito.app/index.html">
-<link rel="alternate" hreflang="es" href="https://folito.app/es/index.html">
-<link rel="alternate" hreflang="fr" href="https://folito.app/fr/index.html">
-<link rel="alternate" hreflang="de" href="https://folito.app/de/index.html">
-<link rel="alternate" hreflang="it" href="https://folito.app/it/index.html">
-<link rel="alternate" hreflang="pt-BR" href="https://folito.app/pt-br/index.html">
-<link rel="alternate" hreflang="ja" href="https://folito.app/ja/index.html">
-<link rel="alternate" hreflang="zh-Hans" href="https://folito.app/zh-hans/index.html">
-<link rel="alternate" hreflang="x-default" href="https://folito.app/index.html">
+<link rel="canonical" href="https://folito.app/fr/">
+<link rel="alternate" hreflang="en" href="https://folito.app/">
+<link rel="alternate" hreflang="es" href="https://folito.app/es/">
+<link rel="alternate" hreflang="fr" href="https://folito.app/fr/">
+<link rel="alternate" hreflang="de" href="https://folito.app/de/">
+<link rel="alternate" hreflang="it" href="https://folito.app/it/">
+<link rel="alternate" hreflang="pt-BR" href="https://folito.app/pt-br/">
+<link rel="alternate" hreflang="ja" href="https://folito.app/ja/">
+<link rel="alternate" hreflang="zh-Hans" href="https://folito.app/zh-hans/">
+<link rel="alternate" hreflang="x-default" href="https://folito.app/">
+<link rel="icon" href="../favicon.ico" sizes="16x16 32x32 48x48">
 <link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon-32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="../assets/favicon-64.png">
 <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Folito">
-<meta property="og:title" content="Folito : lecteur EPUB pour votre montre">
-<meta property="og:description" content="Un lecteur EPUB pour Apple Watch. Fonctionne sans compte ; la synchronisation de la progression de lecture est facultative.">
-<meta property="og:url" content="https://folito.app/fr/index.html">
+<meta property="og:title" content="Folito : lecteur EPUB pour Apple Watch">
+<meta property="og:description" content="Folito est un lecteur EPUB pour Apple Watch : importez vos livres sur l’iPhone et lisez-les hors ligne à votre poignet. Sans compte ; synchro facultative.">
+<meta property="og:url" content="https://folito.app/fr/">
 <meta property="og:image" content="https://folito.app/assets/icon-512.png">
 <meta property="og:image:width" content="512">
 <meta property="og:image:height" content="512">
@@ -39,13 +40,40 @@
 <meta property="og:locale:alternate" content="ja_JP">
 <meta property="og:locale:alternate" content="zh_CN">
 <meta name="twitter:card" content="summary">
+<script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@graph": [
+  {
+   "@type": "MobileApplication",
+   "@id": "https://folito.app/#app",
+   "name": "Folito",
+   "description": "Folito est un lecteur EPUB pour Apple Watch : importez vos livres sur l’iPhone et lisez-les hors ligne à votre poignet. Sans compte ; synchro facultative.",
+   "url": "https://folito.app/fr/",
+   "image": "https://folito.app/assets/icon-512.png",
+   "operatingSystem": "watchOS, iOS",
+   "applicationCategory": "BookApplication",
+   "inLanguage": "fr",
+   "author": {
+    "@id": "https://folito.app/#developer"
+   }
+  },
+  {
+   "@type": "Person",
+   "@id": "https://folito.app/#developer",
+   "name": "Xabier Lahuerta",
+   "url": "https://folito.app/"
+  }
+ ]
+}
+</script>
 <link rel="stylesheet" href="../style.css">
 </head>
 <body>
 <a class="skip" href="#main">Aller au contenu</a>
 <header class="bar">
 <div class="wrap">
-<a class="brand" href="index.html" aria-current="page"><img src="../assets/icon-256.png" width="28" height="28" alt=""><span>Folito</span></a>
+<a class="brand" href="./" aria-current="page"><img src="../assets/icon-256.png" width="28" height="28" alt=""><span>Folito</span></a>
 <nav class="nav" aria-label="Navigation principale">
 <a href="privacy.html">Confidentialité</a>
 <a href="support.html">Assistance</a>
@@ -53,14 +81,14 @@
 <details class="lang-picker in-header">
 <summary><svg class="globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg><span class="vh">Langue : </span><span class="lang-name">Français</span><svg class="disclosure" viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1.5 1.75 4.5 4.5 4.5-4.5"/></svg></summary>
 <ul class="lang-menu" aria-label="Langue">
-<li><a href="../index.html" lang="en" hreflang="en"><span>English</span></a></li>
-<li><a href="../es/index.html" lang="es" hreflang="es"><span>Español</span></a></li>
-<li><a href="index.html" lang="fr" hreflang="fr" aria-current="true"><svg class="check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m2.5 8.6 3.6 3.6 7.4-8.4"/></svg><span>Français</span></a></li>
-<li><a href="../de/index.html" lang="de" hreflang="de"><span>Deutsch</span></a></li>
-<li><a href="../it/index.html" lang="it" hreflang="it"><span>Italiano</span></a></li>
-<li><a href="../pt-br/index.html" lang="pt-BR" hreflang="pt-BR"><span>Português (Brasil)</span></a></li>
-<li><a href="../ja/index.html" lang="ja" hreflang="ja"><span>日本語</span></a></li>
-<li><a href="../zh-hans/index.html" lang="zh-Hans" hreflang="zh-Hans"><span>简体中文</span></a></li>
+<li><a href="../" lang="en" hreflang="en"><span>English</span></a></li>
+<li><a href="../es/" lang="es" hreflang="es"><span>Español</span></a></li>
+<li><a href="./" lang="fr" hreflang="fr" aria-current="true"><svg class="check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m2.5 8.6 3.6 3.6 7.4-8.4"/></svg><span>Français</span></a></li>
+<li><a href="../de/" lang="de" hreflang="de"><span>Deutsch</span></a></li>
+<li><a href="../it/" lang="it" hreflang="it"><span>Italiano</span></a></li>
+<li><a href="../pt-br/" lang="pt-BR" hreflang="pt-BR"><span>Português (Brasil)</span></a></li>
+<li><a href="../ja/" lang="ja" hreflang="ja"><span>日本語</span></a></li>
+<li><a href="../zh-hans/" lang="zh-Hans" hreflang="zh-Hans"><span>简体中文</span></a></li>
 </ul>
 </details>
 </div>
@@ -118,21 +146,21 @@
 <div class="wrap">
 <div class="top">
 <nav aria-label="Pied de page"><ul>
-<li><a href="index.html">Folito</a></li>
+<li><a href="./">Folito</a></li>
 <li><a href="privacy.html">Politique de confidentialité</a></li>
 <li><a href="support.html">Assistance</a></li>
 </ul></nav>
 <details class="lang-picker in-footer">
 <summary><svg class="globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg><span class="vh">Langue : </span><span class="lang-name">Français</span><svg class="disclosure" viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1.5 1.75 4.5 4.5 4.5-4.5"/></svg></summary>
 <ul class="lang-menu" aria-label="Langue">
-<li><a href="../index.html" lang="en" hreflang="en"><span>English</span></a></li>
-<li><a href="../es/index.html" lang="es" hreflang="es"><span>Español</span></a></li>
-<li><a href="index.html" lang="fr" hreflang="fr" aria-current="true"><svg class="check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m2.5 8.6 3.6 3.6 7.4-8.4"/></svg><span>Français</span></a></li>
-<li><a href="../de/index.html" lang="de" hreflang="de"><span>Deutsch</span></a></li>
-<li><a href="../it/index.html" lang="it" hreflang="it"><span>Italiano</span></a></li>
-<li><a href="../pt-br/index.html" lang="pt-BR" hreflang="pt-BR"><span>Português (Brasil)</span></a></li>
-<li><a href="../ja/index.html" lang="ja" hreflang="ja"><span>日本語</span></a></li>
-<li><a href="../zh-hans/index.html" lang="zh-Hans" hreflang="zh-Hans"><span>简体中文</span></a></li>
+<li><a href="../" lang="en" hreflang="en"><span>English</span></a></li>
+<li><a href="../es/" lang="es" hreflang="es"><span>Español</span></a></li>
+<li><a href="./" lang="fr" hreflang="fr" aria-current="true"><svg class="check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m2.5 8.6 3.6 3.6 7.4-8.4"/></svg><span>Français</span></a></li>
+<li><a href="../de/" lang="de" hreflang="de"><span>Deutsch</span></a></li>
+<li><a href="../it/" lang="it" hreflang="it"><span>Italiano</span></a></li>
+<li><a href="../pt-br/" lang="pt-BR" hreflang="pt-BR"><span>Português (Brasil)</span></a></li>
+<li><a href="../ja/" lang="ja" hreflang="ja"><span>日本語</span></a></li>
+<li><a href="../zh-hans/" lang="zh-Hans" hreflang="zh-Hans"><span>简体中文</span></a></li>
 </ul>
 </details>
 </div>

@@ -18,6 +18,7 @@ Decisions and checks only the owner can make (details in [What only the owner ca
 * [ ] Accessibility Nutrition Labels (`docs/appstore/ACCESSIBILITY_LABELS.md`), only after the manual checks in `docs/ACCESSIBILITY.md`.
 * [ ] Age rating (`docs/appstore/AGE_RATING.md`) and export compliance (`docs/appstore/EXPORT_COMPLIANCE.md`).
 * [ ] Publish the site ([Publishing the site](#9-publishing-the-site)).
+* [ ] At launch: set `APP_STORE_ID` in `scripts/site/build.py` to turn on the Smart App Banner ([step 9.7](#9-publishing-the-site)).
 
 This guide takes you from "nothing" to a build on your iPhone and Apple Watch through TestFlight, and then to App Store review, using only a browser and GitHub. All building, signing and uploading happens on a GitHub-hosted macOS runner (`.github/workflows/release.yml`).
 
@@ -105,14 +106,16 @@ Apple requires uploads to be built with the current major Xcode/SDK (since 28 Ap
 The support, privacy policy and landing pages are static HTML in `docs/site/` (English at the root; Spanish, French, German, Italian, Brazilian Portuguese, Japanese and Simplified Chinese under `es/`, `fr/`, `de/`, `it/`, `pt-br/`, `ja/` and `zh-hans/`; no trackers, and the few inline scripts are optional enhancements). The pages are **generated**: edit the templates in `docs/site-src/templates/` and the strings in `docs/site-src/i18n/<lang>.json`, run `python3 scripts/site/build.py`, and commit `docs/site/` (CI fails if it is stale or a strings file is missing keys). To add a language, add `docs/site-src/i18n/<code>.json` and the code to `LANGUAGES` in `scripts/site/build.py`, then extend `AppLinks.siteFolder`. They are served from a separate **public** repository, `xhuerta/folito-site`, so this repository can stay private.
 
 1. Fill the placeholders (`[CONTACT_EMAIL]`, `[DEVELOPER_NAME]`, `[DATE]`; see Owner TODO) in `docs/site-src/i18n/` and rebuild.
-2. Copy the **contents** of `docs/site/` to the **root** of `xhuerta/folito-site` (so `index.html`, `privacy.html`, `support.html`, `style.css`, `CNAME` and the language folders sit at the top level) and push to `main`. Re-copy whenever `docs/site/` changes; this repository is the source. Keep `CNAME` (it holds the custom domain `folito.app`; the build writes `docs/site/CNAME` so a sync never deletes it), `.nojekyll` and the site repo's own `README.md`.
+2. Copy the **contents** of `docs/site/` to the **root** of `xhuerta/folito-site` (so `index.html`, `privacy.html`, `support.html`, `style.css`, `favicon.ico`, `robots.txt`, `sitemap.xml`, `CNAME` and the language folders sit at the top level) and push to `main`. Re-copy whenever `docs/site/` changes; this repository is the source. Keep `CNAME` (it holds the custom domain `folito.app`; the build writes `docs/site/CNAME` so a sync never deletes it), `.nojekyll` and the site repo's own `README.md`.
 3. In `xhuerta/folito-site`: Settings → **Pages** → *Build and deployment* → Source **Deploy from a branch** → branch **`main`**, folder **`/ (root)`** → Save. Custom domain: `folito.app` (DNS at the registrar points the apex and `www` at GitHub Pages), with **Enforce HTTPS** on.
 4. After a minute the pages are live:
-   * Marketing / home: `https://folito.app/`
+   * Marketing / home: `https://folito.app/` (translations: `…/es/`, `…/fr/`, …; always link the folder, not `index.html`, which is what the canonical and hreflang tags use)
    * Privacy policy: `https://folito.app/privacy.html` (translations: `…/es/privacy.html`, `…/fr/privacy.html`, …)
    * Support: `https://folito.app/support.html` (translations: `…/es/support.html`, `…/fr/support.html`, …)
 5. Use the same privacy and support URLs in App Store Connect and in the app (`AppLinks.swift`, PR #20). Guideline 5.1.1(i) requires the policy to be reachable inside the app too; Settings › About links to it once `AppLinks` is updated.
 6. Re-read the policy against `docs/PRIVACY_DATA_MAP.md` whenever networking code changes.
+7. **Smart App Banner, at launch.** Once the app is live on the App Store, copy its numeric **Apple ID** (App Store Connect → your app → *App Information* → *General Information* → *Apple ID*, also the number in the `apps.apple.com/…/id<number>` link) into `APP_STORE_ID` near the top of `scripts/site/build.py`, run `python3 scripts/site/build.py`, commit `docs/site/` and re-copy it to `xhuerta/folito-site`. Every page then gets `<meta name="apple-itunes-app" content="app-id=…">`, which makes Safari on iPhone show an *Open/View in the App Store* banner. Leave it empty until then.
+8. **Search engines** (once, after the first publish): add `https://folito.app/` as a property in [Google Search Console](https://search.google.com/search-console) (Domain property, verified with a DNS TXT record at the registrar) and submit `https://folito.app/sitemap.xml` under *Sitemaps*; optionally do the same in Bing Webmaster Tools (it can import from Search Console). `robots.txt` already points crawlers to the sitemap. The landing pages carry schema.org `MobileApplication` data; check one with the [Rich Results Test](https://search.google.com/test/rich-results). It does not include a price or ratings, so it will not produce an app rich result until an `offers` price is added (in `json_ld()` in `scripts/site/build.py`) once the price is decided.
 
 ## What only the owner can decide
 
