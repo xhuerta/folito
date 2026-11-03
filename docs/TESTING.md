@@ -16,6 +16,8 @@ test targets.
 | Sync connector conformance | Linux + macOS | `SyncConnectorConformance.verify` per connector (`*ConnectorConformanceTests`) | see docs/SYNC_CONNECTORS.md |
 | iOS app tests (`FolitoTests`: LogicTests, PresentationTests, TypographySyncTests, SecondaryTextContrastTests, …) | macOS runner, iPhone simulator | `xcodebuild test -scheme Folito -skip-testing:FolitoUITests` | 35 (1 skipped) |
 | watchOS app tests (`FolitoWatchTests`: LogicTests, TypographyDictionaryTests, AccessibilityTests) | macOS runner, Apple Watch simulator | `xcodebuild test -scheme FolitoWatch -skip-testing:FolitoWatchUITests` | 64 |
+| Welcome tour UI tests (`FolitoUITests/OnboardingUITests`: walk-through, sample book, Skip, Settings) | macOS runner, iPhone simulator, every PR (`ios` job) | `xcodebuild test -scheme Folito -only-testing:FolitoUITests/OnboardingUITests`; page screenshots in the `onboarding-screenshots` artifact | 5 |
+| Sample books (`build_samples.py --check`; parsing in ReaderCore `SampleBooksTests`) | Linux | job `samples`; `test-core` | see docs/SAMPLE_BOOKS.md |
 | iOS accessibility audit (`FolitoUITests`) | macOS runner, iPhone simulator; **not on every PR** (see below) | `accessibility.yml`, `xcodebuild test -scheme Folito -only-testing:FolitoUITests` | 5 |
 | watchOS accessibility UI tests (`FolitoWatchUITests`: audit + label / trait / AX5 checks) | macOS runner, Apple Watch simulator; **not on every PR** (see below) | `accessibility.yml`, `xcodebuild test -scheme FolitoWatch -only-testing:FolitoWatchUITests` | 15 |
 
@@ -23,8 +25,8 @@ test targets.
 
 | Workflow | Runs on | Triggers | Typical time |
 |---|---|---|---|
-| `linux.yml`: `test-core` (ReaderCore `swift test`), `kosync-integration`, `strings` | `ubuntu-latest` | every push to `main` and every PR | 1-2 min |
-| `macos.yml`: jobs `ios` and `watch` in parallel (build + unit tests on simulators, String Catalog comparison in `ios`) | `macos-15` (arm64) | push to `main` and PRs, **except** docs-only changes (`docs/**`, `*.md`, scripts and workflows that do not affect the build); **draft PRs skip it** and it runs when the PR is marked ready for review; manual (`workflow_dispatch`, optional runner label) | 5-9 min per job, run in parallel (was 15-20 min in one Intel job) |
+| `linux.yml`: `test-core` (ReaderCore `swift test`), `kosync-integration`, `strings`, `site`, `samples` | `ubuntu-latest` | every push to `main` and every PR | 1-2 min |
+| `macos.yml`: jobs `ios` and `watch` in parallel (build + unit tests on simulators, welcome tour UI tests and String Catalog comparison in `ios`) | `macos-15` (arm64) | push to `main` and PRs, **except** docs-only changes (`docs/**`, `*.md`, scripts and workflows that do not affect the build); **draft PRs skip it** and it runs when the PR is marked ready for review; manual (`workflow_dispatch`, optional runner label) | 5-9 min per job, run in parallel (was 15-20 min in one Intel job) |
 | `release-check.yml`: Release archive of both apps + `validate_release.py` | `macos-15` (arm64) | every push to `main`; PRs (not drafts) only when they touch `project.yml`, `Config/**`, asset catalogs, Info/plist/entitlements/privacy manifests, `InfoPlist.xcstrings`, the package manifest/pins, `scripts/validate_release.py` or the workflow; manual | 2-3 min |
 | `accessibility.yml`: accessibility audit UI tests | `macos-15` (arm64) | push to `main`, manual, PRs labelled `accessibility` | 10-30 min |
 | `release.yml`: signed build + TestFlight upload | `macos-15` (arm64) | tag `v*`, manual; dry run on PRs touching the pipeline | |

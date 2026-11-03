@@ -85,7 +85,7 @@
   "support.contact": "问题、错误报告或功能建议：<a href=\"mailto:xlahuerta@protonmail.com\">xlahuerta@protonmail.com</a>。请注明你的 iOS 和 watchOS 版本；如果是同步问题，请说明你使用的服务器软件。切勿发送你的密码。",
   "support.start_title": "入门（无需帐户）",
   "support.start_1": "在 iPhone 上安装 Folito；手表 App 会通过 iPhone 上的 Watch App 安装（或自动安装）。打开一次 iPhone App，以便设置手表。",
-  "support.start_2": "导入你拥有的 <code>.epub</code> 或免费的公有领域图书：在资料库中轻点<em>导入 EPUB</em>（+），或者从“文件”App 或共享表单中打开文件并选择 Folito。图书会发送到你的手表。",
+  "support.start_2": "导入你拥有的 <code>.epub</code> 或免费的公有领域图书：在资料库中轻点<em>导入 EPUB</em>（+），或者从“文件”App 或共享表单中打开文件并选择 Folito。图书会发送到你的手表。想先试试，可在欢迎导览或空资料库中轻点<em>添加样书</em>，即可添加一本你所用语言的简短公有领域图书。",
   "support.start_3": "在手表上打开 Folito 并选择图书。你的阅读位置会保存在手表上，并且可以离线阅读。",
   "support.sync_title": "可选：与 KOReader Sync 服务器同步",
   "support.sync_1": "同步默认处于关闭状态，仅在你需要在 KOReader 或其他使用 KOReader Sync 协议的 App 中继续阅读同一本书时才需要。在 iPhone 上打开<em>设置 › 进度同步</em>，在<em>同步服务</em>中选择 <em>KOReader Sync</em>，输入服务器 URL，以及你在该服务器上已有帐户的用户名和密码（请在服务器上创建帐户，例如在 KOReader 中通过 <em>Tools › Progress sync › Register</em> 创建；Folito 不会创建帐户），轻点<em>存储并打开同步</em>，然后轻点<em>测试连接</em>。登录信息会发送到你的手表，以便手表独立同步。",
