@@ -22,11 +22,11 @@ struct LibraryView: View {
                         Text("Import an EPUB file to read it on your Apple Watch. You can also open EPUB files from the Files app or the share sheet. Books are sent to your watch automatically.").foregroundStyle(.secondaryText)
                     } actions: {
                         // Borderless: in a List row, plain buttons all fire on a tap anywhere in the row.
-                        Button("Import EPUB") { showImporter = true }
+                        Button { showImporter = true } label: { Text("Import EPUB").minimumHitArea() }
                             .buttonStyle(.borderless)
                             .disabled(library.isImporting)
                         // A bundled public-domain book, imported like any other (see SampleBooks).
-                        Button("Add a Sample Book") { library.addSample(language: SampleBooks.preferredLanguage) }
+                        Button { library.addSample(language: SampleBooks.preferredLanguage) } label: { Text("Add a Sample Book").minimumHitArea() }
                             .buttonStyle(.borderless)
                             .disabled(library.isImporting)
                             .accessibilityIdentifier("libraryAddSample")
@@ -34,6 +34,7 @@ struct LibraryView: View {
                             showOtherSamples = true
                         } label: {
                             Text("Other Languages…", comment: "Button: choose a sample book in another language")
+                                .minimumHitArea()
                         }
                         .buttonStyle(.borderless)
                         .disabled(library.isImporting)
@@ -205,5 +206,12 @@ private struct WatchStatusSection: View {
         LibraryView(library: LibraryStore(rootDirectory: FileManager.default.temporaryDirectory
                         .appendingPathComponent("preview-library")),
                     connectivity: PhoneConnectivity(), sendToWatch: { _ in })
+    }
+}
+
+private extension View {
+    /// Borderless buttons only hit-test their text; keep the 44 pt minimum target.
+    func minimumHitArea() -> some View {
+        frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
     }
 }
