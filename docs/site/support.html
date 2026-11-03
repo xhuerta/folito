@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Support - Folito</title>
-<meta name="description" content="Help for Folito, the EPUB reader for Apple Watch: getting started, importing books, optional progress sync with KOReader Sync, dictionaries and FAQ.">
+<meta name="description" content="Help for Folito, the EPUB reader for Apple Watch: getting started, importing books, optional sync with KOReader Sync or Readest, dictionaries, FAQ.">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
@@ -25,7 +25,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Folito">
 <meta property="og:title" content="Support - Folito">
-<meta property="og:description" content="Help for Folito, the EPUB reader for Apple Watch: getting started, importing books, optional progress sync with KOReader Sync, dictionaries and FAQ.">
+<meta property="og:description" content="Help for Folito, the EPUB reader for Apple Watch: getting started, importing books, optional sync with KOReader Sync or Readest, dictionaries, FAQ.">
 <meta property="og:url" content="https://folito.app/support.html">
 <meta property="og:image" content="https://folito.app/assets/icon-512.png">
 <meta property="og:image:width" content="512">
@@ -82,16 +82,30 @@
 </div>
 </section>
 <section class="group">
-<h2>Optional: sync your place with other readers</h2>
+<h2>Optional: sync with a KOReader Sync server</h2>
 <div class="card">
-<p>Sync is off by default and only needed to continue the same book in KOReader or another app that speaks the KOReader Sync protocol. On the iPhone open <em>Settings › Progress Sync</em>, enter the server URL and the username and password of an account you already have on that server (create it on the server itself, for example in KOReader under <em>Tools › Progress sync › Register</em>; Folito does not create accounts), tap <em>Save and Turn On Sync</em>, then <em>Test Connection</em>. The login is sent to your watch so it can sync on its own.</p>
+<p>Sync is off by default and only needed to continue the same book in KOReader or another app that speaks the KOReader Sync protocol. On the iPhone open <em>Settings › Progress Sync</em>, set <em>Sync Service</em> to <em>KOReader Sync</em>, enter the server URL and the username and password of an account you already have on that server (create it on the server itself, for example in KOReader under <em>Tools › Progress sync › Register</em>; Folito does not create accounts), tap <em>Save and Turn On Sync</em>, then <em>Test Connection</em>. The login is sent to your watch so it can sync on its own.</p>
 <p>To stop syncing, tap <em>Turn Off Sync and Remove Login</em>: the login is removed from the iPhone and the watch; your books and reading positions are kept.</p>
+</div>
+</section>
+<section class="group">
+<h2>Optional: sync with Readest</h2>
+<div class="card">
+<p>Use this to continue the same book in the Readest apps, or in KOReader with the Readest plugin. On the iPhone open <em>Settings › Progress Sync</em>, set <em>Sync Service</em> to <em>Readest</em>, enter the email and password of the Readest account you already have and tap <em>Sign In and Turn On Sync</em>. The password is not stored; the watch receives the session and syncs on its own.</p>
+<p>Use the same EPUB file on every device: positions are matched by file. Positions are saved per paragraph, so you continue at the start of the paragraph you were reading. To stop, tap <em>Sign Out</em>.</p>
+</div>
+</section>
+<section class="group">
+<h2>Dictionaries</h2>
+<div class="card">
+<p>On the iPhone open <em>Settings › Dictionaries</em> and tap <em>Download</em> next to a language. The dictionary is sent to your watch, where word lookup then works offline. Tap <em>Update</em> when a newer version is available.</p>
+<p>The dictionaries are compiled from Wiktionary by <a href="https://www.reader-dict.com">reader.dict</a>; Wiktionary content is available under <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>. The credits are also in <em>Settings › Acknowledgements</em>.</p>
 </div>
 </section>
 <section class="group">
 <h2>Frequently asked</h2>
 <div class="card faq">
-<details><summary><span>Do I need an account?</span><svg class="chev" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1.5 1.5 6 6-6 6"/></svg></summary><div class="answer"><p>No. Importing and reading need no account of any kind. Sync is optional and uses a server you choose; the developer runs no server.</p></div></details>
+<details><summary><span>Do I need an account?</span><svg class="chev" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1.5 1.5 6 6-6 6"/></svg></summary><div class="answer"><p>No. Importing and reading need no account of any kind. Sync is optional and uses a service you choose (a KOReader Sync server or your Readest account); the developer runs no server.</p></div></details>
 <details><summary><span>Which servers work?</span><svg class="chev" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1.5 1.5 6 6-6 6"/></svg></summary><div class="answer"><p>Any KOReader Sync (kosync) compatible server, including the public KOReader server and self-hosted ones. The app does not provide a server.</p></div></details>
 <details><summary><span>Progress does not match in KOReader or Readest.</span><svg class="chev" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1.5 1.5 6 6-6 6"/></svg></summary><div class="answer"><p>It must be the same, unmodified EPUB file on every device. In Readest set the document matching method to <em>File Content</em>; in KOReader use <em>Binary</em>.</p></div></details>
 <details><summary><span>My http:// server does not connect.</span><svg class="chev" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1.5 1.5 6 6-6 6"/></svg></summary><div class="answer"><p>iOS blocks plain http to internet hosts. Use https, or a local-network address (iOS asks for local network permission the first time).</p></div></details>

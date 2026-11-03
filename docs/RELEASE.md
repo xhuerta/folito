@@ -14,7 +14,7 @@ Decisions and checks only the owner can make (details in [What only the owner ca
 
 * [ ] Final app name, bundle id, SKU, price and territories.
 * [ ] Sample EPUB for App Review: attach one or keep the Project Gutenberg link in `docs/appstore/REVIEW_NOTES.md` (no demo account is needed).
-* [ ] App Privacy answers (`docs/appstore/APP_PRIVACY.md`), including whether to also declare the optional sync data.
+* [ ] App Privacy answers: enter the final answers in `docs/appstore/APP_PRIVACY.md` (data collected: Email Address, User ID, Device ID, Other User Content; linked; App Functionality; no tracking).
 * [ ] Accessibility Nutrition Labels (`docs/appstore/ACCESSIBILITY_LABELS.md`), only after the manual checks in `docs/ACCESSIBILITY.md`.
 * [ ] Age rating (`docs/appstore/AGE_RATING.md`) and export compliance (`docs/appstore/EXPORT_COMPLIANCE.md`).
 * [ ] Publish the site ([Publishing the site](#9-publishing-the-site)).
@@ -97,7 +97,7 @@ Apple requires uploads to be built with the current major Xcode/SDK (since 28 Ap
 
 1. Pages must be live (step 9) so you can fill in the **Privacy Policy URL** and **Support URL**.
 2. App Store Connect → your app → the version page. Paste metadata from `docs/appstore/metadata-en.md` and `metadata-es.md`. Upload screenshots (checklist in `docs/appstore/SCREENSHOTS.md`).
-3. **App Privacy**, **Accessibility**, **Age Rating**, **Export compliance** and **App Review information** answers: `docs/appstore/APP_PRIVACY.md`, `ACCESSIBILITY_LABELS.md`, `AGE_RATING.md`, `EXPORT_COMPLIANCE.md`, `REVIEW_NOTES.md`. Read `docs/appstore/REVIEW_RISKS.md` first. In *App Review Information* leave **Sign-in required** unticked: the app needs no account; sync is optional and uses a server the user supplies.
+3. **App Privacy**, **Accessibility**, **Age Rating**, **Export compliance** and **App Review information** answers: `docs/appstore/APP_PRIVACY.md`, `ACCESSIBILITY_LABELS.md`, `AGE_RATING.md`, `EXPORT_COMPLIANCE.md`, `REVIEW_NOTES.md`. Read `docs/appstore/REVIEW_RISKS.md` first. In *App Review Information* leave **Sign-in required** unticked: the app needs no account; sync is optional and uses a service the user chooses (a KOReader Sync server or their own Readest account).
    URLs: Support `https://folito.app/support.html`, Privacy Policy `https://folito.app/privacy.html`, Marketing (optional) `https://folito.app/` (Spanish localisation: same paths under `es/`).
 4. Select the processed build, set pricing/availability, choose release method, **Add for Review** → **Submit**.
 
@@ -125,7 +125,7 @@ The support, privacy policy and landing pages are static HTML in `docs/site/` (E
 * **Price and availability** (free vs paid, territories), and the seller/developer name shown (individual name vs organisation).
 * **No demo account is needed**: sync is optional (PR #18) and reviewers test by importing an EPUB. Decide only which public-domain EPUB to attach or link for review, and whether to bundle a sample book in a future version.
 * "Create account" was removed (PR #18), so guideline 5.1.1(v) account deletion does not apply; do not reintroduce it.
-* Age-rating, App Privacy and Accessibility Nutrition Label answers (proposed in `docs/appstore/`; you are the one making the declaration).
+* Age-rating, App Privacy and Accessibility Nutrition Label answers (in `docs/appstore/`; App Privacy is decided, the others are proposals; you are the one making the declaration).
 * Whether to mention KOReader/Readest by name in store text (nominative use only; see risks).
 * Which Apple ID / role holds the API key, and when to rotate it.
 

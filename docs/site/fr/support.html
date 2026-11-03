@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Assistance - Folito</title>
-<meta name="description" content="Aide de Folito, le lecteur EPUB pour Apple Watch : premiers pas, import de livres, synchronisation facultative avec KOReader Sync, dictionnaires et FAQ.">
+<meta name="description" content="Aide de Folito, le lecteur EPUB pour Apple Watch : premiers pas, import de livres, synchro facultative avec KOReader Sync ou Readest, dictionnaires, FAQ.">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
@@ -25,7 +25,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Folito">
 <meta property="og:title" content="Assistance - Folito">
-<meta property="og:description" content="Aide de Folito, le lecteur EPUB pour Apple Watch : premiers pas, import de livres, synchronisation facultative avec KOReader Sync, dictionnaires et FAQ.">
+<meta property="og:description" content="Aide de Folito, le lecteur EPUB pour Apple Watch : premiers pas, import de livres, synchro facultative avec KOReader Sync ou Readest, dictionnaires, FAQ.">
 <meta property="og:url" content="https://folito.app/fr/support.html">
 <meta property="og:image" content="https://folito.app/assets/icon-512.png">
 <meta property="og:image:width" content="512">
@@ -82,16 +82,30 @@
 </div>
 </section>
 <section class="group">
-<h2>Facultatif : synchronisez votre position avec d’autres apps de lecture</h2>
+<h2>Facultatif : synchronisez avec un serveur KOReader Sync</h2>
 <div class="card">
-<p>La synchronisation est désactivée par défaut et n’est utile que pour reprendre le même livre dans KOReader ou dans une autre app qui utilise le protocole KOReader Sync. Sur l’iPhone, ouvrez <em>Réglages › Synchronisation de la progression</em>, saisissez l’URL du serveur ainsi que le nom d’utilisateur et le mot de passe d’un compte que vous possédez déjà sur ce serveur (créez-le sur le serveur lui-même, par exemple dans KOReader via <em>Tools › Progress sync › Register</em> ; Folito ne crée pas de comptes), touchez <em>Enregistrer et activer la synchronisation</em>, puis <em>Tester la connexion</em>. Les identifiants sont envoyés à votre montre pour qu’elle puisse se synchroniser de manière autonome.</p>
+<p>La synchronisation est désactivée par défaut et n’est utile que pour reprendre le même livre dans KOReader ou dans une autre app qui utilise le protocole KOReader Sync. Sur l’iPhone, ouvrez <em>Réglages › Synchronisation de la progression</em>, choisissez <em>KOReader Sync</em> dans <em>Service de synchronisation</em>, saisissez l’URL du serveur ainsi que le nom d’utilisateur et le mot de passe d’un compte que vous possédez déjà sur ce serveur (créez-le sur le serveur lui-même, par exemple dans KOReader via <em>Tools › Progress sync › Register</em> ; Folito ne crée pas de comptes), touchez <em>Enregistrer et activer la synchronisation</em>, puis <em>Tester la connexion</em>. Les identifiants sont envoyés à votre montre pour qu’elle puisse se synchroniser de manière autonome.</p>
 <p>Pour arrêter la synchronisation, touchez <em>Désactiver la synchronisation et supprimer l’identifiant</em> : les identifiants sont supprimés de l’iPhone et de la montre ; vos livres et vos positions de lecture sont conservés.</p>
+</div>
+</section>
+<section class="group">
+<h2>Facultatif : synchronisez avec Readest</h2>
+<div class="card">
+<p>Pour reprendre le même livre dans les apps Readest, ou dans KOReader avec le plug-in Readest. Sur l’iPhone, ouvrez <em>Réglages › Synchronisation de la progression</em>, choisissez <em>Readest</em> dans <em>Service de synchronisation</em>, saisissez l’adresse e-mail et le mot de passe du compte Readest que vous possédez déjà, puis touchez <em>Se connecter et activer la synchronisation</em>. Le mot de passe n’est pas enregistré ; la montre reçoit la session et se synchronise de manière autonome.</p>
+<p>Utilisez le même fichier EPUB sur chaque appareil : les positions sont associées au fichier. Elles sont enregistrées par paragraphe, vous reprenez donc au début du paragraphe que vous lisiez. Pour arrêter, touchez <em>Se déconnecter</em>.</p>
+</div>
+</section>
+<section class="group">
+<h2>Dictionnaires</h2>
+<div class="card">
+<p>Sur l’iPhone, ouvrez <em>Réglages › Dictionnaires</em> et touchez <em>Télécharger</em> à côté d’une langue. Le dictionnaire est envoyé à votre montre, où la recherche de mots fonctionne ensuite hors ligne. Touchez <em>Mettre à jour</em> lorsqu’une version plus récente est disponible.</p>
+<p>Les dictionnaires sont compilés à partir du Wiktionnaire par <a href="https://www.reader-dict.com">reader.dict</a> ; le contenu du Wiktionnaire est disponible sous licence <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>. Les crédits figurent aussi dans <em>Réglages › Remerciements</em>.</p>
 </div>
 </section>
 <section class="group">
 <h2>Questions fréquentes</h2>
 <div class="card faq">
-<details><summary><span>Ai-je besoin d’un compte ?</span><svg class="chev" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1.5 1.5 6 6-6 6"/></svg></summary><div class="answer"><p>Non. L’importation et la lecture ne nécessitent aucun compte, de quelque nature que ce soit. La synchronisation est facultative et utilise un serveur de votre choix ; le développeur n’exploite aucun serveur.</p></div></details>
+<details><summary><span>Ai-je besoin d’un compte ?</span><svg class="chev" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1.5 1.5 6 6-6 6"/></svg></summary><div class="answer"><p>Non. L’importation et la lecture ne nécessitent aucun compte, de quelque nature que ce soit. La synchronisation est facultative et utilise un service de votre choix (un serveur KOReader Sync ou votre compte Readest) ; le développeur n’exploite aucun serveur.</p></div></details>
 <details><summary><span>Quels serveurs fonctionnent ?</span><svg class="chev" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1.5 1.5 6 6-6 6"/></svg></summary><div class="answer"><p>Tout serveur compatible KOReader Sync (kosync), y compris le serveur public de KOReader et les serveurs auto-hébergés. L’app ne fournit pas de serveur.</p></div></details>
 <details><summary><span>La progression ne correspond pas dans KOReader ou Readest.</span><svg class="chev" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1.5 1.5 6 6-6 6"/></svg></summary><div class="answer"><p>Il doit s’agir du même fichier EPUB, non modifié, sur chaque appareil. Dans Readest, réglez la méthode de correspondance des documents sur <em>File Content</em> ; dans KOReader, utilisez <em>Binary</em>.</p></div></details>
 <details><summary><span>Mon serveur http:// ne se connecte pas.</span><svg class="chev" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1.5 1.5 6 6-6 6"/></svg></summary><div class="answer"><p>iOS bloque le http non chiffré vers les hôtes Internet. Utilisez https, ou une adresse du réseau local (iOS demande l’autorisation d’accès au réseau local la première fois).</p></div></details>

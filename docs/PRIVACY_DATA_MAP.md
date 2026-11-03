@@ -4,7 +4,8 @@ Source of truth for what data leaves the device, to whom and why. The privacy po
 "App Privacy" answers must match this file. Audited against the code (every `URLSession` use,
 `UserDefaults`, Keychain, file and WatchConnectivity use). Re-audit when networking code changes.
 
-Summary: the developer operates **no server** and receives **no data**. There is no analytics, advertising,
+Summary: the developer operates **no server** and receives **no data**. The App Store label still declares the
+optional sync data (section 3). There is no analytics, advertising,
 crash-reporting or third-party SDK, and no tracking. Network traffic goes only to (a) the progress-sync
 service the user chooses and signs in to (a KOReader Sync server, or Readest Cloud; at most one at a time) and
 (b) the reader.dict website when the user downloads a dictionary on the iPhone. Word lookups are offline.
@@ -105,29 +106,34 @@ Not sent: any looked-up word, book title, author, text, position, account data o
   `modificationDate`, `stat`, `getattrlist`...; the code only copies, writes and deletes files), disk space
   APIs, system boot time (`systemUptime`, `mach_absolute_time`), active keyboard APIs. Re-check if code that
   uses these is added.
-- Collected data types: **none**. (Until the offline dictionaries, looked-up words went to Wiktionary /
-  dictionaryapi.dev and were declared as Search History; lookups are now on device.) Downloading a dictionary
-  file from reader.dict sends no user data beyond the request itself, like any file download.
-  Rationale for what is *not* declared: Apple defines "collect" as data transmitted off device to the developer
-  or third-party partners. Sync data (username or Readest email, hashed password or session token, book hashes,
-  reading position, device UUID) goes only to a service the user runs or chooses and signs in to with their own
-  account (a KOSync server, or Readest Cloud), not to the developer or a partner of the developer, so it is not
-  declared as collected by the developer.
-  **Owner to confirm** this reading against App Store Connect's App Privacy guidance (see section 5).
+- Collected data types (owner decision, see `docs/appstore/APP_PRIVACY.md`): **Email Address**, **User ID**,
+  **Device ID** and **Other User Content**, each linked to the user, not used for tracking, purpose App
+  Functionality. Both manifests declare the same set.
+  Rationale: Apple defines "collect" as data transmitted off device to the developer or its third-party partners.
+  Sync data (username or Readest email, book hashes, reading position, device UUID) goes only to a service the
+  user chooses and signs in to with their own account (a KOSync server, or Readest Cloud), never to the
+  developer, so a strict reading would declare nothing. It is declared anyway (conservative reading) so the label
+  cannot look inconsistent with a visible email/password sign-in. Because those services store it per account,
+  it is declared **linked**. Not declared: the password hash and session tokens (credentials, not a listed data
+  type), the IP address (inherent to any request), and dictionary downloads from reader.dict, which send no user
+  data beyond the request itself. Lookups are on device. (Before the offline dictionaries, looked-up words went
+  to Wiktionary / dictionaryapi.dev and were declared as Search History.)
 
-## 4. Suggested App Store Connect "App Privacy" answers
+| Declared type | What it is in Folito | Sent to |
+|---|---|---|
+| Contact Info › Email Address | Readest account email | Readest's Supabase auth, once at sign-in (iPhone) |
+| Identifiers › User ID | KOSync username; the Readest account (via its access token) | the KOSync server; Readest |
+| Identifiers › Device ID | random UUID generated on first launch | the KOSync server only |
+| User Content › Other User Content | book hashes and reading positions | the KOSync server or Readest |
 
-- Data collection: **Data Not Collected** (see section 5, item 1, for the sync reading).
-- Tracking: No. No data types linked to the user.
-- Privacy policy URL: required (policy to be written from this file).
+## 4. App Store Connect "App Privacy" answers
+
+Final answers and click-through: `docs/appstore/APP_PRIVACY.md`. In short: data collected (the four types
+above), all linked to the user, all App Functionality only, no tracking. Privacy policy URL:
+`https://folito.app/privacy.html` (translations under `/<lang>/`).
 
 ## 5. Items needing owner verification
 
-1. Whether Apple wants user-configured sync (username or Readest email / book hashes / reading position /
-   device UUID going to the user's own server or Readest account) listed under App Privacy. Readest Cloud is a
-   fixed, named third party (not user-run), which makes the conservative reading more likely to be expected. The conservative alternative is to also declare Other User Content /
-   Device ID / User ID, "not linked", purpose App Functionality; the current files take the "developer
-   receives nothing" reading. Verify with Apple's "App privacy details" documentation.
-2. The download User-Agent contains the GitHub project URL; replace it with a real contact URL/email if the repo moves.
-3. Local network permission: iOS shows a prompt the first time the app contacts a LAN address
+1. The download User-Agent contains the GitHub project URL; replace it with a real contact URL/email if the repo moves.
+2. Local network permission: iOS shows a prompt the first time the app contacts a LAN address
    (`NSLocalNetworkUsageDescription`, localised en/es, in the iOS and watch Info.plists).
