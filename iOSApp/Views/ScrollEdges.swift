@@ -14,14 +14,10 @@ extension View {
     func readableScrollEdges() -> some View {
         let spaced = contentMargins(.bottom, 24, for: .scrollContent)
         #if compiler(>=6.2)
-        if AXProbe.on("softEdges") {
-            spaced
+        if #available(iOS 26.0, *) {
+            spaced.scrollEdgeEffectStyle(.hard, for: .vertical)
         } else {
-            if #available(iOS 26.0, *) {
-                spaced.scrollEdgeEffectStyle(.hard, for: .vertical)
-            } else {
-                spaced
-            }
+            spaced
         }
         #else
         spaced

@@ -10,7 +10,6 @@ struct TypographySettingsView: View {
 
     var body: some View {
         Form {
-            if !AXProbe.on("noPreview") {
             Section {
                 // Content, not chrome: rendered at the reader's own font size and theme colours, at roughly
                 // the width of a 45 mm watch screen, exactly as the watch shows it.
@@ -25,7 +24,6 @@ struct TypographySettingsView: View {
                     .accessibilityIdentifier("typographyPreview")
             } header: {
                 Text("Preview").foregroundStyle(.secondaryText)
-            }
             }
             Section {
                 // A grid, not a horizontal scroll view: every preset stays fully on screen (a half-visible button
@@ -100,7 +98,6 @@ struct TypographySettingsView: View {
         }
         .readableScrollEdges()
         .navigationTitle("Reading")
-        .probeChrome()
         .confirmationDialog("Reset all reading settings to their defaults?", isPresented: $confirmReset,
                             titleVisibility: .visible) {
             Button("Reset to Defaults", role: .destructive) { typography.reset() }
@@ -133,14 +130,13 @@ struct TypographySettingsView: View {
         }
     }
 
-    /// Title and current value above the slider (stacked at accessibility sizes). VoiceOver reads the row once,
-    /// as one slider, "title, value", adjusted by swiping up or down. The visible texts are part of that element
-    /// (its frame covers them) rather than hidden from accessibility: hidden text that is drawn on screen is what
-    /// the audit reported as "Potentially inaccessible text" (bisected in CI on PR #39).
-    @ViewBuilder
+    /// Title and current value above the slider (stacked at accessibility sizes). The slider is labelled with the
+    /// title and value, so VoiceOver reads it as "title, value" and adjusts it by swiping up or down. The texts
+    /// above it stay in the accessibility tree: text drawn on screen but hidden from accessibility is what the
+    /// audit reported as "Potentially inaccessible text" (docs/ACCESSIBILITY.md).
     private func slider(_ title: LocalizedStringKey, _ value: Binding<Double>, _ range: ClosedRange<Double>,
                         _ step: Double, _ format: @escaping (Double) -> String) -> some View {
-        let row = VStack(alignment: .leading) {
+        VStack(alignment: .leading) {
             ViewThatFits(in: .horizontal) {
                 HStack {
                     Text(title)
@@ -156,16 +152,6 @@ struct TypographySettingsView: View {
                 Text(title)
             }
             .accessibilityValue(format(value.wrappedValue))
-        }
-        if AXProbe.on("sliderCombine") {
-            row.accessibilityElement(children: .combine)
-        } else {
-            row.accessibilityRepresentation {
-                Slider(value: value, in: range, step: step) {
-                    Text(title)
-                }
-                .accessibilityValue(format(value.wrappedValue))
-            }
         }
     }
 }
