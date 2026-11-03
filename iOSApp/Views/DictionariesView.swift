@@ -20,7 +20,7 @@ struct DictionariesView: View {
                 }
             } footer: {
                 Text("Lookups happen on your Apple Watch without a connection. The iPhone downloads each dictionary once, converts it to a smaller format and sends it to the watch.")
-                    .systemSecondaryText()
+                    .foregroundStyle(.secondaryText)
             }
             Section {
                 DictionaryCreditsText()
@@ -33,9 +33,10 @@ struct DictionariesView: View {
                 }
                 .accessibilityHint("Opens in your web browser.")
             } header: {
-                Text("Credits").systemSecondaryText()
+                Text("Credits").foregroundStyle(.secondaryText)
             }
         }
+        .readableScrollEdges()
         .navigationTitle("Dictionaries")
         .task { await manager.checkForUpdates() }
         .confirmationDialog(pendingDelete.map { String(localized: "Delete the \(DictionaryManager.languageName($0.language)) dictionary from your iPhone and Apple Watch?", comment: "Confirmation; the placeholder is a language name") } ?? "",
@@ -92,12 +93,12 @@ private struct DictionaryRow: View {
                     Text(verbatim: DictionaryManager.languageName(descriptor.language))
                         .font(.headline)
                     Text(verbatim: descriptor.shortSource)
-                        .font(.footnote).systemSecondaryText()
+                        .font(.footnote).foregroundStyle(.secondaryText)
                     Text(DictionarySizes.text(download: descriptor.downloadSize,
                                               installed: manager.installedSize(descriptor.id) ?? descriptor.installedSize))
-                        .font(.footnote).systemSecondaryText()
+                        .font(.footnote).foregroundStyle(.secondaryText)
                     if let status = watchState.text {
-                        Text(status).font(.footnote).systemSecondaryText()
+                        Text(status).font(.footnote).foregroundStyle(.secondaryText)
                     }
                 }
                 Spacer()

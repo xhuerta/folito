@@ -39,11 +39,10 @@ struct LibraryView: View {
             .navigationDestination(for: LibraryEntry.self) { entry in
                 ReaderLoaderView(entry: entry)
             }
+            .navigationDestination(for: SettingsRoute.self) { $0.destination }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink {
-                        SettingsView()
-                    } label: {
+                    NavigationLink(value: SettingsRoute.settings) {
                         Label("Settings", systemImage: "gearshape")
                     }
                     .accessibilityIdentifier("settingsButton")

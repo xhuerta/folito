@@ -14,7 +14,7 @@ struct ReaderMenuView: View {
             List {
                 Section("Text") {
                     TextSizeStepper()
-                    NavigationLink("Typography") { TypographyEditorView() }
+                    NavigationLink("Typography", value: SettingsRoute.typography)
                         .accessibilityIdentifier("typographyLink")
                 }
                 Section("Dictionary") {
@@ -49,6 +49,7 @@ struct ReaderMenuView: View {
                 }
             }
             .navigationTitle("Contents")
+            .navigationDestination(for: SettingsRoute.self) { $0.destination }
         }
     }
 }

@@ -66,6 +66,7 @@ enum SyncText {
 struct SyncSettingsView: View {
     @ObservedObject var settings: SyncSettings
     @State private var confirmTurnOff = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         Form {
@@ -77,12 +78,19 @@ struct SyncSettingsView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondaryText)
                 } else {
-                    Label("Sync is off", systemImage: "icloud.slash")
-                        .font(.headline)
-                        .foregroundStyle(.secondaryText)
-                    Text("Folito works fully without an account. Sync is optional: it only lets you continue the same book on other readers.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondaryText)
+                    // One row, title above the explanation. At accessibility sizes the title drops its decorative
+                    // icon and uses the body size: as a separate `.headline` row it did not scale fully at AX5
+                    // (the audit flagged it "partially unsupported" and "clipped").
+                    VStack(alignment: .leading, spacing: 6) {
+                        if dynamicTypeSize.isAccessibilitySize {
+                            Text("Sync is off").font(.body.weight(.semibold))
+                        } else {
+                            Label("Sync is off", systemImage: "icloud.slash").font(.headline)
+                        }
+                        Text("Folito works fully without an account. Sync is optional: it only lets you continue the same book on other readers.")
+                            .font(.footnote)
+                    }
+                    .foregroundStyle(.secondaryText)
                 }
             }
 
@@ -97,7 +105,7 @@ struct SyncSettingsView: View {
                 .accessibilityIdentifier("syncServicePicker")
             } footer: {
                 if let f = settings.selectedFactory {
-                    Text(verbatim: SyncText.summary(f.descriptor)).systemSecondaryText()
+                    Text(verbatim: SyncText.summary(f.descriptor)).foregroundStyle(.secondaryText)
                 }
             }
 
@@ -114,22 +122,27 @@ struct SyncSettingsView: View {
             if settings.isSyncOn {
                 Section {
                     if settings.activeFactory?.descriptor.usesSession == true {
-                        Button("Sign Out", role: .destructive) { confirmTurnOff = true }
+                        Button(role: .destructive) { confirmTurnOff = true } label: {
+                            Text("Sign Out").foregroundStyle(.destructiveText)
+                        }
                     } else {
-                        Button("Turn Off Sync and Remove Login", role: .destructive) { confirmTurnOff = true }
+                        Button(role: .destructive) { confirmTurnOff = true } label: {
+                            Text("Turn Off Sync and Remove Login").foregroundStyle(.destructiveText)
+                        }
                     }
                 } footer: {
-                    Text("Removes the login from this iPhone and from your Apple Watch, and clears progress waiting to sync. Your books and reading positions are kept.").systemSecondaryText()
+                    Text("Removes the login from this iPhone and from your Apple Watch, and clears progress waiting to sync. Your books and reading positions are kept.").foregroundStyle(.secondaryText)
                 }
             }
 
             if let f = settings.selectedFactory {
                 Section {
                 } footer: {
-                    Text(verbatim: SyncText.privacyFooter(f.descriptor)).systemSecondaryText()
+                    Text(verbatim: SyncText.privacyFooter(f.descriptor)).foregroundStyle(.secondaryText)
                 }
             }
         }
+        .readableScrollEdges()
         .navigationTitle("Progress Sync")
         .navigationBarTitleDisplayMode(.inline)
         .confirmationDialog("Turn off sync and remove the saved login from this iPhone and your Apple Watch?",
@@ -148,10 +161,10 @@ struct SyncSettingsView: View {
         if settings.isSignedInToSelected {
             Section {
                 LabeledContent("Account") {
-                    Text(verbatim: settings.accountLabel ?? "").systemSecondaryText()
+                    Text(verbatim: settings.accountLabel ?? "").foregroundStyle(.secondaryText)
                 }
             } header: {
-                Text("Signed In").systemSecondaryText()
+                Text("Signed In").foregroundStyle(.secondaryText)
             }
         } else {
             Section {
@@ -166,14 +179,14 @@ struct SyncSettingsView: View {
                 }
             } header: {
                 if d.id == settings.activeConnectorID {
-                    Text("Server").systemSecondaryText()
+                    Text("Server").foregroundStyle(.secondaryText)
                 } else if d.usesSession {
-                    Text("Sign In to \(SyncText.serviceName(d))").systemSecondaryText()
+                    Text("Sign In to \(SyncText.serviceName(d))").foregroundStyle(.secondaryText)
                 } else {
-                    Text("Optional: Connect a Sync Server").systemSecondaryText()
+                    Text("Optional: Connect a Sync Server").foregroundStyle(.secondaryText)
                 }
             } footer: {
-                Text(verbatim: SyncText.formFooter(d)).systemSecondaryText()
+                Text(verbatim: SyncText.formFooter(d)).foregroundStyle(.secondaryText)
             }
 
             Section {
