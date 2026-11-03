@@ -21,6 +21,9 @@ struct OnboardingView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 32) {
+                        // At accessibility sizes the page counter and Skip scroll with the page: in the navigation
+                        // bar they stop growing at AX5 (the audit flagged both "Dynamic Type partially unsupported").
+                        if dynamicTypeSize.isAccessibilitySize { inlineHeader }
                         content(proxy)
                         // At accessibility sizes the buttons follow the content instead of covering half the screen.
                         if dynamicTypeSize.isAccessibilitySize { navigationButtons }
@@ -38,22 +41,42 @@ struct OnboardingView: View {
                 }
             }
             .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text("Page \(page.number) of \(OnboardingPage.allCases.count)")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondaryText)
-                }
-                if page != OnboardingPage.allCases.last {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("Skip") { model.finish() }
-                            .accessibilityHint("Closes the welcome tour. You can open it again in Settings.")
-                            .accessibilityIdentifier("onboardingSkip")
+                if !dynamicTypeSize.isAccessibilitySize {
+                    ToolbarItem(placement: .principal) { pageCounter }
+                    if page != OnboardingPage.allCases.last {
+                        ToolbarItem(placement: .topBarTrailing) { skipButton }
                     }
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
         }
         .interactiveDismissDisabled()
+    }
+
+    private var pageCounter: some View {
+        Text("Page \(page.number) of \(OnboardingPage.allCases.count)")
+            .font(.subheadline)
+            .foregroundStyle(.secondaryText)
+    }
+
+    private var skipButton: some View {
+        Button("Skip") { model.finish() }
+            .accessibilityHint("Closes the welcome tour. You can open it again in Settings.")
+            .accessibilityIdentifier("onboardingSkip")
+    }
+
+    /// The page counter and Skip at the top of the scrolling page (accessibility text sizes), stacked so both wrap.
+    private var inlineHeader: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            pageCounter
+                .fixedSize(horizontal: false, vertical: true)
+            if page != OnboardingPage.allCases.last {
+                skipButton
+                    .buttonStyle(.bordered)
+                    .frame(minHeight: 44)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// A short slide from the trailing edge; a plain cross-fade with Reduce Motion.
@@ -295,6 +318,7 @@ private struct TryItPage: View {
     static let statusID = "onboardingStatus"
 
     @State private var showImporter = false
+    @State private var showOtherSamples = false
     /// An import this page started and is waiting for.
     @State private var awaitingImport = false
     /// The book this page imported (or found already imported), shown with its watch state.
@@ -315,12 +339,19 @@ private struct TryItPage: View {
             Text("Add a short public-domain sample book and watch it arrive on your Apple Watch. It’s a book like any other: delete it whenever you like.")
                 .fixedSize(horizontal: false, vertical: true)
             VStack(spacing: 12) {
-                Button(action: addSample) {
+                Button { addSample(language: sampleLanguage) } label: {
                     Label("Add a Sample Book", systemImage: "plus.circle.fill")
                         .frame(maxWidth: .infinity, minHeight: 32)
                 }
                 .buttonStyle(.borderedProminent)
                 .accessibilityIdentifier("onboardingAddSample")
+                Button { showOtherSamples = true } label: {
+                    Text("Other Languages…", comment: "Button: choose a sample book in another language")
+                        .frame(maxWidth: .infinity, minHeight: 32)
+                }
+                .buttonStyle(.bordered)
+                .accessibilityHint("Shows the sample books in every language.")
+                .accessibilityIdentifier("onboardingOtherSamples")
                 Button { showImporter = true } label: {
                     Label("Import My Own Book", systemImage: "square.and.arrow.down")
                         .frame(maxWidth: .infinity, minHeight: 32)
@@ -343,6 +374,9 @@ private struct TryItPage: View {
                 error = .pickerFailed()
             }
         }
+        .sheet(isPresented: $showOtherSamples) {
+            SampleBookPicker(library: library, preferredLanguage: sampleLanguage) { addSample(language: $0) }
+        }
         .onChange(of: library.lastImported) { _, entry in
             guard awaitingImport, let entry else { return }
             awaitingImport = false
@@ -363,12 +397,12 @@ private struct TryItPage: View {
         .onChange(of: awaitingImport) { _, _ in DispatchQueue.main.async { revealStatus() } }
     }
 
-    private func addSample() {
+    private func addSample(language: String) {
         error = nil
-        if let existing = library.sampleEntry(language: sampleLanguage) {
+        if let existing = library.sampleEntry(language: language) {
             resultHash = existing.documentHash
             Announcer.announce(addedText(existing))
-        } else if library.addSample(language: sampleLanguage) {
+        } else if library.addSample(language: language) {
             awaitingImport = true
         } else {
             // Only possible in a build without the sample resources.

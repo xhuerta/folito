@@ -7,6 +7,7 @@ struct LibraryView: View {
     var sendToWatch: (LibraryEntry) -> Void
     @State private var showImporter = false
     @State private var pendingDelete: LibraryEntry?
+    @State private var showOtherSamples = false
 
     private static let epubType = UTType("org.idpf.epub-container") ?? UTType(filenameExtension: "epub") ?? .data
 
@@ -26,6 +27,14 @@ struct LibraryView: View {
                         Button("Add a Sample Book") { library.addSample(language: SampleBooks.preferredLanguage) }
                             .disabled(library.isImporting)
                             .accessibilityIdentifier("libraryAddSample")
+                        Button {
+                            showOtherSamples = true
+                        } label: {
+                            Text("Other Languages…", comment: "Button: choose a sample book in another language")
+                        }
+                        .disabled(library.isImporting)
+                        .accessibilityHint("Shows the sample books in every language.")
+                        .accessibilityIdentifier("libraryOtherSamples")
                     }
                 }
             } else {
@@ -51,6 +60,9 @@ struct LibraryView: View {
                     }
                 }
             }
+        }
+        .sheet(isPresented: $showOtherSamples) {
+            SampleBookPicker(library: library) { _ = library.addSample(language: $0) }
         }
         .fileImporter(isPresented: $showImporter, allowedContentTypes: [Self.epubType]) { result in
             switch result {
