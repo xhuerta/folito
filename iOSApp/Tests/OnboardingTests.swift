@@ -107,6 +107,47 @@ final class SampleBookSelectionTests: XCTestCase {
         }
     }
 
+    /// The "Other Languages…" list has one sample per app language, the preferred one first.
+    func testOrderedListPutsPreferredLanguageFirst() {
+        XCTAssertEqual(SampleBooks.all.map(\.language), SampleBooks.languages)
+        XCTAssertEqual(SampleBooks.ordered(preferred: "en").map(\.language), SampleBooks.languages)
+        let spanishFirst = SampleBooks.ordered(preferred: "es").map(\.language)
+        XCTAssertEqual(spanishFirst, ["es", "en", "fr", "de", "it", "pt-BR", "ja", "zh-Hans"])
+        XCTAssertEqual(SampleBooks.ordered(preferred: "zh-Hans").first?.language, "zh-Hans")
+        XCTAssertEqual(Set(SampleBooks.ordered(preferred: "ja").map(\.language)).count, SampleBooks.languages.count)
+    }
+
+    func testNativeLanguageNames() {
+        XCTAssertEqual(SampleBooks.nativeName(for: "en"), "English")
+        XCTAssertEqual(SampleBooks.nativeName(for: "es"), "Español")
+        XCTAssertEqual(SampleBooks.nativeName(for: "fr"), "Français")
+        XCTAssertEqual(SampleBooks.nativeName(for: "de"), "Deutsch")
+        XCTAssertEqual(SampleBooks.nativeName(for: "it"), "Italiano")
+        XCTAssertEqual(SampleBooks.nativeName(for: "ja"), "日本語")
+        XCTAssertTrue(SampleBooks.nativeName(for: "pt-BR").hasPrefix("Português"), SampleBooks.nativeName(for: "pt-BR"))
+        XCTAssertTrue(SampleBooks.nativeName(for: "zh-Hans").contains("中文"), SampleBooks.nativeName(for: "zh-Hans"))
+    }
+
+    /// Every sample imports through the real pipeline with the title and author the list shows.
+    @MainActor
+    func testEverySampleImportsWithListedTitleAndAuthor() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("samples-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = LibraryStore(rootDirectory: dir)
+        var imported: LibraryEntry?
+        store.onImported = { imported = $0 }
+        for sample in SampleBooks.all {
+            imported = nil
+            XCTAssertTrue(store.addSample(language: sample.language, bundle: Bundle(for: LibraryStore.self)))
+            for _ in 0..<200 where imported == nil { try await Task.sleep(nanoseconds: 50_000_000) }
+            let entry = try XCTUnwrap(imported, sample.language)
+            XCTAssertEqual(entry.title, sample.title, sample.language)
+            XCTAssertEqual(entry.author, sample.author, sample.language)
+            XCTAssertEqual(store.sampleEntry(language: sample.language), entry)
+        }
+        XCTAssertEqual(store.entries.count, SampleBooks.all.count)
+    }
+
     func testLegacyLibraryEntryDecodesWithoutSampleField() throws {
         let json = #"[{"documentHash":"h","title":"T","author":"A","fileName":"h.wrbook","size":5,"importedAt":0,"sentToWatch":true}]"#
         let entries = try JSONDecoder().decode([LibraryEntry].self, from: Data(json.utf8))

@@ -7,6 +7,7 @@ struct LibraryView: View {
     var sendToWatch: (LibraryEntry) -> Void
     @State private var showImporter = false
     @State private var pendingDelete: LibraryEntry?
+    @State private var showOtherSamples = false
 
     private static let epubType = UTType("org.idpf.epub-container") ?? UTType(filenameExtension: "epub") ?? .data
 
@@ -20,12 +21,25 @@ struct LibraryView: View {
                     } description: {
                         Text("Import an EPUB file to read it on your Apple Watch. You can also open EPUB files from the Files app or the share sheet. Books are sent to your watch automatically.").foregroundStyle(.secondaryText)
                     } actions: {
-                        Button("Import EPUB") { showImporter = true }
+                        // Borderless: in a List row, plain buttons all fire on a tap anywhere in the row.
+                        Button { showImporter = true } label: { Text("Import EPUB").minimumHitArea() }
+                            .buttonStyle(.borderless)
                             .disabled(library.isImporting)
                         // A bundled public-domain book, imported like any other (see SampleBooks).
-                        Button("Add a Sample Book") { library.addSample(language: SampleBooks.preferredLanguage) }
+                        Button { library.addSample(language: SampleBooks.preferredLanguage) } label: { Text("Add a Sample Book").minimumHitArea() }
+                            .buttonStyle(.borderless)
                             .disabled(library.isImporting)
                             .accessibilityIdentifier("libraryAddSample")
+                        Button {
+                            showOtherSamples = true
+                        } label: {
+                            Text("Other Languages…", comment: "Button: choose a sample book in another language")
+                                .minimumHitArea()
+                        }
+                        .buttonStyle(.borderless)
+                        .disabled(library.isImporting)
+                        .accessibilityHint("Shows the sample books in every language.")
+                        .accessibilityIdentifier("libraryOtherSamples")
                     }
                 }
             } else {
@@ -51,6 +65,9 @@ struct LibraryView: View {
                     }
                 }
             }
+        }
+        .sheet(isPresented: $showOtherSamples) {
+            SampleBookPicker(library: library) { _ = library.addSample(language: $0) }
         }
         .fileImporter(isPresented: $showImporter, allowedContentTypes: [Self.epubType]) { result in
             switch result {
@@ -189,5 +206,12 @@ private struct WatchStatusSection: View {
         LibraryView(library: LibraryStore(rootDirectory: FileManager.default.temporaryDirectory
                         .appendingPathComponent("preview-library")),
                     connectivity: PhoneConnectivity(), sendToWatch: { _ in })
+    }
+}
+
+private extension View {
+    /// Borderless buttons only hit-test their text; keep the 44 pt minimum target.
+    func minimumHitArea() -> some View {
+        frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
     }
 }

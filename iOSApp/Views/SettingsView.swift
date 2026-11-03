@@ -46,7 +46,7 @@ struct SettingsView: View {
                 }
                 .accessibilityHint("Opens in your web browser.")
                 Link(destination: AppLinks.support) {
-                    Label("Support", systemImage: "questionmark.circle")
+                    AboutRowLabel(Text("Support"), systemImage: "questionmark.circle")
                 }
                 .accessibilityHint("Opens in your web browser.")
                 LabeledContent("Version") {
@@ -55,7 +55,7 @@ struct SettingsView: View {
                 NavigationLink {
                     AcknowledgementsView()
                 } label: {
-                    Label("Acknowledgements", systemImage: "doc.text")
+                    AboutRowLabel(Text("Acknowledgements"), systemImage: "doc.text")
                 }
             } header: {
                 Text("About").foregroundStyle(.secondaryText)
@@ -133,5 +133,27 @@ struct LicenseView: View {
     NavigationStack {
         SettingsView(settings: SyncSettings(clientFactory: { _ in MockKOSyncClient() }),
                      dictionaries: DictionaryManager(), connectivity: PhoneConnectivity())
+    }
+}
+
+/// A Settings row label: icon and title, or the title alone at accessibility sizes, where the icon-plus-text label
+/// did not scale fully at AX5 (the audit flagged "Dynamic Type partially unsupported" and "Text clipped").
+private struct AboutRowLabel: View {
+    let title: Text
+    let systemImage: String
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    init(_ title: Text, systemImage: String) {
+        self.title = title
+        self.systemImage = systemImage
+    }
+
+    var body: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            title
+                .fixedSize(horizontal: false, vertical: true)
+        } else {
+            Label { title } icon: { Image(systemName: systemImage) }
+        }
     }
 }

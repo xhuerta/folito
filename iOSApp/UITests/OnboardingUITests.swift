@@ -144,4 +144,25 @@ final class OnboardingUITests: XCTestCase {
         XCTAssertTrue(row.waitForExistence(timeout: 30), "Sample book not added from the Library")
         XCTAssertTrue(row.label.contains("Sample"), "Row: \(row.label)")
     }
+
+    /// "Other Languages…" in the empty Library lists every sample; picking Spanish adds Don Quijote.
+    @MainActor
+    func testLibraryAddsSampleInAnotherLanguage() throws {
+        let app = XCUIApplication()
+        app.launchArguments += ["-UITesting"]
+        app.launch()
+        let button = app.buttons["libraryOtherSamples"]
+        XCTAssertTrue(button.waitForExistence(timeout: 15))
+        button.tap()
+        let spanish = app.buttons["sample-es"]
+        XCTAssertTrue(spanish.waitForExistence(timeout: 5), "Sample list did not appear")
+        XCTAssertTrue(spanish.label.contains("Español"), "Row: \(spanish.label)")
+        XCTAssertTrue(spanish.isEnabled, "Spanish sample row is disabled")
+        spanish.tap()
+        let row = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == 'libraryRow' AND label CONTAINS 'Don Quijote'")).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 30), "Spanish sample not added")
+        XCTAssertEqual(app.descendants(matching: .any).matching(identifier: "libraryRow").count, 1,
+                       "Only the chosen sample should be added")
+    }
 }

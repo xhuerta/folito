@@ -9,6 +9,44 @@ enum SampleBooks {
     static let languages = ["en", "es", "fr", "de", "it", "pt-BR", "ja", "zh-Hans"]
     static let fallbackLanguage = "en"
 
+    /// One bundled sample, as listed under "Other Languages…". Title and author match the EPUB's metadata
+    /// (docs/samples-src/<language>.txt; checked by `SampleBookSelectionTests`).
+    struct Sample: Identifiable, Equatable {
+        let language: String
+        let title: String
+        let author: String
+        var id: String { language }
+
+        /// The language's name in that language ("Español", "Deutsch", "日本語").
+        var nativeLanguageName: String { SampleBooks.nativeName(for: language) }
+    }
+
+    /// Every bundled sample, in `languages` order.
+    static let all: [Sample] = [
+        Sample(language: "en", title: "Pride and Prejudice", author: "Jane Austen"),
+        Sample(language: "es", title: "Don Quijote de la Mancha", author: "Miguel de Cervantes Saavedra"),
+        Sample(language: "fr", title: "Les Misérables", author: "Victor Hugo"),
+        Sample(language: "de", title: "Die Verwandlung", author: "Franz Kafka"),
+        Sample(language: "it", title: "I promessi sposi", author: "Alessandro Manzoni"),
+        Sample(language: "pt-BR", title: "Dom Casmurro", author: "Machado de Assis"),
+        Sample(language: "ja", title: "吾輩は猫である", author: "夏目漱石"),
+        Sample(language: "zh-Hans", title: "狂人日记", author: "鲁迅"),
+    ]
+
+    /// All samples with `preferred` (normally `preferredLanguage`) first, the rest in `languages` order.
+    static func ordered(preferred: String) -> [Sample] {
+        all.filter { $0.language == preferred } + all.filter { $0.language != preferred }
+    }
+
+    /// A language's own name for itself, with a capital first letter where the script has one.
+    static func nativeName(for language: String) -> String {
+        let locale = Locale(identifier: language)
+        guard let name = locale.localizedString(forIdentifier: language), let first = name.first else {
+            return language
+        }
+        return String(first).uppercased(with: locale) + name.dropFirst()
+    }
+
     /// The sample for the language the app is running in (`Bundle.preferredLocalizations`), English otherwise.
     static var preferredLanguage: String {
         language(for: Bundle.main.preferredLocalizations.first)

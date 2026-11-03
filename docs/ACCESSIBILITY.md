@@ -146,12 +146,10 @@ use *Audit* › *Run Audit* on each screen, and the inspection pointer to check 
   context menu are checked manually.
 - Licence texts are shown as provided (English, hard-wrapped at about 80 columns), so at the largest
   sizes the wrapping is uneven, but nothing is clipped.
-- Open findings of the iOS audit at the largest accessibility size (AX5), tracked for a follow-up; the
-  audit job is non-blocking:
-  - Settings: the "Support" and "Acknowledgements" rows (icon plus text) are reported as Dynamic Type
-    partially unsupported and Text clipped.
-  - Welcome tour: the page counter ("Page 1 of 4") and the Skip button are reported as Dynamic Type
-    partially unsupported.
+- Open findings of the iOS audit, tracked for a follow-up; the audit job is non-blocking. (The Settings
+  "Support" and "Acknowledgements" rows now drop their icon at accessibility sizes, and the welcome tour moves
+  its page counter and Skip button from the navigation bar into the scrolling page there, which fixed their
+  AX5 findings.)
   - Findings without an element: Dynamic Type and Text clipped on Settings and Acknowledgements at AX5, and
     "Potentially inaccessible text" on Reading at the default size. The audit names no element, and the
     one it once named matched nothing in the XCUITest snapshot. A likely but unproven cause is the blurred
