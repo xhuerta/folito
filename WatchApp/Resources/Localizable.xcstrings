@@ -3485,52 +3485,6 @@
         }
       }
     },
-    "Send an EPUB from Folito on your iPhone. Books you send can be read here offline." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sende ein EPUB aus Folito auf deinem iPhone. Gesendete Bücher kannst du hier offline lesen."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Envía un EPUB desde Folito en el iPhone. Los libros que envíes se pueden leer aquí sin conexión."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Envoyez un EPUB depuis Folito sur votre iPhone. Les livres envoyés se lisent ici hors ligne."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invia un EPUB da Folito su iPhone. I libri inviati si possono leggere qui offline."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "iPhoneのFolitoからEPUBを送信してください。送信したブックはここでオフラインで読めます。"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Envie um EPUB pelo Folito no iPhone. Os livros enviados podem ser lidos aqui offline."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "从 iPhone 上的 Folito 发送 EPUB。发送的图书可在此离线阅读。"
-          }
-        }
-      }
-    },
     "Sepia" : {
       "comment" : "Reader theme: dark brown text on cream",
       "localizations" : {
@@ -5810,6 +5764,53 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "服务"
+          }
+        }
+      }
+    },
+    "Add books in the Folito app on your iPhone. They arrive on this watch automatically and can be read offline." : {
+      "comment" : "Empty library on the watch: books are added in the iPhone app",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añade libros en la app Folito del iPhone. Llegan a este reloj automáticamente y se pueden leer sin conexión."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajoutez des livres dans l’app Folito sur votre iPhone. Ils arrivent automatiquement sur cette montre et se lisent hors ligne."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Füge Bücher in der Folito-App auf deinem iPhone hinzu. Sie kommen automatisch auf diese Watch und lassen sich offline lesen."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aggiungi libri nell’app Folito su iPhone. Arrivano automaticamente su questo orologio e si possono leggere offline."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adicione livros no app Folito do iPhone. Eles chegam a este relógio automaticamente e podem ser lidos offline."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhoneのFolito Appでブックを追加してください。このWatchに自動で届き、オフラインで読めます。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 iPhone 上的 Folito App 中添加图书。图书会自动传到这块手表，并可离线阅读。"
           }
         }
       }

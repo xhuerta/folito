@@ -14,7 +14,7 @@ struct LibraryView: View {
                         ContentUnavailableView {
                             Label("No Books", systemImage: "books.vertical")
                         } description: {
-                            Text("Send an EPUB from Folito on your iPhone. Books you send can be read here offline.")
+                            Text("Add books in the Folito app on your iPhone. They arrive on this watch automatically and can be read offline.")
                         }
                     }
                 } else {

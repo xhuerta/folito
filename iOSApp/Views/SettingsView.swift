@@ -40,6 +40,7 @@ struct SettingsView: View {
             }
 
             Section {
+                ShowWelcomeTourButton()
                 Link(destination: AppLinks.privacyPolicy) {
                     Label("Privacy Policy", systemImage: "hand.raised")
                 }

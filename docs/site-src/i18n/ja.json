@@ -85,7 +85,7 @@
   "support.contact": "ご質問、不具合の報告、機能のご要望：<a href=\"mailto:xlahuerta@protonmail.com\">xlahuerta@protonmail.com</a>。iOS と watchOS のバージョンを記載し、同期の問題の場合は使用しているサーバソフトウェアもお知らせください。パスワードは絶対に送らないでください。",
   "support.start_title": "はじめに（アカウント不要）",
   "support.start_1": "iPhone に Folito をインストールします。Apple Watch 用アプリは iPhone の Watch App からインストールされます（または自動的にインストールされます）。Apple Watch を設定できるように、iPhone のアプリを一度開いてください。",
-  "support.start_2": "お持ちの <code>.epub</code> または無料のパブリックドメインの本を読み込みます。ライブラリで <em>EPUBを読み込む</em>（+）をタップするか、“ファイル”App または共有シートからファイルを開いて Folito を選択します。本は Apple Watch に送信されます。",
+  "support.start_2": "お持ちの <code>.epub</code> または無料のパブリックドメインの本を読み込みます。ライブラリで <em>EPUBを読み込む</em>（+）をタップするか、“ファイル”App または共有シートからファイルを開いて Folito を選択します。本は Apple Watch に送信されます。まず試すには、ようこそガイドまたは空のライブラリで <em>サンプルブックを追加</em> をタップします。お使いの言語の短いパブリックドメインの本が追加されます。",
   "support.start_3": "Apple Watch で Folito を開き、本を選択します。読んでいる位置は Apple Watch に保存され、オフラインで読書できます。",
   "support.sync_title": "オプション：KOReader Sync サーバと同期",
   "support.sync_1": "同期はデフォルトでオフで、KOReader や KOReader Sync プロトコルに対応したほかのアプリで同じ本の続きを読む場合にのみ必要です。iPhone で<em>設定 › 進捗の同期</em>を開き、<em>同期サービス</em>で <em>KOReader Sync</em> を選んで、サーバの URL と、そのサーバにすでにお持ちのアカウントのユーザ名とパスワードを入力します（アカウントはサーバ側で作成してください。たとえば KOReader では <em>Tools › Progress sync › Register</em> から作成できます。Folito はアカウントを作成しません）。<em>保存して同期をオンにする</em>をタップしてから、<em>接続をテスト</em>をタップします。Apple Watch が単独で同期できるように、ログイン情報は Apple Watch に送信されます。",

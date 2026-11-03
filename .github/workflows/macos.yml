@@ -150,6 +150,51 @@ jobs:
             -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
             -resultBundlePath ${{ matrix.platform }}-tests.xcresult 2>&1 | tee ${{ matrix.platform }}-tests.log
 
+      # Welcome tour UI tests (iOSApp/UITests/OnboardingUITests.swift: walk through the tour, add the sample book,
+      # find it in the Library). Quick, unlike the accessibility audits in the same bundle (accessibility.yml).
+      # Every page is attached as a screenshot; the next steps export them as the onboarding-screenshots artifact.
+      - name: Welcome tour UI tests
+        if: matrix.platform == 'ios'
+        run: |
+          set -o pipefail
+          rm -rf onboarding-uitests.xcresult
+          xcodebuild test-without-building $XCB_FLAGS \
+            -scheme ${{ matrix.scheme }} \
+            -destination "id=$UDID" \
+            -only-testing:FolitoUITests/OnboardingUITests \
+            -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
+            -resultBundlePath onboarding-uitests.xcresult 2>&1 | tee onboarding-uitests.log
+
+      - name: Export welcome tour screenshots
+        if: always() && matrix.platform == 'ios'
+        run: |
+          [ -d onboarding-uitests.xcresult ] || exit 0
+          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:" onboarding-uitests.log || true
+          mkdir -p onboarding-screenshots
+          xcrun xcresulttool export attachments --path onboarding-uitests.xcresult --output-path onboarding-screenshots || true
+          # Name the PNGs after the attachment names (default-1-welcome.png, ...) using the exported manifest.
+          python3 - <<'PY' || true
+          import json, pathlib
+          out = pathlib.Path("onboarding-screenshots")
+          for test in json.loads((out / "manifest.json").read_text()):
+              for a in test.get("attachments", []):
+                  src, name = out / a["exportedFileName"], a.get("suggestedHumanReadableName", "")
+                  if src.exists() and name:
+                      stem = name.rsplit(".", 1)[0].split("_")[0] if name.count("_") >= 2 else name.rsplit(".", 1)[0]
+                      src.rename(out / (stem + src.suffix))
+          PY
+          ls onboarding-screenshots
+
+      - name: Upload welcome tour screenshots
+        if: always() && matrix.platform == 'ios'
+        uses: actions/upload-artifact@v4
+        with:
+          name: onboarding-screenshots
+          path: |
+            onboarding-screenshots
+            onboarding-uitests.log
+          if-no-files-found: ignore
+
       - name: Test summary
         if: always()
         run: |

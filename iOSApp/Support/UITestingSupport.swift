@@ -8,6 +8,8 @@ import ReaderCore
 ///   user's real library is never touched.
 /// - `-UITestingSeedSampleBook` (implies `-UITesting`): also adds one small built-in sample book, so the
 ///   non-empty library can be audited.
+/// - `-UITestingShowOnboarding` (implies `-UITesting`): opens the welcome tour on launch. Every other UI-testing
+///   launch skips it (`-UITestingSkipOnboarding` says so explicitly); see `OnboardingPolicy`.
 enum UITesting {
     static let isolateArgument = "-UITesting"
     static let seedSampleBookArgument = "-UITestingSeedSampleBook"
@@ -16,6 +18,7 @@ enum UITesting {
     static var isActive: Bool {
         let args = ProcessInfo.processInfo.arguments
         return args.contains(isolateArgument) || args.contains(seedSampleBookArgument)
+            || args.contains(OnboardingPolicy.showArgument)
     }
 
     /// Root directory for `LibraryStore`; nil means the normal Application Support location.
