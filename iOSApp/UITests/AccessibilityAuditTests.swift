@@ -25,12 +25,19 @@ final class AccessibilityAuditTests: XCTestCase {
                                                "UICTContentSizeCategoryAccessibilityXXXL"]
 
     @MainActor
-    private func launch(seedSampleBook: Bool = false, largestText: Bool = false) -> XCUIApplication {
+    private func launch(seedSampleBook: Bool = false, largestText: Bool = false,
+                        showTour: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments += seedSampleBook ? ["-UITestingSeedSampleBook"] : ["-UITesting"]
+        if showTour { app.launchArguments += ["-UITestingShowOnboarding"] }
         if largestText { app.launchArguments += Self.largestTextArguments }
         app.launch()
-        XCTAssertTrue(app.navigationBars["Library"].waitForExistence(timeout: 15), "Library screen did not appear")
+        if showTour {
+            XCTAssertTrue(app.descendants(matching: .any)["onboardingTitle"].waitForExistence(timeout: 15),
+                          "Welcome tour did not appear")
+        } else {
+            XCTAssertTrue(app.navigationBars["Library"].waitForExistence(timeout: 15), "Library screen did not appear")
+        }
         return app
     }
 
@@ -50,7 +57,7 @@ final class AccessibilityAuditTests: XCTestCase {
     /// and fails the test, after logging every finding, if any finding is not accepted.
     /// `open` navigates from the Library to the screen.
     @MainActor
-    private func auditScreen(_ name: String, seedSampleBook: Bool = false,
+    private func auditScreen(_ name: String, seedSampleBook: Bool = false, showTour: Bool = false,
                              file: StaticString = #filePath, line: UInt = #line,
                              open: @MainActor (XCUIApplication) -> Void) throws {
         var failures: [String] = []
@@ -60,7 +67,7 @@ final class AccessibilityAuditTests: XCTestCase {
         var seenClear: Set<String> = []
 
         Self.output("Auditing \(name) at the default text size")
-        let app = launch(seedSampleBook: seedSampleBook)
+        let app = launch(seedSampleBook: seedSampleBook, showTour: showTour)
         open(app)
         try forEachPage(of: app) {
             for type in Self.defaultSizeTypes {
@@ -79,7 +86,7 @@ final class AccessibilityAuditTests: XCTestCase {
         app.terminate()
 
         Self.output("Auditing \(name) at the largest accessibility text size")
-        let large = launch(seedSampleBook: seedSampleBook, largestText: true)
+        let large = launch(seedSampleBook: seedSampleBook, largestText: true, showTour: showTour)
         open(large)
         try forEachPage(of: large) {
             for type in Self.largestTextTypes {
@@ -157,8 +164,10 @@ final class AccessibilityAuditTests: XCTestCase {
         let window = app.windows.firstMatch.frame
         let navigationBar = app.navigationBars.firstMatch
         let tabBar = app.tabBars.firstMatch
-        let top = (navigationBar.exists ? navigationBar.frame.maxY : window.minY) + 4
-        let bottom = (tabBar.exists ? tabBar.frame.minY : window.maxY) - 4
+        // The scroll edge effect reaches a little past the bars' frames: text within 16 pt of a bar was flagged
+        // for contrast although a screenshot measured 21:1 (CI run 41647325837, "Paragraph Spacing").
+        let top = (navigationBar.exists ? navigationBar.frame.maxY : window.minY) + 16
+        let bottom = (tabBar.exists ? tabBar.frame.minY : window.maxY) - 16
         return (top, bottom)
     }
 
@@ -354,6 +363,14 @@ final class AccessibilityAuditTests: XCTestCase {
             XCTAssertTrue(row.exists, "Seeded sample book not shown")
             XCTAssertTrue(row.label.contains("Alice"), "Row should be one element that includes the title: \(row.label)")
         }
+    }
+
+    // MARK: Welcome tour
+
+    /// The tour's first page (it opens on first launch). Its later pages use the same layout.
+    @MainActor
+    func testWelcomeTourAudit() throws {
+        try auditScreen("Welcome tour", showTour: true) { _ in }
     }
 
     // MARK: Settings
