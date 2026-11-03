@@ -34,11 +34,23 @@ final class OnboardingUITests: XCTestCase {
             .firstMatch.waitForExistence(timeout: 5)
     }
 
+    /// Taps a button, scrolling down first if it is below the fold (at accessibility text sizes the
+    /// navigation buttons follow the page content).
+    @MainActor
+    private func tapScrolling(_ app: XCUIApplication, _ identifier: String) {
+        let button = app.buttons[identifier]
+        XCTAssertTrue(button.waitForExistence(timeout: 5), "\(identifier) missing")
+        var swipes = 0
+        while !button.isHittable && swipes < 12 {
+            app.swipeUp()
+            swipes += 1
+        }
+        button.tap()
+    }
+
     @MainActor
     private func tapContinue(_ app: XCUIApplication) {
-        let button = app.buttons["onboardingContinue"]
-        XCTAssertTrue(button.waitForExistence(timeout: 5))
-        button.tap()
+        tapScrolling(app, "onboardingContinue")
     }
 
     @MainActor
@@ -55,7 +67,7 @@ final class OnboardingUITests: XCTestCase {
         let addSample = app.buttons["onboardingAddSample"]
         XCTAssertTrue(addSample.waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["onboardingImportOwn"].exists)
-        addSample.tap()
+        tapScrolling(app, "onboardingAddSample")
         let result = app.descendants(matching: .any)["onboardingImportResult"]
         XCTAssertTrue(result.waitForExistence(timeout: 30), "The sample book was not added")
         XCTAssertTrue(result.label.contains("Pride and Prejudice"), "Unexpected result: \(result.label)")
@@ -68,7 +80,7 @@ final class OnboardingUITests: XCTestCase {
         screenshot(app, "\(prefix)-4-extras")
         app.swipeUp()
         screenshot(app, "\(prefix)-4-extras-bottom")
-        app.buttons["onboardingDone"].tap()
+        tapScrolling(app, "onboardingDone")
     }
 
     @MainActor

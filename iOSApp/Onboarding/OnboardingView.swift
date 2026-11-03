@@ -18,17 +18,25 @@ struct OnboardingView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                content
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 32) {
+                        content(proxy)
+                        // At accessibility sizes the buttons follow the content instead of covering half the screen.
+                        if dynamicTypeSize.isAccessibilitySize { navigationButtons }
+                    }
                     .frame(maxWidth: 560, alignment: .leading)
                     .frame(maxWidth: .infinity)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 24)
                     .id(page)
                     .transition(pageTransition)
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    if !dynamicTypeSize.isAccessibilitySize { pinnedBar }
+                }
             }
-            .scrollBounceBehavior(.basedOnSize)
-            .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text("Page \(page.number) of \(OnboardingPage.allCases.count)")
@@ -56,49 +64,72 @@ struct OnboardingView: View {
     }
 
     @ViewBuilder
-    private var content: some View {
+    private func content(_ proxy: ScrollViewProxy) -> some View {
         switch page {
         case .welcome: WelcomePage(titleFocused: $titleFocused)
         case .howItWorks: HowItWorksPage(status: connectivity.status, titleFocused: $titleFocused)
-        case .tryIt: TryItPage(library: library, connectivity: connectivity, titleFocused: $titleFocused)
+        case .tryIt:
+            TryItPage(library: library, connectivity: connectivity, titleFocused: $titleFocused) {
+                // Bring the import result (below the buttons) into view.
+                withAnimation(reduceMotion ? nil : .easeInOut) {
+                    proxy.scrollTo(TryItPage.statusID, anchor: .bottom)
+                }
+            }
         case .extras: ExtrasPage(settings: settings, dictionaries: dictionaries, connectivity: connectivity,
                                  titleFocused: $titleFocused)
         }
     }
 
-    private var bottomBar: some View {
-        let layout = dynamicTypeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(spacing: 8))
-            : AnyLayout(HStackLayout(spacing: 12))
-        return VStack(spacing: 0) {
+    /// Back / Continue pinned above the home indicator (default text sizes).
+    private var pinnedBar: some View {
+        VStack(spacing: 0) {
             Divider()
-            layout {
-                if let previous = page.previous {
-                    Button { go(to: previous) } label: {
-                        Text("Back").frame(maxWidth: .infinity, minHeight: 32)
-                    }
-                    .buttonStyle(.bordered)
-                    .accessibilityIdentifier("onboardingBack")
-                }
-                if let next = page.next {
-                    Button { go(to: next) } label: {
-                        Text("Continue").frame(maxWidth: .infinity, minHeight: 32)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .accessibilityIdentifier("onboardingContinue")
-                } else {
-                    Button { model.finish() } label: {
-                        Text("Start Reading").frame(maxWidth: .infinity, minHeight: 32)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .accessibilityIdentifier("onboardingDone")
-                }
+            HStack(spacing: 12) {
+                backButton
+                nextButton
             }
             .controlSize(.large)
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
         }
         .background(Color(uiColor: .systemBackground))
+    }
+
+    /// The same buttons stacked at the end of the page (accessibility text sizes).
+    private var navigationButtons: some View {
+        VStack(spacing: 12) {
+            nextButton
+            backButton
+        }
+        .controlSize(.large)
+    }
+
+    @ViewBuilder
+    private var backButton: some View {
+        if let previous = page.previous {
+            Button { go(to: previous) } label: {
+                Text("Back").frame(maxWidth: .infinity, minHeight: 32)
+            }
+            .buttonStyle(.bordered)
+            .accessibilityIdentifier("onboardingBack")
+        }
+    }
+
+    @ViewBuilder
+    private var nextButton: some View {
+        if let next = page.next {
+            Button { go(to: next) } label: {
+                Text("Continue").frame(maxWidth: .infinity, minHeight: 32)
+            }
+            .buttonStyle(.borderedProminent)
+            .accessibilityIdentifier("onboardingContinue")
+        } else {
+            Button { model.finish() } label: {
+                Text("Start Reading").frame(maxWidth: .infinity, minHeight: 32)
+            }
+            .buttonStyle(.borderedProminent)
+            .accessibilityIdentifier("onboardingDone")
+        }
     }
 
     private func go(to newPage: OnboardingPage) {
@@ -258,6 +289,10 @@ private struct TryItPage: View {
     @ObservedObject var library: LibraryStore
     @ObservedObject var connectivity: PhoneConnectivity
     var titleFocused: AccessibilityFocusState<Bool>.Binding
+    /// Scrolls the page so the import status (`statusID`) is visible.
+    var revealStatus: () -> Void = {}
+
+    static let statusID = "onboardingStatus"
 
     @State private var showImporter = false
     /// An import this page started and is waiting for.
@@ -295,7 +330,8 @@ private struct TryItPage: View {
             }
             .controlSize(.large)
             .disabled(library.isImporting)
-            status
+            VStack(spacing: 0) { status }
+                .id(Self.statusID)
         }
         .fileImporter(isPresented: $showImporter, allowedContentTypes: [EPUBContentType.epub]) { picked in
             switch picked {
@@ -321,7 +357,10 @@ private struct TryItPage: View {
         }
         .onChange(of: resultHash) { _, _ in
             if let result { Announcer.announce(addedText(result)) }
+            DispatchQueue.main.async { revealStatus() }
         }
+        .onChange(of: error) { _, _ in DispatchQueue.main.async { revealStatus() } }
+        .onChange(of: awaitingImport) { _, _ in DispatchQueue.main.async { revealStatus() } }
     }
 
     private func addSample() {
