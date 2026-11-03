@@ -4,6 +4,7 @@ import SwiftUI
 struct SyncSettingsView: View {
     @ObservedObject var settings: SyncSettings
     @State private var confirmTurnOff = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         Form {
@@ -15,11 +16,16 @@ struct SyncSettingsView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondaryText)
                 } else {
-                    Label("Sync is off", systemImage: "icloud.slash")
-                        .font(.headline)
-                        // Wrap instead of truncating at the largest text sizes (the audit flagged it as clipped).
-                        .fixedSize(horizontal: false, vertical: true)
-                        .foregroundStyle(.secondaryText)
+                    // The icon is decorative; at accessibility sizes it left too little room and clipped the text.
+                    Group {
+                        if dynamicTypeSize.isAccessibilitySize {
+                            Text("Sync is off")
+                        } else {
+                            Label("Sync is off", systemImage: "icloud.slash")
+                        }
+                    }
+                    .font(.headline)
+                    .foregroundStyle(.secondaryText)
                     Text("Folito works fully without an account. Sync is optional: it only lets you continue the same book on other readers.")
                         .font(.footnote)
                         .foregroundStyle(.secondaryText)

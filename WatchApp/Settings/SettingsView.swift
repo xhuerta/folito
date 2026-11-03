@@ -1,6 +1,29 @@
 import SwiftUI
 import ReaderCore
 
+/// Screens pushed from the library toolbar, Settings and Reading Options. Value-based links with one
+/// `navigationDestination` per stack: a destination-closure `NavigationLink` inside a lazy `List` is rebuilt with
+/// its row, and on watchOS the pushed Typography screen then kept re-rendering itself and the screen below it
+/// without end (the app never went idle; CI thread samples showed continuous view-graph transactions).
+enum SettingsRoute: Hashable {
+    case settings, typography, dictionaryCredits
+
+    @MainActor @ViewBuilder
+    var destination: some View {
+        switch self {
+        case .settings: SettingsView()
+        case .typography: TypographyEditorView()
+        case .dictionaryCredits: DictionaryCreditsDestination()
+        }
+    }
+}
+
+/// Reads the installed dictionaries itself, so the route needs no payload.
+private struct DictionaryCreditsDestination: View {
+    @EnvironmentObject private var env: AppEnvironment
+    var body: some View { DictionaryCreditsView(infos: env.dictionaryInfos) }
+}
+
 struct SettingsView: View {
     @EnvironmentObject private var env: AppEnvironment
     @EnvironmentObject private var sync: SyncCoordinator
@@ -17,7 +40,7 @@ struct SettingsView: View {
         List {
             Section("Reading") {
                 TextSizeStepper()
-                NavigationLink("Typography") { TypographyEditorView() }
+                NavigationLink("Typography", value: SettingsRoute.typography)
                     .accessibilityIdentifier("typographyLink")
                 if sync.isConfigured { Toggle("Show Sync Status", isOn: $showSyncInfo) }
             }
@@ -30,7 +53,7 @@ struct SettingsView: View {
                     ForEach(env.dictionaryInfos, id: \.id) { info in
                         Text(WatchMessages.dictionaryLabel(info, size: FileDigest.size(of: env.dictionaries.url(for: info.id))))
                     }
-                    NavigationLink("Dictionary Credits") { DictionaryCreditsView(infos: env.dictionaryInfos) }
+                    NavigationLink("Dictionary Credits", value: SettingsRoute.dictionaryCredits)
                 }
             } header: {
                 Text("Dictionaries")

@@ -14,14 +14,14 @@ struct SettingsView: View {
                     DictionariesView(manager: dictionaries, connectivity: connectivity)
                 } label: {
                     LabeledContent {
-                        Text(verbatim: "\(dictionaries.installedInfos.count)").systemSecondaryText()
+                        Text(verbatim: "\(dictionaries.installedInfos.count)").foregroundStyle(.secondaryText)
                     } label: {
                         Label("Dictionaries", systemImage: "character.book.closed")
                     }
                 }
                 .accessibilityIdentifier("dictionariesLink")
             } footer: {
-                Text("Download dictionaries to look up words on your Apple Watch, even offline.").systemSecondaryText()
+                Text("Download dictionaries to look up words on your Apple Watch, even offline.").foregroundStyle(.secondaryText)
             }
 
             Section {
@@ -91,7 +91,7 @@ struct AcknowledgementsView: View {
                 }
                 .accessibilityHint("Opens in your web browser.")
             } header: {
-                Text("Dictionary Data").systemSecondaryText()
+                Text("Dictionary Data").foregroundStyle(.secondaryText)
             }
         }
         .readableScrollEdges()
