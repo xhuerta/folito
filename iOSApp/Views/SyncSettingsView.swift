@@ -78,19 +78,19 @@ struct SyncSettingsView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondaryText)
                 } else {
-                    // The icon is decorative; at accessibility sizes it left too little room and clipped the text.
-                    Group {
+                    // One row, title above the explanation. At accessibility sizes the title drops its decorative
+                    // icon and uses the body size: as a separate `.headline` row it did not scale fully at AX5
+                    // (the audit flagged it "partially unsupported" and "clipped").
+                    VStack(alignment: .leading, spacing: 6) {
                         if dynamicTypeSize.isAccessibilitySize {
-                            Text("Sync is off")
+                            Text("Sync is off").font(.body.weight(.semibold))
                         } else {
-                            Label("Sync is off", systemImage: "icloud.slash")
+                            Label("Sync is off", systemImage: "icloud.slash").font(.headline)
                         }
+                        Text("Folito works fully without an account. Sync is optional: it only lets you continue the same book on other readers.")
+                            .font(.footnote)
                     }
-                    .font(.headline)
                     .foregroundStyle(.secondaryText)
-                    Text("Folito works fully without an account. Sync is optional: it only lets you continue the same book on other readers.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondaryText)
                 }
             }
 

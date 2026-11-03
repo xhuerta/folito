@@ -105,27 +105,28 @@ struct TypographySettingsView: View {
         }
     }
 
-    /// Segmented control at normal text sizes. At accessibility sizes a menu whose row shows the title above the
-    /// current value: segments would truncate, and the system menu / pushed-list rows squeeze the title next to
-    /// the value until it clips (the audit flagged "Font" at AX5 in both).
+    /// Segmented control at normal text sizes. At accessibility sizes a row like Settings' rows (title and current
+    /// value in a `LabeledContent`, which stacks them) that pushes a list of the options: segments would
+    /// truncate, the system pushed-list picker squeezes the title next to the value until it clips, and a menu's
+    /// label did not scale fully (the audit flagged "Font" at AX5 in all three).
     @ViewBuilder
     private func adaptivePicker<Value: Hashable>(_ title: LocalizedStringKey, selection: Binding<Value>,
                                                  options: [Value], name: @escaping (Value) -> String) -> some View {
-        let picker = Picker(title, selection: selection) {
-            ForEach(options, id: \.self) { Text(name($0)).tag($0) }
-        }
         if dynamicTypeSize.isAccessibilitySize {
-            Menu {
-                picker
+            NavigationLink {
+                OptionList(title: title, selection: selection, options: options, name: name)
             } label: {
-                VStack(alignment: .leading) {
-                    Text(title).foregroundStyle(.primary)
+                LabeledContent {
                     Text(name(selection.wrappedValue)).foregroundStyle(.secondaryText)
+                } label: {
+                    Text(title)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
         } else {
-            picker.pickerStyle(.segmented)
+            Picker(title, selection: selection) {
+                ForEach(options, id: \.self) { Text(name($0)).tag($0) }
+            }
+            .pickerStyle(.segmented)
         }
     }
 
@@ -151,6 +152,39 @@ struct TypographySettingsView: View {
             }
             .accessibilityValue(format(value.wrappedValue))
         }
+    }
+}
+
+/// The options of one reading setting, chosen with a checkmark (pushed from `adaptivePicker` at accessibility
+/// sizes). Choosing an option goes back.
+private struct OptionList<Value: Hashable>: View {
+    let title: LocalizedStringKey
+    @Binding var selection: Value
+    let options: [Value]
+    let name: (Value) -> String
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        List {
+            ForEach(options, id: \.self) { option in
+                Button {
+                    selection = option
+                    dismiss()
+                } label: {
+                    HStack {
+                        Text(name(option)).foregroundStyle(.primary)
+                        Spacer()
+                        if option == selection {
+                            Image(systemName: "checkmark").foregroundStyle(.tint)
+                        }
+                    }
+                }
+                .accessibilityAddTraits(option == selection ? .isSelected : [])
+            }
+        }
+        .readableScrollEdges()
+        .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 

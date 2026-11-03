@@ -308,6 +308,26 @@ final class AccessibilityAuditTests: XCTestCase {
                     line += " \(keyPath)=\(String(describing: object.value(forKey: keyPath)).prefix(400))"
                 }
             }
+            // TEMPORARY DIAGNOSTIC: find the audited element in the app's snapshot by its AX element.
+            if let object = issue as? NSObject, object.responds(to: NSSelectorFromString("axElement")),
+               let ax = object.value(forKey: "axElement") as? NSObject, let root = try? app.snapshot() {
+                var matches: [String] = []
+                var partial: [String] = []
+                let area = clearArea(in: app)
+                func walk(_ snapshot: XCUIElementSnapshot) {
+                    if let node = snapshot as? NSObject, node.responds(to: NSSelectorFromString("accessibilityElement")),
+                       let candidate = node.value(forKey: "accessibilityElement") as? NSObject, candidate.isEqual(ax) {
+                        matches.append("\(snapshot.elementType.rawValue) '\(snapshot.label)' \(snapshot.frame)")
+                    }
+                    if snapshot.elementType == .staticText, !snapshot.frame.isEmpty,
+                       snapshot.frame.minY < area.top || snapshot.frame.maxY > area.bottom {
+                        partial.append("'\(snapshot.label.prefix(30))'@\(snapshot.frame)")
+                    }
+                    snapshot.children.forEach(walk)
+                }
+                walk(root)
+                line += " match=\(matches) textsOutsideClearArea=\(partial)"
+            }
             if let snapshot = try? app.navigationBars.firstMatch.snapshot() {
                 line += " navBar=\(snapshot.frame) navTexts=\(Self.snapshotElements(snapshot, of: [.staticText]).map { "\($0.label)@\($0.frame)" })"
             }
