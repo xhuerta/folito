@@ -10,6 +10,9 @@ struct FolitoApp: App {
     @StateObject private var settings = SyncSettings()
     @StateObject private var typography = TypographyModel()
     @StateObject private var dictionaries = UITesting.makeDictionaryManager()
+    // Welcome tour: opens by itself on the first launch (UI-testing launches skip it unless asked; see
+    // OnboardingPolicy) and from Settings › About.
+    @StateObject private var onboarding = OnboardingModel()
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
@@ -23,6 +26,11 @@ struct FolitoApp: App {
                     .tabItem { Label("Reading", systemImage: "textformat.size") }
                 NavigationStack { SettingsView(settings: settings, dictionaries: dictionaries, connectivity: connectivity) }
                     .tabItem { Label("Settings", systemImage: "gear") }
+            }
+            .environment(\.showWelcomeTour, ShowWelcomeTourAction { onboarding.show() })
+            .fullScreenCover(isPresented: $onboarding.isPresented) {
+                OnboardingView(model: onboarding, library: library, connectivity: connectivity,
+                               settings: settings, dictionaries: dictionaries)
             }
             .onOpenURL { url in
                 if url.isFileURL { library.importEPUB(from: url) }

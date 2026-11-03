@@ -123,7 +123,7 @@ The support, privacy policy and landing pages are static HTML in `docs/site/` (E
 * **Bundle id** (permanent once the app is created) and the SKU.
 * **Contact e-mail and developer name** (`[CONTACT_EMAIL]`, `[DEVELOPER_NAME]`). The site URLs are fixed at `https://folito.app/`.
 * **Price and availability** (free vs paid, territories), and the seller/developer name shown (individual name vs organisation).
-* **No demo account is needed**: sync is optional (PR #18) and reviewers test by importing an EPUB. Decide only which public-domain EPUB to attach or link for review, and whether to bundle a sample book in a future version.
+* **No demo account is needed**: sync is optional (PR #18) and reviewers can add a bundled public-domain sample book ("Add a Sample Book" in the welcome tour or the empty Library; docs/SAMPLE_BOOKS.md) or import an EPUB.
 * "Create account" was removed (PR #18), so guideline 5.1.1(v) account deletion does not apply; do not reintroduce it.
 * Age-rating, App Privacy and Accessibility Nutrition Label answers (in `docs/appstore/`; App Privacy is decided, the others are proposals; you are the one making the declaration).
 * Whether to mention KOReader/Readest by name in store text (nominative use only; see risks).

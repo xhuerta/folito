@@ -5,6 +5,9 @@ enum AppLinks {
     /// Support site, published from docs/site to the public repo xhuerta/folito-site (GitHub Pages, custom domain folito.app).
     static let site = URL(string: "https://folito.app/")!
 
+    /// The public source repository, linked from the welcome tour.
+    static let sourceCode = URL(string: "https://github.com/xhuerta/folito")!
+
     /// Same URL as App Store Connect's privacy policy field (guideline 5.1.1(i)).
     static var privacyPolicy: URL { page("privacy.html") }
 

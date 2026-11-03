@@ -22,6 +22,10 @@ struct LibraryView: View {
                     } actions: {
                         Button("Import EPUB") { showImporter = true }
                             .disabled(library.isImporting)
+                        // A bundled public-domain book, imported like any other (see SampleBooks).
+                        Button("Add a Sample Book") { library.addSample(language: SampleBooks.preferredLanguage) }
+                            .disabled(library.isImporting)
+                            .accessibilityIdentifier("libraryAddSample")
                     }
                 }
             } else {
@@ -132,6 +136,7 @@ private struct BookRow: View {
                 TintedLabel(verbatim: state.text, systemImage: state.systemImage,
                             tint: state == .onWatch ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondaryText))
                 Text(DisplayFormat.fileSize(entry.size))
+                if entry.isSample { SampleBadge() }
             }
             .font(.footnote)
             .foregroundStyle(.secondaryText)

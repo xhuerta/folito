@@ -8,6 +8,8 @@ final class LibraryStore: ObservableObject {
     @Published private(set) var isImporting = false
     /// The last import problem, presented as an alert by the Library screen.
     @Published var importError: UserFacingError?
+    /// The most recent successful import, so a screen that started one (the welcome tour) can show its result.
+    @Published private(set) var lastImported: LibraryEntry?
 
     private let parser: EPUBParsing
     private let fm = FileManager.default
@@ -33,7 +35,8 @@ final class LibraryStore: ObservableObject {
     // MARK: Import
 
     /// Accepts a URL from fileImporter / onOpenURL / share sheet. Copies it into the sandbox first.
-    func importEPUB(from url: URL) {
+    /// `sampleLanguage` marks a bundled sample book (see `SampleBooks`); it goes through the same pipeline.
+    func importEPUB(from url: URL, sampleLanguage: String? = nil) {
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
         let temp = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".epub")
@@ -50,7 +53,8 @@ final class LibraryStore: ObservableObject {
         Task.detached(priority: .userInitiated) {
             defer { try? FileManager.default.removeItem(at: temp) }
             do {
-                let result = try LibraryStore.process(epub: temp, originalName: name, parser: parser, into: dir)
+                var result = try LibraryStore.process(epub: temp, originalName: name, parser: parser, into: dir)
+                result.sampleLanguage = sampleLanguage
                 await self.finishImport(result)
             } catch {
                 await self.failImport(error, fileName: name)
@@ -76,6 +80,7 @@ final class LibraryStore: ObservableObject {
         entries.removeAll { $0.documentHash == entry.documentHash }
         entries.insert(entry, at: 0)
         save()
+        lastImported = entry
         onImported?(entry)
     }
 
@@ -99,6 +104,22 @@ final class LibraryStore: ObservableObject {
         save()
     }
     #endif
+
+    // MARK: Sample books
+
+    /// The library entry imported from the sample book in `language`, if it is in the library.
+    func sampleEntry(language: String) -> LibraryEntry? {
+        entries.first { $0.sampleLanguage == language }
+    }
+
+    /// Imports the bundled sample book for `language` through the normal import pipeline (so it is sent to the
+    /// watch like any book). Returns false when this build has no such sample.
+    @discardableResult
+    func addSample(language: String, bundle: Bundle = .main) -> Bool {
+        guard let url = SampleBooks.url(for: language, in: bundle) else { return false }
+        importEPUB(from: url, sampleLanguage: language)
+        return true
+    }
 
     // MARK: Mutations
 

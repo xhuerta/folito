@@ -12,6 +12,12 @@ struct LibraryEntry: Codable, Identifiable, Equatable, Sendable {
     var size: Int
     var importedAt: Date
     var sentToWatch: Bool
+    /// Language of the bundled sample book this entry was imported from (see `SampleBooks`), nil for the
+    /// user's own books. The library shows a "Sample" badge for these; otherwise they are ordinary books.
+    /// Optional, so libraries saved before samples existed decode unchanged.
+    var sampleLanguage: String? = nil
+
+    var isSample: Bool { sampleLanguage != nil }
 
     static func fileName(forHash hash: String) -> String { "\(hash).wrbook" }
 }
