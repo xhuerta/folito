@@ -284,6 +284,10 @@ final class AccessibilityAuditTests: XCTestCase {
                 line += " measured=\(measured)"
             }
         }
+        if verdict == .fails, issue.auditType != .contrast, let element, element.exists {
+            // TEMPORARY DIAGNOSTIC: the element's subtree with frames (how the text is laid out).
+            line += " tree=\(element.debugDescription.replacingOccurrences(of: "\n", with: " | ").prefix(1500))"
+        }
         if verdict == .fails {
             let attachment = XCTAttachment(screenshot: app.screenshot())
             attachment.name = "\(issue.compactDescription): \(element?.label ?? "")"
@@ -299,7 +303,7 @@ final class AccessibilityAuditTests: XCTestCase {
                 line += " props=\((0..<Int(count)).map { String(cString: property_getName(props[$0])) })"
                 free(props)
             }
-            for keyPath in ["elementSnapshot", "elementDescription", "elementFrame", "element"] {
+            for keyPath in ["axElement"] {
                 if let object = issue as? NSObject, object.responds(to: NSSelectorFromString(keyPath)) {
                     line += " \(keyPath)=\(String(describing: object.value(forKey: keyPath)).prefix(400))"
                 }

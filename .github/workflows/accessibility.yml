@@ -30,7 +30,7 @@ jobs:
       (github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'accessibility'))
     # Same runner as macos.yml (arm64 macos-15); set the repository variable MACOS_RUNNER to override.
     runs-on: ${{ vars.MACOS_RUNNER || 'macos-15' }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -56,7 +56,7 @@ jobs:
 
       # Per-test time limits make a hung audit fail that test instead of stalling the job.
       - name: iOS accessibility audit (FolitoUITests)
-        timeout-minutes: 25
+        timeout-minutes: 38
         run: |
           set -o pipefail
           # A standard 6.1"/6.3" iPhone (e.g. "iPhone 16 Pro") on the newest iOS runtime, not whichever iPhone

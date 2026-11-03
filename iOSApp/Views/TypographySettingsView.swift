@@ -105,8 +105,9 @@ struct TypographySettingsView: View {
         }
     }
 
-    /// Segmented control at normal text sizes; a pushed list at accessibility sizes, where segments (and a menu
-    /// row's title) would truncate.
+    /// Segmented control at normal text sizes. At accessibility sizes a menu whose row shows the title above the
+    /// current value: segments would truncate, and the system menu / pushed-list rows squeeze the title next to
+    /// the value until it clips (the audit flagged "Font" at AX5 in both).
     @ViewBuilder
     private func adaptivePicker<Value: Hashable>(_ title: LocalizedStringKey, selection: Binding<Value>,
                                                  options: [Value], name: @escaping (Value) -> String) -> some View {
@@ -114,8 +115,15 @@ struct TypographySettingsView: View {
             ForEach(options, id: \.self) { Text(name($0)).tag($0) }
         }
         if dynamicTypeSize.isAccessibilitySize {
-            // A pushed list: a menu row truncated the title next to the value at the largest sizes.
-            picker.pickerStyle(.navigationLink)
+            Menu {
+                picker
+            } label: {
+                VStack(alignment: .leading) {
+                    Text(title).foregroundStyle(.primary)
+                    Text(name(selection.wrappedValue)).foregroundStyle(.secondaryText)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
         } else {
             picker.pickerStyle(.segmented)
         }
