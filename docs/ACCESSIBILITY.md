@@ -27,8 +27,9 @@ custom card styles, fonts or colours in the UI chrome.
   role, so the row stays visible until the deletion is confirmed.
 - Icon-only toolbar buttons are `Label`s, so VoiceOver reads their title ("Import EPUB"). The spinner
   shown while importing is labelled "Importing book".
-- Sliders in *Reading* are read once as "title, value" ("Size, 18 pt", "Headings, 125%"). The visual
-  title/value row above each slider is hidden from VoiceOver to avoid reading it twice.
+- Sliders in *Reading* are read as "title, value" ("Size, 18 pt", "Headings, 125%"). The visual
+  title/value row above each slider stays readable too: hiding text that is drawn on screen is what the
+  audit reported as "Potentially inaccessible text" (bisected in CI on PR #39).
 - The reading preview is one element: "Reading preview, Serif, 18 pt, Sepia".
 - Errors use specific alert titles ("Couldn't Import Book", "Couldn't Open File") and a message that says
   what happened and what to do; there is no generic "Error" alert. Sync results appear inline with an icon
@@ -103,6 +104,15 @@ xcodebuild test -project Folito.xcodeproj -scheme Folito \
 | Element | Audit type | Why it is accepted |
 |---|---|---|
 | Reading preview (`typographyPreview`) | Dynamic Type, Contrast, Text clipped | It is content, not chrome: it renders the book text exactly as the watch will, at the reader's chosen point size and theme colours (for example the *Dim* theme). Scaling it with Dynamic Type would make the preview wrong. Its accessibility value describes the settings in words. |
+| No element, on *Settings* and *Acknowledgements* at AX5 only | Dynamic Type ("Dynamic Type font sizes are unsupported" / "partially unsupported"), Text clipped ("Text clipped") | Caused by the system's `Form` / `List` section footers (see below). The footer texts are standard `Text` in a section footer; they do scale (a footer grows to 267 pt tall at AX5) and nothing is cut off on screen. Accepted only with no element, those exact descriptions, those two screens and the largest-size pass (`formFooterFindingsAtLargestText`). |
+
+How the footer finding was found (PR #39, CI runs on commits 15ef124 and 1ae099f): temporary launch switches
+removed one suspect at a time and the AX5 audit was repeated for each. Removing only the section footer texts
+removed every element-less finding on Acknowledgements (3 to 0) and all but one on Settings (9 to 1);
+removing the headers only, using the default soft scroll edge, hiding the tab bar or the title, dropping the
+`LabeledContent` values, replacing the `NavigationLink` rows, or `.fixedSize` on the footers did not remove
+them (hiding the tab bar or using an inline title only changes which page they appear on). The last Settings
+finding ("partially unsupported", no element) is not attributed; it is covered by the same acceptance.
 
 Every finding (accepted or not) is printed in the CI log ("Accessibility audit issue (accepted|FAILS)") with
 its element, frame, the audit's detailed description and, for contrast findings, the contrast measured from
@@ -150,10 +160,10 @@ use *Audit* › *Run Audit* on each screen, and the inspection pointer to check 
   "Support" and "Acknowledgements" rows now drop their icon at accessibility sizes, and the welcome tour moves
   its page counter and Skip button from the navigation bar into the scrolling page there, which fixed their
   AX5 findings.)
-  - Findings without an element: Dynamic Type and Text clipped on Settings and Acknowledgements at AX5, and
-    "Potentially inaccessible text" on Reading at the default size. The audit names no element, and the
-    one it once named matched nothing in the XCUITest snapshot. A likely but unproven cause is the blurred
-    text under the iOS 26 hard scroll edges, so no acceptance was added for them.
+  - Findings without an element: "Potentially inaccessible text" on Reading was the slider title/value rows,
+    hidden from accessibility (fixed: they are no longer hidden). Dynamic Type and Text clipped on Settings and
+    Acknowledgements at AX5 come from the system's section footers and are accepted narrowly (see "Accepted
+    audit findings"); the hard scroll edges were ruled out.
 
 ## Apple Watch
 

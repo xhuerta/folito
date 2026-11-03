@@ -130,8 +130,10 @@ struct TypographySettingsView: View {
         }
     }
 
-    /// Title and current value above the slider (stacked at accessibility sizes). VoiceOver reads the
-    /// slider once, as "title, value", and adjusts it by swiping up or down.
+    /// Title and current value above the slider (stacked at accessibility sizes). The slider is labelled with the
+    /// title and value, so VoiceOver reads it as "title, value" and adjusts it by swiping up or down. The texts
+    /// above it stay in the accessibility tree: text drawn on screen but hidden from accessibility is what the
+    /// audit reported as "Potentially inaccessible text" (docs/ACCESSIBILITY.md).
     private func slider(_ title: LocalizedStringKey, _ value: Binding<Double>, _ range: ClosedRange<Double>,
                         _ step: Double, _ format: @escaping (Double) -> String) -> some View {
         VStack(alignment: .leading) {
@@ -146,7 +148,6 @@ struct TypographySettingsView: View {
                     Text(format(value.wrappedValue)).foregroundStyle(.secondaryText)
                 }
             }
-            .accessibilityHidden(true)
             Slider(value: value, in: range, step: step) {
                 Text(title)
             }
