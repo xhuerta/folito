@@ -36,7 +36,7 @@ struct SettingsView: View {
                 }
                 .accessibilityIdentifier("syncSettingsLink")
             } footer: {
-                Text("Optional. Continue the same book in KOReader and other compatible reading apps.").foregroundStyle(.secondaryText)
+                Text("Optional. Continue the same book in KOReader, Readest and other compatible reading apps.").foregroundStyle(.secondaryText)
             }
 
             Section {

@@ -12,6 +12,8 @@ test targets.
 |---|---|---|---|
 | ReaderCore unit tests | Linux (`linux.yml`); on macOS only compiled, as part of both apps | `swift test` in `Packages/ReaderCore` | 190 (14 skipped: env-gated) |
 | KOSync integration | Linux, service container | job `kosync-integration` (`KOSYNC_TEST_URL`) | see section 1 |
+| Readest Cloud integration (live) | Linux | job `readest-integration`, only with secrets `READEST_TEST_EMAIL` / `READEST_TEST_PASSWORD` | skipped otherwise; see docs/READEST_SYNC.md |
+| Sync connector conformance | Linux + macOS | `SyncConnectorConformance.verify` per connector (`*ConnectorConformanceTests`) | see docs/SYNC_CONNECTORS.md |
 | iOS app tests (`FolitoTests`: LogicTests, PresentationTests, TypographySyncTests, SecondaryTextContrastTests, …) | macOS runner, iPhone simulator | `xcodebuild test -scheme Folito -skip-testing:FolitoUITests` | 35 (1 skipped) |
 | watchOS app tests (`FolitoWatchTests`: LogicTests, TypographyDictionaryTests, AccessibilityTests) | macOS runner, Apple Watch simulator | `xcodebuild test -scheme FolitoWatch -skip-testing:FolitoWatchUITests` | 64 |
 | iOS accessibility audit (`FolitoUITests`) | macOS runner, iPhone simulator; **not on every PR** (see below) | `accessibility.yml`, `xcodebuild test -scheme Folito -only-testing:FolitoUITests` | 5 |
@@ -69,6 +71,7 @@ Locally on a Mac: `xcodegen generate && xcodebuild test -project Folito.xcodepro
 - Run: `docker compose -f scripts/kosync-server/docker-compose.yml up -d --wait`, then
   `cd Packages/ReaderCore && KOSYNC_TEST_URL=http://localhost:17200 swift test --filter KOSync`.
 - CI: job `kosync-integration` in `.github/workflows/linux.yml` runs the same against a service container.
+- Readest Cloud (live, dedicated test account): `cd Packages/ReaderCore && READEST_TEST_EMAIL=… READEST_TEST_PASSWORD=… swift test --filter ReadestIntegrationTests`.
 - Tests: `KOSyncClientTests.testIntegration` (existing) and `KOSyncIntegrationTests` (new, 10 tests): createUser,
   duplicate user (402 -> `.userExists`), authorize, wrong password -> `.unauthorized` on auth/push/fetch, unknown
   document -> `nil`, push/fetch round trip incl. slashes in xpointer, server-assigned timestamp (seconds, client value
