@@ -80,7 +80,7 @@ jobs:
             -project Folito.xcodeproj \
             -scheme Folito \
             -destination "id=$UDID" \
-            -only-testing:FolitoUITests \
+            -only-testing:FolitoUITests/AccessibilityProbeTests \
             -clonedSourcePackagesDirPath SourcePackages \
             -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
             -resultBundlePath ios-uitests.xcresult \
@@ -89,7 +89,7 @@ jobs:
       - name: Findings summary
         if: always()
         run: |
-          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:|Accessibility audit issue|Accessibility audit timed out" ios-uitests.log || true
+          grep -E "PROBE|Test Case .*(passed|failed)|Executed [0-9]+ tests|error:|Accessibility audit issue|Accessibility audit timed out" ios-uitests.log || true
           xcrun xcresulttool get test-results summary --path ios-uitests.xcresult || true
 
       - name: Upload xcresult
@@ -102,9 +102,9 @@ jobs:
 
   watch:
     if: >-
-      github.event_name != 'pull_request' ||
+      false && (github.event_name != 'pull_request' ||
       (github.event.action == 'labeled' && github.event.label.name == 'accessibility') ||
-      (github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'accessibility'))
+      (github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'accessibility')))
     runs-on: ${{ vars.MACOS_RUNNER || 'macos-15' }}
     timeout-minutes: 30
     steps:

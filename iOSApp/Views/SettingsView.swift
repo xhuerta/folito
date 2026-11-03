@@ -10,6 +10,19 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section {
+                if AXProbe.on("noLinks") {
+                    LabeledContent {
+                        Text(verbatim: "\(dictionaries.installedInfos.count)").foregroundStyle(.secondaryText)
+                    } label: {
+                        Label("Dictionaries", systemImage: "character.book.closed")
+                    }
+                } else if AXProbe.on("plainRows") {
+                    NavigationLink {
+                        DictionariesView(manager: dictionaries, connectivity: connectivity)
+                    } label: {
+                        Label("Dictionaries", systemImage: "character.book.closed")
+                    }
+                } else {
                 NavigationLink {
                     DictionariesView(manager: dictionaries, connectivity: connectivity)
                 } label: {
@@ -20,11 +33,27 @@ struct SettingsView: View {
                     }
                 }
                 .accessibilityIdentifier("dictionariesLink")
+                }
             } footer: {
+                if !AXProbe.on("noFooters") {
                 Text("Download dictionaries to look up words on your Apple Watch, even offline.").foregroundStyle(.secondaryText)
+                }
             }
 
             Section {
+                if AXProbe.on("noLinks") {
+                    LabeledContent {
+                        Text("Off").foregroundStyle(.secondaryText)
+                    } label: {
+                        Label("Progress Sync", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                } else if AXProbe.on("plainRows") {
+                    NavigationLink {
+                        SyncSettingsView(settings: settings)
+                    } label: {
+                        Label("Progress Sync", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                } else {
                 NavigationLink {
                     SyncSettingsView(settings: settings)
                 } label: {
@@ -35,8 +64,11 @@ struct SettingsView: View {
                     }
                 }
                 .accessibilityIdentifier("syncSettingsLink")
+                }
             } footer: {
+                if !AXProbe.on("noFooters") {
                 Text("Optional. Continue the same book in KOReader, Readest and other compatible reading apps.").foregroundStyle(.secondaryText)
+                }
             }
 
             Section {
@@ -49,8 +81,10 @@ struct SettingsView: View {
                     AboutRowLabel(Text("Support"), systemImage: "questionmark.circle")
                 }
                 .accessibilityHint("Opens in your web browser.")
+                if !AXProbe.on("plainRows") {
                 LabeledContent("Version") {
                     Text(verbatim: AppVersion.displayString()).foregroundStyle(.secondaryText)
+                }
                 }
                 NavigationLink {
                     AcknowledgementsView()
@@ -58,11 +92,14 @@ struct SettingsView: View {
                     AboutRowLabel(Text("Acknowledgements"), systemImage: "doc.text")
                 }
             } header: {
+                if !AXProbe.on("noFooters") {
                 Text("About").foregroundStyle(.secondaryText)
+                }
             }
         }
         .readableScrollEdges()
         .navigationTitle("Settings")
+        .probeChrome()
     }
 }
 
@@ -72,6 +109,19 @@ struct AcknowledgementsView: View {
         List {
             Section {
                 ForEach(OpenSourceComponent.all) { component in
+                    if AXProbe.on("noLinks") {
+                        LabeledContent {
+                            Text(verbatim: component.license).foregroundStyle(.secondaryText)
+                        } label: {
+                            Text(verbatim: component.name)
+                        }
+                    } else if AXProbe.on("plainRows") {
+                        NavigationLink {
+                            LicenseView(component: component)
+                        } label: {
+                            Text(verbatim: component.name)
+                        }
+                    } else {
                     NavigationLink {
                         LicenseView(component: component)
                     } label: {
@@ -81,9 +131,12 @@ struct AcknowledgementsView: View {
                             Text(verbatim: component.name)
                         }
                     }
+                    }
                 }
             } footer: {
+                if !AXProbe.on("noFooters") {
                 Text("Folito uses these open-source components. Tap one to read its licence.").foregroundStyle(.secondaryText)
+                }
             }
             Section {
                 DictionaryCreditsText()
@@ -92,12 +145,15 @@ struct AcknowledgementsView: View {
                 }
                 .accessibilityHint("Opens in your web browser.")
             } header: {
+                if !AXProbe.on("noFooters") {
                 Text("Dictionary Data").foregroundStyle(.secondaryText)
+                }
             }
         }
         .readableScrollEdges()
         .navigationTitle("Acknowledgements")
         .navigationBarTitleDisplayMode(.inline)
+        .probeChrome()
     }
 }
 

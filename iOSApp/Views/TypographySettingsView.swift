@@ -10,6 +10,7 @@ struct TypographySettingsView: View {
 
     var body: some View {
         Form {
+            if !AXProbe.on("noPreview") {
             Section {
                 // Content, not chrome: rendered at the reader's own font size and theme colours, at roughly
                 // the width of a 45 mm watch screen, exactly as the watch shows it.
@@ -24,6 +25,7 @@ struct TypographySettingsView: View {
                     .accessibilityIdentifier("typographyPreview")
             } header: {
                 Text("Preview").foregroundStyle(.secondaryText)
+            }
             }
             Section {
                 // A grid, not a horizontal scroll view: every preset stays fully on screen (a half-visible button
@@ -98,6 +100,7 @@ struct TypographySettingsView: View {
         }
         .readableScrollEdges()
         .navigationTitle("Reading")
+        .probeChrome()
         .confirmationDialog("Reset all reading settings to their defaults?", isPresented: $confirmReset,
                             titleVisibility: .visible) {
             Button("Reset to Defaults", role: .destructive) { typography.reset() }
@@ -146,7 +149,7 @@ struct TypographySettingsView: View {
                     Text(format(value.wrappedValue)).foregroundStyle(.secondaryText)
                 }
             }
-            .accessibilityHidden(true)
+            .accessibilityHidden(!AXProbe.on("sliderTextVisible"))
             Slider(value: value, in: range, step: step) {
                 Text(title)
             }
