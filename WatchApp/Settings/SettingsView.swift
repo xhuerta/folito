@@ -39,6 +39,10 @@ struct SettingsView: View {
             }
             Section {
                 if sync.isConfigured {
+                    if let id = CredentialsStore.activeConnectorID {
+                        LabeledContent("Service", value: WatchMessages.syncServiceName(
+                            id: id, fallback: CredentialsStore.activeServiceName ?? id))
+                    }
                     if let user = CredentialsStore.username, !user.isEmpty {
                         LabeledContent("Account", value: user)
                     }
@@ -62,7 +66,7 @@ struct SettingsView: View {
                     }
                     Button("Remove Credentials", role: .destructive) { confirmRemove = true }
                 } else {
-                    Text("Sync is optional and off. Reading works fully offline. To sync progress with a KOReader-compatible server, set it up in the iPhone app.")
+                    Text("Sync is optional and off. Reading works fully offline. To sync progress with KOReader Sync or Readest, set it up in the iPhone app.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             } header: {

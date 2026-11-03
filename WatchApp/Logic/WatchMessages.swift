@@ -37,9 +37,26 @@ enum WatchMessages {
         case .notConfigured?:
             return String(localized: "Sync isn't set up. Set it up in Folito on your iPhone.",
                           comment: "Sync server status: no credentials")
+        case .signInAgain?:
+            return String(localized: "Your session has ended. Sign in again in Folito on your iPhone.",
+                          comment: "Sync server status: the sync service (e.g. Readest) signed this watch out")
         case .failed?:
             return String(localized: "The server didn't respond as expected. Check the server address in Folito on your iPhone.",
                           comment: "Sync server status: unexpected server response")
+        }
+    }
+
+    // MARK: Sync services
+
+    /// Localized name of a sync connector (`SyncConnectorDescriptor.id`). New connectors add a case here.
+    static func syncServiceName(id: String, fallback: String) -> String {
+        switch id {
+        case KOSyncConnectorFactory.id:
+            return String(localized: "KOReader Sync", comment: "Name of the KOReader progress sync service")
+        case ReadestConnectorFactory.id:
+            return String(localized: "Readest", comment: "Name of the Readest Cloud sync service (brand name)")
+        default:
+            return fallback
         }
     }
 

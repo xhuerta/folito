@@ -16,7 +16,7 @@ final class ReaderViewModel: ObservableObject {
 
     @Published var jumpRequest: JumpRequest?
     @Published var showRemoteOffer = false
-    @Published private(set) var remoteOffer: KOSyncProgress?
+    @Published private(set) var remoteOffer: ReadingPosition?
     @Published private(set) var currentIndex: Int
 
     let startIndex: Int
@@ -52,6 +52,11 @@ final class ReaderViewModel: ObservableObject {
     }
 
     var documentHash: String { book.documentHash }
+    /// Every id a sync connector may need (KOReader partial MD5, Readest meta hash, title, authors).
+    var bookIdentity: BookIdentity {
+        BookIdentity(partialMD5: book.documentHash, metaHash: book.metaHash.isEmpty ? nil : book.metaHash,
+                     title: book.metadata.title, authors: book.metadata.authors)
+    }
     var title: String { book.metadata.title }
     /// BCP-47 language of the book (dictionary language); nil when the EPUB does not declare one.
     var bookLanguage: String? { book.metadata.language }
@@ -123,7 +128,7 @@ final class ReaderViewModel: ObservableObject {
     var localPercentage: Double { flat.percentage(at: currentIndex) }
 
     func syncOnOpen() async {
-        let decision = await sync.decisionOnOpen(document: documentHash, localPercentage: localPercentage)
+        let decision = await sync.decisionOnOpen(book: bookIdentity, localPercentage: localPercentage)
         if case .offerRemote(let remote) = decision {
             remoteOffer = remote
             showRemoteOffer = true
@@ -134,7 +139,7 @@ final class ReaderViewModel: ObservableObject {
         guard let remote = remoteOffer else { return }
         remoteOffer = nil
         let target: Int
-        switch resolver.resolve(remote.progress, percentage: remote.percentage, in: book) {
+        switch resolver.resolve(remote.xpointer, percentage: remote.percentage, in: book) {
         case .position(let pos, _)?:
             target = flat.flatIndex(for: pos) ?? flat.index(forPercentage: remote.percentage)
         case .percentage(let p)?:
@@ -153,9 +158,10 @@ final class ReaderViewModel: ObservableObject {
     func reportProgress(immediately: Bool) {
         guard !flat.isEmpty, lastReportedIndex != currentIndex else { return }
         lastReportedIndex = currentIndex
-        sync.report(document: documentHash,
+        sync.report(book: bookIdentity,
                     xpointer: flat.blocks[currentIndex].xpointer,
                     percentage: flat.percentage(at: currentIndex),
+                    page: currentIndex + 1, pageCount: flat.count,
                     immediately: immediately)
     }
 
