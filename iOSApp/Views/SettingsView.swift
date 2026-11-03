@@ -35,8 +35,8 @@ struct SettingsView: View {
                 .accessibilityIdentifier("dictionariesLink")
                 }
             } footer: {
-                if !AXProbe.on("noFooters") {
-                Text("Download dictionaries to look up words on your Apple Watch, even offline.").foregroundStyle(.secondaryText)
+                if !AXProbe.on("noFooters") && !AXProbe.on("noFooterTexts") {
+                Text("Download dictionaries to look up words on your Apple Watch, even offline.").foregroundStyle(.secondaryText).probeFixed()
                 }
             }
 
@@ -66,8 +66,8 @@ struct SettingsView: View {
                 .accessibilityIdentifier("syncSettingsLink")
                 }
             } footer: {
-                if !AXProbe.on("noFooters") {
-                Text("Optional. Continue the same book in KOReader, Readest and other compatible reading apps.").foregroundStyle(.secondaryText)
+                if !AXProbe.on("noFooters") && !AXProbe.on("noFooterTexts") {
+                Text("Optional. Continue the same book in KOReader, Readest and other compatible reading apps.").foregroundStyle(.secondaryText).probeFixed()
                 }
             }
 
@@ -92,8 +92,8 @@ struct SettingsView: View {
                     AboutRowLabel(Text("Acknowledgements"), systemImage: "doc.text")
                 }
             } header: {
-                if !AXProbe.on("noFooters") {
-                Text("About").foregroundStyle(.secondaryText)
+                if !AXProbe.on("noFooters") && !AXProbe.on("noHeaders") {
+                Text("About").foregroundStyle(.secondaryText).probeFixed()
                 }
             }
         }
@@ -134,8 +134,8 @@ struct AcknowledgementsView: View {
                     }
                 }
             } footer: {
-                if !AXProbe.on("noFooters") {
-                Text("Folito uses these open-source components. Tap one to read its licence.").foregroundStyle(.secondaryText)
+                if !AXProbe.on("noFooters") && !AXProbe.on("noFooterTexts") {
+                Text("Folito uses these open-source components. Tap one to read its licence.").foregroundStyle(.secondaryText).probeFixed()
                 }
             }
             Section {
@@ -145,8 +145,8 @@ struct AcknowledgementsView: View {
                 }
                 .accessibilityHint("Opens in your web browser.")
             } header: {
-                if !AXProbe.on("noFooters") {
-                Text("Dictionary Data").foregroundStyle(.secondaryText)
+                if !AXProbe.on("noFooters") && !AXProbe.on("noHeaders") {
+                Text("Dictionary Data").foregroundStyle(.secondaryText).probeFixed()
                 }
             }
         }

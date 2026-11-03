@@ -38,6 +38,7 @@ final class AccessibilityProbeTests: XCTestCase {
                 } catch {
                     Self.output("PROBE \(screen) [\(variant)] page=\(page) audit error: \(error)")
                 }
+                if issues.contains(where: { $0.element == nil }) { Self.dumpFrames(app, "\(screen) [\(variant)] page=\(page)") }
                 for issue in issues {
                     total += 1
                     let element = issue.element
@@ -75,6 +76,24 @@ final class AccessibilityProbeTests: XCTestCase {
         return found
     }
 
+    /// Where the bars and the texts are when an element-less finding is reported.
+    @MainActor
+    private static func dumpFrames(_ app: XCUIApplication, _ tag: String) {
+        guard let root = try? app.snapshot() else { return }
+        var parts: [String] = []
+        var stack = [root]
+        while let node = stack.popLast() {
+            let f = node.frame
+            if [.navigationBar, .tabBar].contains(node.elementType) {
+                parts.append("BAR\(node.elementType.rawValue)@\(Int(f.minY))-\(Int(f.maxY))")
+            } else if [.staticText, .button, .cell].contains(node.elementType), !f.isEmpty {
+                parts.append("\(node.elementType.rawValue):\(node.label.prefix(18))@\(Int(f.minY))-\(Int(f.maxY))")
+            }
+            stack.append(contentsOf: node.children.reversed())
+        }
+        output("PROBE FRAMES \(tag): " + parts.joined(separator: " | "))
+    }
+
     @MainActor
     private static func openSettings(_ app: XCUIApplication) {
         app.tabBars.buttons["Settings"].tap()
@@ -85,7 +104,7 @@ final class AccessibilityProbeTests: XCTestCase {
         openSettings(app)
         Thread.sleep(forTimeInterval: 1)
         let row = app.buttons["Acknowledgements"]
-        let tabTop = app.tabBars.firstMatch.frame.minY
+        let tabTop = app.tabBars.firstMatch.exists ? app.tabBars.firstMatch.frame.minY : app.windows.firstMatch.frame.maxY
         for _ in 0..<10 where !(row.exists && row.isHittable && row.frame.maxY < tabTop - 16) { scrollDown(app) }
         row.tap()
     }
@@ -97,27 +116,17 @@ final class AccessibilityProbeTests: XCTestCase {
 
     // Settings and Acknowledgements at AX5 (Dynamic Type, Text clipped).
     @MainActor func testSettings0Base() throws { try probe("Settings", "base", largestText: true, open: Self.openSettings) }
-    @MainActor func testSettings1SoftEdges() throws { try probe("Settings", "softEdges", largestText: true, open: Self.openSettings) }
-    @MainActor func testSettings2NoTabBar() throws { try probe("Settings", "noTabBar", largestText: true, open: Self.openSettings) }
-    @MainActor func testSettings3InlineTitle() throws { try probe("Settings", "inlineTitle", largestText: true, open: Self.openSettings) }
-    @MainActor func testSettings4NoTitle() throws { try probe("Settings", "noTitle", largestText: true, open: Self.openSettings) }
-    @MainActor func testSettings5PlainRows() throws { try probe("Settings", "plainRows", largestText: true, open: Self.openSettings) }
-    @MainActor func testSettings6NoLinks() throws { try probe("Settings", "noLinks", largestText: true, open: Self.openSettings) }
-    @MainActor func testSettings7NoFooters() throws { try probe("Settings", "noFooters", largestText: true, open: Self.openSettings) }
+    @MainActor func testSettings1NoHeaders() throws { try probe("Settings", "noHeaders", largestText: true, open: Self.openSettings) }
+    @MainActor func testSettings2NoFooterTexts() throws { try probe("Settings", "noFooterTexts", largestText: true, open: Self.openSettings) }
+    @MainActor func testSettings3FixedFooters() throws { try probe("Settings", "fixedFooters", largestText: true, open: Self.openSettings) }
 
     @MainActor func testAck0Base() throws { try probe("Ack", "base", largestText: true, open: Self.openAcknowledgements) }
-    @MainActor func testAck1SoftEdges() throws { try probe("Ack", "softEdges", largestText: true, open: Self.openAcknowledgements) }
-    @MainActor func testAck2NoTabBar() throws { try probe("Ack", "noTabBar", largestText: true, open: Self.openAcknowledgements) }
-    @MainActor func testAck4NoTitle() throws { try probe("Ack", "noTitle", largestText: true, open: Self.openAcknowledgements) }
-    @MainActor func testAck5PlainRows() throws { try probe("Ack", "plainRows", largestText: true, open: Self.openAcknowledgements) }
-    @MainActor func testAck6NoLinks() throws { try probe("Ack", "noLinks", largestText: true, open: Self.openAcknowledgements) }
-    @MainActor func testAck7NoFooters() throws { try probe("Ack", "noFooters", largestText: true, open: Self.openAcknowledgements) }
+    @MainActor func testAck1NoHeaders() throws { try probe("Ack", "noHeaders", largestText: true, open: Self.openAcknowledgements) }
+    @MainActor func testAck2NoFooterTexts() throws { try probe("Ack", "noFooterTexts", largestText: true, open: Self.openAcknowledgements) }
+    @MainActor func testAck3FixedFooters() throws { try probe("Ack", "fixedFooters", largestText: true, open: Self.openAcknowledgements) }
+    @MainActor func testAck4NoTabBar() throws { try probe("Ack", "noTabBar", largestText: true, open: Self.openAcknowledgements) }
 
     // Reading at the default size (element detection: "Potentially inaccessible text").
     @MainActor func testReading0Base() throws { try probe("Reading", "base", largestText: false, open: Self.openReading) }
-    @MainActor func testReading1SoftEdges() throws { try probe("Reading", "softEdges", largestText: false, open: Self.openReading) }
-    @MainActor func testReading2NoTabBar() throws { try probe("Reading", "noTabBar", largestText: false, open: Self.openReading) }
-    @MainActor func testReading3InlineTitle() throws { try probe("Reading", "inlineTitle", largestText: false, open: Self.openReading) }
-    @MainActor func testReading8NoPreview() throws { try probe("Reading", "noPreview", largestText: false, open: Self.openReading) }
-    @MainActor func testReading9SliderTextVisible() throws { try probe("Reading", "sliderTextVisible", largestText: false, open: Self.openReading) }
+    @MainActor func testReading1SliderCombine() throws { try probe("Reading", "sliderCombine", largestText: false, open: Self.openReading) }
 }

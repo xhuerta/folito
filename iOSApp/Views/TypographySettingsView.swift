@@ -133,11 +133,14 @@ struct TypographySettingsView: View {
         }
     }
 
-    /// Title and current value above the slider (stacked at accessibility sizes). VoiceOver reads the
-    /// slider once, as "title, value", and adjusts it by swiping up or down.
+    /// Title and current value above the slider (stacked at accessibility sizes). VoiceOver reads the row once,
+    /// as one slider, "title, value", adjusted by swiping up or down. The visible texts are part of that element
+    /// (its frame covers them) rather than hidden from accessibility: hidden text that is drawn on screen is what
+    /// the audit reported as "Potentially inaccessible text" (bisected in CI on PR #39).
+    @ViewBuilder
     private func slider(_ title: LocalizedStringKey, _ value: Binding<Double>, _ range: ClosedRange<Double>,
                         _ step: Double, _ format: @escaping (Double) -> String) -> some View {
-        VStack(alignment: .leading) {
+        let row = VStack(alignment: .leading) {
             ViewThatFits(in: .horizontal) {
                 HStack {
                     Text(title)
@@ -149,11 +152,20 @@ struct TypographySettingsView: View {
                     Text(format(value.wrappedValue)).foregroundStyle(.secondaryText)
                 }
             }
-            .accessibilityHidden(!AXProbe.on("sliderTextVisible"))
             Slider(value: value, in: range, step: step) {
                 Text(title)
             }
             .accessibilityValue(format(value.wrappedValue))
+        }
+        if AXProbe.on("sliderCombine") {
+            row.accessibilityElement(children: .combine)
+        } else {
+            row.accessibilityRepresentation {
+                Slider(value: value, in: range, step: step) {
+                    Text(title)
+                }
+                .accessibilityValue(format(value.wrappedValue))
+            }
         }
     }
 }

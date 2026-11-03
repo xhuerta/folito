@@ -188,13 +188,13 @@ final class AccessibilityAuditTests: XCTestCase {
         "\(type.rawValue):\(label)@\(Int(frame.minX))"
     }
 
-    /// Keys of the texts and buttons that are entirely in the clear area right now.
+    /// Keys of the texts, buttons and sliders that are entirely in the clear area right now.
     @MainActor
     private static func textsClearOfBars(in app: XCUIApplication) -> Set<String> {
         guard let snapshot = try? app.snapshot() else { return [] }
         let area = clearArea(in: app)
         let width = app.windows.firstMatch.frame.width
-        return Set(snapshotElements(snapshot, of: [.staticText, .button]).filter {
+        return Set(snapshotElements(snapshot, of: [.staticText, .button, .slider]).filter {
             !$0.frame.isEmpty && $0.frame.minY >= area.top && $0.frame.maxY <= area.bottom && $0.frame.minX >= 0
                 && $0.frame.maxX <= width
         }.map { key(type: $0.elementType, label: $0.label, frame: $0.frame) })

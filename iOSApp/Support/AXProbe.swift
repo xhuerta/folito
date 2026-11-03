@@ -26,3 +26,14 @@ extension View {
         }
     }
 }
+
+extension View {
+    @ViewBuilder
+    func probeFixed() -> some View {
+        if AXProbe.on("fixedFooters") {
+            fixedSize(horizontal: false, vertical: true)
+        } else {
+            self
+        }
+    }
+}
