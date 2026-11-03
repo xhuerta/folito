@@ -26,8 +26,9 @@ final class AccessibilityAuditTests: XCTestCase {
 
     @MainActor
     private func launch(seedSampleBook: Bool = false, largestText: Bool = false,
-                        showTour: Bool = false) -> XCUIApplication {
+                        showTour: Bool = false, extraArguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
+        app.launchArguments += extraArguments
         app.launchArguments += seedSampleBook ? ["-UITestingSeedSampleBook"] : ["-UITesting"]
         if showTour { app.launchArguments += ["-UITestingShowOnboarding"] }
         if largestText { app.launchArguments += Self.largestTextArguments }
@@ -389,4 +390,48 @@ final class AccessibilityAuditTests: XCTestCase {
             XCTAssertTrue(app.navigationBars["Reading"].waitForExistence(timeout: 5))
         }
     }
+
+    // MARK: PROBE (temporary)
+
+    @MainActor
+    private func probeReading(_ variant: String) throws {
+        Self.output("PROBE variant=\(variant) start")
+        let app = launch(largestText: true, extraArguments: ["-AXProbe", variant])
+        app.tabBars.buttons["Reading"].tap()
+        XCTAssertTrue(app.navigationBars["Reading"].waitForExistence(timeout: 5))
+        var page = 0
+        try forEachPage(of: app) {
+            Self.probeDump(app, variant: variant, page: page)
+            for type in [XCUIAccessibilityAuditType.textClipped] {
+                let result = try audit(app, type)
+                for line in result.failures { Self.output("PROBE variant=\(variant) page=\(page) finding: \(line)") }
+            }
+            page += 1
+        }
+        Self.output("PROBE variant=\(variant) end")
+    }
+
+    @MainActor
+    private static func probeDump(_ app: XCUIApplication, variant: String, page: Int) {
+        guard let root = try? app.snapshot() else { return }
+        let wanted: Set<String> = ["Font", "System", "Serif", "Alignment", "Left", "Leading", "Bold Text", "Theme"]
+        func walk(_ node: XCUIElementSnapshot, _ path: [String]) {
+            let me = "\(node.elementType.rawValue)[\(node.label)]\(node.frame.integral)"
+            if wanted.contains(node.label) || (node.elementType == .cell && node.children.contains { wanted.contains($0.label) }) {
+                output("PROBE variant=\(variant) page=\(page) \(me) path=\(path.suffix(4).joined(separator: " > "))")
+            }
+            for child in node.children { walk(child, path + [me]) }
+        }
+        walk(root, [])
+    }
+
+    @MainActor func testReadingProbeP0() throws { try probeReading("P0") }
+    @MainActor func testReadingProbeP1() throws { try probeReading("P1") }
+    @MainActor func testReadingProbeP2() throws { try probeReading("P2") }
+    @MainActor func testReadingProbeP3() throws { try probeReading("P3") }
+    @MainActor func testReadingProbeP4() throws { try probeReading("P4") }
+    @MainActor func testReadingProbeP5() throws { try probeReading("P5") }
+    @MainActor func testReadingProbeP6() throws { try probeReading("P6") }
+    @MainActor func testReadingProbeP7() throws { try probeReading("P7") }
+    @MainActor func testReadingProbeP8() throws { try probeReading("P8") }
 }

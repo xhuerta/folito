@@ -7,9 +7,12 @@ struct TypographySettingsView: View {
     @ObservedObject var typography: TypographyModel
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var confirmReset = false
+    // PROBE (temporary): layout variant chosen by the UI test (-AXProbe <name>).
+    private let probe = UserDefaults.standard.string(forKey: "AXProbe") ?? ""
 
     var body: some View {
         Form {
+            if probe != "P6" {
             Section {
                 // Content, not chrome: rendered at the reader's own font size and theme colours, at roughly
                 // the width of a 45 mm watch screen, exactly as the watch shows it.
@@ -25,6 +28,8 @@ struct TypographySettingsView: View {
             } header: {
                 Text("Preview").foregroundStyle(.secondaryText)
             }
+            }
+            if probe != "P3" {
             Section {
                 // A grid, not a horizontal scroll view: every preset stays fully on screen (a half-visible button
                 // at the edge is unreadable), and at accessibility sizes the presets stack in one column.
@@ -50,9 +55,18 @@ struct TypographySettingsView: View {
             } header: {
                 Text("Presets").foregroundStyle(.secondaryText)
             }
+            }
+            if probe == "P7" {
+                Section {
+                    adaptivePicker("Font", selection: typography.binding(\.fontFamily),
+                                   options: ReaderTypography.FontFamily.allCases) { ReadingSettingsText.name($0) }
+                }
+            }
             Section {
+                if probe != "P2" && probe != "P7" {
                 adaptivePicker("Font", selection: typography.binding(\.fontFamily),
                                options: ReaderTypography.FontFamily.allCases) { ReadingSettingsText.name($0) }
+                }
                 slider("Size", typography.binding(\.fontSize), ReaderTypography.fontSizeRange, 1) {
                     DisplayFormat.points($0)
                 }
@@ -62,6 +76,10 @@ struct TypographySettingsView: View {
                 }
                 slider("Letter Spacing", typography.binding(\.tracking), ReaderTypography.trackingRange, 0.25) {
                     DisplayFormat.signedPoints($0)
+                }
+                if probe == "P2" {
+                    adaptivePicker("Font", selection: typography.binding(\.fontFamily),
+                                   options: ReaderTypography.FontFamily.allCases) { ReadingSettingsText.name($0) }
                 }
             } header: {
                 Text("Font").foregroundStyle(.secondaryText)
@@ -112,7 +130,39 @@ struct TypographySettingsView: View {
     @ViewBuilder
     private func adaptivePicker<Value: Hashable>(_ title: LocalizedStringKey, selection: Binding<Value>,
                                                  options: [Value], name: @escaping (Value) -> String) -> some View {
-        if dynamicTypeSize.isAccessibilitySize {
+        if dynamicTypeSize.isAccessibilitySize && probe == "P1" {
+            NavigationLink {
+                OptionList(title: title, selection: selection, options: options, name: name)
+            } label: {
+                VStack(alignment: .leading) {
+                    Text(title)
+                    Text(name(selection.wrappedValue)).foregroundStyle(.secondaryText)
+                }
+            }
+        } else if dynamicTypeSize.isAccessibilitySize && probe == "P4" {
+            NavigationLink {
+                OptionList(title: title, selection: selection, options: options, name: name)
+            } label: {
+                LabeledContent {
+                    Text(name(selection.wrappedValue)).foregroundStyle(.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                } label: {
+                    Text(title).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        } else if dynamicTypeSize.isAccessibilitySize && probe == "P5" {
+            Picker(title, selection: selection) {
+                ForEach(options, id: \.self) { Text(name($0)).tag($0) }
+            }
+            .pickerStyle(.navigationLink)
+        } else if dynamicTypeSize.isAccessibilitySize && probe == "P8" {
+            // No NavigationLink: plain LabeledContent row (not tappable), to isolate the link.
+            LabeledContent {
+                Text(name(selection.wrappedValue)).foregroundStyle(.secondaryText)
+            } label: {
+                Text(title)
+            }
+        } else if dynamicTypeSize.isAccessibilitySize {
             NavigationLink {
                 OptionList(title: title, selection: selection, options: options, name: name)
             } label: {
