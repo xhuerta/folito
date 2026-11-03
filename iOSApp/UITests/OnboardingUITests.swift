@@ -157,9 +157,12 @@ final class OnboardingUITests: XCTestCase {
         let spanish = app.buttons["sample-es"]
         XCTAssertTrue(spanish.waitForExistence(timeout: 5), "Sample list did not appear")
         XCTAssertTrue(spanish.label.contains("Español"), "Row: \(spanish.label)")
+        XCTAssertTrue(spanish.isEnabled, "Spanish sample row is disabled")
         spanish.tap()
-        let row = app.descendants(matching: .any)["libraryRow"]
+        let row = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == 'libraryRow' AND label CONTAINS 'Don Quijote'")).firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 30), "Spanish sample not added")
-        XCTAssertTrue(row.label.contains("Don Quijote"), "Row: \(row.label)")
+        XCTAssertEqual(app.descendants(matching: .any).matching(identifier: "libraryRow").count, 1,
+                       "Only the chosen sample should be added")
     }
 }

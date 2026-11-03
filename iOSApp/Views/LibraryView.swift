@@ -21,10 +21,13 @@ struct LibraryView: View {
                     } description: {
                         Text("Import an EPUB file to read it on your Apple Watch. You can also open EPUB files from the Files app or the share sheet. Books are sent to your watch automatically.").foregroundStyle(.secondaryText)
                     } actions: {
+                        // Borderless: in a List row, plain buttons all fire on a tap anywhere in the row.
                         Button("Import EPUB") { showImporter = true }
+                            .buttonStyle(.borderless)
                             .disabled(library.isImporting)
                         // A bundled public-domain book, imported like any other (see SampleBooks).
                         Button("Add a Sample Book") { library.addSample(language: SampleBooks.preferredLanguage) }
+                            .buttonStyle(.borderless)
                             .disabled(library.isImporting)
                             .accessibilityIdentifier("libraryAddSample")
                         Button {
@@ -32,6 +35,7 @@ struct LibraryView: View {
                         } label: {
                             Text("Other Languages…", comment: "Button: choose a sample book in another language")
                         }
+                        .buttonStyle(.borderless)
                         .disabled(library.isImporting)
                         .accessibilityHint("Shows the sample books in every language.")
                         .accessibilityIdentifier("libraryOtherSamples")

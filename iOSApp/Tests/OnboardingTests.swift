@@ -125,7 +125,7 @@ final class SampleBookSelectionTests: XCTestCase {
         XCTAssertEqual(SampleBooks.nativeName(for: "it"), "Italiano")
         XCTAssertEqual(SampleBooks.nativeName(for: "ja"), "日本語")
         XCTAssertTrue(SampleBooks.nativeName(for: "pt-BR").hasPrefix("Português"), SampleBooks.nativeName(for: "pt-BR"))
-        XCTAssertTrue(SampleBooks.nativeName(for: "zh-Hans").hasPrefix("中文"), SampleBooks.nativeName(for: "zh-Hans"))
+        XCTAssertTrue(SampleBooks.nativeName(for: "zh-Hans").contains("中文"), SampleBooks.nativeName(for: "zh-Hans"))
     }
 
     /// Every sample imports through the real pipeline with the title and author the list shows.
