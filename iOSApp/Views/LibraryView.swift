@@ -25,7 +25,7 @@ struct LibraryView: View {
         readest?.isAvailable == true ? (LibraryFilter(rawValue: filterRaw) ?? .all) : .all
     }
 
-    private var items: [LibraryItem<LibraryEntry>] {
+    private var items: [MergedLibraryItem<LibraryEntry>] {
         let cloud = readest?.isAvailable == true ? readest?.cloudBooks ?? [] : []
         return LibraryMerge.merge(local: library.entries, hash: \.documentHash, cloud: cloud)
     }

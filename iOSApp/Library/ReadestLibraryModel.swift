@@ -313,7 +313,11 @@ extension UserFacingError {
 
     /// Message for a failed Readest library request (quota, connection, session...).
     static func readestLibraryMessage(for error: Error) -> String {
-        switch error as? ReadestError {
+        guard let e = error as? ReadestError else {
+            if error is URLError { return readestMessage(for: .offline) }
+            return String(localized: "Something went wrong. Try again later.", comment: "Generic error")
+        }
+        switch e {
         case .quotaExceeded:
             return String(localized: "Your Readest storage is full. Delete books from Readest, or get more storage in the Readest app, then try again.",
                           comment: "Readest library error: storage quota exceeded")
@@ -323,13 +327,8 @@ extension UserFacingError {
         case .notFound:
             return String(localized: "Readest no longer has this book’s file. Pull down to refresh the library.",
                           comment: "Readest library error: the file is missing on the server")
-        case .some(let e):
+        default:
             return readestMessage(for: e)
-        case .none:
-            if error is URLError {
-                return readestMessage(for: .offline)
-            }
-            return String(localized: "Something went wrong. Try again later.", comment: "Generic error")
         }
     }
 

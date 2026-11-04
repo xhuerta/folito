@@ -403,7 +403,7 @@ public enum LibraryAvailability: Sendable, Equatable {
 }
 
 /// One row of the unified library.
-public struct LibraryItem<Local: Sendable>: Sendable, Identifiable {
+public struct MergedLibraryItem<Local: Sendable>: Sendable, Identifiable {
     public var id: String { hash }
     public var hash: String
     public var local: Local?
@@ -435,24 +435,24 @@ public enum LibraryMerge {
     /// available only in Readest, newest first. Rows that are not `isAvailable` (tombstones, progress-only rows,
     /// other formats, the placeholder) never appear and never mark a local book as "in Readest".
     public static func merge<Local>(local: [Local], hash: (Local) -> String,
-                                    cloud: [ReadestCloudBook]) -> [LibraryItem<Local>] {
+                                    cloud: [ReadestCloudBook]) -> [MergedLibraryItem<Local>] {
         var byHash: [String: ReadestCloudBook] = [:]
         for b in cloud where b.isAvailable {
             if let old = byHash[b.hash], (old.updatedAt ?? .distantPast) >= (b.updatedAt ?? .distantPast) { continue }
             byHash[b.hash] = b
         }
         var seen = Set<String>()
-        var items: [LibraryItem<Local>] = []
+        var items: [MergedLibraryItem<Local>] = []
         for l in local {
             let h = hash(l)
             guard seen.insert(h).inserted else { continue }
-            items.append(LibraryItem(hash: h, local: l, cloud: byHash[h]))
+            items.append(MergedLibraryItem(hash: h, local: l, cloud: byHash[h]))
         }
         let cloudOnly = byHash.values.filter { !seen.contains($0.hash) }.sorted {
             let a = $0.updatedAt ?? .distantPast, b = $1.updatedAt ?? .distantPast
             return a != b ? a > b : $0.hash < $1.hash
         }
-        items += cloudOnly.map { LibraryItem(hash: $0.hash, local: nil, cloud: $0) }
+        items += cloudOnly.map { MergedLibraryItem(hash: $0.hash, local: nil, cloud: $0) }
         return items
     }
 }
