@@ -51,6 +51,9 @@ final class ComplicationSnapshotTests: XCTestCase {
         }
         // Rectangular with the optional "minutes left in chapter" line (nil until the estimator lands).
         try attach(tile(families[3], .default, snapshot: Self.withMinutes), name: "rectangular-with-minutes")
+        // Inline space depends on the face; on a wide slot the title is shown, on a narrow one only the percentage.
+        let wideInline = Family(name: "inline-wide", family: .accessoryInline, size: CGSize(width: 280, height: 22))
+        try attach(tile(wideInline, .default), name: "inline-wide-default")
         // Smart Stack: the rectangular family on its container background.
         try attach(smartStack(Self.book), name: "smart-stack-default")
         try attach(smartStack(nil), name: "smart-stack-placeholder")
@@ -71,6 +74,8 @@ final class ComplicationSnapshotTests: XCTestCase {
             }
         }
         .frame(width: family.size.width, height: family.size.height)
+        // The system masks circular complications to a circle; ImageRenderer does not.
+        .clipShape(family.family == .accessoryCircular ? AnyShape(Circle()) : AnyShape(Rectangle()))
         .environment(\.complicationPreviewTint, variant == .tinted ? Self.tint : nil)
         .environment(\.isLuminanceReduced, variant == .alwaysOn)
         .modifier(RedactedIf(active: variant == .redacted))
