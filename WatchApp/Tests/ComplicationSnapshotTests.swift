@@ -101,7 +101,7 @@ final class ComplicationSnapshotTests: XCTestCase {
                 HStack(alignment: .top, spacing: 6) {
                     ForEach(Variant.allCases, id: \.self) { variant in
                         VStack(spacing: 2) {
-                            tile(family, variant)
+                            self.tile(family, variant)
                             Text(variant.rawValue).font(.system(size: 8)).foregroundStyle(.gray)
                         }
                     }
