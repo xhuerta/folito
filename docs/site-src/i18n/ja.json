@@ -44,16 +44,16 @@
   "index.f6_text": "DRM で保護された本には対応していません。開発者のアカウントは不要で、広告も分析もありません。",
   "index.more_title": "詳しい情報",
   "privacy.title": "プライバシーポリシー",
-  "privacy.updated": "最終更新日：2026年10月29日。iPhone および Apple Watch 用の Folito アプリに適用されます。",
+  "privacy.updated": "最終更新日：2026年11月4日。iPhone および Apple Watch 用の Folito アプリに適用されます。",
   "privacy.summary": "要約：Folito はアカウントなしで使えます。分析、広告、トラッキングはなく、開発者はサーバを運営せず、データを受け取りません。アプリが通信するのは、設定した場合の同期サーバと、辞書をダウンロードするときの下記のダウンロードサイトだけです。",
   "privacy.who_title": "責任者",
   "privacy.who_text": "Xabier Lahuerta（連絡先：<a href=\"mailto:xlahuerta@protonmail.com\">xlahuerta@protonmail.com</a>）",
   "privacy.local_title": "デバイス上にとどまるもの",
-  "privacy.local_1": "<strong>あなたの本</strong>（読み込んだ EPUB ファイル）は、iPhone 上のアプリのストレージで処理および保存され、Apple の WatchConnectivity を介して、ペアリングされたデバイス間で直接 Apple Watch に送信されます。アプリがそれらをアップロードすることはありません。",
+  "privacy.local_1": "<strong>あなたの本</strong>（読み込んだ、または Readest からダウンロードした EPUB ファイル）は、iPhone 上のアプリのストレージで処理および保存され（元の EPUB ファイルも保持されます）、Apple の WatchConnectivity を介して、ペアリングされたデバイス間で直接 Apple Watch に送信されます。アプリが本をアップロードするのは、あなた自身の Readest アカウントに、あなたが指示したときだけです（下記参照）。",
   "privacy.local_2": "<strong>読書位置、タイポグラフィ設定、ランダムなデバイス識別子</strong>（下記参照）、および同期がオンの場合は<strong>同期待ちの進捗</strong>が、デバイス上のアプリの設定に保存されます。タイポグラフィ設定は、ペアリングされた Apple Watch にも送信されます。",
   "privacy.local_3": "ダウンロードした<strong>辞書</strong>は iPhone と Apple Watch に保存されます。単語の検索は Apple Watch 上で行われるため、調べた内容がデバイスの外に出ることはありません。辞書は iPhone アプリで削除できます（<em>設定 › 辞書</em>）。",
   "privacy.local_4": "<strong>同期のログイン情報</strong>（サーバアドレス、ユーザ名、パスワード）は、同期をオンにした場合にのみ、iPhone のキーチェーンに保存されます。また、Apple Watch は単独で同期するため、WatchConnectivity を介してペアリングされた Apple Watch にも送信され、Apple Watch 自身のキーチェーンに保存されます。開発者に送信されることはなく、インターネット経由では、あなたが入力した同期サーバにのみ送信されます（次のセクションを参照）。",
-  "privacy.local_readest": "<strong>Readestのセッション</strong>（同期にReadestを選んだ場合のみ）：Readestのメールアドレスとセッショントークン（Readestのパスワードは保存しません）がiPhoneのキーチェーンに保存され、ペアリングされたApple Watchに送信されて、Watch自身のキーチェーンに保存されます。",
+  "privacy.local_readest": "<strong>Readestのセッション</strong>（同期にReadestを選んだ場合のみ）：Readestのメールアドレスと2つのセッショントークン（Readestのパスワードは保存しません）がiPhoneのキーチェーンに保存されます。1つはiPhoneのライブラリ用でiPhoneに残り、もう1つは同期用で、ペアリングされたApple Watchに送信されてWatch自身のキーチェーンに保存されます。",
   "privacy.local_5": "アプリは iCloud を使用しません。アプリを削除すると、そのデバイスからこれらのデータが削除されます。",
   "privacy.sync_title": "読書の進捗の同期（オプション、あなたの KOReader Sync サーバ）",
   "privacy.sync_intro": "同期は、あなたがオンにしない限りオフです。本の読み込みや読書にアカウントは必要ありません。KOReader Sync サーバ、ユーザ名、パスワードを入力して同期をオンにすると、アプリはそのサーバにのみリクエストを送信します（サーバ欄には KOReader の公開サーバである <code>https://sync.koreader.rocks</code> が提案されますが、ユーザ名とパスワードを保存するまでは何も送信されず、自分のサーバに変更することもできます）。アプリはアカウントを作成しません。そのサーバにすでにお持ちのアカウントを使用します。リクエストには次の情報が含まれる場合があります：",
@@ -110,5 +110,7 @@
   "support.q6": "アクセシビリティ",
   "support.a6": "iPhone と Apple Watch のアプリは VoiceOver と大きな文字サイズ（Dynamic Type）に対応し、ダークモード、“コントラストを上げる”、“文字を太くする”に従い、独自のアニメーションは使用しません。Apple Watch では、読書テーマは WCAG のコントラスト比を満たしており、<em>タイポグラフィ › システムの文字サイズに合わせる</em>をオンにすると本文が Apple Watch の文字サイズに従います。",
   "support.q7": "DRM で保護された本に対応していますか？",
-  "support.a7": "いいえ。"
+  "support.a7": "いいえ。",
+  "privacy.readest_library": "<strong>iPhone上のReadestライブラリ。</strong> Readestにサインインしている間、iPhoneのライブラリはReadestアカウント内のブックの一覧（タイトル、著者、ファイルのハッシュ）を読み込み、表紙を表示し、タップしたブックのファイルをダウンロードします。ブックのファイルがReadestアカウントにアップロードされるのは、ブックで<em>Readestにアップロード</em>を選んだときか、<em>読み込んだブックを自動的にアップロード</em>（デフォルトはオフ）をオンにしたときだけです。その場合、ファイルとそのタイトル、著者、ハッシュがReadestのストレージに保存されます。<em>Readestから削除</em>は、確認後にファイルとブックをReadestアカウントから削除します。",
+  "support.readest_3": "Readestにサインインしている間、ライブラリにはReadestライブラリのブックもiCloud風のダウンロード記号付きで表示されます。タップするとiPhoneとApple Watchにダウンロードされ、同じファイルなので読書位置が正確に同期されます。ブックを長押し（またはスワイプ）すると、<em>Readestにアップロード</em>、<em>ダウンロードを削除</em>（Readestには残ります）、<em>削除</em>を選べます。フィルタボタンで、すべてのブック、このiPhone上のブック、Readest内のブックを切り替えられます。この機能より前にサインインした場合は、一度サインアウトしてもう一度サインインしてください。"
 }

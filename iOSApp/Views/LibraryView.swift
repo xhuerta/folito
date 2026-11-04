@@ -1,20 +1,41 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import ReaderCore
 
 struct LibraryView: View {
     @ObservedObject var library: LibraryStore
     @ObservedObject var connectivity: PhoneConnectivity
     var sendToWatch: (LibraryEntry) -> Void
+    /// The Readest side of the library (nil in previews and when the app did not inject it).
+    @Environment(ReadestLibraryModel.self) private var readest: ReadestLibraryModel?
     @State private var showImporter = false
     @State private var pendingDelete: LibraryEntry?
+    /// A local book that is also in Readest: ask "this iPhone only" or "Readest too".
+    @State private var pendingDeleteChoice: LibraryEntry?
+    /// Deleting from Readest needs its own, explicit confirmation.
+    @State private var pendingReadestDelete: ReadestCloudBook?
+    /// The local copy to delete too once the Readest deletion is confirmed ("Delete from Readest Too").
+    @State private var pendingReadestDeleteLocal: LibraryEntry?
     @State private var showOtherSamples = false
+    @AppStorage("library.filter") private var filterRaw = LibraryFilter.all.rawValue
 
     private static let epubType = UTType("org.idpf.epub-container") ?? UTType(filenameExtension: "epub") ?? .data
 
+    private var filter: LibraryFilter {
+        readest?.isAvailable == true ? (LibraryFilter(rawValue: filterRaw) ?? .all) : .all
+    }
+
+    private var items: [LibraryItem<LibraryEntry>] {
+        let cloud = readest?.isAvailable == true ? readest?.cloudBooks ?? [] : []
+        return LibraryMerge.merge(local: library.entries, hash: \.documentHash, cloud: cloud)
+    }
+
     var body: some View {
+        let all = items
+        let shown = all.filter { filter.includes($0.availability) }
         List {
             WatchStatusSection(status: connectivity.status)
-            if library.entries.isEmpty {
+            if all.isEmpty {
                 Section {
                     ContentUnavailableView {
                         Label("No Books", systemImage: "books.vertical")
@@ -42,19 +63,65 @@ struct LibraryView: View {
                         .accessibilityIdentifier("libraryOtherSamples")
                     }
                 }
+            } else if shown.isEmpty {
+                Section {
+                    ContentUnavailableView {
+                        if filter == .inReadest {
+                            Label("No Books in Readest", systemImage: "icloud")
+                        } else {
+                            Label("No Books on This iPhone", systemImage: "iphone")
+                        }
+                    } description: {
+                        if filter == .inReadest {
+                            Text("Upload a book from its menu to keep it in your Readest library.").foregroundStyle(.secondaryText)
+                        } else {
+                            Text("Download a book from Readest, or import an EPUB file.").foregroundStyle(.secondaryText)
+                        }
+                    }
+                }
             } else {
                 Section {
-                    ForEach(library.entries) { entry in
-                        row(entry)
+                    ForEach(shown) { item in
+                        if let entry = item.local {
+                            row(entry, cloud: item.cloud)
+                        } else if let book = item.cloud {
+                            cloudRow(book)
+                        }
                     }
                 } header: {
                     Text("Books").foregroundStyle(.secondaryText)
+                } footer: {
+                    ReadestFooter(readest: readest, hasCloudOnly: shown.contains { $0.availability == .readestOnly })
                 }
+            }
+            if all.isEmpty, let readest, readest.needsSignIn || readest.refreshError != nil {
+                Section {} footer: { ReadestFooter(readest: readest, hasCloudOnly: false) }
             }
         }
         .readableScrollEdges()
         .navigationTitle("Library")
+        .refreshable {
+            connectivity.syncWatchState()
+            await readest?.refresh()
+        }
+        .task { await readest?.refreshIfStale() }
         .toolbar {
+            if let readest, readest.isAvailable {
+                ToolbarItem(placement: .topBarLeading) {
+                    Menu {
+                        Picker("Show", selection: $filterRaw) {
+                            Label("All", systemImage: "books.vertical").tag(LibraryFilter.all.rawValue)
+                            Label("On This iPhone", systemImage: "iphone").tag(LibraryFilter.onThisDevice.rawValue)
+                            Label("In Readest", systemImage: "icloud").tag(LibraryFilter.inReadest.rawValue)
+                        }
+                    } label: {
+                        Label("Filter", systemImage: filter == .all ? "line.3.horizontal.decrease.circle"
+                                                                    : "line.3.horizontal.decrease.circle.fill")
+                    }
+                    .accessibilityValue(filterName)
+                    .accessibilityIdentifier("libraryFilterMenu")
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 if library.isImporting {
                     ProgressView()
@@ -83,26 +150,88 @@ struct LibraryView: View {
         } message: { error in
             Text(error.message)
         }
-        .confirmationDialog(deleteTitle, isPresented: Binding(get: { pendingDelete != nil },
-                                                              set: { if !$0 { pendingDelete = nil } }),
+        .alert(readest?.alert?.title ?? "",
+               isPresented: Binding(get: { readest?.alert != nil },
+                                    set: { if !$0 { readest?.alert = nil } }),
+               presenting: readest?.alert) { _ in
+            Button("OK", role: .cancel) {}
+        } message: { error in
+            Text(error.message)
+        }
+        .confirmationDialog(deleteTitle(pendingDelete), isPresented: Binding(get: { pendingDelete != nil },
+                                                                             set: { if !$0 { pendingDelete = nil } }),
                             titleVisibility: .visible, presenting: pendingDelete) { entry in
             Button("Delete Book", role: .destructive) { library.delete(entry) }
             Button("Cancel", role: .cancel) {}
         } message: { _ in
             Text("The book is also removed from your Apple Watch, together with its reading position there.")
         }
+        .confirmationDialog(deleteTitle(pendingDeleteChoice),
+                            isPresented: Binding(get: { pendingDeleteChoice != nil },
+                                                 set: { if !$0 { pendingDeleteChoice = nil } }),
+                            titleVisibility: .visible, presenting: pendingDeleteChoice) { entry in
+            Button("Delete from This iPhone Only") { library.delete(entry) }
+            Button("Delete from Readest Too", role: .destructive) {
+                let book = readest?.cloudBook(hash: entry.documentHash)
+                // Present the explicit confirmation once this dialog has gone.
+                Task {
+                    try? await Task.sleep(nanoseconds: 400_000_000)
+                    pendingReadestDeleteLocal = entry
+                    pendingReadestDelete = book
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text("Deleting it from this iPhone also removes it from your Apple Watch. It stays in Readest, so you can download it again.")
+        }
+        .alert(readestDeleteTitle, isPresented: Binding(get: { pendingReadestDelete != nil },
+                                                        set: { if !$0 { pendingReadestDelete = nil; pendingReadestDeleteLocal = nil } }),
+               presenting: pendingReadestDelete) { book in
+            Button("Delete from Readest", role: .destructive) {
+                let local = pendingReadestDeleteLocal
+                Task {
+                    await readest?.deleteFromReadest(book)
+                    if let local, readest?.cloudBook(hash: book.hash) == nil { library.delete(local) }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text("The book is removed from your Readest account and from every device that syncs with it. This can’t be undone.")
+        }
     }
 
-    private var deleteTitle: String {
-        guard let entry = pendingDelete else { return "" }
+    private var filterName: String {
+        switch filter {
+        case .all: return String(localized: "All", comment: "Library filter: every book")
+        case .onThisDevice: return String(localized: "On This iPhone", comment: "Library filter")
+        case .inReadest: return String(localized: "In Readest", comment: "Library filter")
+        }
+    }
+
+    private func deleteTitle(_ entry: LibraryEntry?) -> String {
+        guard let entry else { return "" }
         return String(localized: "Delete “\(entry.title)”?", comment: "Confirmation title; the placeholder is the book title")
     }
 
-    private func row(_ entry: LibraryEntry) -> some View {
+    private var readestDeleteTitle: String {
+        guard let book = pendingReadestDelete else { return "" }
+        return String(localized: "Delete “\(book.title)” from Readest?", comment: "Confirmation title; the placeholder is the book title")
+    }
+
+    /// Delete: a book that is also in Readest asks where to delete it from.
+    private func requestDelete(_ entry: LibraryEntry, inReadest: Bool) {
+        if inReadest { pendingDeleteChoice = entry } else { pendingDelete = entry }
+    }
+
+    private func row(_ entry: LibraryEntry, cloud: ReadestCloudBook?) -> some View {
         let state = BookWatchState(sentToWatch: entry.sentToWatch,
                                    inFlight: connectivity.outstandingHashes.contains(entry.documentHash))
         let canResend = connectivity.status.canSend && state != .sending
-        return BookRow(entry: entry, state: state)
+        let readestOn = readest?.isAvailable == true
+        let inReadest = readestOn && cloud != nil
+        let isUploading = readest?.uploading.contains(entry.documentHash) == true
+        let canUpload = readestOn && !inReadest && !isUploading
+        return BookRow(entry: entry, state: state, inReadest: inReadest, isUploading: isUploading)
             // VoiceOver reads the row as one element ("title, author, size, watch state"); the swipe and
             // context-menu actions are offered in the Actions rotor.
             .accessibilityElement(children: .combine)
@@ -111,16 +240,30 @@ struct LibraryView: View {
                 if canResend {
                     Button("Send to Apple Watch Again") { sendToWatch(entry) }
                 }
-                Button("Delete") { pendingDelete = entry }
+                if canUpload {
+                    Button("Upload to Readest") { upload(entry) }
+                }
+                if inReadest {
+                    Button("Remove Download") { library.delete(entry) }
+                }
+                Button("Delete") { requestDelete(entry, inReadest: inReadest) }
             }
             .swipeActions(edge: .trailing) {
                 // Not `role: .destructive`: the row must stay until the deletion is confirmed.
-                Button { pendingDelete = entry } label: { Label("Delete", systemImage: "trash") }
+                Button { requestDelete(entry, inReadest: inReadest) } label: { Label("Delete", systemImage: "trash") }
                     .tint(.red)
+                if inReadest {
+                    Button { library.delete(entry) } label: { Label("Remove Download", systemImage: "xmark.icloud") }
+                        .tint(.gray)
+                }
             }
             .swipeActions(edge: .leading) {
                 if canResend {
                     Button { sendToWatch(entry) } label: { Label("Send Again", systemImage: "applewatch.and.arrow.forward") }
+                }
+                if canUpload {
+                    Button { upload(entry) } label: { Label("Upload", systemImage: "icloud.and.arrow.up") }
+                        .tint(.blue)
                 }
             }
             .contextMenu {
@@ -129,8 +272,189 @@ struct LibraryView: View {
                         Label("Send to Apple Watch Again", systemImage: "applewatch.and.arrow.forward")
                     }
                 }
-                Button(role: .destructive) { pendingDelete = entry } label: { Label("Delete", systemImage: "trash") }
+                if canUpload {
+                    Button { upload(entry) } label: { Label("Upload to Readest", systemImage: "icloud.and.arrow.up") }
+                }
+                if inReadest {
+                    Button { library.delete(entry) } label: { Label("Remove Download", systemImage: "xmark.icloud") }
+                }
+                Button(role: .destructive) { requestDelete(entry, inReadest: inReadest) } label: { Label("Delete", systemImage: "trash") }
             }
+    }
+
+    private func upload(_ entry: LibraryEntry) {
+        Task { await readest?.upload(entry, from: library) }
+    }
+
+    private func download(_ book: ReadestCloudBook) {
+        Task { await readest?.download(book, into: library) }
+    }
+
+    /// A book that is only in Readest: tap the row (or its download button) to download it.
+    private func cloudRow(_ book: ReadestCloudBook) -> some View {
+        let progress = readest?.downloads[book.hash]
+        let offline = readest?.isOffline == true
+        return Button { download(book) } label: {
+            CloudBookRow(book: book, cover: readest?.covers[book.hash], progress: progress, offline: offline)
+        }
+        .disabled(progress != nil)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: "\(book.title), \(book.author)"))
+        .accessibilityValue(cloudStatus(progress: progress, offline: offline))
+        .accessibilityHint(progress == nil && !offline ? Text("Double-tap to download.") : Text(verbatim: ""))
+        .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier("libraryCloudRow")
+        .accessibilityActions {
+            if progress == nil { Button("Download") { download(book) } }
+            Button("Delete from Readest") { pendingReadestDelete = book }
+        }
+        .swipeActions(edge: .trailing) {
+            Button { pendingReadestDelete = book } label: { Label("Delete", systemImage: "trash") }
+                .tint(.red)
+        }
+        .swipeActions(edge: .leading) {
+            if progress == nil {
+                Button { download(book) } label: { Label("Download", systemImage: "icloud.and.arrow.down") }
+                    .tint(.blue)
+            }
+        }
+        .contextMenu {
+            if progress == nil {
+                Button { download(book) } label: { Label("Download", systemImage: "icloud.and.arrow.down") }
+            }
+            Button(role: .destructive) { pendingReadestDelete = book } label: {
+                Label("Delete from Readest", systemImage: "trash")
+            }
+        }
+    }
+
+    private func cloudStatus(progress: Double?, offline: Bool) -> String {
+        if let progress {
+            return String(localized: "Downloading, \(progress.formatted(.percent.precision(.fractionLength(0))))",
+                          comment: "VoiceOver value of a book being downloaded from Readest; the placeholder is a percentage")
+        }
+        if offline {
+            return String(localized: "In Readest, not downloaded. Needs an internet connection.",
+                          comment: "VoiceOver value of a Readest book while offline")
+        }
+        return String(localized: "In Readest, not downloaded", comment: "VoiceOver value of a book that is only in Readest")
+    }
+}
+
+/// A book that is only in Readest, like a not-downloaded file in Files: cover, title, author and a trailing
+/// download accessory (`icloud.and.arrow.down`), or the download progress.
+private struct CloudBookRow: View {
+    let book: ReadestCloudBook
+    let cover: UIImage?
+    let progress: Double?
+    let offline: Bool
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        HStack(spacing: 12) {
+            if !dynamicTypeSize.isAccessibilitySize {
+                CoverThumbnail(image: cover)
+                    .opacity(offline ? 0.5 : 1)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(verbatim: book.title)
+                    .font(.headline)
+                    .foregroundStyle(offline ? AnyShapeStyle(.secondaryText) : AnyShapeStyle(.primary))
+                Text(verbatim: book.author)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondaryText)
+                Group {
+                    if let progress {
+                        Text("Downloading… \(progress.formatted(.percent.precision(.fractionLength(0))))",
+                             comment: "Status of a book being downloaded from Readest; the placeholder is a percentage")
+                    } else if offline {
+                        Text("Needs an internet connection to download")
+                    } else {
+                        Text("In Readest")
+                    }
+                }
+                .font(.footnote)
+                .foregroundStyle(.secondaryText)
+            }
+            Spacer(minLength: 8)
+            Group {
+                if let progress {
+                    DownloadRing(fraction: progress)
+                } else {
+                    Image(systemName: "icloud.and.arrow.down")
+                        .font(.title3)
+                        .foregroundStyle(offline ? AnyShapeStyle(.secondaryText) : AnyShapeStyle(.tint))
+                }
+            }
+            .frame(minWidth: 44, minHeight: 44)
+        }
+        .padding(.vertical, 2)
+        .contentShape(Rectangle())
+    }
+}
+
+/// Book cover from Readest, or a neutral placeholder.
+private struct CoverThumbnail: View {
+    let image: UIImage?
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(uiImage: image).resizable().scaledToFill()
+            } else {
+                ZStack {
+                    Rectangle().fill(.quaternary)
+                    Image(systemName: "book.closed").foregroundStyle(.secondary)
+                }
+            }
+        }
+        .frame(width: 40, height: 60)
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .accessibilityHidden(true)
+    }
+}
+
+/// Determinate progress ring (the circular `ProgressView` style is indeterminate on iOS).
+private struct DownloadRing: View {
+    let fraction: Double
+
+    var body: some View {
+        ZStack {
+            Circle().stroke(.quaternary, lineWidth: 3)
+            Circle().trim(from: 0, to: max(0.02, fraction))
+                .stroke(.tint, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+        }
+        .frame(width: 24, height: 24)
+        .animation(.linear(duration: 0.2), value: fraction)
+        .accessibilityHidden(true)
+    }
+}
+
+/// Under the book list: Readest states (offline, refresh error, sign in again).
+private struct ReadestFooter: View {
+    let readest: ReadestLibraryModel?
+    let hasCloudOnly: Bool
+
+    var body: some View {
+        if let readest {
+            VStack(alignment: .leading, spacing: 6) {
+                if readest.needsSignIn {
+                    Text("To see your Readest library here, sign out of Readest in Settings › Progress Sync and sign in again.")
+                } else if readest.isAvailable {
+                    if readest.isOffline && hasCloudOnly {
+                        Label("You’re offline. Books in Readest need a connection to download.", systemImage: "wifi.slash")
+                    } else if let error = readest.refreshError {
+                        Label {
+                            Text(verbatim: error)
+                        } icon: {
+                            Image(systemName: "exclamationmark.icloud")
+                        }
+                    }
+                }
+            }
+            .foregroundStyle(.secondaryText)
+        }
     }
 }
 
@@ -138,6 +462,9 @@ struct LibraryView: View {
 private struct BookRow: View {
     let entry: LibraryEntry
     let state: BookWatchState
+    /// Also in the user's Readest library: a small `checkmark.icloud`, like a downloaded item in Files.
+    var inReadest = false
+    var isUploading = false
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
@@ -155,6 +482,15 @@ private struct BookRow: View {
                             tint: state == .onWatch ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondaryText))
                 Text(DisplayFormat.fileSize(entry.size))
                 if entry.isSample { SampleBadge() }
+                if isUploading {
+                    HStack(spacing: 4) {
+                        ProgressView().controlSize(.mini)
+                        Text("Uploading to Readest…")
+                    }
+                } else if inReadest {
+                    Image(systemName: "checkmark.icloud")
+                        .accessibilityLabel(Text("In Readest"))
+                }
             }
             .font(.footnote)
             .foregroundStyle(.secondaryText)

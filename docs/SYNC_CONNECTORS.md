@@ -30,6 +30,16 @@ flush never sends an entry to a service it was not made for. Running several con
 supported: it would need one queue per connector and a merge policy across services, for a use case nobody
 has asked for (KOReader and Readest already talk to each other).
 
+### Libraries are not part of the connector model
+
+Connectors sync **reading positions** only. Readest also has a cloud **library** (book rows plus files); the
+iPhone shows it in the Library (browse, download, upload, delete; see READEST_SYNC.md, "Library and files"),
+outside the connector protocol and independent of which books the watch syncs. KOReader Sync has no library
+concept: the server stores positions keyed by the file's partial MD5 for every book that is opened, and knows
+nothing else about the book (no title, no file, no list). So there is no "in KOReader Sync" badge in the
+Library: with KOSync every local book syncs its position, and the cloud symbols (`checkmark.icloud`,
+`icloud.and.arrow.down`) only ever mean Readest.
+
 ### Staleness and conflicts
 
 - Entries that waited more than `staleCheckAge` (60 s) are compared with the server first: when another

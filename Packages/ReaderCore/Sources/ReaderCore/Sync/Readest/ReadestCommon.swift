@@ -39,6 +39,11 @@ public enum ReadestError: Error, Equatable {
     case notFound
     case server(status: Int, message: String?)
     case invalidResponse
+    /// `POST /api/storage/upload` answered 403 "Insufficient storage quota" (`usage` = bytes used before this
+    /// upload, when the server says).
+    case quotaExceeded(usage: Int64?)
+    /// 413 "File too large", or a presigned upload the storage refused for its size.
+    case fileTooLarge
 }
 
 extension ReadestError: SyncErrorClassifying {
@@ -47,7 +52,7 @@ extension ReadestError: SyncErrorClassifying {
         case .offline, .rateLimited: return .transient
         case .server(let s, _): return s >= 500 ? .transient : .permanent
         case .unauthorized, .notSignedIn, .invalidCredentials: return .unauthorized
-        case .notFound, .invalidResponse: return .permanent
+        case .notFound, .invalidResponse, .quotaExceeded, .fileTooLarge: return .permanent
         }
     }
 }

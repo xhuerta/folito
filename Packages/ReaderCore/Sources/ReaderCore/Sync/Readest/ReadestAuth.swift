@@ -25,14 +25,14 @@ public struct ReadestSession: Codable, Sendable, Equatable {
         self.email = email
     }
 
-    func jsonString() -> String {
+    public func jsonString() -> String {
         let enc = JSONEncoder()
         enc.dateEncodingStrategy = .secondsSince1970
         enc.outputFormatting = [.sortedKeys]
         return String(decoding: (try? enc.encode(self)) ?? Data(), as: UTF8.self)
     }
 
-    init?(jsonString: String) {
+    public init?(jsonString: String) {
         let dec = JSONDecoder()
         dec.dateDecodingStrategy = .secondsSince1970
         guard let s = try? dec.decode(ReadestSession.self, from: Data(jsonString.utf8)) else { return nil }

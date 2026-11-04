@@ -65,7 +65,8 @@ advertising and no data broker, so *Tracking* stays **No**.
    * **Identifiers › Device ID** (the random UUID the app generates on first launch and sends to a KOReader
      Sync server; not a hardware, vendor or advertising identifier);
    * **User Content › Other User Content** (book identifiers, which are hashes of the file and of its title,
-     authors and identifier, and reading positions).
+     authors and identifier, and reading positions; with Readest also the EPUB files the user uploads to their
+     own Readest account, and the title and author in that book's library row).
 
    Leave everything else unticked. Previous builds declared *Search History* for online word lookups; make
    sure it is not ticked, lookups are offline now.
@@ -88,6 +89,11 @@ advertising and no data broker, so *Tracking* stays **No**.
   sign-in on the iPhone, to Readest's Supabase auth (`vbsyxfusjjqdxkjqlysc.supabase.co`); then only session
   tokens. To `web.readest.com`: book hash and metadata hash, reading position (XPointer, paragraph number and
   count, time reached). No device ID. The password is never stored. Only one sync service is active at a time.
+  Readest library on the iPhone: the list of the account's books is read, covers and EPUB files are downloaded
+  when the user taps them, and an EPUB file with its title, author and hashes is uploaded **only** when the user
+  chooses *Upload to Readest* or turns on *Upload Imported Books Automatically* (off by default). Files go to the
+  user's own Readest storage (presigned URLs on Readest's storage host). Already covered by **Other User Content**
+  (linked, App Functionality, not tracking): no new data type and no change to the privacy manifests.
 * **Dictionaries**: downloaded on the iPhone from `www.reader-dict.com` only when the user taps Download or
   Update (plus a HEAD update check while *Settings › Dictionaries* is open). Lookups run on the watch offline.
 * **Between the user's own devices** (WatchConnectivity): books, dictionaries, typography and the active sync

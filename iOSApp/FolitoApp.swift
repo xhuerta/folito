@@ -7,7 +7,9 @@ struct FolitoApp: App {
     // builds always use the real library. See UITestingSupport.swift.
     @StateObject private var library = UITesting.makeLibrary()
     @StateObject private var connectivity = PhoneConnectivity()
-    @StateObject private var settings = SyncSettings()
+    @StateObject private var settings = UITesting.makeSyncSettings()
+    // Readest books in the Library (browse, download, upload); see docs/READEST_SYNC.md.
+    @State private var readest = UITesting.makeReadestLibrary()
     @StateObject private var typography = TypographyModel()
     @StateObject private var dictionaries = UITesting.makeDictionaryManager()
     // Welcome tour: opens by itself on the first launch (UI-testing launches skip it unless asked; see
@@ -28,9 +30,11 @@ struct FolitoApp: App {
                     .tabItem { Label("Settings", systemImage: "gear") }
             }
             .environment(\.showWelcomeTour, ShowWelcomeTourAction { onboarding.show() })
+            .environment(readest)
             .fullScreenCover(isPresented: $onboarding.isPresented) {
                 OnboardingView(model: onboarding, library: library, connectivity: connectivity,
                                settings: settings, dictionaries: dictionaries)
+                    .environment(readest)
             }
             .onOpenURL { url in
                 if url.isFileURL { library.importEPUB(from: url) }
@@ -45,6 +49,7 @@ struct FolitoApp: App {
     private func wire() {
         library.onImported = { entry in
             sendToWatch(entry) // auto-send
+            readest.autoUploadIfNeeded(entry, from: library) // opt-in, off by default
             Announcer.announce(String(localized: "Imported “\(entry.title)”.",
                                       comment: "VoiceOver announcement after an import; the placeholder is the book title"))
         }
@@ -57,8 +62,16 @@ struct FolitoApp: App {
         connectivity.unsentBooksProvider = { library.unsentBooks }
         connectivity.onWatchLibrary = { library.reconcile(watchHashes: $0, inFlight: connectivity.outstandingHashes) }
         connectivity.clearedStampProvider = { settings.clearedStamp }
-        settings.onSave = { _ in connectivity.syncWatchState() }
-        settings.onTurnOff = { connectivity.syncWatchState() }
+        settings.onSave = { _ in
+            connectivity.syncWatchState()
+            configureReadest()
+            Task { await readest.refresh() }
+        }
+        settings.onTurnOff = {
+            connectivity.syncWatchState()
+            configureReadest()
+        }
+        configureReadest()
         // Typography: edits on the phone are pushed with their stamp; the watch's copy wins if newer.
         connectivity.typographyProvider = { typography.value }
         connectivity.onWatchTypography = { typography.applyRemote($0) }
@@ -72,6 +85,10 @@ struct FolitoApp: App {
         }
         dictionaries.onDeleted = { connectivity.sendDeleteDictionary(id: $0) }
         connectivity.activate()
+    }
+
+    private func configureReadest() {
+        readest.configure(store: settings.libraryCredentialStore, readestActive: settings.isReadestActive)
     }
 
     private func sendToWatch(_ entry: LibraryEntry) {

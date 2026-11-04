@@ -195,6 +195,49 @@ jobs:
             onboarding-uitests.log
           if-no-files-found: ignore
 
+      # Readest library UI tests (iOSApp/UITests/ReadestLibraryUITests.swift, mocked Readest account): cloud-only rows,
+      # download in progress, context menus, filter, offline, settings. Exported as the readest-library-screenshots artifact.
+      - name: Readest library UI tests
+        if: matrix.platform == 'ios'
+        run: |
+          set -o pipefail
+          rm -rf readest-uitests.xcresult
+          xcodebuild test-without-building $XCB_FLAGS \
+            -scheme ${{ matrix.scheme }} \
+            -destination "id=$UDID" \
+            -only-testing:FolitoUITests/ReadestLibraryUITests \
+            -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
+            -resultBundlePath readest-uitests.xcresult 2>&1 | tee readest-uitests.log
+
+      - name: Export Readest library screenshots
+        if: always() && matrix.platform == 'ios'
+        run: |
+          [ -d readest-uitests.xcresult ] || exit 0
+          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:" readest-uitests.log || true
+          mkdir -p readest-library-screenshots
+          xcrun xcresulttool export attachments --path readest-uitests.xcresult --output-path readest-library-screenshots || true
+          python3 - <<'PY' || true
+          import json, pathlib
+          out = pathlib.Path("readest-library-screenshots")
+          for test in json.loads((out / "manifest.json").read_text()):
+              for a in test.get("attachments", []):
+                  src, name = out / a["exportedFileName"], a.get("suggestedHumanReadableName", "")
+                  if src.exists() and name:
+                      stem = name.rsplit(".", 1)[0].split("_")[0] if name.count("_") >= 2 else name.rsplit(".", 1)[0]
+                      src.rename(out / (stem + src.suffix))
+          PY
+          ls readest-library-screenshots
+
+      - name: Upload Readest library screenshots
+        if: always() && matrix.platform == 'ios'
+        uses: actions/upload-artifact@v4
+        with:
+          name: readest-library-screenshots
+          path: |
+            readest-library-screenshots
+            readest-uitests.log
+          if-no-files-found: ignore
+
       - name: Test summary
         if: always()
         run: |

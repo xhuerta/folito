@@ -51,4 +51,52 @@ final class ReadestIntegrationTests: XCTestCase {
         try await again.authorize()
         await factory.signOut(credentials: store.load()!, session: .shared)
     }
+
+    /// Library round trip with a real, tiny EPUB (the English sample book): list, upload, find it listed,
+    /// download it byte for byte, then delete it from Readest (files and row) and check it is gone. The
+    /// deletion runs even when an assertion fails, so the test account is left as it was.
+    func testLibraryUploadListDownloadDelete() async throws {
+        let factory = ReadestConnectorFactory()
+        let creds = try await factory.signIn(fields: form, session: .shared)
+        let store = InMemoryCredentialStore(creds)
+        let auth = ReadestAuth(session: .shared, store: store)
+        let client = ReadestLibraryClient(auth: auth)
+
+        let epubURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("iOSApp/Resources/SampleBooks/sample-en.epub")
+        let epub = try Data(contentsOf: epubURL)
+        let hash = DocumentIdentity().partialMD5(of: epub)
+
+        let before = try await client.fetchBooks()
+        let existing = before.first { $0.hash == hash }
+        let uploaded = try await client.uploadBook(epub, book: ReadestUploadBook(
+            hash: hash, metaHash: nil, title: "Folito integration test", author: "Folito CI"), existing: existing)
+        var cleanedUp = false
+        do {
+            XCTAssertEqual(uploaded.hash, hash)
+            let listed = try await client.fetchBooks().first { $0.hash == hash }
+            XCTAssertEqual(listed?.isAvailable, true, "uploaded book should be listed with uploaded_at")
+            let url = try await client.bookDownloadURL(hash: hash)
+            XCTAssertNotNil(url)
+            if let url {
+                let back = try await client.get(url)
+                XCTAssertEqual(back, epub, "downloaded file must be byte-identical (same partial MD5)")
+            }
+            let usage = try await client.storageUsage()
+            XCTAssertGreaterThan(usage.quota, 0)
+            XCTAssertGreaterThanOrEqual(usage.usage, Int64(epub.count))
+            try await client.deleteBook(listed ?? uploaded)
+            cleanedUp = true
+            let after = try await client.fetchBooks().first { $0.hash == hash }
+            XCTAssertNotEqual(after?.isAvailable, true, "deleted book must not be listed")
+            let gone = try await client.bookDownloadURL(hash: hash)
+            XCTAssertNil(gone, "file must be removed from storage")
+        } catch {
+            if !cleanedUp { try? await client.deleteBook(uploaded) }
+            await factory.signOut(credentials: store.load()!, session: .shared)
+            throw error
+        }
+        await factory.signOut(credentials: store.load()!, session: .shared)
+    }
 }

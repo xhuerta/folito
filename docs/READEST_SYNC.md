@@ -98,7 +98,8 @@ the server copies `progress` and `updated_at` onto the `books` row (library view
 older.
 
 Other change types exist on the same endpoint (`books`, `notes` = highlights/bookmarks, `statBooks`,
-`statPages` = reading statistics, plus `/storage/*` for files). Folito uses only `configs`.
+`statPages` = reading statistics, plus `/storage/*` for files). Progress sync uses only `configs`; the iPhone
+Library also uses `books` and `/storage/*` (next section).
 
 ### Rate limits
 
@@ -107,6 +108,121 @@ their own limits (sign-in and refresh attempts per IP), answered with 429. Folit
 (backoff), never signs in automatically, refreshes at most once per hour per session, and pushes at most once
 per ~60 s while reading (debounced), on leaving a book and on going to background, which is less traffic than
 the koplugin's 30 s debounce.
+
+## Library and files (iPhone Library)
+
+Research date: 2026-11-04, against readest/readest `main` at `c467307`. Paths relative to that repository.
+
+| What | File |
+|---|---|
+| `books` pull / push and merge | `apps/readest-app/src/pages/api/sync.ts` (`GET`: `queryTables`, `fetchPagedBooks`; `POST`: `upsertRecords('books', ['book_hash'], …)`) |
+| Row shape | `apps/readest-app/src/utils/transform.ts` (`transformBookToDB`, `transformBookFromDB`), `src/types/records.ts` |
+| Upload, download, list, delete, stats | `apps/readest-app/src/pages/api/storage/{upload,download,list,delete,stats}.ts` |
+| Quota | `apps/readest-app/src/utils/access.ts` (`getStoragePlanData`, `STORAGE_QUOTA_GRACE_BYTES` = 10 MB), `src/services/constants.ts` (`DEFAULT_STORAGE_QUOTA`: free 500 MB, plus 5 GB, pro 20 GB) |
+| File keys | `apps/readest-app/src/utils/book.ts` (`getRemoteBookFilename`, `getCoverFilename`), `src/utils/bookFileKey.ts`, `src/services/constants.ts` (`CLOUD_BOOKS_SUBDIR`) |
+| How clients upload and delete | `apps/readest-app/src/services/cloudService.ts` (`uploadBook`, `deleteBook`), `src/libs/storage.ts`, `src/utils/transfer.ts` (`webUpload`: plain `PUT`); `apps/readest.koplugin/library/syncbooks.lua` (`uploadBook`, `uploadAndRecord`, `deleteCloudFiles`, `build_file_key`, `build_cover_key`), `readest-sync-api.json` (`pullBooks`, `getUploadUrl`, `getDownloadUrl`, `listFiles`, `deleteFile`) |
+
+### Listing: `GET /api/sync?since=0&type=books`
+
+Same auth as configs. Returns `{"books": [ …raw `books` rows… ], …}`, snake_case, ISO timestamps: `book_hash`
+(the partial MD5, so a Readest book and a Folito import of the same file have the same id), `meta_hash`,
+`format` (`"EPUB"`, `"PDF"`…), `title`, `author`, `source_title`, `group_id`/`group_name`, `tags`, `progress`
+(array here), `reading_status`, `cover_hash`, `metadata` (JSON **string**), `created_at`, `updated_at`,
+`deleted_at`, **`uploaded_at`**, `synced_at`. Without `limit` the server pages internally (1000 rows a page)
+and returns everything newer than `since` on the server-stamped `synced_at` cursor. A first pull of an empty
+library gets one placeholder row with hash `00000000000000000000000000000000` and `deleted_at` set.
+
+- **Uploaded** = `uploaded_at` is set: the file (and usually `cover.png`) is in Readest's storage. A row without
+  it only syncs progress and has no file; the koplugin hides those (`VISIBLE_BOOK_SQL`), and so does Folito.
+- **Deleted** = `deleted_at` set (a tombstone). Folito shows a Readest book only when `uploaded_at` is set,
+  `deleted_at` is null, the hash is not the placeholder and the format is EPUB.
+
+### Files: `/api/storage/*`
+
+Every route answers 403 `{"error":"Not authenticated"}` for a bad token, like `/sync`.
+
+- **Keys.** A book file is stored at `{user_id}/Readest/Books/{book_hash}/{name}.{ext}`; `{name}` is the hash on
+  S3 deployments and for the koplugin / Calibre plugin, but the (sanitized) title for the Readest app on R2.
+  The cover is always `{user_id}/Readest/Books/{book_hash}/cover.png`. `download` and `delete` resolve any
+  5-segment `…/Readest/Books/{hash}/{anything}.{ext}` key they cannot find by hash and extension
+  (`parseBookFileKey`), so Folito asks for `{user_id}/Readest/Books/{hash}/{hash}.epub` and gets the stored file
+  whatever its name. `user_id` is the Supabase user id from the sign-in response.
+- **Download.** `GET /api/storage/download?fileKey=<key>` → `{"downloadUrl": "<presigned URL, 30 min>"}`, or 404
+  `{"error":"File not found"}`. The file is then fetched with a plain `GET` of that URL (no auth header).
+  (`POST` with `{fileKeys: […]}` returns `{downloadUrls: {key: url}}`.)
+- **Upload.** `POST /api/storage/upload` `{fileName, fileSize, bookHash}` with `fileName` relative to the user
+  (`Readest/Books/{hash}/{hash}.epub`; keys with `..`, `\`, a leading `/` or empty segments get 400 `Invalid fileName`;
+  `fileSize` must be a positive integer). The server inserts the `files` row first (the reservation), then checks
+  the quota, and answers `{uploadUrl, fileKey, usage, quota}`; the client `PUT`s the bytes to `uploadUrl`
+  (presigned, 30 min, no auth header, `Content-Length` = `fileSize`). Re-uploading an existing key is signed with
+  the recorded size and adds nothing to usage.
+- **Marking a book uploaded.** Storage does not touch `books`: after the PUT the client pushes the row with
+  `uploadedAt = updatedAt = now` and `deletedAt = null` (`cloudService.uploadBook`; the koplugin's
+  `uploadAndRecord`). Folito does the same. The cover is a separate upload of `Readest/Books/{hash}/cover.png`;
+  Folito has no cover image of its own and uploads none (the Readest apps show their placeholder).
+- **List.** `GET /api/storage/list?bookHash=<hash>` → `{files: [{file_key, file_size, book_hash, …}], total, page,
+  pageSize, totalPages}` (every file of the book, cover included).
+- **Delete.** `DELETE /api/storage/delete?fileKey=<key>` → 200 `{message}`, 404 when missing. Deleting a book from
+  Readest = delete every listed file, then push the row with `deletedAt = updatedAt = now` and `uploadedAt = null`
+  (koplugin "Remove from Cloud & Device": `deleteCloudFiles` + tombstone push; the app's `deleteBook('both')`).
+  The app also purges per-book replica data with `/storage/purge`; those files carry the same `book_hash`, so
+  the list-then-delete loop removes them too.
+- **Stats.** `GET /api/storage/stats` → `{totalFiles, totalSize, usage, quota, usagePercentage, byBookHash}` (bytes).
+  Folito shows `usage` of `quota` in Settings.
+
+### Pushing a `books` row back
+
+`POST /api/sync {"books": [row], "notes": [], "configs": []}`, camelCase `Book` fields (`hash`, `metaHash`,
+`format`, `title`, `author`, …, timestamps in epoch ms). When the client's `updatedAt` (or `deletedAt`) is newer,
+the server **replaces the row** with what was sent, after grafting its own newer reading status, cover, metadata,
+group and page count (field-level merges in `sync.ts`), and `transformBookToDB` turns every missing field into
+null. So Folito never pushes a partial row: it sends back every field it received (`ReadestCloudBook.wireRow`)
+and changes only `uploadedAt`, `updatedAt` and `deletedAt`. A book Readest has never seen gets the koplugin's
+minimal row (`hash`, `metaHash`, `format: "EPUB"`, `title`, `author`, `createdAt`, `updatedAt`, `uploadedAt`).
+
+### Errors and quota
+
+| Answer | Meaning | Folito |
+|---|---|---|
+| 403 `{"error":"Not authenticated"}` (or 401) | bad / expired token | refresh once, retry |
+| 403 `{"error":"Insufficient storage quota","usage":n}` | upload does not fit (`usage > quota + 10 MB grace`) | `ReadestError.quotaExceeded`: "Your Readest storage is full…" |
+| 403 `{"error":"Unauthorized access to the file"}` | not the user's file | reported as is |
+| 413 `{"error":"File too large"}` | only for public media/temp uploads | `fileTooLarge` |
+| 404 `{"error":"File not found"}` | no such file (download, delete) | download: "Readest no longer has this book's file"; delete: counts as done |
+| 400 `Invalid fileName` / `Invalid fileSize` / `Missing or invalid fileKey` | bad request | `server(400)` |
+| 500 `Could not create presigned post` … | server | `server(500)`, transient |
+| S3/R2 XML error on the presigned PUT/GET (`<Code>…</Code>`) | expired or bad signature | `server(status, code)` |
+
+Quota per plan (`DEFAULT_STORAGE_QUOTA`): free 500 MB, plus 5 GB, pro 20 GB, plus purchased storage. Only book
+files count against it (covers in the public bucket are not metered).
+
+### The iPhone's own session
+
+Supabase refresh tokens rotate and are single use, and the watch owns the sync session (see "Who refreshes the
+session"). The Library therefore signs in a **second time** with the same email and password when the user signs
+in on the iPhone (one extra password grant), and keeps that session only in the iPhone Keychain
+(`readest_library_session`, not part of the connector's `storageKeys`, never sent to the watch). The iPhone
+refreshes it itself. Sign Out (or switching services) revokes both sessions (`logout?scope=local`). Users who
+signed in before this feature have no library session: the Library asks them to sign out and in again.
+
+### What the iPhone does
+
+- **Browse.** The Library merges local books with the account's available rows by hash (`LibraryMerge`):
+  local-only, local and in Readest (`checkmark.icloud`), Readest-only (cover from `cover.png`, `icloud.and.arrow.down`).
+  The last list and the covers are cached for offline use.
+- **Download** = presigned GET, then the normal import pipeline: the bytes are the same file, so the partial MD5
+  and therefore the progress-sync row match exactly. The book is then sent to the watch as usual. Readest-only
+  books are never sent to the watch.
+- **Upload** (explicit, or the opt-in "Upload Imported Books Automatically") sends the original EPUB, which the
+  iPhone keeps next to the converted book since this feature (books imported earlier must be imported again).
+- **Remove Download** deletes the iPhone and watch copies only; nothing is sent to Readest.
+- **Delete from Readest** = list + delete files + tombstone, after an explicit confirmation.
+
+### Terms
+
+The Terms of Service and Privacy Policy (re-read 2026-11-04) have no clause against third-party clients using
+the storage API with the user's own account; uploads count against the user's own quota, and the koplugin and
+Calibre plugin use exactly these endpoints. No blocker.
 
 ## Progress mapping
 
@@ -177,5 +293,9 @@ Both are sent; the server ORs them on pull.
   which reimplements the `sync.ts` merge rules.
 - `ReadestIntegrationTests` (live): skipped unless `READEST_TEST_EMAIL` and `READEST_TEST_PASSWORD` are set.
   CI runs it in the Linux workflow (`readest-integration` job) when the repository secrets of the same names
-  exist. It writes one config row for the fake book hash `f0111070000000000000000000000001`, so use a
-  dedicated test account. Credentials are never printed.
+  exist. It writes one config row for the fake book hash `f0111070000000000000000000000001`, and the library test
+  uploads the English sample book (`iOSApp/Resources/SampleBooks/sample-en.epub`, ~25 KB), lists it, downloads it
+  byte for byte, reads the storage stats and deletes it again (files and row, also when an assertion fails), so
+  use a dedicated test account. Credentials are never printed.
+- `ReadestLibraryTests` (unit, Linux): request building for every library and storage call, row parsing and the
+  lossless push-back, quota/error mapping, and the merge of local and Readest books with the filter.

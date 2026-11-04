@@ -53,7 +53,7 @@ enum SyncText {
     static func privacyFooter(_ d: SyncConnectorDescriptor) -> String {
         switch d.id {
         case ReadestConnectorFactory.id:
-            return String(localized: "Folito never stores your Readest password: it signs in once and keeps only the session, in the iPhone Keychain and, once sent, in your Apple Watch’s Keychain. Your email, each book’s identifiers (file and metadata hashes) and your reading position are sent to Readest’s servers.",
+            return String(localized: "Folito never stores your Readest password: it signs in once and keeps only the sessions, one for this iPhone’s Library and one in your Apple Watch’s Keychain for sync. Your email, each book’s identifiers (file and metadata hashes) and your reading position are sent to Readest’s servers. Book files are uploaded to your Readest account only when you upload a book or turn on automatic upload.",
                           comment: "Privacy note at the bottom of the sync screen when Readest is selected")
         default:
             return String(localized: "The password is stored in the iPhone Keychain. Once you turn sync on, it is also sent to your paired Apple Watch and stored in the watch’s own Keychain, so the watch can sync on its own. Use a password you don’t use anywhere else; KOReader Sync only sends its MD5 hash.",
@@ -67,6 +67,7 @@ struct SyncSettingsView: View {
     @ObservedObject var settings: SyncSettings
     @State private var confirmTurnOff = false
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(ReadestLibraryModel.self) private var readest: ReadestLibraryModel?
 
     var body: some View {
         Form {
@@ -111,6 +112,10 @@ struct SyncSettingsView: View {
 
             if let factory = settings.selectedFactory {
                 connectorSections(factory)
+            }
+
+            if settings.isSignedInToSelected, settings.selectedConnectorID == ReadestConnectorFactory.id, let readest {
+                ReadestLibrarySection(readest: readest)
             }
 
             if let status = settings.status {
@@ -215,6 +220,43 @@ struct SyncSettingsView: View {
             }
             .disabled(settings.isBusy)
         }
+    }
+}
+
+/// Readest: the Library's automatic upload (off by default) and the account's storage, when the API reports it.
+private struct ReadestLibrarySection: View {
+    @Bindable var readest: ReadestLibraryModel
+
+    var body: some View {
+        Section {
+            if readest.isAvailable {
+                Toggle("Upload Imported Books Automatically", isOn: $readest.autoUpload)
+                    .accessibilityIdentifier("readestAutoUpload")
+                if let usage = readest.usage {
+                    VStack(alignment: .leading, spacing: 6) {
+                        LabeledContent("Readest Storage") {
+                            Text("\(DisplayFormat.fileSize(Int(clamping: usage.usage))) of \(DisplayFormat.fileSize(Int(clamping: usage.quota)))",
+                                 comment: "Storage used of the Readest quota, e.g. 120 MB of 500 MB")
+                                .foregroundStyle(.secondaryText)
+                        }
+                        ProgressView(value: usage.fraction)
+                            .accessibilityHidden(true)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+            }
+        } header: {
+            Text("Readest Library").foregroundStyle(.secondaryText)
+        } footer: {
+            if readest.isAvailable {
+                Text("When this is on, books you import are also uploaded to your Readest account, so your other Readest apps can open them. You can always upload a single book from its menu in the Library.")
+                    .foregroundStyle(.secondaryText)
+            } else {
+                Text("To see your Readest library on this iPhone, sign out and sign in again.")
+                    .foregroundStyle(.secondaryText)
+            }
+        }
+        .task { await readest.refreshUsage() }
     }
 }
 

@@ -131,6 +131,8 @@ struct UserFacingError: Equatable, Identifiable {
         case .notFound, .invalidResponse:
             return String(localized: "Readest sent a response Folito couldn’t understand. Try again later.",
                           comment: "Readest sync error: unexpected response")
+        case .quotaExceeded, .fileTooLarge:
+            return readestLibraryMessage(for: error)
         }
     }
 
