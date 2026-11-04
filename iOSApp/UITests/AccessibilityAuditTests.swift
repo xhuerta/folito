@@ -454,10 +454,4 @@ final class AccessibilityAuditTests: XCTestCase {
     }
 
     @MainActor func testReadingProbeQ0() throws { try probeReading("Q0") }
-    @MainActor func testReadingProbeQ1() throws { try probeReading("Q1") }
-    @MainActor func testReadingProbeQ2() throws { try probeReading("Q2") }
-    @MainActor func testReadingProbeQ3() throws { try probeReading("Q3") }
-    @MainActor func testReadingProbeQ4() throws { try probeReading("Q4") }
-    @MainActor func testReadingProbeQ5() throws { try probeReading("Q5") }
-    @MainActor func testReadingProbeQ6() throws { try probeReading("Q6") }
 }

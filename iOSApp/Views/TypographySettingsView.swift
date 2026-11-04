@@ -5,10 +5,10 @@ import ReaderCore
 /// Changes are pushed to the watch through the settings channel (see docs/WATCH_CONNECTIVITY.md).
 struct TypographySettingsView: View {
     @ObservedObject var typography: TypographyModel
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    /// Narrowest preset button. Scales with the text, so the grid goes from several columns to one as the text
+    /// grows, without switching layouts at a fixed size (see `optionRow`).
+    @ScaledMetric(relativeTo: .body) private var presetMinimumWidth: CGFloat = 130
     @State private var confirmReset = false
-    // PROBE (temporary): layout variant chosen by the UI test (-AXProbe <name>).
-    private let probe = UserDefaults.standard.string(forKey: "AXProbe") ?? ""
 
     var body: some View {
         Form {
@@ -30,10 +30,8 @@ struct TypographySettingsView: View {
             Section {
                 // A grid, not a horizontal scroll view: every preset stays fully on screen (a half-visible button
                 // at the edge is unreadable), and at accessibility sizes the presets stack in one column.
-                let columns = dynamicTypeSize.isAccessibilitySize
-                    ? [GridItem(.flexible())]
-                    : [GridItem(.adaptive(minimum: 130), spacing: 8)]
-                LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: presetMinimumWidth), spacing: 8)],
+                          alignment: .leading, spacing: 8) {
                     ForEach(ReaderTypography.Preset.allCases, id: \.self) { preset in
                         Button {
                             typography.apply(preset)
@@ -53,13 +51,10 @@ struct TypographySettingsView: View {
                 Text("Presets").foregroundStyle(.secondaryText)
             }
             Section {
-                if probe == "Q2" { adaptivePicker("Alignment", selection: typography.binding(\.alignment),
-                               options: ReaderTypography.Alignment.allCases) { ReadingSettingsText.name($0) } } else { adaptivePicker("Font", selection: typography.binding(\.fontFamily),
-                               options: ReaderTypography.FontFamily.allCases) { ReadingSettingsText.name($0) } }
-                if probe != "Q1" {
+                optionRow("Font", selection: typography.binding(\.fontFamily),
+                          options: ReaderTypography.FontFamily.allCases) { ReadingSettingsText.name($0) }
                 slider("Size", typography.binding(\.fontSize), ReaderTypography.fontSizeRange, 1) {
                     DisplayFormat.points($0)
-                }
                 }
                 Toggle("Bold Text", isOn: typography.binding(\.boldText))
                 slider("Headings", typography.binding(\.headingScale), ReaderTypography.headingScaleRange, 0.25) {
@@ -69,7 +64,7 @@ struct TypographySettingsView: View {
                     DisplayFormat.signedPoints($0)
                 }
             } header: {
-                Text(probe == "Q6" ? "Text" : "Font").foregroundStyle(.secondaryText)
+                Text("Font").foregroundStyle(.secondaryText)
             }
             Section {
                 slider("Line Spacing", typography.binding(\.lineSpacing), ReaderTypography.lineSpacingRange, 1) {
@@ -81,9 +76,8 @@ struct TypographySettingsView: View {
                 slider("Margins", typography.binding(\.horizontalMargin), ReaderTypography.horizontalMarginRange, 2) {
                     DisplayFormat.points($0)
                 }
-                if probe == "Q2" { adaptivePicker("Font", selection: typography.binding(\.fontFamily),
-                               options: ReaderTypography.FontFamily.allCases) { ReadingSettingsText.name($0) } } else { adaptivePicker("Alignment", selection: typography.binding(\.alignment),
-                               options: ReaderTypography.Alignment.allCases) { ReadingSettingsText.name($0) } }
+                optionRow("Alignment", selection: typography.binding(\.alignment),
+                          options: ReaderTypography.Alignment.allCases) { ReadingSettingsText.name($0) }
             } header: {
                 Text("Layout").foregroundStyle(.secondaryText)
             }
@@ -111,43 +105,23 @@ struct TypographySettingsView: View {
         }
     }
 
-    /// Segmented control at normal text sizes. At accessibility sizes a row like Settings' rows (title and current
-    /// value in a `LabeledContent`, which stacks them) that pushes a list of the options: segments would
-    /// truncate, the system pushed-list picker squeezes the title next to the value until it clips, and a menu's
-    /// label did not scale fully (the audit flagged "Font" at AX5 in all three).
-    @ViewBuilder
-    private func adaptivePicker<Value: Hashable>(_ title: LocalizedStringKey, selection: Binding<Value>,
-                                                 options: [Value], name: @escaping (Value) -> String) -> some View {
-        if dynamicTypeSize.isAccessibilitySize && probe == "Q4" {
-            NavigationLink {
-                OptionList(title: title, selection: selection, options: options, name: name)
-            } label: {
-                VStack(alignment: .leading) {
-                    Text(title)
-                    Text(name(selection.wrappedValue)).foregroundStyle(.secondaryText)
-                }
-            }
-        } else if dynamicTypeSize.isAccessibilitySize && probe == "Q5" {
+    /// A row like Settings' rows (title and current value in a `LabeledContent`, stacked at accessibility sizes)
+    /// that pushes a list of the options, at every text size. Not a segmented control at normal sizes that turns
+    /// into this row at accessibility sizes: the accessibility audit changes the text size while it checks the
+    /// screen, so a layout that switches at a fixed size is replaced under it, and the four font segments
+    /// truncate "System" at the larger sizes (it reported "Text clipped" and "Dynamic Type font sizes are
+    /// partially unsupported" on Font and System at AX5, docs/ACCESSIBILITY.md). The system pushed-list picker
+    /// squeezes the title next to the value until it clips, and a menu's label did not scale fully.
+    private func optionRow<Value: Hashable>(_ title: LocalizedStringKey, selection: Binding<Value>,
+                                            options: [Value], name: @escaping (Value) -> String) -> some View {
+        NavigationLink {
+            OptionList(title: title, selection: selection, options: options, name: name)
+        } label: {
             LabeledContent {
                 Text(name(selection.wrappedValue)).foregroundStyle(.secondaryText)
             } label: {
                 Text(title)
             }
-        } else if dynamicTypeSize.isAccessibilitySize {
-            NavigationLink {
-                OptionList(title: title, selection: selection, options: options, name: name)
-            } label: {
-                LabeledContent {
-                    Text(name(selection.wrappedValue)).foregroundStyle(.secondaryText)
-                } label: {
-                    Text(title)
-                }
-            }
-        } else {
-            Picker(title, selection: selection) {
-                ForEach(options, id: \.self) { Text(name($0)).tag($0) }
-            }
-            .pickerStyle(.segmented)
         }
     }
 
@@ -158,10 +132,6 @@ struct TypographySettingsView: View {
     private func slider(_ title: LocalizedStringKey, _ value: Binding<Double>, _ range: ClosedRange<Double>,
                         _ step: Double, _ format: @escaping (Double) -> String) -> some View {
         VStack(alignment: .leading) {
-            if probe == "Q3" && dynamicTypeSize.isAccessibilitySize {
-                Text(title)
-                Text(format(value.wrappedValue)).foregroundStyle(.secondaryText)
-            } else {
             ViewThatFits(in: .horizontal) {
                 HStack {
                     Text(title)
@@ -173,7 +143,6 @@ struct TypographySettingsView: View {
                     Text(format(value.wrappedValue)).foregroundStyle(.secondaryText)
                 }
             }
-            }
             Slider(value: value, in: range, step: step) {
                 Text(title)
             }
@@ -182,8 +151,8 @@ struct TypographySettingsView: View {
     }
 }
 
-/// The options of one reading setting, chosen with a checkmark (pushed from `adaptivePicker` at accessibility
-/// sizes). Choosing an option goes back.
+/// The options of one reading setting, chosen with a checkmark (pushed from `optionRow`). Choosing an option
+/// goes back.
 private struct OptionList<Value: Hashable>: View {
     let title: LocalizedStringKey
     @Binding var selection: Value
