@@ -37,7 +37,7 @@ enum ReadingSettingsText {
         case .system: return String(localized: "System", comment: "Reader font: San Francisco")
         case .serif: return String(localized: "Serif", comment: "Reader font: New York")
         case .rounded: return String(localized: "Rounded", comment: "Reader font: SF Rounded")
-        case .monospaced: return String(localized: "Mono", comment: "Reader font: SF Mono (short, fits a segmented control)")
+        case .monospaced: return String(localized: "Mono", comment: "Reader font: SF Mono (short label)")
         }
     }
 

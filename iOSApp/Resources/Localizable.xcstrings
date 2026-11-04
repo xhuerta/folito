@@ -2048,7 +2048,7 @@
       }
     },
     "Mono" : {
-      "comment" : "Reader font: SF Mono (short, fits a segmented control)",
+      "comment" : "Reader font: SF Mono (short label)",
       "localizations" : {
         "de" : {
           "stringUnit" : {
