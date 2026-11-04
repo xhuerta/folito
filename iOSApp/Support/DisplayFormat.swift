@@ -75,7 +75,9 @@ enum ReadingSettingsText {
         return String(localized: "\(font), \(size), \(theme)", locale: locale,
                       comment: "Accessibility value of the reading preview: font, size, colour theme")
     }
+}
 
+extension DisplayFormat {
     /// Reading time left in a book as estimated by the watch, e.g. "3 hr, 20 min left" (`.full` for VoiceOver:
     /// "3 hours, 20 minutes left"). Rounded like the watch (`ReadingTimeEstimator.displayMinutes`).
     static func timeLeft(_ seconds: TimeInterval, style: DateComponentsFormatter.UnitsStyle = .short,
