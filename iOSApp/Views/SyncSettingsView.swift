@@ -114,9 +114,7 @@ struct SyncSettingsView: View {
                 connectorSections(factory)
             }
 
-            if settings.isSignedInToSelected, settings.selectedConnectorID == ReadestConnectorFactory.id, let readest {
-                ReadestLibrarySection(readest: readest)
-            }
+            readestLibrarySection
 
             if let status = settings.status {
                 Section {
@@ -157,6 +155,14 @@ struct SyncSettingsView: View {
         }
         .onChange(of: settings.status) { _, status in
             if let status { Announcer.announce(status.text) }
+        }
+    }
+
+    /// Readest only, while signed in: automatic upload and storage (see `ReadestLibrarySection`).
+    @ViewBuilder
+    private var readestLibrarySection: some View {
+        if settings.isSignedInToSelected, settings.selectedConnectorID == ReadestConnectorFactory.id, let readest {
+            ReadestLibrarySection(readest: readest)
         }
     }
 

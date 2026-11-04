@@ -31,108 +31,134 @@ struct LibraryView: View {
     }
 
     var body: some View {
+        withDeletePresentations(withPresentations(
+            bookList
+            .readableScrollEdges()
+            .navigationTitle("Library")
+            .refreshable {
+                connectivity.syncWatchState()
+                await readest?.refresh()
+            }
+            .task { await readest?.refreshIfStale() }
+            .toolbar { toolbarContent }
+        ))
+    }
+
+    private var bookList: some View {
         let all = items
         let shown = all.filter { filter.includes($0.availability) }
-        List {
+        return List {
             WatchStatusSection(status: connectivity.status)
             if all.isEmpty {
-                Section {
-                    ContentUnavailableView {
-                        Label("No Books", systemImage: "books.vertical")
-                    } description: {
-                        Text("Import an EPUB file to read it on your Apple Watch. You can also open EPUB files from the Files app or the share sheet. Books are sent to your watch automatically.").foregroundStyle(.secondaryText)
-                    } actions: {
-                        // Borderless: in a List row, plain buttons all fire on a tap anywhere in the row.
-                        Button { showImporter = true } label: { Text("Import EPUB").minimumHitArea() }
-                            .buttonStyle(.borderless)
-                            .disabled(library.isImporting)
-                        // A bundled public-domain book, imported like any other (see SampleBooks).
-                        Button { library.addSample(language: SampleBooks.preferredLanguage) } label: { Text("Add a Sample Book").minimumHitArea() }
-                            .buttonStyle(.borderless)
-                            .disabled(library.isImporting)
-                            .accessibilityIdentifier("libraryAddSample")
-                        Button {
-                            showOtherSamples = true
-                        } label: {
-                            Text("Other Languages…", comment: "Button: choose a sample book in another language")
-                                .minimumHitArea()
-                        }
-                        .buttonStyle(.borderless)
-                        .disabled(library.isImporting)
-                        .accessibilityHint("Shows the sample books in every language.")
-                        .accessibilityIdentifier("libraryOtherSamples")
-                    }
-                }
+                emptyLibrarySection
             } else if shown.isEmpty {
-                Section {
-                    ContentUnavailableView {
-                        if filter == .inReadest {
-                            Label("No Books in Readest", systemImage: "icloud")
-                        } else {
-                            Label("No Books on This iPhone", systemImage: "iphone")
-                        }
-                    } description: {
-                        if filter == .inReadest {
-                            Text("Upload a book from its menu to keep it in your Readest library.").foregroundStyle(.secondaryText)
-                        } else {
-                            Text("Download a book from Readest, or import an EPUB file.").foregroundStyle(.secondaryText)
-                        }
-                    }
-                }
+                emptyFilterSection
             } else {
-                Section {
-                    ForEach(shown) { item in
-                        if let entry = item.local {
-                            row(entry, cloud: item.cloud)
-                        } else if let book = item.cloud {
-                            cloudRow(book)
-                        }
-                    }
-                } header: {
-                    Text("Books").foregroundStyle(.secondaryText)
-                } footer: {
-                    ReadestFooter(readest: readest, hasCloudOnly: shown.contains { $0.availability == .readestOnly })
-                }
+                booksSection(shown)
             }
             if all.isEmpty, let readest, readest.needsSignIn || readest.refreshError != nil {
                 Section {} footer: { ReadestFooter(readest: readest, hasCloudOnly: false) }
             }
         }
-        .readableScrollEdges()
-        .navigationTitle("Library")
-        .refreshable {
-            connectivity.syncWatchState()
-            await readest?.refresh()
-        }
-        .task { await readest?.refreshIfStale() }
-        .toolbar {
-            if let readest, readest.isAvailable {
-                ToolbarItem(placement: .topBarLeading) {
-                    Menu {
-                        Picker("Show", selection: $filterRaw) {
-                            Label("All", systemImage: "books.vertical").tag(LibraryFilter.all.rawValue)
-                            Label("On This iPhone", systemImage: "iphone").tag(LibraryFilter.onThisDevice.rawValue)
-                            Label("In Readest", systemImage: "icloud").tag(LibraryFilter.inReadest.rawValue)
-                        }
-                    } label: {
-                        Label("Filter", systemImage: filter == .all ? "line.3.horizontal.decrease.circle"
-                                                                    : "line.3.horizontal.decrease.circle.fill")
-                    }
-                    .accessibilityValue(filterName)
-                    .accessibilityIdentifier("libraryFilterMenu")
+    }
+
+    private var emptyLibrarySection: some View {
+        Section {
+            ContentUnavailableView {
+                Label("No Books", systemImage: "books.vertical")
+            } description: {
+                Text("Import an EPUB file to read it on your Apple Watch. You can also open EPUB files from the Files app or the share sheet. Books are sent to your watch automatically.").foregroundStyle(.secondaryText)
+            } actions: {
+                // Borderless: in a List row, plain buttons all fire on a tap anywhere in the row.
+                Button { showImporter = true } label: { Text("Import EPUB").minimumHitArea() }
+                    .buttonStyle(.borderless)
+                    .disabled(library.isImporting)
+                // A bundled public-domain book, imported like any other (see SampleBooks).
+                Button { library.addSample(language: SampleBooks.preferredLanguage) } label: { Text("Add a Sample Book").minimumHitArea() }
+                    .buttonStyle(.borderless)
+                    .disabled(library.isImporting)
+                    .accessibilityIdentifier("libraryAddSample")
+                Button {
+                    showOtherSamples = true
+                } label: {
+                    Text("Other Languages…", comment: "Button: choose a sample book in another language")
+                        .minimumHitArea()
                 }
+                .buttonStyle(.borderless)
+                .disabled(library.isImporting)
+                .accessibilityHint("Shows the sample books in every language.")
+                .accessibilityIdentifier("libraryOtherSamples")
             }
-            ToolbarItem(placement: .topBarTrailing) {
-                if library.isImporting {
-                    ProgressView()
-                        .accessibilityLabel("Importing book")
+        }
+    }
+
+    private var emptyFilterSection: some View {
+        Section {
+            ContentUnavailableView {
+                if filter == .inReadest {
+                    Label("No Books in Readest", systemImage: "icloud")
                 } else {
-                    Button { showImporter = true } label: {
-                        Label("Import EPUB", systemImage: "plus")
-                    }
+                    Label("No Books on This iPhone", systemImage: "iphone")
+                }
+            } description: {
+                if filter == .inReadest {
+                    Text("Upload a book from its menu to keep it in your Readest library.").foregroundStyle(.secondaryText)
+                } else {
+                    Text("Download a book from Readest, or import an EPUB file.").foregroundStyle(.secondaryText)
                 }
             }
         }
+    }
+
+    private func booksSection(_ shown: [MergedLibraryItem<LibraryEntry>]) -> some View {
+        Section {
+            ForEach(shown) { item in
+                if let entry = item.local {
+                    row(entry, cloud: item.cloud)
+                } else if let book = item.cloud {
+                    cloudRow(book)
+                }
+            }
+        } header: {
+            Text("Books").foregroundStyle(.secondaryText)
+        } footer: {
+            ReadestFooter(readest: readest, hasCloudOnly: shown.contains { $0.availability == .readestOnly })
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        if let readest, readest.isAvailable {
+            ToolbarItem(placement: .topBarLeading) {
+                Menu {
+                    Picker("Show", selection: $filterRaw) {
+                        Label("All", systemImage: "books.vertical").tag(LibraryFilter.all.rawValue)
+                        Label("On This iPhone", systemImage: "iphone").tag(LibraryFilter.onThisDevice.rawValue)
+                        Label("In Readest", systemImage: "icloud").tag(LibraryFilter.inReadest.rawValue)
+                    }
+                } label: {
+                    Label("Filter", systemImage: filter == .all ? "line.3.horizontal.decrease.circle"
+                                                                : "line.3.horizontal.decrease.circle.fill")
+                }
+                .accessibilityValue(filterName)
+                .accessibilityIdentifier("libraryFilterMenu")
+            }
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+            if library.isImporting {
+                ProgressView()
+                    .accessibilityLabel("Importing book")
+            } else {
+                Button { showImporter = true } label: {
+                    Label("Import EPUB", systemImage: "plus")
+                }
+            }
+        }
+    }
+
+    /// Sheets, the file importer, alerts and confirmation dialogs of the Library.
+    private func withPresentations<Content: View>(_ content: Content) -> some View {
+        content
         .sheet(isPresented: $showOtherSamples) {
             SampleBookPicker(library: library) { _ = library.addSample(language: $0) }
         }
@@ -158,6 +184,11 @@ struct LibraryView: View {
         } message: { error in
             Text(error.message)
         }
+    }
+
+    /// The delete confirmations (this iPhone only, Readest too, and the explicit Readest confirmation).
+    private func withDeletePresentations<Content: View>(_ content: Content) -> some View {
+        content
         .confirmationDialog(deleteTitle(pendingDelete), isPresented: Binding(get: { pendingDelete != nil },
                                                                              set: { if !$0 { pendingDelete = nil } }),
                             titleVisibility: .visible, presenting: pendingDelete) { entry in
@@ -294,38 +325,50 @@ struct LibraryView: View {
     private func cloudRow(_ book: ReadestCloudBook) -> some View {
         let progress = readest?.downloads[book.hash]
         let offline = readest?.isOffline == true
-        return Button { download(book) } label: {
+        let button = Button { download(book) } label: {
             CloudBookRow(book: book, cover: readest?.covers[book.hash], progress: progress, offline: offline)
         }
         .disabled(progress != nil)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(verbatim: "\(book.title), \(book.author)"))
-        .accessibilityValue(cloudStatus(progress: progress, offline: offline))
-        .accessibilityHint(progress == nil && !offline ? Text("Double-tap to download.") : Text(verbatim: ""))
-        .accessibilityAddTraits(.isButton)
-        .accessibilityIdentifier("libraryCloudRow")
-        .accessibilityActions {
-            if progress == nil { Button("Download") { download(book) } }
-            Button("Delete from Readest") { pendingReadestDelete = book }
-        }
-        .swipeActions(edge: .trailing) {
-            Button { pendingReadestDelete = book } label: { Label("Delete", systemImage: "trash") }
-                .tint(.red)
-        }
-        .swipeActions(edge: .leading) {
-            if progress == nil {
-                Button { download(book) } label: { Label("Download", systemImage: "icloud.and.arrow.down") }
-                    .tint(.blue)
+        return cloudRowActions(cloudRowAccessibility(button, book: book, progress: progress, offline: offline),
+                               book: book, downloading: progress != nil)
+    }
+
+    private func cloudRowAccessibility<Content: View>(_ content: Content, book: ReadestCloudBook,
+                                                      progress: Double?, offline: Bool) -> some View {
+        let hint = progress == nil && !offline ? Text("Double-tap to download.") : Text(verbatim: "")
+        return content
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(verbatim: "\(book.title), \(book.author)"))
+            .accessibilityValue(cloudStatus(progress: progress, offline: offline))
+            .accessibilityHint(hint)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityIdentifier("libraryCloudRow")
+    }
+
+    private func cloudRowActions<Content: View>(_ content: Content, book: ReadestCloudBook, downloading: Bool) -> some View {
+        content
+            .accessibilityActions {
+                if !downloading { Button("Download") { download(book) } }
+                Button("Delete from Readest") { pendingReadestDelete = book }
             }
-        }
-        .contextMenu {
-            if progress == nil {
-                Button { download(book) } label: { Label("Download", systemImage: "icloud.and.arrow.down") }
+            .swipeActions(edge: .trailing) {
+                Button { pendingReadestDelete = book } label: { Label("Delete", systemImage: "trash") }
+                    .tint(.red)
             }
-            Button(role: .destructive) { pendingReadestDelete = book } label: {
-                Label("Delete from Readest", systemImage: "trash")
+            .swipeActions(edge: .leading) {
+                if !downloading {
+                    Button { download(book) } label: { Label("Download", systemImage: "icloud.and.arrow.down") }
+                        .tint(.blue)
+                }
             }
-        }
+            .contextMenu {
+                if !downloading {
+                    Button { download(book) } label: { Label("Download", systemImage: "icloud.and.arrow.down") }
+                }
+                Button(role: .destructive) { pendingReadestDelete = book } label: {
+                    Label("Delete from Readest", systemImage: "trash")
+                }
+            }
     }
 
     private func cloudStatus(progress: Double?, offline: Bool) -> String {
