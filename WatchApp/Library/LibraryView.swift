@@ -5,9 +5,10 @@ struct LibraryView: View {
     @EnvironmentObject private var library: BookLibrary
     /// Book waiting for the user to confirm its deletion.
     @State private var pendingDelete: LibraryEntry?
+    @State private var path = NavigationPath()
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             Group {
                 if library.entries.isEmpty {
                     ScrollView {
@@ -57,8 +58,27 @@ struct LibraryView: View {
             } message: { _ in
                 Text("Its reading position on this watch is removed too. You can send the book again from your iPhone.")
             }
-            .onAppear { library.reloadProgress() }
+            .onAppear {
+                library.reloadProgress()
+                consumeDeepLink()
+            }
+            .onChange(of: env.deepLink) { _ in consumeDeepLink() }
         }
+    }
+
+    private func consumeDeepLink() {
+        guard let request = env.deepLink else { return }
+        env.deepLink = nil
+        open(request.link)
+    }
+
+    /// Complication tap: the book at its saved position (a fresh reader), or the library itself.
+    private func open(_ link: FolitoDeepLink) {
+        var newPath = NavigationPath()
+        if case .book(let id) = link, let entry = library.entries.first(where: { $0.documentHash == id }) {
+            newPath.append(entry)
+        }
+        path = newPath
     }
 
     private var deleteTitle: Text {
@@ -149,7 +169,7 @@ struct ReaderLoaderView: View {
             do {
                 let box = try await library.loadBook(entry)
                 model = ReaderViewModel(book: box.book, positions: env.positions, sync: sync,
-                                        dictionary: env.dictionary)
+                                        dictionary: env.dictionary, complications: env.complications)
             } catch {
                 failure = WatchMessages.bookOpenFailure(error)
             }

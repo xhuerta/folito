@@ -29,6 +29,7 @@ ROOT = Path(__file__).resolve().parent.parent
 TARGETS = {
     "Folito": "iOSApp/Resources/Localizable.xcstrings",
     "FolitoWatch": "WatchApp/Resources/Localizable.xcstrings",
+    "FolitoWatchWidgets": "WatchWidgets/Resources/Localizable.xcstrings",
 }
 
 TARGET_RE = re.compile(r"/([^/]+)\.build/Objects-normal/")

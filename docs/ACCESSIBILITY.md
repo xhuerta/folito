@@ -261,6 +261,15 @@ concatenated; percentages and numbers use `FormatStyle` (`ReadingProgressFormat`
 unfinished book never shows 100%). ReaderCore's English option titles are not shown on the watch
 (`localizedName` in `WatchApp/Logic/WatchStrings.swift`).
 
+**Complications and Smart Stack** (`WidgetShared/ComplicationViews.swift`, `WatchWidgets/`). Each family is
+one VoiceOver element: "Folito, 45% of Pride and Prejudice" (VoiceOver says "45 percent"); the rectangular
+family adds the chapter as its value; with no book in progress it reads "Folito, start reading". System fonts
+and SF Symbols only (`book.fill`, `book.closed`), so the system sizes them per watch and face. On a tinted
+face only the gauge and the symbol are `widgetAccentable`; the text stays white. Title and chapter are
+`privacySensitive`: on a locked watch (and in the VoiceOver label) only the percentage remains. With the wrist
+down (Always On) the accent colour is dimmed. All strings are localized in the 8 languages, in both the watch
+app's and the extension's catalogs.
+
 ### Tests
 
 - ReaderCore (`swift test`, also on Linux): `ReaderAccessibilityTests`: contrast of every palette,
@@ -269,6 +278,9 @@ unfinished book never shows 100%). ReaderCore's English option titles are not sh
 - Watch (`WatchApp/Tests/AccessibilityTests.swift`): percent formatting, error-message mapping, the
   adjustable word cursor and its haptics (spy), accessibility-aware render styles and the style cache.
 - Watch UI tests (`FolitoWatchUITests`, `WatchApp/UITests/`): see *Automated checks* below.
+- Complications (`WatchApp/Tests/ComplicationTests.swift`): VoiceOver labels (with and without redaction),
+  inline text shortening; `ComplicationSnapshotTests` renders default, tinted, redacted and Always On images of
+  every family (CI artifact `complication-screenshots`) for visual review.
 
 ### Automated checks
 
@@ -349,6 +361,11 @@ largest size check that the library, Settings, menus and the word picker scroll 
 
 **Always On:** lower the wrist while reading (or Xcode's watch simulator: Device › Always On): the page
 dims, sepia turns dark, the sync glyph disappears, and raising the wrist keeps the same paragraph.
+
+**Complications:** add Folito to a face (circular, corner, inline, rectangular) and to the Smart Stack. With
+VoiceOver, each reads "Folito, n% of <title>"; lock the watch (wrist off) and check that the title disappears
+and only the percentage stays; pick a tinted face and check the gauge takes the tint. Tap each: the book
+opens at its position (or the library, from "Start reading").
 
 **Accessibility Inspector** (Xcode › Open Developer Tool) can inspect the watch simulator: check labels,
 values and traits of the elements above and run *Audit* on each screen.

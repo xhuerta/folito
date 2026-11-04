@@ -29,12 +29,16 @@ final class ReaderViewModel: ObservableObject {
     private let positions: PositionStore
     private let sync: SyncCoordinator
     private let resolver: XPointerResolving
+    /// Complications / Smart Stack snapshot writer; nil in previews and most tests.
+    private let complications: ComplicationPublisher?
     let dictionary: DictionaryProviding
 
     init(book: ProcessedBook, positions: PositionStore, sync: SyncCoordinator,
          resolver: XPointerResolving = XPointerResolver(),
-         dictionary: DictionaryProviding = MockDictionaryProvider.sample) {
+         dictionary: DictionaryProviding = MockDictionaryProvider.sample,
+         complications: ComplicationPublisher? = nil) {
         self.book = book
+        self.complications = complications
         self.dictionary = dictionary
         let flat = FlatBook(book)
         self.flat = flat
@@ -96,6 +100,31 @@ final class ReaderViewModel: ObservableObject {
         guard let pos = flat.position(at: currentIndex) else { return }
         positions.save(StoredPosition(position: pos, percentage: flat.percentage(at: currentIndex)),
                        for: documentHash)
+        publishComplication(force: false)
+    }
+
+    // MARK: Complications
+
+    /// What the complications show for the current position.
+    var complicationSnapshot: ReadingSnapshot {
+        let chapter = flat.chapterRefIndex(containing: currentIndex).map { flat.chapterRefs[$0].title }
+        return ReadingSnapshot(bookID: documentHash, title: title, chapterTitle: chapter,
+                               fraction: flat.percentage(at: currentIndex),
+                               minutesLeft: minutesLeftInChapter())
+    }
+
+    /// Estimated minutes left in the current chapter, shown by the rectangular complication / Smart Stack.
+    ///
+    /// PLUG-IN POINT for the time-remaining estimator (branch feat/time-remaining): return its estimate for
+    /// the rest of the chapter containing `currentIndex`. This is the only place the complications get it from;
+    /// nil hides the line.
+    func minutesLeftInChapter() -> Int? {
+        nil
+    }
+
+    private func publishComplication(force: Bool) {
+        guard !flat.isEmpty else { return }
+        complications?.publish(complicationSnapshot, force: force)
     }
 
     /// Suppresses position updates while the scroll view settles after a programmatic scroll.
@@ -113,6 +142,8 @@ final class ReaderViewModel: ObservableObject {
     func restoreInitialPosition() {
         beginRestore()
         jumpRequest = JumpRequest(index: startIndex)
+        // The opened book becomes the one the complications show.
+        publishComplication(force: false)
     }
 
     func jump(to index: Int) {
@@ -168,5 +199,7 @@ final class ReaderViewModel: ObservableObject {
     func leave() {
         restoreTask?.cancel()
         reportProgress(immediately: true)
+        // Closing the book: always refresh the complications with the final position.
+        publishComplication(force: true)
     }
 }

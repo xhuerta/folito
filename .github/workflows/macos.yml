@@ -195,6 +195,43 @@ jobs:
             onboarding-uitests.log
           if-no-files-found: ignore
 
+      # Complication / Smart Stack images rendered by WatchApp/Tests/ComplicationSnapshotTests.swift (every family:
+      # default, tinted, redacted, Always On, placeholder, plus a contact sheet), exported from the watch test
+      # results as the complication-screenshots artifact for design review.
+      - name: Export complication screenshots
+        if: always() && matrix.platform == 'watch'
+        run: |
+          [ -d watch-tests.xcresult ] || exit 0
+          mkdir -p complication-screenshots
+          xcrun xcresulttool export attachments --path watch-tests.xcresult --output-path complication-screenshots \
+            --test-id "ComplicationSnapshotTests/testRenderAllFamilies()" || \
+            xcrun xcresulttool export attachments --path watch-tests.xcresult --output-path complication-screenshots || true
+          python3 - <<'PY' || true
+          import json, pathlib
+          out = pathlib.Path("complication-screenshots")
+          for test in json.loads((out / "manifest.json").read_text()):
+              for a in test.get("attachments", []):
+                  src, name = out / a["exportedFileName"], a.get("suggestedHumanReadableName", "")
+                  if not src.exists():
+                      continue
+                  if "ComplicationSnapshotTests" not in test.get("testIdentifier", "ComplicationSnapshotTests"):
+                      src.unlink()
+                      continue
+                  if name:
+                      stem = name.rsplit(".", 1)[0].split("_")[0] if name.count("_") >= 2 else name.rsplit(".", 1)[0]
+                      src.rename(out / (stem + src.suffix))
+          PY
+          ls complication-screenshots
+          ls complication-screenshots/*.png >/dev/null 2>&1 || echo "::warning::no complication screenshots were exported"
+
+      - name: Upload complication screenshots
+        if: always() && matrix.platform == 'watch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: complication-screenshots
+          path: complication-screenshots
+          if-no-files-found: ignore
+
       - name: Test summary
         if: always()
         run: |

@@ -96,13 +96,15 @@ Not sent: any looked-up word, book title, author, text, position, account data o
 | Readest email and session (access + refresh token) | Keychain (iPhone and watch; the watch updates its copy when the session is refreshed) | No password. Removed on Sign Out. |
 | Library (processed EPUBs) | `Application Support/Folito/Books` (iPhone), watch app's Application Support | Files the user imports; never uploaded. |
 | Reading position, typography, device UUID, pending sync queue | UserDefaults | |
+| Complication snapshot (book id, title, chapter title, percentage, optional minutes left) | watch: App Group UserDefaults (`group.<bundle id>`, key `complication.snapshot`), shared only with the watch app's own widget extension | Written by the watch app, read by the complications. Never leaves the watch. Cleared when the book is deleted or on Settings › Reset. |
 | Offline dictionaries | `Application Support/Folito/Dictionaries` (iPhone and watch) | Downloaded/converted files; deleted from *Settings › Dictionaries* on the iPhone (removes them from the watch too). Download validators (ETag) and checksums in UserDefaults. |
 
-## 3. Privacy manifest declarations (`iOSApp/PrivacyInfo.xcprivacy`, `WatchApp/PrivacyInfo.xcprivacy`)
+## 3. Privacy manifest declarations (`iOSApp/PrivacyInfo.xcprivacy`, `WatchApp/PrivacyInfo.xcprivacy`, `WatchWidgets/PrivacyInfo.xcprivacy`)
 
 - `NSPrivacyTracking` = false, `NSPrivacyTrackingDomains` = empty. The app does not track.
 - Required-reason APIs actually used: **UserDefaults** only, reason `CA92.1` (read/write the app's own
-  preferences, not shared with other apps). Audited and **not used**: file timestamp APIs (`creationDate`,
+  preferences, not shared with other apps). The watch app and its widget extension also declare `1C8F.1`
+  (the complication snapshot in their shared App Group); the extension collects no data types. Audited and **not used**: file timestamp APIs (`creationDate`,
   `modificationDate`, `stat`, `getattrlist`...; the code only copies, writes and deletes files), disk space
   APIs, system boot time (`systemUptime`, `mach_absolute_time`), active keyboard APIs. Re-check if code that
   uses these is added.

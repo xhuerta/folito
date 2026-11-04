@@ -13,6 +13,8 @@ struct FolitoWatchApp: App {
                 .environmentObject(env.sync)
                 .environmentObject(env.typography)
                 .preferredColorScheme(.dark)
+                // Complication taps (widgetURL): open the book at its position, or the library.
+                .onOpenURL { env.handle(url: $0) }
                 .task {
                     env.start()
                     // Foreground retry timer for progress that could not be pushed earlier.
