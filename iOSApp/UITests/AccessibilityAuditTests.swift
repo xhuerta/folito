@@ -393,45 +393,71 @@ final class AccessibilityAuditTests: XCTestCase {
 
     // MARK: PROBE (temporary)
 
+    /// Audits the Font and Alignment rows of Reading at AX5 with each row held mid-screen (scrolled without
+    /// momentum), twice each, so a finding does not depend on where a page boundary happens to fall.
     @MainActor
     private func probeReading(_ variant: String) throws {
-        Self.output("PROBE variant=\(variant) start")
         let app = launch(largestText: true, extraArguments: ["-AXProbe", variant])
         app.tabBars.buttons["Reading"].tap()
         XCTAssertTrue(app.navigationBars["Reading"].waitForExistence(timeout: 5))
-        var page = 0
-        try forEachPage(of: app) {
-            Self.probeDump(app, variant: variant, page: page)
-            for type in [XCUIAccessibilityAuditType.textClipped] {
-                let result = try audit(app, type)
-                for line in result.failures { Self.output("PROBE variant=\(variant) page=\(page) finding: \(line)") }
+        for target in ["Font", "Alignment"] {
+            guard let frame = Self.probeCenter(target, in: app) else {
+                Self.output("PROBE v=\(variant) row=\(target) NOT FOUND"); continue
             }
-            page += 1
+            Self.output("PROBE v=\(variant) row=\(target) rowFrame=\(frame.integral)")
+            Self.probeDump(app, variant: variant, target: target)
+            for attempt in 0..<2 {
+                for type in [XCUIAccessibilityAuditType.textClipped, .dynamicType] {
+                    let result = try audit(app, type)
+                    for line in result.failures {
+                        Self.output("PROBE v=\(variant) row=\(target) try=\(attempt) finding: \(line.prefix(260))")
+                    }
+                }
+            }
+            Self.output("PROBE v=\(variant) row=\(target) done")
         }
-        Self.output("PROBE variant=\(variant) end")
+    }
+
+    /// Frame of the row button whose label starts with `title`, after moving it to about 300 pt from the top.
+    @MainActor
+    private static func probeCenter(_ title: String, in app: XCUIApplication) -> CGRect? {
+        let window = app.windows.firstMatch
+        for _ in 0..<12 {
+            guard let root = try? app.snapshot() else { return nil }
+            let rows = snapshotElements(root, of: [.button, .cell, .other, .staticText])
+                .filter { $0.label == title || $0.label.hasPrefix(title + ",") }
+                .filter { $0.frame.height > 70 }
+            let row = rows.first { $0.elementType == .button } ?? rows.first
+            let target: CGFloat = 300
+            let y = row?.frame.minY ?? 2000
+            if row != nil, abs(y - target) < 40 { return row!.frame }
+            let delta = max(-400, min(400, y - target))
+            let start = window.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5))
+            let end = start.withOffset(CGVector(dx: 0, dy: -delta))
+            start.press(forDuration: 0.1, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.5)
+        }
+        return nil
     }
 
     @MainActor
-    private static func probeDump(_ app: XCUIApplication, variant: String, page: Int) {
+    private static func probeDump(_ app: XCUIApplication, variant: String, target: String) {
         guard let root = try? app.snapshot() else { return }
-        let wanted: Set<String> = ["Font", "System", "Serif", "Alignment", "Left", "Leading", "Bold Text", "Theme"]
-        func walk(_ node: XCUIElementSnapshot, _ path: [String]) {
-            let me = "\(node.elementType.rawValue)[\(node.label)]\(node.frame.integral)"
-            if wanted.contains(node.label) || (node.elementType == .cell && node.children.contains { wanted.contains($0.label) }) {
-                output("PROBE variant=\(variant) page=\(page) \(me) path=\(path.suffix(4).joined(separator: " > "))")
+        func walk(_ node: XCUIElementSnapshot, _ depth: Int, _ inRow: Bool) {
+            let hit = inRow || node.label.hasPrefix(target + ",") || node.label.hasPrefix("Size") || node.label == "Bold Text"
+            if hit {
+                output("PROBE v=\(variant) row=\(target) d=\(depth) \(node.elementType.rawValue)[\(node.label)] \(node.frame.integral) "
+                    + "ph=\(node.placeholderValue ?? "") v=\(String(describing: node.value ?? ""))")
             }
-            for child in node.children { walk(child, path + [me]) }
+            for child in node.children { walk(child, depth + 1, hit) }
         }
-        walk(root, [])
+        walk(root, 0, false)
     }
 
-    @MainActor func testReadingProbeP0() throws { try probeReading("P0") }
-    @MainActor func testReadingProbeP1() throws { try probeReading("P1") }
-    @MainActor func testReadingProbeP2() throws { try probeReading("P2") }
-    @MainActor func testReadingProbeP3() throws { try probeReading("P3") }
-    @MainActor func testReadingProbeP4() throws { try probeReading("P4") }
-    @MainActor func testReadingProbeP5() throws { try probeReading("P5") }
-    @MainActor func testReadingProbeP6() throws { try probeReading("P6") }
-    @MainActor func testReadingProbeP7() throws { try probeReading("P7") }
-    @MainActor func testReadingProbeP8() throws { try probeReading("P8") }
+    @MainActor func testReadingProbeQ0() throws { try probeReading("Q0") }
+    @MainActor func testReadingProbeQ1() throws { try probeReading("Q1") }
+    @MainActor func testReadingProbeQ2() throws { try probeReading("Q2") }
+    @MainActor func testReadingProbeQ3() throws { try probeReading("Q3") }
+    @MainActor func testReadingProbeQ4() throws { try probeReading("Q4") }
+    @MainActor func testReadingProbeQ5() throws { try probeReading("Q5") }
+    @MainActor func testReadingProbeQ6() throws { try probeReading("Q6") }
 }

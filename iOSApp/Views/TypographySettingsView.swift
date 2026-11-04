@@ -12,7 +12,6 @@ struct TypographySettingsView: View {
 
     var body: some View {
         Form {
-            if probe != "P6" {
             Section {
                 // Content, not chrome: rendered at the reader's own font size and theme colours, at roughly
                 // the width of a 45 mm watch screen, exactly as the watch shows it.
@@ -28,8 +27,6 @@ struct TypographySettingsView: View {
             } header: {
                 Text("Preview").foregroundStyle(.secondaryText)
             }
-            }
-            if probe != "P3" {
             Section {
                 // A grid, not a horizontal scroll view: every preset stays fully on screen (a half-visible button
                 // at the edge is unreadable), and at accessibility sizes the presets stack in one column.
@@ -55,20 +52,14 @@ struct TypographySettingsView: View {
             } header: {
                 Text("Presets").foregroundStyle(.secondaryText)
             }
-            }
-            if probe == "P7" {
-                Section {
-                    adaptivePicker("Font", selection: typography.binding(\.fontFamily),
-                                   options: ReaderTypography.FontFamily.allCases) { ReadingSettingsText.name($0) }
-                }
-            }
             Section {
-                if probe != "P2" && probe != "P7" {
-                adaptivePicker("Font", selection: typography.binding(\.fontFamily),
-                               options: ReaderTypography.FontFamily.allCases) { ReadingSettingsText.name($0) }
-                }
+                if probe == "Q2" { adaptivePicker("Alignment", selection: typography.binding(\.alignment),
+                               options: ReaderTypography.Alignment.allCases) { ReadingSettingsText.name($0) } } else { adaptivePicker("Font", selection: typography.binding(\.fontFamily),
+                               options: ReaderTypography.FontFamily.allCases) { ReadingSettingsText.name($0) } }
+                if probe != "Q1" {
                 slider("Size", typography.binding(\.fontSize), ReaderTypography.fontSizeRange, 1) {
                     DisplayFormat.points($0)
+                }
                 }
                 Toggle("Bold Text", isOn: typography.binding(\.boldText))
                 slider("Headings", typography.binding(\.headingScale), ReaderTypography.headingScaleRange, 0.25) {
@@ -77,12 +68,8 @@ struct TypographySettingsView: View {
                 slider("Letter Spacing", typography.binding(\.tracking), ReaderTypography.trackingRange, 0.25) {
                     DisplayFormat.signedPoints($0)
                 }
-                if probe == "P2" {
-                    adaptivePicker("Font", selection: typography.binding(\.fontFamily),
-                                   options: ReaderTypography.FontFamily.allCases) { ReadingSettingsText.name($0) }
-                }
             } header: {
-                Text("Font").foregroundStyle(.secondaryText)
+                Text(probe == "Q6" ? "Text" : "Font").foregroundStyle(.secondaryText)
             }
             Section {
                 slider("Line Spacing", typography.binding(\.lineSpacing), ReaderTypography.lineSpacingRange, 1) {
@@ -94,8 +81,9 @@ struct TypographySettingsView: View {
                 slider("Margins", typography.binding(\.horizontalMargin), ReaderTypography.horizontalMarginRange, 2) {
                     DisplayFormat.points($0)
                 }
-                adaptivePicker("Alignment", selection: typography.binding(\.alignment),
-                               options: ReaderTypography.Alignment.allCases) { ReadingSettingsText.name($0) }
+                if probe == "Q2" { adaptivePicker("Font", selection: typography.binding(\.fontFamily),
+                               options: ReaderTypography.FontFamily.allCases) { ReadingSettingsText.name($0) } } else { adaptivePicker("Alignment", selection: typography.binding(\.alignment),
+                               options: ReaderTypography.Alignment.allCases) { ReadingSettingsText.name($0) } }
             } header: {
                 Text("Layout").foregroundStyle(.secondaryText)
             }
@@ -130,7 +118,7 @@ struct TypographySettingsView: View {
     @ViewBuilder
     private func adaptivePicker<Value: Hashable>(_ title: LocalizedStringKey, selection: Binding<Value>,
                                                  options: [Value], name: @escaping (Value) -> String) -> some View {
-        if dynamicTypeSize.isAccessibilitySize && probe == "P1" {
+        if dynamicTypeSize.isAccessibilitySize && probe == "Q4" {
             NavigationLink {
                 OptionList(title: title, selection: selection, options: options, name: name)
             } label: {
@@ -139,24 +127,7 @@ struct TypographySettingsView: View {
                     Text(name(selection.wrappedValue)).foregroundStyle(.secondaryText)
                 }
             }
-        } else if dynamicTypeSize.isAccessibilitySize && probe == "P4" {
-            NavigationLink {
-                OptionList(title: title, selection: selection, options: options, name: name)
-            } label: {
-                LabeledContent {
-                    Text(name(selection.wrappedValue)).foregroundStyle(.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-                } label: {
-                    Text(title).fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        } else if dynamicTypeSize.isAccessibilitySize && probe == "P5" {
-            Picker(title, selection: selection) {
-                ForEach(options, id: \.self) { Text(name($0)).tag($0) }
-            }
-            .pickerStyle(.navigationLink)
-        } else if dynamicTypeSize.isAccessibilitySize && probe == "P8" {
-            // No NavigationLink: plain LabeledContent row (not tappable), to isolate the link.
+        } else if dynamicTypeSize.isAccessibilitySize && probe == "Q5" {
             LabeledContent {
                 Text(name(selection.wrappedValue)).foregroundStyle(.secondaryText)
             } label: {
@@ -187,6 +158,10 @@ struct TypographySettingsView: View {
     private func slider(_ title: LocalizedStringKey, _ value: Binding<Double>, _ range: ClosedRange<Double>,
                         _ step: Double, _ format: @escaping (Double) -> String) -> some View {
         VStack(alignment: .leading) {
+            if probe == "Q3" && dynamicTypeSize.isAccessibilitySize {
+                Text(title)
+                Text(format(value.wrappedValue)).foregroundStyle(.secondaryText)
+            } else {
             ViewThatFits(in: .horizontal) {
                 HStack {
                     Text(title)
@@ -197,6 +172,7 @@ struct TypographySettingsView: View {
                     Text(title)
                     Text(format(value.wrappedValue)).foregroundStyle(.secondaryText)
                 }
+            }
             }
             Slider(value: value, in: range, step: step) {
                 Text(title)

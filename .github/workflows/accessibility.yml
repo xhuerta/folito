@@ -81,15 +81,13 @@ jobs:
             -scheme Folito \
             -destination "id=$UDID" \
             -only-testing:FolitoUITests/AccessibilityAuditTests/testReadingSettingsAudit \
-            -only-testing:FolitoUITests/AccessibilityAuditTests/testReadingProbeP0 \
-            -only-testing:FolitoUITests/AccessibilityAuditTests/testReadingProbeP1 \
-            -only-testing:FolitoUITests/AccessibilityAuditTests/testReadingProbeP2 \
-            -only-testing:FolitoUITests/AccessibilityAuditTests/testReadingProbeP3 \
-            -only-testing:FolitoUITests/AccessibilityAuditTests/testReadingProbeP4 \
-            -only-testing:FolitoUITests/AccessibilityAuditTests/testReadingProbeP5 \
-            -only-testing:FolitoUITests/AccessibilityAuditTests/testReadingProbeP6 \
-            -only-testing:FolitoUITests/AccessibilityAuditTests/testReadingProbeP7 \
-            -only-testing:FolitoUITests/AccessibilityAuditTests/testReadingProbeP8 \
+            -only-testing:FolitoUITests/AccessibilityAuditTests/testReadingProbeQ0 \
+            -only-testing:FolitoUITests/AccessibilityAuditTests/testReadingProbeQ1 \
+            -only-testing:FolitoUITests/AccessibilityAuditTests/testReadingProbeQ2 \
+            -only-testing:FolitoUITests/AccessibilityAuditTests/testReadingProbeQ3 \
+            -only-testing:FolitoUITests/AccessibilityAuditTests/testReadingProbeQ4 \
+            -only-testing:FolitoUITests/AccessibilityAuditTests/testReadingProbeQ5 \
+            -only-testing:FolitoUITests/AccessibilityAuditTests/testReadingProbeQ6 \
             -clonedSourcePackagesDirPath SourcePackages \
             -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
             -resultBundlePath ios-uitests.xcresult \
