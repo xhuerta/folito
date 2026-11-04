@@ -31,6 +31,8 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
     var dictionariesProvider: (() -> [(id: String, fileURL: URL, sha256: String, size: Int64)])?
     /// Ids of the dictionaries the watch reported (nil until it has reported).
     @Published private(set) var watchDictionaries: Set<String>?
+    /// Reading time left per book hash, as estimated by the watch (empty until it reports any).
+    @Published private(set) var watchTimeRemaining: [String: TimeInterval] = [:]
     /// Ids of dictionary transfers in flight.
     @Published private(set) var outstandingDictionaries: Set<String> = []
     /// When each dictionary transfer was last delivered: the watch installs it and only then lists it, so a
@@ -169,6 +171,9 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
                     self.onWatchLibrary?(hashes)
                 }
                 self.watchDictionaries = WatchSchema.libraryDictionaries(from: session.receivedApplicationContext)
+                if let times = WatchSchema.libraryTimeRemaining(from: session.receivedApplicationContext) {
+                    self.watchTimeRemaining = times
+                }
                 if let typography = TypographySync.decode(from: session.receivedApplicationContext) {
                     self.onWatchTypography?(typography)
                 }
@@ -199,9 +204,11 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
         let hashes = WatchSchema.libraryHashes(from: applicationContext)
         let dictionaries = WatchSchema.libraryDictionaries(from: applicationContext)
         let typography = TypographySync.decode(from: applicationContext)
+        let times = WatchSchema.libraryTimeRemaining(from: applicationContext)
         guard hashes != nil || typography != nil || dictionaries != nil else { return }
         DispatchQueue.main.async {
             if let typography { self.onWatchTypography?(typography) }
+            if let times { self.watchTimeRemaining = times }
             if let hashes { self.onWatchLibrary?(hashes) }
             if let dictionaries { self.watchDictionaries = dictionaries }
             self.syncWatchState()

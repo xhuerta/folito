@@ -39,6 +39,8 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
     static let deleteDictionaryType = "delete_dictionary"
     static let dictionaryIdKey = "dictionaryId"
     static let dictionariesKey = "dictionaries"
+    /// Watch -> phone: estimated seconds left per book (`ReadingTimeRemaining.bookSeconds`), keyed by hash.
+    static let timeRemainingKey = "timeRemaining"
     static let sha256Key = "sha256"
     static let sizeKey = "size"
 
@@ -69,10 +71,18 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
 
     /// Context published to the phone: the hashes of the books stored on the watch.
     /// The watch's typography rides along so the phone can mirror it (last writer wins by stamp).
+    /// `timeRemaining` (seconds left per book) is sent only for books in `hashes`, rounded to whole minutes
+    /// so an unchanged estimate does not produce a new context.
     static func libraryContext(hashes: [String], dictionaries: [String] = [],
-                               typography: ReaderTypography? = nil) -> [String: Any] {
+                               typography: ReaderTypography? = nil,
+                               timeRemaining: [String: ReadingTimeRemaining] = [:]) -> [String: Any] {
         var context: [String: Any] = [typeKey: libraryType, hashesKey: hashes.sorted(),
                                       dictionariesKey: dictionaries.sorted()]
+        var times: [String: Double] = [:]
+        for hash in hashes {
+            if let t = timeRemaining[hash] { times[hash] = Double(ReadingTimeEstimator.displayMinutes(t.bookSeconds) * 60) }
+        }
+        if !times.isEmpty { context[timeRemainingKey] = times }
         if let typography { context.merge(TypographySync.context(for: typography)) { _, new in new } }
         return context
     }
@@ -131,7 +141,8 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
             guard WCSession.isSupported(), session.activationState == .activated else { return }
             let hashes = library.entries.map(\.documentHash)
             try? session.updateApplicationContext(Self.libraryContext(hashes: hashes, dictionaries: dictionaryIds,
-                                                                      typography: typography()))
+                                                                      typography: typography(),
+                                                                      timeRemaining: library.positions.readingTimes.all()))
         }
     }
 

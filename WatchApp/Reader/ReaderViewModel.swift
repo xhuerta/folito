@@ -28,13 +28,31 @@ final class ReaderViewModel: ObservableObject {
 
     private let positions: PositionStore
     private let sync: SyncCoordinator
+    /// Word counts per block for the time-remaining estimate; built off the main actor after opening.
+    @Published private(set) var lengths: BookLengthIndex?
+    private let speeds: ReadingSpeedStore
+    private let times: ReadingTimeStore
+    private var speed: ReadingSpeed
+    private var pageTimer: PageTimer
+    /// Clock for the page timer (injectable for tests).
+    private let now: () -> Date
     private let resolver: XPointerResolving
     let dictionary: DictionaryProviding
 
     init(book: ProcessedBook, positions: PositionStore, sync: SyncCoordinator,
          resolver: XPointerResolving = XPointerResolver(),
-         dictionary: DictionaryProviding = MockDictionaryProvider.sample) {
+         dictionary: DictionaryProviding = MockDictionaryProvider.sample,
+         speeds: ReadingSpeedStore? = nil,
+         times: ReadingTimeStore? = nil,
+         now: @escaping () -> Date = { Date() }) {
         self.book = book
+        // By default next to the positions (same UserDefaults), so Reset and deleting a book clear them too.
+        let speeds = speeds ?? positions.readingSpeed
+        self.speeds = speeds
+        self.times = times ?? positions.readingTimes
+        self.now = now
+        self.speed = speeds.load()
+        self.pageTimer = PageTimer(start: now())
         self.dictionary = dictionary
         let flat = FlatBook(book)
         self.flat = flat
@@ -49,6 +67,16 @@ final class ReaderViewModel: ObservableObject {
         // failed or the user declined the remote offer, that would overwrite real remote progress.
         // Only report once the reader actually moves.
         self.lastReportedIndex = start
+        // Counting the words of a whole book takes a moment on the watch: do it off the main actor.
+        Task.detached(priority: .utility) { [weak self] in
+            let index = BookLengthIndex(book: book)
+            await self?.lengthsReady(index)
+        }
+    }
+
+    private func lengthsReady(_ index: BookLengthIndex) {
+        lengths = index
+        saveTimeRemaining()
     }
 
     var documentHash: String { book.documentHash }
@@ -71,6 +99,7 @@ final class ReaderViewModel: ObservableObject {
 
     func beginLookup(at index: Int) {
         guard !flat.isEmpty else { return }
+        pageTimer.reset(at: now())
         lookupBlockIndex = LookupTarget(index: flat.clamped(index))
     }
 
@@ -78,6 +107,8 @@ final class ReaderViewModel: ObservableObject {
     /// Does not change the saved position.
     func reanchor() {
         guard !flat.isEmpty else { return }
+        // Time in the menu or a lookup is not reading time.
+        pageTimer.reset(at: now())
         beginRestore()
         jumpRequest = JumpRequest(index: currentIndex)
     }
@@ -88,14 +119,42 @@ final class ReaderViewModel: ObservableObject {
     func blockFramesChanged(_ frames: [Int: BlockFrame]) {
         guard !isRestoring, let top = VisibleBlockResolver.topIndex(frames: frames),
               top != currentIndex, top < flat.count else { return }
+        learnSpeed(from: currentIndex, to: top)
         currentIndex = top
         persistCurrent()
+    }
+
+    /// Scrolling forward past blocks feeds the page timer; going back starts a new page without a sample.
+    private func learnSpeed(from old: Int, to new: Int) {
+        let date = now()
+        guard new > old, let lengths else { pageTimer.reset(at: date); return }
+        if let learned = pageTimer.advance(by: lengths.length(from: old, to: new), at: date, speed: speed) {
+            speed = learned
+            speeds.save(learned)
+        }
     }
 
     private func persistCurrent() {
         guard let pos = flat.position(at: currentIndex) else { return }
         positions.save(StoredPosition(position: pos, percentage: flat.percentage(at: currentIndex)),
                        for: documentHash)
+        saveTimeRemaining()
+    }
+
+    // MARK: Time remaining
+
+    /// Time left from the block at the top of the screen; nil until the words are counted or for an empty book.
+    var timeRemaining: ReadingTimeRemaining? {
+        guard let lengths, !flat.isEmpty, lengths.blockCount == flat.count else { return nil }
+        let estimate = ReadingTimeEstimator.estimate(lengths, atBlock: currentIndex, speed: speed)
+        return ReadingTimeRemaining(documentHash: documentHash, bookTitle: title,
+                                    chapterSeconds: estimate.chapter, bookSeconds: estimate.book,
+                                    fractionRead: flat.percentage(at: currentIndex), updatedAt: now())
+    }
+
+    /// Saved with the reading position, for the iPhone library and a future complication (`ReadingTimeStore`).
+    private func saveTimeRemaining() {
+        if let value = timeRemaining { times.save(value) }
     }
 
     /// Suppresses position updates while the scroll view settles after a programmatic scroll.
@@ -118,6 +177,7 @@ final class ReaderViewModel: ObservableObject {
     func jump(to index: Int) {
         let i = flat.clamped(index)
         beginRestore()
+        pageTimer.reset(at: now())
         currentIndex = i
         persistCurrent()
         jumpRequest = JumpRequest(index: i)

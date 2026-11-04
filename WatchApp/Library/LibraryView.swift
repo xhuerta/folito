@@ -57,7 +57,11 @@ struct LibraryView: View {
             } message: { _ in
                 Text("Its reading position on this watch is removed too. You can send the book again from your iPhone.")
             }
-            .onAppear { library.reloadProgress() }
+            .onAppear {
+                library.reloadProgress()
+                // Back from the reader: the iPhone library shows the updated time left (library context).
+                library.onLibraryChanged?()
+            }
         }
     }
 

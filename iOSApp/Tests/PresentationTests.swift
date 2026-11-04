@@ -84,6 +84,8 @@ final class PresentationTests: XCTestCase {
         XCTAssertEqual(DisplayFormat.signedPoints(-1, locale: enUS), "-1.00 pt")
         XCTAssertFalse(DisplayFormat.fileSize(1_500_000, locale: enUS).isEmpty)
         XCTAssertTrue(DisplayFormat.fileSize(1_500_000, locale: enUS).contains("MB"))
+        XCTAssertEqual(DisplayFormat.timeLeft(12 * 60, style: .full, locale: enUS), "12 minutes left")
+        XCTAssertEqual(DisplayFormat.timeLeft(10, locale: enUS), "1 min left")
     }
 
     func testFormattingFollowsLocale() {
