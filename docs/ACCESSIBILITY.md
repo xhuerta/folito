@@ -40,7 +40,10 @@ custom card styles, fonts or colours in the UI chrome.
 
 **Dynamic Type.** No fixed point sizes in UI chrome; only text styles. Layouts that would truncate switch
 at accessibility sizes: the size/state line of library rows stacks vertically (`AnyLayout`), slider
-title/value rows use `ViewThatFits`, and the segmented *Font*/*Alignment* pickers become menus. Multiline
+title/value rows use `ViewThatFits`, and the preset grid's minimum column width is a `@ScaledMetric`, so it
+goes to one column as the text grows. *Font* and *Alignment* in Reading are rows like Settings' rows (title
+and current value in a `LabeledContent`, stacked at accessibility sizes) that push a list of the options, at
+every text size; they are not segmented controls (see "Automated audit" for why). Multiline
 text is never line-limited. The reading preview is content: it intentionally uses the reader's own font
 size (the one sent to the watch) and keeps a fixed watch-like width.
 
@@ -114,6 +117,19 @@ removing the headers only, using the default soft scroll edge, hiding the tab ba
 them (hiding the tab bar or using an inline title only changes which page they appear on). The last Settings
 finding ("partially unsupported", no element) is not attributed; it is covered by the same acceptance.
 
+**Layouts that switch at a fixed text size.** The Dynamic Type and Text clipped audits change the text size
+themselves while they check a screen, even when the app was launched at AX5: frames measured right before an
+audit and in its findings differed by 50–200 pt on Reading (PR #40, CI run on ad6274e, rows held mid-screen
+with `-AXProbe` variants). A view that picks a different layout at `isAccessibilitySize` is replaced under the
+audit. On Reading, *Font* was a segmented control at normal sizes and a pushed-list row at accessibility
+sizes, and the audit reported "Text clipped" and "Dynamic Type font sizes are partially unsupported" on its
+title and value (*Font*, *System*) at AX5: the four font segments truncate *System* at the larger sizes.
+Whether it was reported depended on where a page boundary left the row (main passed on ba11a3e, the PR runs
+failed). *Alignment* (two short segments) was never flagged; the preset buttons, whose grid also switched at
+`isAccessibilitySize`, were flagged once. The fix is a layout that works at every size (one row at every
+size; a scaled grid column width), not an acceptance. Prefer `ViewThatFits` or scaled metrics to a switch on
+`isAccessibilitySize`.
+
 Every finding (accepted or not) is printed in the CI log ("Accessibility audit issue (accepted|FAILS)") with
 its element, frame, the audit's detailed description and, for contrast findings, the contrast measured from
 a screenshot of the element; findings that fail also attach a screenshot to the result bundle.
@@ -139,7 +155,7 @@ Anything else the audit reports fails the test. If a new finding must be accepte
 
 **Dynamic Type** (Settings › Accessibility › Display & Text Size › Larger Text, enable *Larger
 Accessibility Sizes*, drag to the maximum; or Xcode's Environment Overrides): every screen must scroll
-without clipped or overlapping text; Font/Alignment become menus; library rows stack.
+without clipped or overlapping text; the Font/Alignment rows stack their value under the title; library rows stack.
 
 **Contrast and appearance:** turn on Increase Contrast, Reduce Transparency, Bold Text, Smart Invert and
 Dark Mode one at a time and check every screen remains legible (the reading preview keeps its theme colours
