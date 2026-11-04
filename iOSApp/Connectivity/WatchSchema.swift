@@ -21,6 +21,8 @@ enum WatchSchema {
         static let syncCleared = SyncSettingsWire.clearedKey
         static let settingsVersion = SyncSettingsWire.versionKey
         static let hashes = "hashes"
+        /// Watch -> phone (`library` context): estimated seconds left per book hash.
+        static let timeRemaining = "timeRemaining"
         static let dictionaryId = "dictionaryId"
         static let dictionaries = "dictionaries"
         static let sha256 = "sha256"
@@ -133,6 +135,19 @@ enum WatchSchema {
         guard (context[Key.type] as? String) == MessageType.library,
               let list = context[Key.hashes] as? [String] else { return nil }
         return Set(list)
+    }
+
+    /// Seconds of reading left per book that the watch reports in its `library` context (empty when it
+    /// reports none, nil for any other message). Invalid values are dropped.
+    static func libraryTimeRemaining(from context: [String: Any]) -> [String: TimeInterval]? {
+        guard (context[Key.type] as? String) == MessageType.library else { return nil }
+        let raw = context[Key.timeRemaining] as? [String: Any] ?? [:]
+        var result: [String: TimeInterval] = [:]
+        for (hash, value) in raw {
+            let seconds = (value as? Double) ?? (value as? Int).map(Double.init)
+            if let seconds, seconds.isFinite, seconds > 0 { result[hash] = seconds }
+        }
+        return result
     }
 
     static func deleteBook(hash: String) -> [String: Any] {

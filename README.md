@@ -38,7 +38,7 @@ A full reading app, designed for the smallest screen you own.
     <td width="33%" valign="top">
       <img src="docs/readme/books.svg" width="44" height="44" alt=""><br>
       <b>Your books, on your wrist</b><br>
-      Import <code>.epub</code> books on your iPhone (Files, share sheet or the import button); they are sent to your watch, where you read them, offline.
+      Import <code>.epub</code> books on your iPhone (Files, share sheet or the import button); they are sent to your watch, where you read them, offline. The reader estimates the time left in the chapter and the book from your own reading speed.
     </td>
     <td width="33%" valign="top">
       <img src="docs/readme/typography.svg" width="44" height="44" alt=""><br>
@@ -78,7 +78,7 @@ Folito works **without an account and offline** with your own EPUB files. Readin
 - [Architecture](#architecture)
 - [Building](#building) · [Signing](#signing-with-a-free-personal-team) · [Installing](#installing-on-iphone-and-apple-watch)
 - [Progress sync (optional)](#progress-sync-optional)
-- [Typography](#typography) · [Dictionary](#dictionary-word-lookup) · [Importing EPUBs](#importing-epubs) · [Languages](#languages)
+- [Typography](#typography) · [Dictionary](#dictionary-word-lookup) · [Time remaining](#time-remaining) · [Importing EPUBs](#importing-epubs) · [Languages](#languages)
 - [Releasing to TestFlight / App Store](#releasing-to-testflight--app-store-without-a-mac)
 - [Limitations](#limitations) · [Development](#development) · [Documentation](#documentation)
 - [License](#license) · [Third-party components](#third-party-components)
@@ -204,6 +204,16 @@ watchOS doesn't allow selecting text in `Text` or showing the system dictionary,
 - The dictionary of the book's language (`dc:language`) is tried first, then the other installed ones. Lowercase forms, inflected forms listed by the source ("ran" → "run") and simple reductions (plurals, -ed, -ing) are tried.
 - Details (format, pipeline, licences, adding a source): [docs/DICTIONARIES.md](docs/DICTIONARIES.md).
 - Watch settings: *Tap paragraph to look up* and the list of installed dictionaries.
+
+## Time remaining
+
+The watch's *Reading Options* start with an estimate such as "12 min left in chapter · 3 hr, 20 min in book"
+(*Settings › Show Time Remaining* hides it). It counts the words left (Chinese and Japanese by characters) and
+divides by your reading speed: 200 words or 500 characters per minute at first, then learned from the time you
+spend on each page of about 50 words, with a moving average that ignores pages skimmed in under 2 seconds,
+pauses over 5 minutes and implausible speeds. The speed is stored only on the watch. The iPhone library shows
+the time left in each book the watch has opened. `ReadingTimeStore` (ReaderCore) holds the latest estimate per
+book for other watch surfaces.
 
 ## Importing EPUBs
 

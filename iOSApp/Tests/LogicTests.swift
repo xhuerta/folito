@@ -52,6 +52,11 @@ final class LogicTests: XCTestCase {
         XCTAssertEqual(info["settingsStamp"] as? Int, 7)
         XCTAssertEqual(WatchSchema.libraryHashes(from: ["type": "library", "hashes": ["a", "b"]]), ["a", "b"])
         XCTAssertNil(WatchSchema.libraryHashes(from: ["type": "settings"]))
+        XCTAssertEqual(WatchSchema.libraryTimeRemaining(from: ["type": "library", "hashes": ["a"]]), [:])
+        XCTAssertEqual(WatchSchema.libraryTimeRemaining(from: ["type": "library",
+                                                               "timeRemaining": ["a": 600.0, "b": -1.0, "c": 60]]),
+                       ["a": 600, "c": 60])
+        XCTAssertNil(WatchSchema.libraryTimeRemaining(from: ["type": "settings", "timeRemaining": ["a": 600.0]]))
     }
 
     @MainActor

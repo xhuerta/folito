@@ -91,7 +91,9 @@ advertising and no data broker, so *Tracking* stays **No**.
 * **Dictionaries**: downloaded on the iPhone from `www.reader-dict.com` only when the user taps Download or
   Update (plus a HEAD update check while *Settings › Dictionaries* is open). Lookups run on the watch offline.
 * **Between the user's own devices** (WatchConnectivity): books, dictionaries, typography and the active sync
-  credentials. Not a transmission to anyone else.
+  credentials; from the watch, the estimated reading time left per book. Not a transmission to anyone else.
+* **Time remaining**: the reading speed is learned on the watch from the time spent per page and stored only
+  there (UserDefaults); it is never sent over the network, so it adds no data type to the label.
 
 ## Privacy manifests (in the app bundles)
 

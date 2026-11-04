@@ -75,4 +75,22 @@ enum ReadingSettingsText {
         return String(localized: "\(font), \(size), \(theme)", locale: locale,
                       comment: "Accessibility value of the reading preview: font, size, colour theme")
     }
+
+    /// Reading time left in a book as estimated by the watch, e.g. "3 hr, 20 min left" (`.full` for VoiceOver:
+    /// "3 hours, 20 minutes left"). Rounded like the watch (`ReadingTimeEstimator.displayMinutes`).
+    static func timeLeft(_ seconds: TimeInterval, style: DateComponentsFormatter.UnitsStyle = .short,
+                         locale: Locale = .autoupdatingCurrent) -> String {
+        let formatter = DateComponentsFormatter()
+        var calendar = Calendar.current
+        calendar.locale = locale
+        formatter.calendar = calendar
+        formatter.unitsStyle = style
+        formatter.allowedUnits = [.hour, .minute]
+        formatter.maximumUnitCount = 2
+        formatter.zeroFormattingBehavior = .dropAll
+        let minutes = max(ReadingTimeEstimator.displayMinutes(seconds), 1)
+        let duration = formatter.string(from: TimeInterval(minutes * 60)) ?? ""
+        return String(localized: "\(duration) left", locale: locale,
+                      comment: "Library row: estimated reading time left in the book, e.g. '3 hr, 20 min left'")
+    }
 }

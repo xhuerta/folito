@@ -14,6 +14,11 @@ final class PositionStore: @unchecked Sendable {
 
     init(defaults: UserDefaults = .standard) { self.defaults = defaults }
 
+    /// Estimated time left per book, kept next to the positions (same defaults) and removed with them.
+    var readingTimes: ReadingTimeStore { ReadingTimeStore(defaults: defaults) }
+    /// The reading speed learned on this watch.
+    var readingSpeed: ReadingSpeedStore { ReadingSpeedStore(defaults: defaults) }
+
     func load(_ documentHash: String) -> StoredPosition? {
         guard let data = defaults.data(forKey: Self.prefix + documentHash) else { return nil }
         return try? JSONDecoder().decode(StoredPosition.self, from: data)
@@ -26,11 +31,14 @@ final class PositionStore: @unchecked Sendable {
 
     func remove(_ documentHash: String) {
         defaults.removeObject(forKey: Self.prefix + documentHash)
+        readingTimes.remove(documentHash: documentHash)
     }
 
     func removeAll() {
         for key in defaults.dictionaryRepresentation().keys where key.hasPrefix(Self.prefix) {
             defaults.removeObject(forKey: key)
         }
+        readingTimes.removeAll()
+        readingSpeed.reset()
     }
 }
