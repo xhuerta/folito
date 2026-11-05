@@ -83,11 +83,11 @@
 <h2>デバイス上にとどまるもの</h2>
 <div class="card">
 <ul>
-<li><strong>あなたの本</strong>（読み込んだ EPUB ファイル）は、iPhone 上のアプリのストレージで処理および保存され、Apple の WatchConnectivity を介して、ペアリングされたデバイス間で直接 Apple Watch に送信されます。アプリがそれらをアップロードすることはありません。</li>
+<li><strong>あなたの本</strong>（読み込んだ、または Readest からダウンロードした EPUB ファイル）は、iPhone 上のアプリのストレージで処理および保存され（元の EPUB ファイルも保持されます）、Apple の WatchConnectivity を介して、ペアリングされたデバイス間で直接 Apple Watch に送信されます。アプリが本をアップロードするのは、あなた自身の Readest アカウントに、あなたが指示したときだけです（下記参照）。</li>
 <li><strong>読書位置、タイポグラフィ設定、ランダムなデバイス識別子</strong>（下記参照）、および同期がオンの場合は<strong>同期待ちの進捗</strong>が、デバイス上のアプリの設定に保存されます。タイポグラフィ設定は、ペアリングされた Apple Watch にも送信されます。残りの読書時間を見積もるため、Apple Watch はあなたの読書速度も学習して Watch 上に保存します。見積もりはペアリングされた iPhone にも表示されます。</li>
 <li>ダウンロードした<strong>辞書</strong>は iPhone と Apple Watch に保存されます。単語の検索は Apple Watch 上で行われるため、調べた内容がデバイスの外に出ることはありません。辞書は iPhone アプリで削除できます（<em>設定 › 辞書</em>）。</li>
 <li><strong>同期のログイン情報</strong>（サーバアドレス、ユーザ名、パスワード）は、同期をオンにした場合にのみ、iPhone のキーチェーンに保存されます。また、Apple Watch は単独で同期するため、WatchConnectivity を介してペアリングされた Apple Watch にも送信され、Apple Watch 自身のキーチェーンに保存されます。開発者に送信されることはなく、インターネット経由では、あなたが入力した同期サーバにのみ送信されます（次のセクションを参照）。</li>
-<li><strong>Readestのセッション</strong>（同期にReadestを選んだ場合のみ）：Readestのメールアドレスとセッショントークン（Readestのパスワードは保存しません）がiPhoneのキーチェーンに保存され、ペアリングされたApple Watchに送信されて、Watch自身のキーチェーンに保存されます。</li>
+<li><strong>Readestのセッション</strong>（同期にReadestを選んだ場合のみ）：Readestのメールアドレスと2つのセッショントークン（Readestのパスワードは保存しません）がiPhoneのキーチェーンに保存されます。1つはiPhoneのライブラリ用でiPhoneに残り、もう1つは同期用で、ペアリングされたApple Watchに送信されてWatch自身のキーチェーンに保存されます。</li>
 <li>アプリは iCloud を使用しません。アプリを削除すると、そのデバイスからこれらのデータが削除されます。</li>
 </ul>
 </div>
@@ -115,6 +115,7 @@
 <li>その本での読書位置（位置の参照、段落番号と段落数）と、その位置に到達した日時。</li>
 </ul>
 <p>デバイスの識別子はReadestに送信されません。Readestは読書位置をあなたのReadestアカウントに保存し、ReadestアプリとKOReader用Readestプラグインがそれを読み取ります。Readestの<a href="https://readest.com/privacy-policy">プライバシーポリシー</a>と利用規約が適用され、そこに保存されたデータはReadestで管理されます（アプリから削除することはできません）。<em>Settings › Progress Sync</em>の<em>Sign Out</em>で、iPhoneとApple Watchからセッションが削除され、Readestにセッションの終了を求めます。Readestを選ばない場合、Readestには何も送信されません。</p>
+<p><strong>iPhone上のReadestライブラリ。</strong> Readestにサインインしている間、iPhoneのライブラリはReadestアカウント内のブックの一覧（タイトル、著者、ファイルのハッシュ）を読み込み、表紙を表示し、タップしたブックのファイルをダウンロードします。ブックのファイルがReadestアカウントにアップロードされるのは、ブックで<em>Readestにアップロード</em>を選んだときか、<em>読み込んだブックを自動的にアップロード</em>（デフォルトはオフ）をオンにしたときだけです。その場合、ファイルとそのタイトル、著者、ハッシュがReadestのストレージに保存されます。<em>Readestから削除</em>は、確認後にファイルとブックをReadestアカウントから削除します。</p>
 </div>
 </section>
 <section class="group">

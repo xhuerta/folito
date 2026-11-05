@@ -243,8 +243,9 @@ final class SyncSettings: ObservableObject {
         status = nil
         defer { isBusy = false }
         let creds: SyncCredentials
+        let form = fields
         do {
-            creds = try await f.signIn(fields: fields, session: session)
+            creds = try await f.signIn(fields: form, session: session)
         } catch SyncConnectorError.missingFields {
             status = .missingFieldsStatus(for: f.descriptor.id)
             return
@@ -253,6 +254,7 @@ final class SyncSettings: ObservableObject {
             return
         }
         let previous = activeFactory.flatMap { old in activeCredentials.map { (old, $0) } }
+        removeLibrarySession()
         do {
             for key in registry.allStorageKeys { keychain.remove(account: key) }
             for (key, value) in creds.values { try keychain.set(value, account: key) }
@@ -271,6 +273,9 @@ final class SyncSettings: ObservableObject {
             let session = self.session
             let oldFactory = previous.0, oldCreds = previous.1
             Task.detached { await oldFactory.signOut(credentials: oldCreds, session: session) }
+        }
+        if f.descriptor.id == ReadestConnectorFactory.id {
+            await createLibrarySession(form: form)
         }
         if f.descriptor.usesSession {
             fields = f.formValues(from: creds)
@@ -293,6 +298,7 @@ final class SyncSettings: ObservableObject {
             Task.detached { await f.signOut(credentials: creds, session: session) }
         }
         for key in registry.allStorageKeys { keychain.remove(account: key) }
+        removeLibrarySession()
         defaults.set(nextStamp(), forKey: Self.clearedKey)
         defaults.removeObject(forKey: Self.connectorKey)
         activeConnectorID = nil
@@ -306,6 +312,46 @@ final class SyncSettings: ObservableObject {
                                   comment: "Sync status after turning sync off"))
         }
         onTurnOff?()
+    }
+
+    // MARK: Readest library session (iPhone only)
+
+    /// Keychain accounts of the iPhone's own Readest session, used by the Library (browse, download, upload).
+    /// Not in any descriptor's `storageKeys`, so it is never sent to the watch.
+    static let librarySessionAccount = "readest_library_session"
+    static let libraryAuthRequiredAccount = "readest_library_auth_required"
+
+    /// The library session store, when Readest is the active service and this iPhone has its own session.
+    var libraryCredentialStore: SyncCredentialStore? {
+        guard activeConnectorID == ReadestConnectorFactory.id,
+              keychain.get(account: Self.librarySessionAccount) != nil else { return nil }
+        return LibraryKeychainCredentialStore(keychain: keychain)
+    }
+
+    var isReadestActive: Bool { activeConnectorID == ReadestConnectorFactory.id }
+
+    /// A second password grant at sign-in. Supabase refresh tokens rotate and are single use, and the watch owns
+    /// (refreshes) the sync session, so the iPhone needs a session of its own to call Readest. Not fatal: without
+    /// it sync still works and the Library just shows no Readest books.
+    private func createLibrarySession(form: [String: String]) async {
+        let key = ReadestConnectorFactory.Key.self
+        let email = (form[key.email] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let password = form[key.password], !email.isEmpty, !password.isEmpty else { return }
+        let auth = ReadestAuth(session: session, store: InMemoryCredentialStore())
+        guard let s = try? await auth.signIn(email: email, password: password) else { return }
+        LibraryKeychainCredentialStore(keychain: keychain).save(
+            SyncCredentials([ReadestConnectorFactory.Key.session: s.jsonString()]))
+    }
+
+    /// Removes the library session from the Keychain and revokes it (best effort).
+    private func removeLibrarySession() {
+        if let json = keychain.get(account: Self.librarySessionAccount),
+           let s = ReadestSession(jsonString: json) {
+            let session = self.session
+            Task.detached { await ReadestAuth(session: session, store: InMemoryCredentialStore()).revoke(accessToken: s.accessToken) }
+        }
+        keychain.remove(account: Self.librarySessionAccount)
+        keychain.remove(account: Self.libraryAuthRequiredAccount)
     }
 
     /// Checks the login in the form (KOSync). Not offered for session-based connectors: their sign-in
@@ -332,6 +378,30 @@ final class SyncSettings: ObservableObject {
             }
             isBusy = false
         }
+    }
+}
+
+/// `SyncCredentialStore` over the library session's Keychain accounts, so `ReadestAuth` can store rotated tokens.
+struct LibraryKeychainCredentialStore: SyncCredentialStore {
+    let keychain: KeychainStore
+    private typealias Key = ReadestConnectorFactory.Key
+
+    func load() -> SyncCredentials? {
+        guard let s = keychain.get(account: SyncSettings.librarySessionAccount) else { return nil }
+        var values = [Key.session: s]
+        if let r = keychain.get(account: SyncSettings.libraryAuthRequiredAccount) { values[Key.authRequired] = r }
+        return SyncCredentials(values)
+    }
+
+    func save(_ credentials: SyncCredentials?) {
+        guard let c = credentials, let s = c[Key.session] else {
+            keychain.remove(account: SyncSettings.librarySessionAccount)
+            keychain.remove(account: SyncSettings.libraryAuthRequiredAccount)
+            return
+        }
+        try? keychain.set(s, account: SyncSettings.librarySessionAccount)
+        if let r = c[Key.authRequired] { try? keychain.set(r, account: SyncSettings.libraryAuthRequiredAccount) }
+        else { keychain.remove(account: SyncSettings.libraryAuthRequiredAccount) }
     }
 }
 

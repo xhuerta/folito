@@ -56,12 +56,19 @@ accounts). The iPhone signs in once; the watch then syncs and refreshes the sess
 | same | Book identifiers | yes, `bookHash` (KOReader partial MD5 of the file) and `metaHash` (MD5 of title, authors and identifier) | Hashes; title, author and the file are not sent. Note that a metadata hash of a well-known book could be matched by someone who hashes the same metadata. |
 | same | Reading position | yes, `xpointer` (paragraph XPointer), `progress` (`[paragraph number, paragraph count]`) and `updatedAt` (time the position was reached) | Per book. |
 | same | Device name / ID | no | |
+| Readest, `https://web.readest.com/api/sync?type=books` (iPhone Library) | Access token of the iPhone's own library session | yes | Reads the account's book list (titles, authors, hashes, upload state). |
+| Readest, `https://web.readest.com/api/storage/download`, `list`, `stats` (iPhone) | File keys (`{user id}/Readest/Books/{book hash}/…`) | yes | Download of a cover or EPUB only when shown / tapped; storage usage in Settings. |
+| Readest's storage (presigned URLs returned by the API) | The EPUB file | **only on explicit user action**: *Upload to Readest*, or the opt-in *Upload Imported Books Automatically* (off by default) | The original file as imported. Plus, in `POST /api/sync`, that book's row: `hash`, `metaHash`, `format`, `title`, `author`, `uploadedAt`. |
+| Readest, `DELETE /api/storage/delete` + `POST /api/sync` (tombstone) | File keys, book row | only when the user confirms *Delete from Readest* | |
 
 Endpoints: `POST /auth/v1/token` (password and refresh grants), `POST /auth/v1/logout?scope=local` (sign out,
-best effort), `GET /api/sync?type=configs&book=…&meta_hash=…`, `POST /api/sync` (configs only; no books,
-notes, statistics or files). Recipient: Readest (the user's own account, governed by Readest's privacy
-policy). The developer is not a party and receives nothing. Signing out on the iPhone removes the session from
-both devices and asks Supabase to revoke it.
+best effort), `GET /api/sync?type=configs&book=…&meta_hash=…`, `POST /api/sync` (configs; from the iPhone
+Library also `books` rows), `GET /api/sync?type=books`, `/api/storage/upload|download|list|delete|stats`
+(iPhone only). No notes or statistics are sent. Recipient: Readest (the user's own account, governed by
+Readest's privacy policy). The developer is not a party and receives nothing. At sign-in the iPhone signs in
+twice: one session goes to the watch for sync, the other stays in the iPhone Keychain for the Library (see
+`docs/READEST_SYNC.md`, "The iPhone's own session"). Signing out on the iPhone removes both sessions from both
+devices and asks Supabase to revoke them.
 
 ### 1b. Dictionary downloads (iPhone only, on user action only)
 
@@ -97,7 +104,10 @@ Not sent: any looked-up word, book title, author, text, position, account data o
 | Active sync service id | iPhone: UserDefaults (`sync.connector`); watch: Keychain (`sync_connector`) | |
 | KOSync server URL, username, password | Keychain (iPhone and watch each have their own item; no access groups) | Never leaves the device except as described in 1a/1c. |
 | Readest email and session (access + refresh token) | Keychain (iPhone and watch; the watch updates its copy when the session is refreshed) | No password. Removed on Sign Out. |
-| Library (processed EPUBs) | `Application Support/Folito/Books` (iPhone), watch app's Application Support | Files the user imports; never uploaded. |
+| Readest library session (access + refresh token) | iPhone Keychain only (`readest_library_session`) | Never sent to the watch. Removed and revoked on Sign Out. |
+| Library (processed books and, on the iPhone, the original EPUB) | `Application Support/Folito/Books` (iPhone), watch app's Application Support (processed books only) | Files the user imports or downloads from Readest. Uploaded only as described in 1a-bis. |
+| Readest book list and covers (cache) | iPhone: `Application Support/Folito/readest-library.json`, `Caches/ReadestCovers` | So the Library can show Readest books offline. Removed on Sign Out. |
+| "Upload Imported Books Automatically", Library filter | UserDefaults | Off / All by default. |
 | Reading position, typography, device UUID, pending sync queue | UserDefaults | |
 | Complication snapshot (book id, title, chapter title, percentage, minutes left in the chapter when *Show Time Remaining* is on) | watch: App Group UserDefaults (`group.<bundle id>`, key `complication.snapshot`), shared only with the watch app's own widget extension | Written by the watch app, read by the complications. Never leaves the watch. Cleared when the book is deleted or on Settings › Reset. |
 | Learned reading speed and estimated time left per book | Watch: UserDefaults (`reading.speed`, `reading.timeRemaining`) | Computed on the watch from the time spent per page; used only to show "time left" (in the reader, the iPhone library and the complications). Cleared by *Settings › Reset* (and per book when the book is deleted). |
@@ -130,7 +140,7 @@ Not sent: any looked-up word, book title, author, text, position, account data o
 | Contact Info › Email Address | Readest account email | Readest's Supabase auth, once at sign-in (iPhone) |
 | Identifiers › User ID | KOSync username; the Readest account (via its access token) | the KOSync server; Readest |
 | Identifiers › Device ID | random UUID generated on first launch | the KOSync server only |
-| User Content › Other User Content | book hashes and reading positions | the KOSync server or Readest |
+| User Content › Other User Content | book hashes and reading positions; with Readest also the EPUB files the user uploads and their title/author | the KOSync server or Readest |
 
 ## 4. App Store Connect "App Privacy" answers
 

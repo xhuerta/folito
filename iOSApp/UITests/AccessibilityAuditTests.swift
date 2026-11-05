@@ -26,9 +26,10 @@ final class AccessibilityAuditTests: XCTestCase {
 
     @MainActor
     private func launch(seedSampleBook: Bool = false, largestText: Bool = false,
-                        showTour: Bool = false) -> XCUIApplication {
+                        showTour: Bool = false, extraArguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments += seedSampleBook ? ["-UITestingSeedSampleBook"] : ["-UITesting"]
+        app.launchArguments += extraArguments
         if showTour { app.launchArguments += ["-UITestingShowOnboarding"] }
         if largestText { app.launchArguments += Self.largestTextArguments }
         app.launch()
@@ -59,6 +60,7 @@ final class AccessibilityAuditTests: XCTestCase {
     /// size only, the element-less findings that the screen's `Form` section footers cause (see `verdict`).
     @MainActor
     private func auditScreen(_ name: String, seedSampleBook: Bool = false, showTour: Bool = false,
+                             extraArguments: [String] = [],
                              formFooterFindingsAtLargestText: Bool = false,
                              file: StaticString = #filePath, line: UInt = #line,
                              open: @MainActor (XCUIApplication) -> Void) throws {
@@ -69,7 +71,7 @@ final class AccessibilityAuditTests: XCTestCase {
         var seenClear: Set<String> = []
 
         Self.output("Auditing \(name) at the default text size")
-        let app = launch(seedSampleBook: seedSampleBook, showTour: showTour)
+        let app = launch(seedSampleBook: seedSampleBook, showTour: showTour, extraArguments: extraArguments)
         open(app)
         try forEachPage(of: app) {
             for type in Self.defaultSizeTypes {
@@ -88,7 +90,8 @@ final class AccessibilityAuditTests: XCTestCase {
         app.terminate()
 
         Self.output("Auditing \(name) at the largest accessibility text size")
-        let large = launch(seedSampleBook: seedSampleBook, largestText: true, showTour: showTour)
+        let large = launch(seedSampleBook: seedSampleBook, largestText: true, showTour: showTour,
+                           extraArguments: extraArguments)
         open(large)
         try forEachPage(of: large) {
             for type in Self.largestTextTypes {
@@ -339,6 +342,28 @@ final class AccessibilityAuditTests: XCTestCase {
             for _ in 0..<6 where !row.waitForExistence(timeout: 2) { Self.scrollDown(app) }
             XCTAssertTrue(row.exists, "Seeded sample book not shown")
             XCTAssertTrue(row.label.contains("Alice"), "Row should be one element that includes the title: \(row.label)")
+        }
+    }
+
+    /// A mocked Readest library (`-UITestingMockReadest`): one local book that is also in Readest and three
+    /// cloud-only rows with covers and download buttons.
+    @MainActor
+    func testLibraryWithReadestAudit() throws {
+        try auditScreen("Library (Readest)", seedSampleBook: true, extraArguments: ["-UITestingMockReadest"]) { app in
+            let row = app.descendants(matching: .any)["libraryCloudRow"]
+            for _ in 0..<6 where !row.waitForExistence(timeout: 2) { Self.scrollDown(app) }
+            XCTAssertTrue(row.exists, "Readest-only books not shown")
+        }
+    }
+
+    /// The same library offline: cloud-only rows are dimmed and say they need a connection.
+    @MainActor
+    func testLibraryReadestOfflineAudit() throws {
+        try auditScreen("Library (Readest, offline)", seedSampleBook: true,
+                        extraArguments: ["-UITestingMockReadest", "-UITestingReadestOffline"]) { app in
+            let row = app.descendants(matching: .any)["libraryCloudRow"]
+            for _ in 0..<6 where !row.waitForExistence(timeout: 2) { Self.scrollDown(app) }
+            XCTAssertTrue(row.exists, "Readest-only books not shown")
         }
     }
 

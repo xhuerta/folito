@@ -82,11 +82,11 @@
 <h2>What stays on your devices</h2>
 <div class="card">
 <ul>
-<li><strong>Your books</strong> (EPUB files you import) are processed and stored in the app's storage on your iPhone and sent to your Apple Watch over Apple's WatchConnectivity, directly between your paired devices. They are never uploaded by the app.</li>
+<li><strong>Your books</strong> (EPUB files you import or download from Readest) are processed and stored in the app's storage on your iPhone, which also keeps the original EPUB file, and sent to your Apple Watch over Apple's WatchConnectivity, directly between your paired devices. The app uploads a book only to your own Readest account, and only when you ask it to (see below).</li>
 <li><strong>Your reading positions, typography settings, a random device identifier</strong> (see below) and, if sync is on, <strong>progress waiting to be synced</strong> are stored in the app's settings on the device. Your typography settings are also sent to your paired watch. To estimate the time left in a book, the watch also learns your reading speed and keeps it there; the estimate is shown on your paired iPhone too.</li>
 <li><strong>Dictionaries</strong> you download are stored on your iPhone and your Apple Watch. Words are looked up on the watch itself, so what you look up never leaves the device. You can delete dictionaries in the iPhone app (<em>Settings › Dictionaries</em>).</li>
 <li><strong>Your sync login</strong>, only if you turn sync on (server address, username, password), is stored in the Keychain on your iPhone and, because the watch syncs on its own, also sent to your paired watch over WatchConnectivity and stored in the watch's own Keychain. It is never sent to the developer, and over the internet it goes only to the sync server you entered (see the next section).</li>
-<li><strong>Your Readest session</strong>, only if you choose Readest for sync: your Readest email and a session token (never your Readest password) are stored in the Keychain on your iPhone and sent to your paired watch, which stores them in its own Keychain.</li>
+<li><strong>Your Readest sessions</strong>, only if you choose Readest for sync: your Readest email and two session tokens (never your Readest password) are stored in the Keychain on your iPhone: one for the iPhone's Library, which stays on the iPhone, and one for sync, which is sent to your paired watch and stored in its own Keychain.</li>
 <li>The app does not use iCloud. Deleting the app removes this data from that device.</li>
 </ul>
 </div>
@@ -114,6 +114,7 @@
 <li>your reading position in that book (a position reference, the paragraph number and count) and when you reached it.</li>
 </ul>
 <p>No device identifier is sent to Readest. Readest stores your reading position in your Readest account, where the Readest apps and the Readest plugin for KOReader read it; Readest's <a href="https://readest.com/privacy-policy">privacy policy</a> and terms apply, and data stored there is managed in Readest (the app cannot delete it). <em>Sign Out</em> in <em>Settings › Progress Sync</em> removes the session from your iPhone and Apple Watch and asks Readest to end it. If you do not choose Readest, nothing is sent to Readest.</p>
+<p><strong>Your Readest library on the iPhone.</strong> While you are signed in to Readest, the Library on your iPhone reads the list of books in your Readest account (titles, authors, file hashes), shows their covers and downloads a book file when you tap it. Book files are uploaded to your Readest account only when you choose <em>Upload to Readest</em> on a book, or turn on <em>Upload Imported Books Automatically</em> (off by default); the file, its title, author and hashes then count against your Readest storage. <em>Delete from Readest</em> removes the file and the book from your Readest account after you confirm it.</p>
 </div>
 </section>
 <section class="group">

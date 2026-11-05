@@ -16,10 +16,15 @@ struct LibraryEntry: Codable, Identifiable, Equatable, Sendable {
     /// user's own books. The library shows a "Sample" badge for these; otherwise they are ordinary books.
     /// Optional, so libraries saved before samples existed decode unchanged.
     var sampleLanguage: String? = nil
+    /// Readest `meta_hash` of the book (sent when the book is uploaded to Readest). Optional: entries saved
+    /// before the Readest library existed decode unchanged.
+    var metaHash: String? = nil
 
     var isSample: Bool { sampleLanguage != nil }
 
     static func fileName(forHash hash: String) -> String { "\(hash).wrbook" }
+    /// The original EPUB, kept next to the payload so the book can be uploaded to Readest byte for byte.
+    static func originalFileName(forHash hash: String) -> String { "\(hash).epub" }
 }
 
 /// Pure helpers for presenting metadata.

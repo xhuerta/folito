@@ -182,6 +182,16 @@ Choose **Readest** and sign in with the email and password of an existing Reades
 - Positions are KOReader XPointers at paragraph granularity. The Readest apps only move forward automatically, so going back on the watch doesn't pull an open Readest app back.
 - Folito is not affiliated with Readest; it uses the same sync API as Readest's own KOReader plugin. Details and limitations: [docs/READEST_SYNC.md](docs/READEST_SYNC.md).
 
+**Readest library on the iPhone.** While you are signed in to Readest, the iPhone Library also lists the books in
+your Readest library, like iCloud Drive in Files: books that are only in Readest show their cover and an
+`icloud.and.arrow.down` button (tap to download; the same file arrives, so the position syncs exactly, and it is
+then sent to the watch), local books that are also in Readest show a small `checkmark.icloud`. Touch and hold or
+swipe a book for **Upload to Readest**, **Remove Download** (keeps it in Readest) and **Delete** (this iPhone only,
+or Readest too after an explicit confirmation). A filter menu shows All / On This iPhone / In Readest. Uploads
+happen only when you ask, or with **Upload Imported Books Automatically** (off by default) in *Settings › Progress
+Sync*, which also shows your Readest storage. Readest-only books never go to the watch. KOReader Sync has no
+library, so it has no badge: it syncs positions for every book by file hash.
+
 ### KOReader Sync (any KOSync server)
 
 Folito uses the same server and matching method as your other readers so progress is shared.

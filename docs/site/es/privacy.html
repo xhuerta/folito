@@ -83,11 +83,11 @@
 <h2>Qué se queda en tus dispositivos</h2>
 <div class="card">
 <ul>
-<li><strong>Tus libros</strong> (archivos EPUB que importas) se procesan y guardan en el almacenamiento de la app en el iPhone y se envían al Apple Watch mediante WatchConnectivity de Apple, directamente entre tus dispositivos emparejados. La app nunca los sube.</li>
+<li><strong>Tus libros</strong> (archivos EPUB que importas o descargas de Readest) se procesan y guardan en el almacenamiento de la app en el iPhone, que también conserva el archivo EPUB original, y se envían al Apple Watch mediante WatchConnectivity de Apple, directamente entre tus dispositivos emparejados. La app solo sube un libro a tu propia cuenta de Readest, y solo cuando tú se lo pides (ver más abajo).</li>
 <li><strong>Tus posiciones de lectura, ajustes de tipografía, un identificador aleatorio del dispositivo</strong> (ver abajo) y, si la sincronización está activada, <strong>el progreso pendiente de sincronizar</strong> se guardan en los ajustes de la app en el dispositivo. Los ajustes de tipografía también se envían al reloj emparejado. Para estimar el tiempo que te queda de un libro, el reloj también aprende tu velocidad de lectura y la guarda en él; la estimación también se muestra en tu iPhone emparejado.</li>
 <li><strong>Los diccionarios</strong> que descargas se guardan en tu iPhone y en tu Apple Watch. Las palabras se consultan en el propio reloj, así que lo que buscas nunca sale del dispositivo. Puedes eliminar diccionarios en la app del iPhone (<em>Ajustes › Diccionarios</em>).</li>
 <li><strong>Tu inicio de sesión de sincronización</strong>, solo si activas la sincronización (dirección del servidor, usuario, contraseña), se guarda en el Llavero del iPhone y, como el reloj sincroniza por sí mismo, también se envía al reloj emparejado mediante WatchConnectivity y se guarda en su propio Llavero. Nunca se envía al desarrollador, y por internet solo va al servidor de sincronización que indicaste (ver la sección siguiente).</li>
-<li><strong>Tu sesión de Readest</strong>, solo si eliges Readest para sincronizar: tu correo de Readest y un token de sesión (nunca tu contraseña de Readest) se guardan en el Llavero del iPhone y se envían al reloj emparejado, que los guarda en su propio Llavero.</li>
+<li><strong>Tus sesiones de Readest</strong>, solo si eliges Readest para sincronizar: tu correo de Readest y dos tokens de sesión (nunca tu contraseña de Readest) se guardan en el Llavero del iPhone: uno para la Biblioteca del iPhone, que se queda en el iPhone, y otro para la sincronización, que se envía al reloj emparejado y se guarda en su propio Llavero.</li>
 <li>La app no usa iCloud. Al borrar la app se eliminan estos datos de ese dispositivo.</li>
 </ul>
 </div>
@@ -115,6 +115,7 @@
 <li>tu posición de lectura en ese libro (una referencia de posición, el número de párrafo y el total) y cuándo la alcanzaste.</li>
 </ul>
 <p>No se envía a Readest ningún identificador del dispositivo. Readest guarda tu posición de lectura en tu cuenta de Readest, donde la leen las apps de Readest y el plugin de Readest para KOReader; se aplican la <a href="https://readest.com/privacy-policy">política de privacidad</a> y las condiciones de Readest, y los datos guardados allí se gestionan en Readest (la app no puede borrarlos). <em>Sign Out</em> en <em>Settings › Progress Sync</em> elimina la sesión del iPhone y del Apple Watch y pide a Readest que la cierre. Si no eliges Readest, no se envía nada a Readest.</p>
+<p><strong>Tu biblioteca de Readest en el iPhone.</strong> Mientras tienes la sesión iniciada en Readest, la Biblioteca del iPhone lee la lista de libros de tu cuenta de Readest (títulos, autores, hashes de los archivos), muestra sus portadas y descarga el archivo de un libro cuando lo tocas. Los archivos de los libros solo se suben a tu cuenta de Readest cuando eliges <em>Subir a Readest</em> en un libro o activas <em>Subir automáticamente los libros importados</em> (desactivado por omisión); el archivo, su título, autor y hashes cuentan entonces en tu almacenamiento de Readest. <em>Eliminar de Readest</em> borra el archivo y el libro de tu cuenta de Readest tras confirmarlo.</p>
 </div>
 </section>
 <section class="group">

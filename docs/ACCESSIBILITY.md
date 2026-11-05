@@ -128,7 +128,10 @@ Whether it was reported depended on where a page boundary left the row (main pas
 failed). *Alignment* (two short segments) was never flagged; the preset buttons, whose grid also switched at
 `isAccessibilitySize`, were flagged once. The fix is a layout that works at every size (one row at every
 size; a scaled grid column width), not an acceptance. Prefer `ViewThatFits` or scaled metrics to a switch on
-`isAccessibilitySize`.
+`isAccessibilitySize`. The Library's book rows hit the same audit once the Readest library put more rows under
+the first book (PR #43): the watch state and size line switched from an `HStack` to a `VStack` and the whole
+first row was flagged. It now uses a wrapping layout at every size, and cloud-only rows show their cover at
+every size.
 
 Every finding (accepted or not) is printed in the CI log ("Accessibility audit issue (accepted|FAILS)") with
 its element, frame, the audit's detailed description and, for contrast findings, the contrast measured from

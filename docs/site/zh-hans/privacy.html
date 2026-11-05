@@ -83,11 +83,11 @@
 <h2>保留在你设备上的内容</h2>
 <div class="card">
 <ul>
-<li><strong>你的图书</strong>（你导入的 EPUB 文件）会在 iPhone 上的 App 存储空间中处理和存储，并通过 Apple 的 WatchConnectivity 在你已配对的设备之间直接发送到 Apple Watch。App 绝不会上传这些图书。</li>
+<li><strong>你的图书</strong>（你导入或从 Readest 下载的 EPUB 文件）会在 iPhone 上的 App 存储空间中处理和存储（同时保留原始 EPUB 文件），并通过 Apple 的 WatchConnectivity 在你已配对的设备之间直接发送到 Apple Watch。App 只会在你要求时将图书上传到你自己的 Readest 账户（见下文）。</li>
 <li><strong>你的阅读位置、排版设置、一个随机设备标识符</strong>（见下文），以及在开启同步时<strong>等待同步的进度</strong>，会存储在设备上的 App 设置中。你的排版设置也会发送到已配对的手表。为了估算剩余阅读时间，手表还会学习你的阅读速度并保存在手表上；估算结果也会显示在已配对的 iPhone 上。</li>
 <li>你下载的<strong>词典</strong>存储在你的 iPhone 和 Apple Watch 上。查词在手表本身上进行，因此你查询的内容永远不会离开设备。你可以在 iPhone App 中删除词典（<em>设置 › 词典</em>）。</li>
 <li><strong>你的同步登录信息</strong>（服务器地址、用户名、密码）仅在你开启同步时才会存储在 iPhone 的钥匙串中；由于手表会独立同步，这些信息还会通过 WatchConnectivity 发送到已配对的手表，并存储在手表自己的钥匙串中。这些信息绝不会发送给开发者，在互联网上只会发送到你输入的同步服务器（见下一节）。</li>
-<li><strong>你的 Readest 会话</strong>（仅当你选择 Readest 同步时）：你的 Readest 邮箱和会话令牌（从不保存你的 Readest 密码）存储在 iPhone 的钥匙串中，并发送到配对的手表，由手表存储在自己的钥匙串中。</li>
+<li><strong>你的 Readest 会话</strong>（仅当你选择 Readest 同步时）：你的 Readest 邮箱和两个会话令牌（从不保存你的 Readest 密码）存储在 iPhone 的钥匙串中：一个用于 iPhone 的资料库，仅保留在 iPhone 上；另一个用于同步，发送到配对的手表，由手表存储在自己的钥匙串中。</li>
 <li>本 App 不使用 iCloud。删除 App 会从该设备上移除这些数据。</li>
 </ul>
 </div>
@@ -115,6 +115,7 @@
 <li>你在该书中的阅读位置（位置引用、段落编号和段落总数）以及到达该位置的时间。</li>
 </ul>
 <p>不会向 Readest 发送任何设备标识符。Readest 将你的阅读位置保存在你的 Readest 账户中，供 Readest App 和 KOReader 的 Readest 插件读取；适用 Readest 的<a href="https://readest.com/privacy-policy">隐私政策</a>和条款，存储在那里的数据在 Readest 中管理（App 无法删除）。在 <em>Settings › Progress Sync</em> 中点按 <em>Sign Out</em> 会从 iPhone 和 Apple Watch 中移除会话，并请求 Readest 结束该会话。如果你不选择 Readest，则不会向 Readest 发送任何内容。</p>
+<p><strong>iPhone 上的 Readest 资料库。</strong>登录 Readest 后，iPhone 上的资料库会读取你 Readest 账户中的图书列表（标题、作者、文件哈希值），显示封面，并在你轻点某本书时下载其文件。只有当你在图书上选择<em>上传到 Readest</em>，或开启<em>自动上传导入的图书</em>（默认关闭）时，图书文件才会上传到你的 Readest 账户；此时该文件及其标题、作者和哈希值会占用你的 Readest 存储空间。<em>从 Readest 删除</em>会在你确认后从 Readest 账户中移除该文件和图书。</p>
 </div>
 </section>
 <section class="group">

@@ -70,7 +70,7 @@
 <div class="doc">
 <h1>Politique de confidentialité</h1>
 <p class="translation-note">Cette traduction a été réalisée avec l’aide d’outils de traduction automatique et est fournie à titre indicatif. En cas de divergence, la <a href="../privacy.html" hreflang="en">version anglaise</a> fait foi.</p>
-<p class="muted">Dernière mise à jour : 4 novembre 2026. S’applique aux apps Folito pour iPhone et Apple Watch.</p>
+<p class="muted">Dernière mise à jour : 4 novembre 2026. S’applique aux apps Folito pour iPhone et Apple Watch.</p>
 <div class="card note lead-card"><span class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2.8 19 5.6v5.7c0 4.6-3 8.3-7 9.9-4-1.6-7-5.3-7-9.9V5.6z"/><path d="m8.8 12.1 2.2 2.2 4.3-4.5"/></svg></span><p>En bref : Folito fonctionne sans aucun compte. Il n’y a ni statistiques, ni publicité, ni pistage, et le développeur n’exploite aucun serveur et ne reçoit aucune donnée. L’app contacte uniquement un serveur de synchronisation si vous choisissez d’en configurer un et, lorsque vous téléchargez un dictionnaire, le site de téléchargement indiqué ci-dessous.</p></div>
 
 <section class="group">
@@ -83,11 +83,11 @@
 <h2>Ce qui reste sur vos appareils</h2>
 <div class="card">
 <ul>
-<li><strong>Vos livres</strong> (les fichiers EPUB que vous importez) sont traités et stockés dans l’espace de stockage de l’app sur votre iPhone, puis envoyés à votre Apple Watch via WatchConnectivity d’Apple, directement entre vos appareils jumelés. L’app ne les téléverse jamais.</li>
+<li><strong>Vos livres</strong> (les fichiers EPUB que vous importez ou téléchargez depuis Readest) sont traités et stockés dans l’espace de stockage de l’app sur votre iPhone, qui conserve aussi le fichier EPUB d’origine, puis envoyés à votre Apple Watch via WatchConnectivity d’Apple, directement entre vos appareils jumelés. L’app n’envoie un livre que vers votre propre compte Readest, et seulement quand vous le demandez (voir plus bas).</li>
 <li><strong>Vos positions de lecture, vos réglages de typographie, un identifiant d’appareil aléatoire</strong> (voir ci-dessous) et, si la synchronisation est activée, <strong>la progression en attente de synchronisation</strong> sont stockés dans les réglages de l’app sur l’appareil. Vos réglages de typographie sont également envoyés à votre montre jumelée. Pour estimer le temps de lecture restant, la montre apprend aussi votre vitesse de lecture et la conserve ; l’estimation est aussi affichée sur votre iPhone jumelé.</li>
 <li><strong>Les dictionnaires</strong> que vous téléchargez sont stockés sur votre iPhone et votre Apple Watch. Les mots sont recherchés sur la montre elle-même : ce que vous cherchez ne quitte jamais l’appareil. Vous pouvez supprimer les dictionnaires dans l’app iPhone (<em>Réglages › Dictionnaires</em>).</li>
 <li><strong>Vos identifiants de synchronisation</strong>, uniquement si vous activez la synchronisation (adresse du serveur, nom d’utilisateur, mot de passe), sont stockés dans le trousseau de votre iPhone et, comme la montre se synchronise de manière autonome, sont également envoyés à votre montre jumelée via WatchConnectivity et stockés dans le trousseau propre à la montre. Ils ne sont jamais envoyés au développeur et, sur Internet, ils ne sont transmis qu’au serveur de synchronisation que vous avez saisi (voir la section suivante).</li>
-<li><strong>Votre session Readest</strong>, uniquement si vous choisissez Readest pour la synchronisation : votre adresse e-mail Readest et un jeton de session (jamais votre mot de passe Readest) sont stockés dans le trousseau de votre iPhone et envoyés à votre montre jumelée, qui les stocke dans son propre trousseau.</li>
+<li><strong>Vos sessions Readest</strong>, uniquement si vous choisissez Readest pour la synchronisation : votre adresse e-mail Readest et deux jetons de session (jamais votre mot de passe Readest) sont stockés dans le trousseau de votre iPhone : l’un pour la Bibliothèque de l’iPhone, qui reste sur l’iPhone, l’autre pour la synchronisation, envoyé à votre montre jumelée qui le stocke dans son propre trousseau.</li>
 <li>L’app n’utilise pas iCloud. La suppression de l’app efface ces données de l’appareil concerné.</li>
 </ul>
 </div>
@@ -115,6 +115,7 @@
 <li>votre position de lecture dans ce livre (une référence de position, le numéro et le nombre de paragraphes) et le moment où vous l’avez atteinte.</li>
 </ul>
 <p>Aucun identifiant d’appareil n’est envoyé à Readest. Readest conserve votre position de lecture dans votre compte Readest, où les apps Readest et le plugin Readest pour KOReader la lisent ; la <a href="https://readest.com/privacy-policy">politique de confidentialité</a> et les conditions de Readest s’appliquent, et les données qui y sont stockées se gèrent dans Readest (l’app ne peut pas les supprimer). <em>Sign Out</em> dans <em>Settings › Progress Sync</em> supprime la session de votre iPhone et de votre Apple Watch et demande à Readest d’y mettre fin. Si vous ne choisissez pas Readest, rien n’est envoyé à Readest.</p>
+<p><strong>Votre bibliothèque Readest sur l’iPhone.</strong> Tant que vous êtes connecté à Readest, la Bibliothèque de votre iPhone lit la liste des livres de votre compte Readest (titres, auteurs, empreintes des fichiers), affiche leurs couvertures et télécharge le fichier d’un livre quand vous le touchez. Les fichiers des livres ne sont envoyés vers votre compte Readest que lorsque vous choisissez <em>Envoyer vers Readest</em> sur un livre, ou activez <em>Envoyer automatiquement les livres importés</em> (désactivé par défaut) ; le fichier, son titre, son auteur et ses empreintes comptent alors dans votre stockage Readest. <em>Supprimer de Readest</em> supprime le fichier et le livre de votre compte Readest après confirmation.</p>
 </div>
 </section>
 <section class="group">

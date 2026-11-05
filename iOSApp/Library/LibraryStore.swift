@@ -32,33 +32,62 @@ final class LibraryStore: ObservableObject {
 
     func fileURL(for entry: LibraryEntry) -> URL { booksDirectory.appendingPathComponent(entry.fileName) }
 
+    /// The original EPUB of the entry, or nil for books imported before originals were kept.
+    func originalFileURL(for entry: LibraryEntry) -> URL? {
+        let url = booksDirectory.appendingPathComponent(LibraryEntry.originalFileName(forHash: entry.documentHash))
+        return fm.fileExists(atPath: url.path) ? url : nil
+    }
+
     // MARK: Import
 
     /// Accepts a URL from fileImporter / onOpenURL / share sheet. Copies it into the sandbox first.
     /// `sampleLanguage` marks a bundled sample book (see `SampleBooks`); it goes through the same pipeline.
     func importEPUB(from url: URL, sampleLanguage: String? = nil) {
+        guard let temp = copyToTemporary(url) else { return }
+        Task { await runImport(temp: temp, name: url.lastPathComponent, sampleLanguage: sampleLanguage) }
+    }
+
+    /// A book downloaded from Readest: the same pipeline as any import (so it keeps the file's hash and is sent
+    /// to the watch), awaited so the Library can show the download until the book is in place.
+    func importDownloaded(from url: URL, fileName: String) async -> LibraryEntry? {
+        guard let temp = copyToTemporary(url, displayName: fileName) else { return nil }
+        return await runImport(temp: temp, name: fileName, sampleLanguage: nil)
+    }
+
+    private func copyToTemporary(_ url: URL, displayName: String? = nil) -> URL? {
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
         let temp = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".epub")
-        let name = url.lastPathComponent
         do {
             try fm.copyItem(at: url, to: temp)
+            return temp
         } catch {
-            importError = .fileUnreadable(fileName: name)
-            return
+            importError = .fileUnreadable(fileName: displayName ?? url.lastPathComponent)
+            return nil
         }
+    }
+
+    @discardableResult
+    private func runImport(temp: URL, name: String, sampleLanguage: String?) async -> LibraryEntry? {
         isImporting = true
         let parser = self.parser
         let dir = booksDirectory
-        Task.detached(priority: .userInitiated) {
+        let outcome: Result<LibraryEntry, Error> = await Task.detached(priority: .userInitiated) {
             defer { try? FileManager.default.removeItem(at: temp) }
             do {
-                var result = try LibraryStore.process(epub: temp, originalName: name, parser: parser, into: dir)
-                result.sampleLanguage = sampleLanguage
-                await self.finishImport(result)
+                return .success(try LibraryStore.process(epub: temp, originalName: name, parser: parser, into: dir))
             } catch {
-                await self.failImport(error, fileName: name)
+                return .failure(error)
             }
+        }.value
+        switch outcome {
+        case .success(var result):
+            result.sampleLanguage = sampleLanguage
+            finishImport(result)
+            return result
+        case .failure(let error):
+            failImport(error, fileName: name)
+            return nil
         }
     }
 
@@ -68,11 +97,16 @@ final class LibraryStore: ObservableObject {
         let data = try BookCodec.encode(book)
         let fileName = LibraryEntry.fileName(forHash: book.documentHash)
         try data.write(to: dir.appendingPathComponent(fileName), options: .atomic)
+        // Keep the original file (same bytes, same partial MD5) so the book can be uploaded to Readest.
+        let original = dir.appendingPathComponent(LibraryEntry.originalFileName(forHash: book.documentHash))
+        try? FileManager.default.removeItem(at: original)
+        try? FileManager.default.copyItem(at: epub, to: original)
         return LibraryEntry(
             documentHash: book.documentHash,
             title: BookDisplay.title(book.metadata.title, fallbackFileName: originalName),
             author: BookDisplay.author(from: book.metadata.authors),
-            fileName: fileName, size: data.count, importedAt: Date(), sentToWatch: false)
+            fileName: fileName, size: data.count, importedAt: Date(), sentToWatch: false,
+            metaHash: book.metaHash)
     }
 
     private func finishImport(_ entry: LibraryEntry) {
@@ -98,7 +132,8 @@ final class LibraryStore: ObservableObject {
         let entry = LibraryEntry(documentHash: book.documentHash,
                                  title: BookDisplay.title(book.metadata.title, fallbackFileName: fileName),
                                  author: BookDisplay.author(from: book.metadata.authors),
-                                 fileName: payload, size: data.count, importedAt: Date(), sentToWatch: false)
+                                 fileName: payload, size: data.count, importedAt: Date(), sentToWatch: false,
+                                 metaHash: book.metaHash)
         entries.removeAll { $0.documentHash == entry.documentHash }
         entries.insert(entry, at: 0)
         save()
@@ -123,8 +158,11 @@ final class LibraryStore: ObservableObject {
 
     // MARK: Mutations
 
+    /// Removes the book from this iPhone (payload and original EPUB) and, through `onDeleted`, from the watch.
+    /// A copy in Readest is not touched.
     func delete(_ entry: LibraryEntry) {
         try? fm.removeItem(at: fileURL(for: entry))
+        try? fm.removeItem(at: booksDirectory.appendingPathComponent(LibraryEntry.originalFileName(forHash: entry.documentHash)))
         entries.removeAll { $0.id == entry.id }
         save()
         onDeleted?(entry)
