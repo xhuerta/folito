@@ -133,7 +133,7 @@ struct LibraryView: View {
     }
 
     /// Rows are identified by their hash *and* their shape (local / Readest / both, uploading, downloading):
-    /// when a row gains or loses a line (the Readest icon, "Uploading to Readest…", the download progress) the
+    /// when a row gains or loses a line ("Uploading to Readest…", the download progress) the
     /// List gets a new cell sized for it. Updated in place, the cell kept its old height and, at accessibility
     /// text sizes, squeezed the watch state to one truncated line ("Waiting for…").
     private func bookRows(_ shown: [MergedLibraryItem<LibraryEntry>]) -> some View {
@@ -573,16 +573,22 @@ private struct BookRow: View {
                     Text(DisplayFormat.timeLeft(timeLeft))
                         .accessibilityLabel(Text(DisplayFormat.timeLeft(timeLeft, style: .full)))
                 }
-                Text(DisplayFormat.fileSize(entry.size))
+                // The Readest icon shares the size's line in both layouts: as its own line in the accessibility
+                // layout it changed the row's shape when the Readest library loaded, and the AX5 audit flagged the
+                // whole row (Dynamic Type partially unsupported, "Waiting for Apple Watch" clipped).
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(DisplayFormat.fileSize(entry.size))
+                    if inReadest && !isUploading {
+                        Image(systemName: "checkmark.icloud")
+                            .accessibilityLabel(Text("In Readest"))
+                    }
+                }
                 if entry.isSample { SampleBadge() }
                 if isUploading {
                     HStack(spacing: 4) {
                         ProgressView().controlSize(.mini)
                         Text("Uploading to Readest…")
                     }
-                } else if inReadest {
-                    Image(systemName: "checkmark.icloud")
-                        .accessibilityLabel(Text("In Readest"))
                 }
             }
             .font(.footnote)
