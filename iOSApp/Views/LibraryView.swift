@@ -426,14 +426,13 @@ private struct CloudBookRow: View {
     let cover: UIImage?
     let progress: Double?
     let offline: Bool
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
+        // The cover shows at every text size: a layout that switches at `isAccessibilitySize` is replaced under
+        // the Dynamic Type audits (docs/ACCESSIBILITY.md).
         HStack(spacing: 12) {
-            if !dynamicTypeSize.isAccessibilitySize {
-                CoverThumbnail(image: cover)
-                    .opacity(offline ? 0.5 : 1)
-            }
+            CoverThumbnail(image: cover)
+                .opacity(offline ? 0.5 : 1)
             VStack(alignment: .leading, spacing: 4) {
                 Text(verbatim: book.title)
                     .font(.headline)
@@ -554,7 +553,6 @@ private struct BookRow: View {
     /// Also in the user's Readest library: a small `checkmark.icloud`, like a downloaded item in Files.
     var inReadest = false
     var isUploading = false
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -563,19 +561,14 @@ private struct BookRow: View {
             Text(entry.author)
                 .font(.subheadline)
                 .foregroundStyle(.secondaryText)
-            let layout = dynamicTypeSize.isAccessibilitySize
-                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
-                : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 12))
-            layout {
+            WrappingHStack(spacing: 12, lineSpacing: 4) {
                 TintedLabel(verbatim: state.text, systemImage: state.systemImage,
                             tint: state == .onWatch ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondaryText))
                 if let timeLeft {
                     Text(DisplayFormat.timeLeft(timeLeft))
                         .accessibilityLabel(Text(DisplayFormat.timeLeft(timeLeft, style: .full)))
                 }
-                // The Readest icon shares the size's line in both layouts: as its own line in the accessibility
-                // layout it changed the row's shape when the Readest library loaded, and the AX5 audit flagged the
-                // whole row (Dynamic Type partially unsupported, "Waiting for Apple Watch" clipped).
+                // The Readest icon stays next to the size, so the two never wrap apart.
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(DisplayFormat.fileSize(entry.size))
                     if inReadest && !isUploading {
@@ -595,6 +588,56 @@ private struct BookRow: View {
             .foregroundStyle(.secondaryText)
         }
         .padding(.vertical, 2)
+    }
+}
+
+/// Lays its children out left to right and wraps to a new line when the next one does not fit, at every text
+/// size. A switch between an `HStack` and a `VStack` at `isAccessibilitySize` is replaced under the Dynamic Type
+/// audits, which flagged the whole row (docs/ACCESSIBILITY.md, "Layouts that switch at a fixed text size").
+private struct WrappingHStack: Layout {
+    var spacing: CGFloat
+    var lineSpacing: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        arrange(width: proposal.width, subviews: subviews).size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let arrangement = arrange(width: bounds.width, subviews: subviews)
+        for (subview, frame) in zip(subviews, arrangement.frames) {
+            subview.place(at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY),
+                          proposal: ProposedViewSize(frame.size))
+        }
+    }
+
+    /// Frames relative to the top leading corner; each child is centred vertically on its line.
+    private func arrange(width: CGFloat?, subviews: Subviews) -> (size: CGSize, frames: [CGRect]) {
+        let maxWidth = width ?? .infinity
+        let childProposal = ProposedViewSize(width: maxWidth.isFinite ? maxWidth : nil, height: nil)
+        var frames: [CGRect] = []
+        var lines: [(range: Range<Int>, height: CGFloat)] = []
+        var lineStart = 0, x: CGFloat = 0, y: CGFloat = 0, lineHeight: CGFloat = 0, usedWidth: CGFloat = 0
+        for (index, subview) in subviews.enumerated() {
+            let size = subview.sizeThatFits(childProposal)
+            if x > 0, x + size.width > maxWidth {
+                lines.append((lineStart..<index, lineHeight))
+                lineStart = index
+                x = 0
+                y += lineHeight + lineSpacing
+                lineHeight = 0
+            }
+            frames.append(CGRect(origin: CGPoint(x: x, y: y), size: size))
+            usedWidth = max(usedWidth, x + size.width)
+            x += size.width + spacing
+            lineHeight = max(lineHeight, size.height)
+        }
+        lines.append((lineStart..<frames.count, lineHeight))
+        for line in lines {
+            for index in line.range {
+                frames[index].origin.y += (line.height - frames[index].height) / 2
+            }
+        }
+        return (CGSize(width: min(usedWidth, maxWidth), height: frames.isEmpty ? 0 : y + lineHeight), frames)
     }
 }
 
