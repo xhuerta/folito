@@ -57,10 +57,7 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
 
     /// What the Library screen shows about the watch (see `WatchStatus`).
     var status: WatchStatus {
-        #if DEBUG
-        if let simulated = UITesting.simulatedWatchStatus { return simulated }
-        #endif
-        return WatchStatus(supported: WCSession.isSupported(), activation: activationState, paired: isPaired,
+        WatchStatus(supported: WCSession.isSupported(), activation: activationState, paired: isPaired,
                     appInstalled: isWatchAppInstalled, reachable: isReachable)
     }
 
