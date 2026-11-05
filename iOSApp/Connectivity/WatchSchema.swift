@@ -23,6 +23,10 @@ enum WatchSchema {
         static let hashes = "hashes"
         /// Watch -> phone (`library` context): estimated seconds left per book hash.
         static let timeRemaining = "timeRemaining"
+        /// Watch -> phone (`library` context): whole percent read per book hash.
+        static let progress = "progress"
+        /// Phone -> watch: a small JPEG of the book's cover (book file metadata, or a `book_cover` message).
+        static let cover = "cover"
         static let dictionaryId = "dictionaryId"
         static let dictionaries = "dictionaries"
         static let sha256 = "sha256"
@@ -31,6 +35,8 @@ enum WatchSchema {
         static let book = "book"
         static let settings = "settings"
         static let deleteBook = "delete_book"
+        /// Phone -> watch (transferUserInfo): the cover of a book the watch already has.
+        static let bookCover = "book_cover"
         /// Watch -> phone (applicationContext): hashes of the books stored on the watch.
         static let library = "library"
         /// Phone -> watch (transferFile): a compact offline dictionary.
@@ -55,13 +61,33 @@ enum WatchSchema {
         return Set(list)
     }
 
-    static func bookMetadata(for entry: LibraryEntry, formatVersion: Int) -> [String: Any] {
-        [Key.type: MessageType.book,
-         Key.documentHash: entry.documentHash,
-         Key.title: entry.title,
-         Key.author: entry.author,
-         Key.size: entry.size,
-         Key.formatVersion: formatVersion]
+    /// `cover`: the watch thumbnail (JPEG, a few KB), omitted for books without a cover.
+    static func bookMetadata(for entry: LibraryEntry, formatVersion: Int, cover: Data? = nil) -> [String: Any] {
+        var metadata: [String: Any] = [Key.type: MessageType.book,
+                                       Key.documentHash: entry.documentHash,
+                                       Key.title: entry.title,
+                                       Key.author: entry.author,
+                                       Key.size: entry.size,
+                                       Key.formatVersion: formatVersion]
+        if let cover, !cover.isEmpty { metadata[Key.cover] = cover }
+        return metadata
+    }
+
+    static func bookCover(hash: String, cover: Data) -> [String: Any] {
+        [Key.type: MessageType.bookCover, Key.documentHash: hash, Key.cover: cover]
+    }
+
+    /// Fraction read (0...1) per book that the watch reports in its `library` context (empty when it reports
+    /// none, nil for any other message). Invalid values are dropped.
+    static func libraryProgress(from context: [String: Any]) -> [String: Double]? {
+        guard (context[Key.type] as? String) == MessageType.library else { return nil }
+        let raw = context[Key.progress] as? [String: Any] ?? [:]
+        var result: [String: Double] = [:]
+        for (hash, value) in raw {
+            let percent = (value as? Int).map(Double.init) ?? (value as? Double)
+            if let percent, percent.isFinite, percent >= 0, percent <= 100 { result[hash] = percent / 100 }
+        }
+        return result
     }
 
     /// `stamp` is the time the user saved the settings; resends reuse it so the watch can ignore

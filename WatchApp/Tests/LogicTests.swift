@@ -363,6 +363,33 @@ final class MiscLogicTests: XCTestCase {
         XCTAssertNil(ConnectivityReceiver.libraryContext(hashes: ["a"])["timeRemaining"])
     }
 
+    func testLibraryContextCarriesProgressOfOpenedBooks() {
+        let c = ConnectivityReceiver.libraryContext(hashes: ["a", "b"], progress: ["a": 0.434, "b": 0, "gone": 0.5])
+        XCTAssertEqual(c["progress"] as? [String: Int], ["a": 43])
+        XCTAssertNil(ConnectivityReceiver.libraryContext(hashes: ["a"])["progress"])
+    }
+
+    func testBookCoverMessage() {
+        let jpeg = Data([0xFF, 0xD8, 0xFF])
+        let parsed = ConnectivityReceiver.bookCover(from: ["type": "book_cover", "documentHash": "h", "cover": jpeg])
+        XCTAssertEqual(parsed?.hash, "h")
+        XCTAssertEqual(parsed?.cover, jpeg)
+        XCTAssertNil(ConnectivityReceiver.bookCover(from: ["type": "book_cover", "documentHash": "h"]))
+        XCTAssertNil(ConnectivityReceiver.cover(from: ["cover": Data(count: BookStorage.maxCoverBytes + 1)]))
+        XCTAssertEqual(ConnectivityReceiver.cover(from: ["documentHash": "h", "cover": jpeg]), jpeg)
+    }
+
+    func testCoverStorage() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let storage = BookStorage(root: root)
+        XCTAssertTrue(storage.saveCover(Data([1, 2, 3]), documentHash: "a/b"))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: storage.coverURL("a/b").path))
+        XCTAssertFalse(storage.saveCover(Data(), documentHash: "a/b"))
+        storage.delete(documentHash: "a/b")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: storage.coverURL("a/b").path))
+    }
+
     func testSafeName() {
         XCTAssertEqual(BookStorage.safeName("ab12/../x"), "ab12____x")
     }

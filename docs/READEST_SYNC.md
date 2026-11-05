@@ -158,8 +158,11 @@ Every route answers 403 `{"error":"Not authenticated"}` for a bad token, like `/
   the recorded size and adds nothing to usage.
 - **Marking a book uploaded.** Storage does not touch `books`: after the PUT the client pushes the row with
   `uploadedAt = updatedAt = now` and `deletedAt = null` (`cloudService.uploadBook`; the koplugin's
-  `uploadAndRecord`). Folito does the same. The cover is a separate upload of `Readest/Books/{hash}/cover.png`;
-  Folito has no cover image of its own and uploads none (the Readest apps show their placeholder).
+  `uploadAndRecord`). Folito does the same. The cover is a separate upload of `Readest/Books/{hash}/cover.png`
+  (same `/storage/upload` + PUT; the Readest app's `cloudService.uploadBook` uploads it next to the book). Folito
+  uploads it after the book when the EPUB has a raster cover: the image `EPUBMetadataReader` finds, as a PNG of at
+  most 1024 px. Best effort: if it fails, the book is still uploaded and the Readest apps show their placeholder.
+  Books without a cover upload none.
 - **List.** `GET /api/storage/list?bookHash=<hash>` → `{files: [{file_key, file_size, book_hash, …}], total, page,
   pageSize, totalPages}` (every file of the book, cover included).
 - **Delete.** `DELETE /api/storage/delete?fileKey=<key>` → 200 `{message}`, 404 when missing. Deleting a book from

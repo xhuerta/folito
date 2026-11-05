@@ -46,16 +46,9 @@ public struct EPUBParser: EPUBParsing {
         }
         let zip = try ZipReader(url: url)
 
-        // container.xml -> package document
-        guard zip.contains("META-INF/container.xml") else { throw EPUBError.missingContainer }
-        let container = try XMLTreeBuilder.parse(try zip.data(at: "META-INF/container.xml"), what: "container.xml")
-        let rootfiles = container.descendants("rootfile")
-        let rootfile = rootfiles.first { ($0.attributes["media-type"] ?? "").contains("opf") } ?? rootfiles.first
-        guard let opfRaw = rootfile?.attributes["full-path"], let opfPath = ZipReader.normalize(Self.percentDecode(opfRaw)),
-              zip.contains(opfPath) else { throw EPUBError.missingPackageDocument }
-
-        let package = try Self.parsePackage(try XMLTreeBuilder.parse(try zip.data(at: opfPath), what: "package document"),
-                                            opfPath: opfPath, fallbackTitle: url.deletingPathExtension().lastPathComponent)
+        let (opfPath, opfRoot) = try Self.packageDocument(in: zip)
+        let package = try Self.parsePackage(opfRoot, opfPath: opfPath,
+                                            fallbackTitle: url.deletingPathExtension().lastPathComponent)
         guard !package.spine.isEmpty else { throw EPUBError.emptySpine }
 
         let titles = Self.chapterTitles(package: package, zip: zip)
@@ -90,6 +83,17 @@ public struct EPUBParser: EPUBParsing {
     }
 
     // MARK: - Package document
+
+    /// container.xml -> the package document's archive path and parsed tree.
+    static func packageDocument(in zip: ZipReader) throws -> (path: String, root: XMLNode) {
+        guard zip.contains("META-INF/container.xml") else { throw EPUBError.missingContainer }
+        let container = try XMLTreeBuilder.parse(try zip.data(at: "META-INF/container.xml"), what: "container.xml")
+        let rootfiles = container.descendants("rootfile")
+        let rootfile = rootfiles.first { ($0.attributes["media-type"] ?? "").contains("opf") } ?? rootfiles.first
+        guard let opfRaw = rootfile?.attributes["full-path"], let opfPath = ZipReader.normalize(Self.percentDecode(opfRaw)),
+              zip.contains(opfPath) else { throw EPUBError.missingPackageDocument }
+        return (opfPath, try XMLTreeBuilder.parse(try zip.data(at: opfPath), what: "package document"))
+    }
 
     struct ManifestItem {
         var id: String

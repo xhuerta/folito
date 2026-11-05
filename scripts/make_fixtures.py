@@ -5,8 +5,10 @@ Usage: scripts/make_fixtures.py [output_dir]
 Default output: Packages/ReaderCore/Tests/Fixtures
 """
 import os
+import struct
 import sys
 import zipfile
+import zlib
 
 CONTAINER = """<?xml version="1.0"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
@@ -134,9 +136,112 @@ def build(out):
     })
 
 
+def tiny_png(w=2, h=3, rgb=(0x3D, 0x5A, 0x80)):
+    """A valid w x h solid-colour PNG, built without third-party modules."""
+    def chunk(tag, data):
+        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+    raw = b"".join(b"\x00" + bytes(rgb) * w for _ in range(h))
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
+
+
+# Not decodable; the parser never decodes images, it only finds them.
+FAKE_JPEG = b"\xff\xd8\xff\xe0fixture-jpeg\xff\xd9"
+FAKE_GIF = b"GIF89a-fixture"
+
+OPF_NS = ('<?xml version="1.0" encoding="UTF-8"?>\n'
+          '<package xmlns="http://www.idpf.org/2007/opf" version="%s" unique-identifier="id0">'
+          '<metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">')
+
+
+def build_covers(out):
+    # EPUB 3: cover-image property, belongs-to-collection series, refined roles, escaped-HTML description.
+    write_epub(os.path.join(out, "cover_epub3.epub"), {
+        "OEBPS/content.opf": (OPF_NS % "3.0") +
+        '<dc:identifier id="id0">urn:uuid:5e1a0000-0000-0000-0000-000000000001</dc:identifier>'
+        '<dc:identifier id="isbn">urn:isbn:978-0-441-17271-9</dc:identifier>'
+        '<dc:title>Dune Messiah</dc:title>'
+        '<dc:creator id="c1">Frank Herbert</dc:creator>'
+        '<meta refines="#c1" property="role" scheme="marc:relators">aut</meta>'
+        '<meta refines="#c1" property="file-as">Herbert, Frank</meta>'
+        '<dc:creator id="c2">Some Illustrator</dc:creator>'
+        '<meta refines="#c2" property="role" scheme="marc:relators">ill</meta>'
+        '<dc:description>&lt;p&gt;The &lt;b&gt;second&lt;/b&gt; book.&lt;/p&gt;&lt;p&gt;Paul rules &amp;amp; doubts.&lt;/p&gt;</dc:description>'
+        '<dc:publisher>Ace</dc:publisher>'
+        '<dc:date>1969-10-15</dc:date>'
+        '<dc:language>en</dc:language>'
+        '<dc:subject>Science fiction</dc:subject><dc:subject>Dune (Imaginary place)</dc:subject>'
+        '<dc:subject>Science fiction</dc:subject>'
+        '<meta property="belongs-to-collection" id="s1">Dune</meta>'
+        '<meta refines="#s1" property="collection-type">series</meta>'
+        '<meta refines="#s1" property="group-position">2</meta>'
+        '<meta property="dcterms:modified">2020-01-01T00:00:00Z</meta>'
+        '</metadata><manifest>'
+        '<item id="img" href="images/cover.png" media-type="image/png" properties="cover-image"/>'
+        '<item id="c1x" href="c1.xhtml" media-type="application/xhtml+xml"/>'
+        '</manifest><spine><itemref idref="c1x"/></spine></package>',
+        "OEBPS/images/cover.png": tiny_png(),
+        "OEBPS/c1.xhtml": xhtml("<p>Text.</p>"),
+    })
+    # EPUB 2: <meta name="cover">, calibre series, opf:role/opf:file-as, plain description, ISBN-10 scheme.
+    write_epub(os.path.join(out, "cover_meta.epub"), {
+        "OEBPS/content.opf": (OPF_NS % "2.0") +
+        '<dc:identifier id="id0" opf:scheme="calibre">c0ffee</dc:identifier>'
+        '<dc:identifier opf:scheme="ISBN">0-306-40615-2</dc:identifier>'
+        '<dc:title>Second Tale</dc:title>'
+        '<dc:creator opf:role="aut" opf:file-as="Writer, Ann">Ann Writer</dc:creator>'
+        '<dc:creator opf:role="edt">Ed Itor</dc:creator>'
+        '<dc:creator opf:role="aut">Bo Coauthor</dc:creator>'
+        '<dc:description>First paragraph.\n\nSecond   paragraph.</dc:description>'
+        '<dc:date opf:event="modification">2020-02-02</dc:date>'
+        '<dc:date opf:event="publication">2003</dc:date>'
+        '<dc:language>es</dc:language>'
+        '<meta name="calibre:series" content="The Tales"/>'
+        '<meta name="calibre:series_index" content="2.5"/>'
+        '<meta name="cover" content="cov"/>'
+        '</metadata><manifest>'
+        '<item id="cov" href="cover.jpg" media-type="image/jpeg"/>'
+        '<item id="c1x" href="c1.xhtml" media-type="application/xhtml+xml"/>'
+        '</manifest><spine><itemref idref="c1x"/></spine></package>',
+        "OEBPS/cover.jpg": FAKE_JPEG,
+        "OEBPS/c1.xhtml": xhtml("<p>Text.</p>"),
+    })
+    # Guide reference to a cover page holding an <img>; no other cover markers.
+    write_epub(os.path.join(out, "cover_guide.epub"), {
+        "OEBPS/content.opf": (OPF_NS % "2.0") +
+        '<dc:identifier id="id0">guide-1</dc:identifier><dc:title>Guided</dc:title>'
+        '<dc:creator>No Role</dc:creator><dc:language>en</dc:language>'
+        '</metadata><manifest>'
+        '<item id="cp" href="text/cover.xhtml" media-type="application/xhtml+xml"/>'
+        '<item id="ci" href="images/c.gif" media-type="image/gif"/>'
+        '<item id="c1x" href="text/c1.xhtml" media-type="application/xhtml+xml"/>'
+        '</manifest><spine><itemref idref="c1x"/></spine>'
+        '<guide><reference type="cover" title="Cover" href="text/cover.xhtml"/></guide></package>',
+        "OEBPS/text/cover.xhtml": xhtml('<div><img src="../images/c.gif" alt="cover"/></div>'),
+        "OEBPS/images/c.gif": FAKE_GIF,
+        "OEBPS/text/c1.xhtml": xhtml("<p>Text.</p>"),
+    })
+    # Only the first spine item points at the cover, through an SVG <image xlink:href>.
+    write_epub(os.path.join(out, "cover_spine.epub"), {
+        "OEBPS/content.opf": (OPF_NS % "2.0") +
+        '<dc:identifier id="id0">spine-1</dc:identifier><dc:title>Spined</dc:title>'
+        '<dc:language>en</dc:language>'
+        '</metadata><manifest>'
+        '<item id="t" href="titlepage.xhtml" media-type="application/xhtml+xml"/>'
+        '<item id="ci" href="img/c.jpeg" media-type="image/jpeg"/>'
+        '<item id="c1x" href="c1.xhtml" media-type="application/xhtml+xml"/>'
+        '</manifest><spine><itemref idref="t"/><itemref idref="c1x"/></spine></package>',
+        "OEBPS/titlepage.xhtml": xhtml('<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" '
+                                       'viewBox="0 0 2 3"><image width="2" height="3" xlink:href="img/c.jpeg"/></svg>'),
+        "OEBPS/img/c.jpeg": FAKE_JPEG,
+        "OEBPS/c1.xhtml": xhtml("<p>Text.</p>"),
+    })
+
+
 if __name__ == "__main__":
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(root, "Packages/ReaderCore/Tests/Fixtures")
     os.makedirs(out, exist_ok=True)
     build(out)
+    build_covers(out)
     print("fixtures written to", out)

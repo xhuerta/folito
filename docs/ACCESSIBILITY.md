@@ -38,6 +38,19 @@ custom card styles, fonts or colours in the UI chrome.
 - Section headers come from `Section` and are exposed as headers by the system.
 - Links in *About* have the hint "Opens in your web browser."
 
+**Covers and book details.** Library rows (local and Readest) start with the book's cover, the same
+`CoverThumbnail` view for both. Covers are decorative (`accessibilityHidden`): the title and author are always next
+to them as text, so the row still reads "title, author, …". A book without a cover gets a placeholder drawn as a
+bitmap (title and author on a colour picked from the title, white text with at least 6:1 contrast on every
+palette colour), so it is artwork, not unscaled text on screen. Covers keep a fixed size at every text size;
+nothing switches at `isAccessibilitySize`. Tapping a local row (a `NavigationLink`, so VoiceOver adds "button")
+opens the book details; the swipe, context-menu and rotor actions stay on the row. The detail screen is a `List`:
+a centred header (cover, title as a header, authors, "Book 2 of Dune"), the description, an *Information* section
+of `LabeledContent` rows (publisher, year, language, progress, time remaining, Apple Watch state, ISBN, size) and
+the actions. A long description is cut at a word with "…" and a **More** button (with a hint), rather than
+line-limited, so no text is clipped at any size. *Delete* uses the increased-contrast system red (system red text
+on a white row is about 3.6:1).
+
 **Dynamic Type.** No fixed point sizes in UI chrome; only text styles. Layouts that would truncate switch
 at accessibility sizes: the size/state line of library rows stacks vertically (`AnyLayout`), slider
 title/value rows use `ViewThatFits`, and the preset grid's minimum column width is a `@ScaledMetric`, so it
@@ -74,7 +87,8 @@ handling (any future custom animation must check `accessibilityReduceMotion`).
 
 `FolitoUITests` (`iOSApp/UITests/AccessibilityAuditTests.swift`) launches the app and calls
 `XCUIApplication.performAccessibilityAudit` on: the empty library, a library with one book, Settings,
-Progress Sync, Acknowledgements and Reading.
+Progress Sync, Acknowledgements, Reading and the book detail screen (`-UITestingSeedCovers`: a book with a cover,
+a series and a long description).
 
 **When it runs.** The audit drives the simulator screen by screen and takes 10–30 minutes on CI, so it is not
 part of the PR-blocking macOS workflow and not a required check. It has its own workflow,
@@ -146,6 +160,15 @@ Readest audits start their largest-size pass below the local row (`openCloudRows
 `testLibraryReadestLocalRowAudit` audits that row, Readest icon included, with the library filtered to *On
 This iPhone*, where it is the last row as in the one-book audit.
 
+**The book detail screen** (PR #46) was first a `List`: an inset-grouped section per part, `LabeledContent`
+rows for the publication details, action rows and a separate *More* row under the description. At AX5 the
+audit reported "Dynamic Type font sizes are unsupported" and "Text clipped" with no element on the pages
+showing the section headers, the details and the actions, and "partially unsupported" on *More* (CI run on
+62f6984). It is now a `ScrollView` of cards with one layout at every size: section titles in `.headline`,
+each detail as title above value (one element), action buttons whose labels use `.body`, wrap and keep a
+44 pt minimum height, and *More* as a borderless button under the text with the same rules. No finding is
+accepted for this screen.
+
 Every finding (accepted or not) is printed in the CI log ("Accessibility audit issue (accepted|FAILS)") with
 its element, frame, the audit's detailed description and, for contrast findings, the contrast measured from
 a screenshot of the element; findings that fail also attach a screenshot to the result bundle.
@@ -182,8 +205,8 @@ use *Audit* › *Run Audit* on each screen, and the inspection pointer to check 
 
 ### Known gaps
 
-- Reading progress is not shown in library rows: the iPhone does not know it (progress lives on the watch
-  and the sync server). When the phone learns it, add it to the row text, formatted with `.percent`.
+- Reading progress is not shown in library rows. The watch now reports it (`progress` in the library report) and
+  the book detail screen shows it; adding it to the row text, formatted with `.percent`, is left for later.
 - The audit only checks what is on screen; alerts, the delete confirmation, the file importer and the
   context menu are checked manually.
 - Licence texts are shown as provided (English, hard-wrapped at about 80 columns), so at the largest
@@ -212,6 +235,10 @@ behind a `confirmationDialog`.
 **VoiceOver.**
 - Library rows are one element: "title, author, 43% read". *Delete* is also an accessibility action
   (Actions rotor), and it asks for confirmation like the swipe does.
+- With *Settings › Show Covers* on (the default), each row starts with a small
+  cover (30 × 45 pt, decorative and hidden from VoiceOver, so the row still reads "title, author, 43% read").
+  The cover keeps its size at every text size and the text wraps beside it; a cover-less book gets a tile in
+  the colour the iPhone uses for its placeholder. Turning the setting off restores the text-only row exactly.
 - Icon-only buttons are `Label`s ("Settings", "Reading Options", "Previous Word", "Next Word"); decorative
   icons (error glyphs, the current-chapter bookmark, list bullets) are hidden, and the current chapter in
   *Contents* has the *Selected* trait instead.

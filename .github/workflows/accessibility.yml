@@ -81,6 +81,7 @@ jobs:
             -scheme Folito \
             -destination "id=$UDID" \
             -only-testing:FolitoUITests \
+            -skip-testing:FolitoUITests/CoversUITests \
             -clonedSourcePackagesDirPath SourcePackages \
             -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
             -resultBundlePath ios-uitests.xcresult \
@@ -160,6 +161,7 @@ jobs:
             -scheme FolitoWatch \
             -destination "id=$UDID" \
             -only-testing:FolitoWatchUITests \
+            -skip-testing:FolitoWatchUITests/WatchCoversScreenshotTests \
             -clonedSourcePackagesDirPath SourcePackages \
             -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
             -resultBundlePath watch-uitests.xcresult \

@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 import ReaderCore
 @testable import Folito
 
@@ -30,6 +31,55 @@ final class LogicTests: XCTestCase {
         XCTAssertEqual(m["documentHash"] as? String, "h")
         XCTAssertEqual(m["size"] as? Int, 5)
         XCTAssertEqual(WatchSchema.deleteBook(hash: "h")["type"] as? String, "delete_book")
+    }
+
+    func testSchemaCarriesCoverAndReadsProgress() {
+        let e = LibraryEntry(documentHash: "h", title: "T", author: "A", fileName: "h.wrbook", size: 5,
+                             importedAt: Date(), sentToWatch: false)
+        XCTAssertNil(WatchSchema.bookMetadata(for: e, formatVersion: 1)["cover"])
+        let jpeg = Data([0xFF, 0xD8, 0xFF])
+        XCTAssertEqual(WatchSchema.bookMetadata(for: e, formatVersion: 1, cover: jpeg)["cover"] as? Data, jpeg)
+        let c = WatchSchema.bookCover(hash: "h", cover: jpeg)
+        XCTAssertEqual(c["type"] as? String, "book_cover")
+        XCTAssertEqual(c["documentHash"] as? String, "h")
+        let progress = WatchSchema.libraryProgress(from: ["type": "library", "progress": ["a": 43, "b": 101, "c": -1]])
+        XCTAssertEqual(progress, ["a": 0.43])
+        XCTAssertNil(WatchSchema.libraryProgress(from: ["type": "settings"]))
+    }
+
+    @MainActor
+    func testSeriesText() {
+        XCTAssertEqual(BookDetailView.seriesText(BookSeries(name: "Dune", index: 2)), "Book 2 of Dune")
+        XCTAssertEqual(BookDetailView.seriesText(BookSeries(name: "Tales", index: 2.5)).contains("2"), true)
+        XCTAssertEqual(BookDetailView.seriesText(BookSeries(name: "Dune")), "Part of Dune")
+    }
+
+    @MainActor
+    func testCoverThumbnailsAndPlaceholder() throws {
+        let big = UIGraphicsImageRenderer(size: CGSize(width: 1200, height: 1800)).image { ctx in
+            UIColor.systemTeal.setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: 1200, height: 1800))
+            UIColor.white.setFill()
+            ctx.fill(CGRect(x: 100, y: 200, width: 1000, height: 120))
+        }
+        let png = try XCTUnwrap(big.pngData())
+        let watch = try XCTUnwrap(CoverStore.watchJPEG(from: png))
+        XCTAssertLessThanOrEqual(watch.count, CoverStore.watchMaxBytes)
+        let thumb = try XCTUnwrap(CoverStore.thumbnail(png, maxPixels: CoverStore.libraryPixels))
+        XCTAssertEqual(max(thumb.width, thumb.height), CoverStore.libraryPixels)
+
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let cover = EPUBCover(data: png, mediaType: "image/png", path: "c.png", source: .coverImageProperty)
+        XCTAssertTrue(CoverStore.storeCover(cover, hash: "h", in: dir))
+        XCTAssertNotNil(CoverImages.shared.cover(hash: "h", in: dir))
+        let svg = EPUBCover(data: Data("<svg/>".utf8), mediaType: "image/svg+xml", path: "c.svg", source: .coverImageProperty)
+        XCTAssertFalse(CoverStore.storeCover(svg, hash: "h", in: dir), "SVG covers get the placeholder")
+        CoverImages.shared.invalidate(hash: "h")
+        XCTAssertNil(CoverImages.shared.cover(hash: "h", in: dir))
+        let placeholder = CoverImages.shared.placeholder(title: "Emma", author: "Jane Austen", size: CGSize(width: 40, height: 60))
+        XCTAssertEqual(placeholder.size, CGSize(width: 40, height: 60))
     }
 
     func testInsecureWarning() {
