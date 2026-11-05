@@ -353,6 +353,16 @@ final class MiscLogicTests: XCTestCase {
         XCTAssertEqual(d["dictionaries"] as? [String], ["readerdict-en", "readerdict-fr"])
     }
 
+    func testLibraryContextCarriesTimeRemainingOfStoredBooks() {
+        func t(_ hash: String, _ seconds: TimeInterval) -> ReadingTimeRemaining {
+            ReadingTimeRemaining(documentHash: hash, bookTitle: hash, chapterSeconds: 60, bookSeconds: seconds,
+                                 fractionRead: 0.5, updatedAt: Date())
+        }
+        let c = ConnectivityReceiver.libraryContext(hashes: ["a"], timeRemaining: ["a": t("a", 125), "gone": t("gone", 60)])
+        XCTAssertEqual(c["timeRemaining"] as? [String: Double], ["a": 180])
+        XCTAssertNil(ConnectivityReceiver.libraryContext(hashes: ["a"])["timeRemaining"])
+    }
+
     func testSafeName() {
         XCTAssertEqual(BookStorage.safeName("ab12/../x"), "ab12____x")
     }

@@ -7,6 +7,8 @@ enum ReaderSettings {
     static let fontSizeKey = TypographyStore.legacyFontSizeKey
     static let showSyncInfoKey = "settings.showSyncInfo"
     static let tapToLookUpKey = "settings.tapToLookUp"
+    /// Estimated reading time left at the top of Reading Options (on by default).
+    static let showTimeRemainingKey = "settings.showTimeRemaining"
 
     static let minFontSize = 12.0
     static let maxFontSize = 28.0
@@ -21,5 +23,6 @@ enum ReaderSettings {
         defaults.removeObject(forKey: fontSizeKey)
         defaults.removeObject(forKey: showSyncInfoKey)
         defaults.removeObject(forKey: tapToLookUpKey)
+        defaults.removeObject(forKey: showTimeRemainingKey)
     }
 }

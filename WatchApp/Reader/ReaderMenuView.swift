@@ -8,10 +8,17 @@ struct ReaderMenuView: View {
     @EnvironmentObject private var typography: TypographyModel
     /// Asks the reader to open the word lookup for the block at the top of the screen once this sheet is gone.
     var onLookup: () -> Void = {}
+    @AppStorage(ReaderSettings.showTimeRemainingKey) private var showTimeRemaining = true
 
     var body: some View {
         NavigationStack {
             List {
+                // Top of the menu, not over the page: the reading view keeps every point for the text.
+                if showTimeRemaining, let remaining = model.timeRemaining {
+                    Section {
+                        TimeRemainingLine(value: remaining)
+                    }
+                }
                 Section("Text") {
                     TextSizeStepper()
                     NavigationLink("Typography", value: SettingsRoute.typography)
@@ -51,6 +58,23 @@ struct ReaderMenuView: View {
             .navigationTitle("Contents")
             .navigationDestination(for: SettingsRoute.self) { $0.destination }
         }
+    }
+}
+
+/// "12 min left in chapter · 3 hr, 20 min in book": secondary text that wraps at large Dynamic Type sizes;
+/// VoiceOver reads it as full sentences ("12 minutes left in chapter. 3 hours, 20 minutes left in book.").
+struct TimeRemainingLine: View {
+    let value: ReadingTimeRemaining
+
+    var body: some View {
+        Text(TimeRemainingFormat.line(value))
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .listRowBackground(Color.clear)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(TimeRemainingFormat.spoken(value)))
+            .accessibilityIdentifier("timeRemaining")
     }
 }
 

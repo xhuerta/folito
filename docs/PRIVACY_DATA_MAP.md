@@ -92,6 +92,9 @@ Not sent: any looked-up word, book title, author, text, position, account data o
   username and password (the real password; the watch computes the MD5 itself), for Readest the account email
   and the session (access + refresh token, never the password). They travel only between the user's own
   paired devices.
+- Apple Watch to iPhone (same channel, the `library` report): the hashes of the books and dictionaries on the
+  watch, the watch's typography, and the estimated reading time left per book (seconds, rounded to whole
+  minutes), shown in the iPhone library. The learned reading speed itself never leaves the watch.
 - No iCloud, CloudKit, Keychain access groups or app groups are used.
 
 ## 2. Data stored on device only
@@ -106,6 +109,7 @@ Not sent: any looked-up word, book title, author, text, position, account data o
 | Readest book list and covers (cache) | iPhone: `Application Support/Folito/readest-library.json`, `Caches/ReadestCovers` | So the Library can show Readest books offline. Removed on Sign Out. |
 | "Upload Imported Books Automatically", Library filter | UserDefaults | Off / All by default. |
 | Reading position, typography, device UUID, pending sync queue | UserDefaults | |
+| Learned reading speed and estimated time left per book | Watch: UserDefaults (`reading.speed`, `reading.timeRemaining`) | Computed on the watch from the time spent per page; used only to show "time left". Cleared by *Settings › Reset* (and per book when the book is deleted). |
 | Offline dictionaries | `Application Support/Folito/Dictionaries` (iPhone and watch) | Downloaded/converted files; deleted from *Settings › Dictionaries* on the iPhone (removes them from the watch too). Download validators (ETag) and checksums in UserDefaults. |
 
 ## 3. Privacy manifest declarations (`iOSApp/PrivacyInfo.xcprivacy`, `WatchApp/PrivacyInfo.xcprivacy`)
