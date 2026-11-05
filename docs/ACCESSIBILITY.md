@@ -51,14 +51,15 @@ the actions. A long description is cut at a word with "…" and a **More** butto
 line-limited, so no text is clipped at any size. *Delete* uses the increased-contrast system red (system red text
 on a white row is about 3.6:1).
 
-**Online book details.** *Settings › Book Details* is a standard `Form` section (a `Toggle`, a button, a link
+**Online book details.** *Settings › Book Details* is a standard `Form` section (a `Toggle`, a button with the detail screen's action-row label (`.body`, wraps, 44 pt minimum; a default `Form` button row was flagged "Dynamic Type font sizes are partially unsupported" at AX5), a link
 with the "Opens in your web browser." hint, a footer); the bulk lookup's progress row is one element ("Looking up 2
 of 8 books…") and its summary is announced. The detail screen's *Find Details Online* opens a sheet built like the
 detail screen: cards in a `ScrollView`, never a layout that switches at `isAccessibilitySize`. A single match shows
 its cover (decorative), title as a header, authors, year, description and one action row per piece to apply (*Use
 This Cover*, *Use Description*, *Use Year, Publisher and Subjects*), each turning into a check-mark label once
 applied; several matches are a card of rows (cover, title, authors, year, a chevron), each one element; no matches
-and errors use `ContentUnavailableView`. Values found online carry a footnote "From Open Library" caption in
+and errors use `ContentUnavailableView`. The sheet closes with an icon bar button (✕, labelled *Done*), like the
+Library's toolbar: a text bar button keeps a fixed font size and was flagged by the Dynamic Type audit. Values found online carry a footnote "From Open Library" caption in
 `secondaryText`. Audited by `testOnlineMatchSheetAudit`; screenshots at default and AX5 sizes in the
 `online-metadata-screenshots` artifact (docs/ONLINE_METADATA.md).
 

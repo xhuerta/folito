@@ -73,11 +73,19 @@ struct OnlineMatchSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
+                    // An icon bar button, like the Library's toolbar: a text bar button keeps a fixed font size
+                    // and fails the Dynamic Type audit. The label is still read by VoiceOver and shown by the
+                    // Large Content Viewer.
                     Button {
                         dismiss()
                     } label: {
-                        Text("Done", comment: "Button: close the Find Details Online sheet")
+                        Label {
+                            Text("Done", comment: "Button: close the Find Details Online sheet")
+                        } icon: {
+                            Image(systemName: "xmark")
+                        }
                     }
+                    .labelStyle(.iconOnly)
                     .accessibilityIdentifier("onlineDone")
                 }
             }

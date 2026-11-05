@@ -123,8 +123,9 @@ final class OnboardingUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["onboardingTitle"].exists)
 
         app.tabBars.buttons["Settings"].tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
         let button = app.buttons["showWelcomeTour"]
-        XCTAssertTrue(button.waitForExistence(timeout: 5))
+        XCTAssertTrue(scrollTo(button, in: app), "showWelcomeTour not reachable")
         button.tap()
         XCTAssertTrue(app.staticTexts["onboardingTitle"].waitForExistence(timeout: 5))
         app.buttons["onboardingSkip"].tap()
@@ -164,5 +165,17 @@ final class OnboardingUITests: XCTestCase {
         XCTAssertTrue(row.waitForExistence(timeout: 30), "Spanish sample not added")
         XCTAssertEqual(app.descendants(matching: .any).matching(identifier: "libraryRow").count, 1,
                        "Only the chosen sample should be added")
+    }
+
+    /// Drags the screen up until `element` is hittable (Form rows below the fold are not in the tree).
+    @MainActor
+    @discardableResult
+    private func scrollTo(_ element: XCUIElement, in app: XCUIApplication, steps: Int = 10) -> Bool {
+        for _ in 0..<steps where !(element.exists && element.isHittable) {
+            let window = app.windows.firstMatch
+            window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
+                .press(forDuration: 0.1, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35)))
+        }
+        return element.exists && element.isHittable
     }
 }

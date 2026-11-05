@@ -205,7 +205,9 @@ private struct BookDetailsSettingsSection: View {
                 model.cancelBulk()
             } label: {
                 Text("Stop Looking Up", comment: "Settings › Book Details: cancel the running lookup")
+                    .modifier(ActionLabel())
             }
+            .buttonStyle(.borderless)
             .accessibilityIdentifier("onlineBulkCancel")
         case .finished(let updated, let total, let cancelled):
             startButton
@@ -229,8 +231,12 @@ private struct BookDetailsSettingsSection: View {
         Button {
             model.startBulk(library: library)
         } label: {
+            // Same rules as the detail screen's action rows: body text that wraps, no row-level button styling,
+            // at least 44 pt tall (docs/ACCESSIBILITY.md).
             Text("Look Up Missing Details Now", comment: "Settings button: look up missing covers and descriptions for the whole library")
+                .modifier(ActionLabel())
         }
+        .buttonStyle(.borderless)
         .accessibilityHint(Text("Looks up the books without a cover or description on Open Library."))
         .accessibilityIdentifier("onlineBulkStart")
     }
