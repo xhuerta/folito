@@ -100,7 +100,7 @@ handling (any future custom animation must check `accessibilityReduceMotion`).
 `FolitoUITests` (`iOSApp/UITests/AccessibilityAuditTests.swift`) launches the app and calls
 `XCUIApplication.performAccessibilityAudit` on: the empty library, a library with one book, Settings,
 Progress Sync, Acknowledgements, Reading and the book detail screen (`-UITestingSeedCovers`: a book with a cover,
-a series and a long description).
+a series and a long description), and Settings' *Book Details* section alone (`-UITestingSettingsBookDetailsOnly`).
 
 **When it runs.** The audit drives the simulator screen by screen and takes 10–30 minutes on CI, so it is not
 part of the PR-blocking macOS workflow and not a required check. It has its own workflow,
@@ -110,8 +110,8 @@ part of the PR-blocking macOS workflow and not a required check. It has its own 
 - on a pull request that has the label `accessibility` (when the label is added, and on every later push
   while it is set). Add the label to PRs that change UI.
 
-Each test has a time limit (`-test-timeouts-enabled YES`, 180 s by default, 300 s at most) and the job stops
-after 30 minutes, so a hung simulator fails the run instead of stalling it. The job always prints the
+Each test has a time limit (`-test-timeouts-enabled YES`, 180 s by default, 300 s at most) and the audit
+step stops after 55 minutes (the job after 62), so a hung simulator fails the run instead of stalling it. The job always prints the
 findings and uploads `ios-accessibility-xcresult`. The fast, deterministic accessibility checks (for example
 `SecondaryTextContrastTests` and the reader palette contrast tests in ReaderCore) are unit tests and still run
 on every PR.
@@ -171,6 +171,17 @@ row's watch state was then flagged at the next mid-list page. Not a layout probl
 Readest audits start their largest-size pass below the local row (`openCloudRowsAtLargestText`), and
 `testLibraryReadestLocalRowAudit` audits that row, Readest icon included, with the library filtered to *On
 This iPhone*, where it is the last row as in the one-book audit.
+
+**Settings › Book Details at AX5** (PR #47) hit the same artifact. The AX5 Settings audit flagged *Look Up
+Missing Details Now* (`onlineBulkStart`): "Dynamic Type font sizes are partially unsupported", on one page
+only, where the button was fully on screen in the middle of the list; the toggle above it and the link below
+it, fully on screen on the same page, were not flagged (CI run on c849128). Its label is a wrapping `.body`
+text with a 44 pt minimum height, the same rules as the detail screen's action buttons, which pass. Not
+accepted: the Settings pass at AX5 scrolls on, on the pages where the button is fully on screen, until it is
+above the screen (`skipBookDetailsRows`), and `testSettingsBookDetailsAudit` audits the section alone
+(`-UITestingSettingsBookDetailsOnly`, a UI-testing switch that shows only that section in the same `Form`),
+where its rows are on the first screen at scroll offset 0, which does not move when the audit changes the
+text size.
 
 **The book detail screen** (PR #46) was first a `List`: an inset-grouped section per part, `LabeledContent`
 rows for the publication details, action rows and a separate *More* row under the description. At AX5 the
