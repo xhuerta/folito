@@ -60,6 +60,8 @@ struct LibraryView: View {
             }
             .onAppear {
                 library.reloadProgress()
+                // Back from the reader: the iPhone library shows the updated time left (library context).
+                library.onLibraryChanged?()
                 consumeDeepLink()
             }
             .onChange(of: env.deepLink) { _ in consumeDeepLink() }

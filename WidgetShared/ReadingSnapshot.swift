@@ -17,8 +17,8 @@ struct ReadingSnapshot: Codable, Equatable, Sendable {
     var chapterTitle: String?
     /// 0...1 of the whole book.
     var fraction: Double
-    /// Estimated minutes left in the current chapter. Optional: nil until an estimator provides one
-    /// (see `ReaderViewModel.minutesLeftInChapter()`).
+    /// Estimated minutes left in the current chapter (see `ReaderViewModel.minutesLeftInChapter()`).
+    /// Nil while the book's words are being counted or when *Show Time Remaining* is off; hides the line.
     var minutesLeft: Int?
     var updatedAt: Date
 

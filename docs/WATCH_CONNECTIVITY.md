@@ -114,6 +114,11 @@ waits for the first report (older watch builds send none) and does not resend a 
 sends whatever is missing, which covers a reinstalled watch app, books deleted on the watch and transfers
 lost in transit. The phone also reads `receivedApplicationContext` on its own activation.
 
+Optional key `timeRemaining`: `{ "<documentHash>": <seconds>, ... }`, the watch's estimate of the reading time
+left in each book it has opened (`ReadingTimeRemaining.bookSeconds`, rounded to whole minutes), shown in the
+iPhone library row. Absent until a book has been opened; the phone ignores invalid values. The watch also
+publishes the report when the library list reappears (back from the reader).
+
 ## Typography (both directions, last writer wins)
 `ReaderTypography` (ReaderCore) is a versioned, clamped, tolerant-decoding Codable: font family, size, line
 spacing, margins, paragraph spacing, alignment, bold, heading scale, tracking, theme and `stamp`.

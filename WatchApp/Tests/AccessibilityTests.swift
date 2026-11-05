@@ -238,3 +238,56 @@ final class AccessibleRenderStyleTests: XCTestCase {
         for p in ReaderTypography.Preset.allCases { XCTAssertFalse(p.localizedName.isEmpty) }
     }
 }
+
+final class TimeRemainingFormatTests: XCTestCase {
+    private let en = Locale(identifier: "en_US")
+
+    func testVisibleLineIsAbbreviated() {
+        let value = ReadingTimeRemaining(documentHash: "h", bookTitle: "T", chapterSeconds: 12 * 60,
+                                         bookSeconds: 3 * 3600 + 20 * 60, fractionRead: 0.4, updatedAt: Date())
+        let line = TimeRemainingFormat.line(value, locale: en)
+        XCTAssertTrue(line.hasPrefix("12 min left in chapter · 3 hr"), line)
+        XCTAssertTrue(line.hasSuffix("20 min in book"), line)
+    }
+
+    func testVoiceOverGetsFullSentences() {
+        let value = ReadingTimeRemaining(documentHash: "h", bookTitle: "T", chapterSeconds: 12 * 60,
+                                         bookSeconds: 3600, fractionRead: 0.4, updatedAt: Date())
+        let spoken = TimeRemainingFormat.spoken(value, locale: en)
+        XCTAssertEqual(spoken, "12 minutes left in chapter. 1 hour left in book.")
+    }
+
+    func testNeverShowsZeroMinutes() {
+        XCTAssertEqual(TimeRemainingFormat.chapter(5, style: .full, locale: en), "1 minute left in chapter")
+        XCTAssertEqual(TimeRemainingFormat.chapter(0, style: .full, locale: en), "1 minute left in chapter")
+    }
+
+    func testShowTimeRemainingIsResetWithPreferences() {
+        let defaults = UserDefaults(suiteName: "TimeRemainingFormatTests")!
+        defaults.set(false, forKey: ReaderSettings.showTimeRemainingKey)
+        ReaderSettings.resetPreferences(defaults)
+        XCTAssertNil(defaults.object(forKey: ReaderSettings.showTimeRemainingKey))
+    }
+
+    @MainActor
+    func testReaderEstimatesAndSavesTimeRemaining() async throws {
+        let name = "TimeRemainingReaderTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let positions = PositionStore(defaults: defaults)
+        let words = Array(repeating: "word", count: 200).joined(separator: " ")
+        let book = ProcessedBook(metadata: BookMetadata(title: "T", authors: []), documentHash: "h", metaHash: "",
+                                 chapters: [Chapter(spineIndex: 1, title: nil,
+                                                    blocks: [Block(text: words, xpointer: "/a", globalOffset: 0),
+                                                             Block(text: words, xpointer: "/b", globalOffset: 999)])],
+                                 totalCharacters: 1_998)
+        let model = ReaderViewModel(book: book, positions: positions, sync: SyncCoordinator(defaults: defaults, credentials: { nil }))
+        for _ in 0..<100 where model.timeRemaining == nil { try await Task.sleep(nanoseconds: 20_000_000) }
+        let value = try XCTUnwrap(model.timeRemaining)
+        XCTAssertEqual(value.bookSeconds, 120, accuracy: 0.001) // 400 words at the default 200 wpm
+        XCTAssertEqual(value.chapterSeconds, 120, accuracy: 0.001)
+        XCTAssertEqual(positions.readingTimes.load(documentHash: "h")?.bookSeconds ?? 0, 120, accuracy: 0.001)
+        positions.remove("h")
+        XCTAssertNil(positions.readingTimes.latest())
+    }
+}

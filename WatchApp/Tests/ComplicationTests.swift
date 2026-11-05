@@ -76,7 +76,7 @@ final class ReadingSnapshotTests: XCTestCase {
     }
 
     @MainActor
-    func testReaderSnapshotHasChapterAndNoMinutesYet() {
+    func testReaderSnapshotHasChapterAndMinutesLeft() async throws {
         let chapters = [Chapter(spineIndex: 1, title: "One",
                                 blocks: [Block(text: String(repeating: "x", count: 50), xpointer: "/a", globalOffset: 0)]),
                         Chapter(spineIndex: 2, title: "Two",
@@ -84,14 +84,25 @@ final class ReadingSnapshotTests: XCTestCase {
         let book = ProcessedBook(metadata: BookMetadata(title: "Book", authors: []), documentHash: "hash1",
                                  metaHash: "", chapters: chapters, totalCharacters: 100)
         let defaults = UserDefaults(suiteName: "ComplicationTests.\(UUID().uuidString)")!
-        let model = ReaderViewModel(book: book, positions: PositionStore(defaults: defaults), sync: SyncCoordinator(defaults: defaults, credentials: { nil }))
+        let store = ReadingSnapshotStore(defaults: defaults)
+        let model = ReaderViewModel(book: book, positions: PositionStore(defaults: defaults),
+                                    sync: SyncCoordinator(defaults: defaults, credentials: { nil }),
+                                    complications: ComplicationPublisher(store: store, reload: {}),
+                                    settings: defaults)
         model.jump(to: 1)
         let s = model.complicationSnapshot
         XCTAssertEqual(s.bookID, "hash1")
         XCTAssertEqual(s.title, "Book")
         XCTAssertEqual(s.chapterTitle, "Two")
         XCTAssertEqual(s.fraction, 0.5, accuracy: 1e-9)
-        XCTAssertNil(s.minutesLeft, "minutes left stays nil until the time-remaining estimator is plugged in")
+        // Words are counted off the main actor; once they are, the published snapshot has the estimate.
+        for _ in 0..<100 where model.timeRemaining == nil { try await Task.sleep(nanoseconds: 20_000_000) }
+        XCTAssertNotNil(model.timeRemaining)
+        XCTAssertEqual(model.minutesLeftInChapter(), 1, "a one-word chapter still shows at least 1 minute")
+        XCTAssertEqual(store.load()?.minutesLeft, 1, "the snapshot is published again after the estimate is ready")
+        defaults.set(false, forKey: ReaderSettings.showTimeRemainingKey)
+        XCTAssertNil(model.minutesLeftInChapter(), "Show Time Remaining off hides minutes left")
+        XCTAssertNil(model.complicationSnapshot.minutesLeft)
     }
 }
 

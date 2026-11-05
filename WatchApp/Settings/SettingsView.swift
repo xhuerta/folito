@@ -30,6 +30,7 @@ struct SettingsView: View {
     @EnvironmentObject private var typography: TypographyModel
     @AppStorage(ReaderSettings.showSyncInfoKey) private var showSyncInfo = true
     @AppStorage(ReaderSettings.tapToLookUpKey) private var tapToLookUp = true
+    @AppStorage(ReaderSettings.showTimeRemainingKey) private var showTimeRemaining = true
     /// Result of the last "Check server" (nil: not checked).
     @State private var connection: SyncCoordinator.ConnectionResult?
     @State private var checking = false
@@ -42,6 +43,8 @@ struct SettingsView: View {
                 TextSizeStepper()
                 NavigationLink("Typography", value: SettingsRoute.typography)
                     .accessibilityIdentifier("typographyLink")
+                Toggle("Show Time Remaining", isOn: $showTimeRemaining)
+                    .accessibilityIdentifier("showTimeRemainingToggle")
                 if sync.isConfigured { Toggle("Show Sync Status", isOn: $showSyncInfo) }
             }
             Section {

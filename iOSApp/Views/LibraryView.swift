@@ -102,7 +102,8 @@ struct LibraryView: View {
         let state = BookWatchState(sentToWatch: entry.sentToWatch,
                                    inFlight: connectivity.outstandingHashes.contains(entry.documentHash))
         let canResend = connectivity.status.canSend && state != .sending
-        return BookRow(entry: entry, state: state)
+        return BookRow(entry: entry, state: state,
+                       timeLeft: state == .onWatch ? connectivity.watchTimeRemaining[entry.documentHash] : nil)
             // VoiceOver reads the row as one element ("title, author, size, watch state"); the swipe and
             // context-menu actions are offered in the Actions rotor.
             .accessibilityElement(children: .combine)
@@ -134,10 +135,12 @@ struct LibraryView: View {
     }
 }
 
-/// One library row: title, author, then size and watch state (stacked at accessibility text sizes).
+/// One library row: title, author, then watch state, time left (once the watch reports it) and size (stacked at accessibility text sizes).
 private struct BookRow: View {
     let entry: LibraryEntry
     let state: BookWatchState
+    /// Reading time left as estimated by the watch; nil until the book has been opened there.
+    var timeLeft: TimeInterval? = nil
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
@@ -153,6 +156,10 @@ private struct BookRow: View {
             layout {
                 TintedLabel(verbatim: state.text, systemImage: state.systemImage,
                             tint: state == .onWatch ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondaryText))
+                if let timeLeft {
+                    Text(DisplayFormat.timeLeft(timeLeft))
+                        .accessibilityLabel(Text(DisplayFormat.timeLeft(timeLeft, style: .full)))
+                }
                 Text(DisplayFormat.fileSize(entry.size))
                 if entry.isSample { SampleBadge() }
             }

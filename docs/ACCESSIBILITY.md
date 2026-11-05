@@ -207,6 +207,11 @@ behind a `confirmationDialog`.
 - Word lookup: the word cursor is one *adjustable* element, "Selected word, *bright*, word 4 of 12". Swipe
   up/down moves to the next/previous word, so it works without the Digital Crown. Turning the crown
   still moves it (with the crown's own detent haptics); the buttons and VoiceOver play a click.
+- Time remaining (top of *Reading Options*, *Settings › Show Time Remaining*): the visible line is
+  abbreviated ("12 min left in chapter · 3 hr, 20 min in book"), VoiceOver reads full sentences ("12 minutes
+  left in chapter. 3 hours, 20 minutes left in book."). It is footnote text, so it follows Dynamic Type and
+  wraps instead of truncating; it is not over the page, so the reading view keeps all its space. The iPhone
+  library row reads "3 hours, 20 minutes left" the same way.
 - Steppers read as "Text Size, 16 points", "Letter Spacing, +0.25 points", etc.
 - Definitions: the entry word is a header; each sense (number, definition, examples) is one element.
 

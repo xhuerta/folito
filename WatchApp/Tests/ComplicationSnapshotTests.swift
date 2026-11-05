@@ -49,7 +49,7 @@ final class ComplicationSnapshotTests: XCTestCase {
                 rendered += 1
             }
         }
-        // Rectangular with the optional "minutes left in chapter" line (nil until the estimator lands).
+        // Rectangular with the optional "minutes left in chapter" line (nil while counting words or with Show Time Remaining off).
         try attach(tile(families[3], .default, snapshot: Self.withMinutes), name: "rectangular-with-minutes")
         // Inline space depends on the face; on a wide slot the title is shown, on a narrow one only the percentage.
         let wideInline = Family(name: "inline-wide", family: .accessoryInline, size: CGSize(width: 280, height: 22))
