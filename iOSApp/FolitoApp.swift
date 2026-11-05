@@ -54,6 +54,13 @@ struct FolitoApp: App {
                                       comment: "VoiceOver announcement after an import; the placeholder is the book title"))
         }
         library.onDeleted = { connectivity.sendDelete(hash: $0.documentHash) }
+        // Covers: sent with each book; a book that gained one later (lazy fill) gets just the cover.
+        connectivity.coverProvider = { library.watchCover(for: $0) }
+        library.onCoverAdded = { entry in
+            if entry.sentToWatch, let cover = library.watchCover(for: entry) {
+                connectivity.send(cover: cover, hash: entry.documentHash)
+            }
+        }
         connectivity.onTransferFinished = { library.markSent(hash: $0) }
         // Settings and unconfirmed books are (re)sent whenever the session activates, the watch app
         // gets installed, reachability changes, the app returns to foreground or the watch reports

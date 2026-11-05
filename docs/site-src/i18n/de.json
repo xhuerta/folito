@@ -31,7 +31,7 @@
   "index.what_title": "Was die App kann",
   "index.what_lede": "Eine vollwertige Lese-App, gemacht für den kleinsten Bildschirm, den du besitzt.",
   "index.f1_title": "Deine Bücher am Handgelenk",
-  "index.f1_text": "Importiere <code>.epub</code>-Bücher auf deinem iPhone (über „Dateien“, das Teilen-Menü oder die Importtaste); sie werden an deine Uhr gesendet, wo du sie offline liest. Der Reader schätzt die verbleibende Zeit im Kapitel und im Buch anhand deiner eigenen Lesegeschwindigkeit. Eine Komplikation auf dem Zifferblatt oder der Smart Stack zeigt deinen Fortschritt und bringt dich zurück zu deiner Seite.",
+  "index.f1_text": "Importiere <code>.epub</code>-Bücher auf deinem iPhone (über „Dateien“, das Teilen-Menü oder die Importtaste); sie werden an deine Uhr gesendet, wo du sie offline liest. Cover, Reihen und Beschreibungen werden direkt aus der EPUB-Datei gelesen. Der Reader schätzt die verbleibende Zeit im Kapitel und im Buch anhand deiner eigenen Lesegeschwindigkeit. Eine Komplikation auf dem Zifferblatt oder der Smart Stack zeigt deinen Fortschritt und bringt dich zurück zu deiner Seite.",
   "index.f2_title": "Typografie nach deinem Geschmack",
   "index.f2_text": "Anpassbare Typografie (Schrift, Größe, Abstände, Themen) auf der Uhr oder dem iPhone.",
   "index.f3_title": "Jedes Wort nachschlagen",

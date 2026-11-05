@@ -50,7 +50,10 @@ struct LiveReadestLibraryService: ReadestLibraryService {
 
     func upload(epubAt url: URL, book: ReadestUploadBook, existing: ReadestCloudBook?) async throws -> ReadestCloudBook {
         let data = try Data(contentsOf: url, options: .mappedIfSafe)
-        return try await client.uploadBook(data, book: book, existing: existing)
+        let row = try await client.uploadBook(data, book: book, existing: existing)
+        // The cover is a separate `cover.png` (docs/READEST_SYNC.md); best effort, the book is already uploaded.
+        if let png = CoverStore.readestPNG(epubAt: url) { try? await client.uploadCover(png, hash: book.hash) }
+        return row
     }
 
     func delete(_ book: ReadestCloudBook) async throws { try await client.deleteBook(book) }

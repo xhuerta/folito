@@ -238,6 +238,83 @@ jobs:
             readest-uitests.log
           if-no-files-found: ignore
 
+      # Covers UI tests (iOSApp/UITests/CoversUITests.swift, `-UITestingSeedCovers`): the Library with covers, a
+      # cover-less book's placeholder, the book detail screen, and both at the largest text size. Exported as the
+      # covers-iphone artifact.
+      - name: Covers UI tests
+        if: matrix.platform == 'ios'
+        run: |
+          set -o pipefail
+          rm -rf covers-uitests.xcresult
+          xcodebuild test-without-building $XCB_FLAGS \
+            -scheme ${{ matrix.scheme }} \
+            -destination "id=$UDID" \
+            -only-testing:FolitoUITests/CoversUITests \
+            -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
+            -resultBundlePath covers-uitests.xcresult 2>&1 | tee covers-uitests.log
+
+      - name: Export covers screenshots (iPhone)
+        if: always() && matrix.platform == 'ios'
+        run: |
+          [ -d covers-uitests.xcresult ] || exit 0
+          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:" covers-uitests.log || true
+          mkdir -p covers-iphone
+          xcrun xcresulttool export attachments --path covers-uitests.xcresult --output-path covers-iphone || true
+          python3 scripts/ci/name_attachments.py covers-iphone || true
+          ls covers-iphone
+
+      - name: Upload covers screenshots (iPhone)
+        if: always() && matrix.platform == 'ios'
+        uses: actions/upload-artifact@v4
+        with:
+          name: covers-iphone
+          path: |
+            covers-iphone
+            covers-uitests.log
+          if-no-files-found: ignore
+
+      # Watch Library with Settings > Show Covers on and off, at the default and the largest accessibility text size
+      # (WatchApp/UITests/WatchCoversScreenshotTests.swift), on the smallest and the largest watch simulator the
+      # runner has. Exported as the covers-watch artifact.
+      - name: Watch covers screenshots
+        if: matrix.platform == 'watch'
+        timeout-minutes: 15
+        run: |
+          set -o pipefail
+          PICK=$(xcrun simctl list devices available -j | python3 scripts/ci/pick_watch_sizes.py)
+          echo "watch simulators (smallest, largest): $PICK"
+          mkdir -p covers-watch
+          status=0
+          for U in $PICK; do
+            [ "$U" = "$UDID" ] || xcrun simctl bootstatus "$U" -b > /dev/null
+            rm -rf "covers-watch-$U.xcresult"
+            xcodebuild test-without-building $XCB_FLAGS \
+              -scheme ${{ matrix.scheme }} \
+              -destination "id=$U" \
+              -only-testing:FolitoWatchUITests/WatchCoversScreenshotTests \
+              -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
+              -resultBundlePath "covers-watch-$U.xcresult" 2>&1 | tee -a covers-watch.log || status=1
+            mkdir -p "covers-watch/$U"
+            xcrun xcresulttool export attachments --path "covers-watch-$U.xcresult" --output-path "covers-watch/$U" || true
+            python3 scripts/ci/name_attachments.py "covers-watch/$U" || true
+            mv covers-watch/$U/*.png covers-watch/ 2>/dev/null || true
+            rm -rf "covers-watch/$U"
+            [ "$U" = "$UDID" ] || xcrun simctl shutdown "$U" || true
+          done
+          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:" covers-watch.log || true
+          ls covers-watch
+          exit $status
+
+      - name: Upload covers screenshots (watch)
+        if: always() && matrix.platform == 'watch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: covers-watch
+          path: |
+            covers-watch
+            covers-watch.log
+          if-no-files-found: ignore
+
       # Complication / Smart Stack images rendered by WatchApp/Tests/ComplicationSnapshotTests.swift (every family:
       # default, tinted, redacted, Always On, placeholder, plus a contact sheet), exported from the watch test
       # results as the complication-screenshots artifact for design review.

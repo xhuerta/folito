@@ -33,6 +33,10 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
     @Published private(set) var watchDictionaries: Set<String>?
     /// Reading time left per book hash, as estimated by the watch (empty until it reports any).
     @Published private(set) var watchTimeRemaining: [String: TimeInterval] = [:]
+    /// Fraction read per book, as the watch reports it (books opened there only).
+    @Published private(set) var watchProgress: [String: Double] = [:]
+    /// The watch thumbnail of a book's cover, sent with the book (set by the app).
+    var coverProvider: ((LibraryEntry) -> Data?)?
     /// Ids of dictionary transfers in flight.
     @Published private(set) var outstandingDictionaries: Set<String> = []
     /// When each dictionary transfer was last delivered: the watch installs it and only then lists it, so a
@@ -76,8 +80,15 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
         // Not installed yet: the book stays unsent and `syncWatchState()` sends it once the watch app appears.
         guard canSend else { return }
         guard !outstandingHashes.contains(entry.documentHash) else { return }
-        session.transferFile(fileURL, metadata: WatchSchema.bookMetadata(for: entry, formatVersion: formatVersion))
+        session.transferFile(fileURL, metadata: WatchSchema.bookMetadata(for: entry, formatVersion: formatVersion,
+                                                                        cover: coverProvider?(entry)))
         outstandingHashes.insert(entry.documentHash)
+    }
+
+    /// Sends the cover of a book the watch already has (it gained one after it was sent).
+    func send(cover: Data, hash: String) {
+        guard let session, canSend else { return }
+        session.transferUserInfo(WatchSchema.bookCover(hash: hash, cover: cover))
     }
 
     /// Sends a compact dictionary file. A transfer of the same id still in flight is cancelled first
@@ -174,6 +185,9 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
                 if let times = WatchSchema.libraryTimeRemaining(from: session.receivedApplicationContext) {
                     self.watchTimeRemaining = times
                 }
+                if let progress = WatchSchema.libraryProgress(from: session.receivedApplicationContext) {
+                    self.watchProgress = progress
+                }
                 if let typography = TypographySync.decode(from: session.receivedApplicationContext) {
                     self.onWatchTypography?(typography)
                 }
@@ -205,10 +219,12 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
         let dictionaries = WatchSchema.libraryDictionaries(from: applicationContext)
         let typography = TypographySync.decode(from: applicationContext)
         let times = WatchSchema.libraryTimeRemaining(from: applicationContext)
+        let progress = WatchSchema.libraryProgress(from: applicationContext)
         guard hashes != nil || typography != nil || dictionaries != nil else { return }
         DispatchQueue.main.async {
             if let typography { self.onWatchTypography?(typography) }
             if let times { self.watchTimeRemaining = times }
+            if let progress { self.watchProgress = progress }
             if let hashes { self.onWatchLibrary?(hashes) }
             if let dictionaries { self.watchDictionaries = dictionaries }
             self.syncWatchState()

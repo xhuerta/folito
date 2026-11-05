@@ -1,4 +1,5 @@
 import SwiftUI
+import ReaderCore
 
 struct LibraryView: View {
     @EnvironmentObject private var env: AppEnvironment
@@ -6,6 +7,7 @@ struct LibraryView: View {
     /// Book waiting for the user to confirm its deletion.
     @State private var pendingDelete: LibraryEntry?
     @State private var path = NavigationPath()
+    @AppStorage(ReaderSettings.showCoversKey) private var showCovers = true
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -22,7 +24,8 @@ struct LibraryView: View {
                     List {
                         ForEach(library.entries) { entry in
                             NavigationLink(value: entry) {
-                                BookRow(entry: entry, fraction: library.progress[entry.documentHash] ?? 0)
+                                BookRow(entry: entry, fraction: library.progress[entry.documentHash] ?? 0,
+                                        cover: showCovers ? library.cover(for: entry) : nil, showCover: showCovers)
                             }
                             .accessibilityIdentifier("libraryRow")
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -103,9 +106,28 @@ extension LibraryEntry: Hashable {
 struct BookRow: View {
     let entry: LibraryEntry
     let fraction: Double
+    /// The cover thumbnail from the iPhone; nil (with `showCover`) draws a plain tile in the book's colour.
+    var cover: UIImage? = nil
+    /// Settings > Show Covers. Off: exactly the text-only row.
+    var showCover = false
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
+        if showCover {
+            // The cover keeps its size at every text size; the text wraps beside it.
+            HStack(alignment: .top, spacing: 8) {
+                WatchCover(image: cover, title: entry.title)
+                    .padding(.top, 2)
+                text
+            }
+            // One VoiceOver element, as without covers: the cover is decorative.
+            .accessibilityElement(children: .combine)
+        } else {
+            text
+        }
+    }
+
+    private var text: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(entry.title)
                 .font(.headline)
@@ -121,6 +143,33 @@ struct BookRow: View {
         .padding(.vertical, 2)
         // One VoiceOver element: "Title, Author, 43% read".
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// A book cover in a watch Library row: the thumbnail from the iPhone, or a tile in the colour the iPhone uses
+/// for the book's placeholder (`CoverPalette`) with a book symbol. Decorative.
+struct WatchCover: View {
+    let image: UIImage?
+    let title: String
+    static let size = CGSize(width: 30, height: 45)
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(uiImage: image).resizable().scaledToFill()
+            } else {
+                let c = CoverPalette.rgb(for: title)
+                ZStack {
+                    Color(red: c.red, green: c.green, blue: c.blue)
+                    Image(systemName: "book.closed.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white.opacity(0.8))
+                }
+            }
+        }
+        .frame(width: Self.size.width, height: Self.size.height)
+        .clipShape(RoundedRectangle(cornerRadius: 3))
+        .accessibilityHidden(true)
     }
 }
 

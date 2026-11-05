@@ -1,4 +1,5 @@
 import Foundation
+import ReaderCore
 
 /// One imported book as listed in the library. Persisted as `library.json`.
 struct LibraryEntry: Codable, Identifiable, Equatable, Sendable {
@@ -19,6 +20,11 @@ struct LibraryEntry: Codable, Identifiable, Equatable, Sendable {
     /// Readest `meta_hash` of the book (sent when the book is uploaded to Readest). Optional: entries saved
     /// before the Readest library existed decode unchanged.
     var metaHash: String? = nil
+    /// Whether the EPUB has a usable cover (stored by `CoverStore`); nil until the book has been checked, which
+    /// happens at import, or lazily for books imported before covers existed (`LibraryStore.fillMissingCovers`).
+    var hasCover: Bool? = nil
+    /// Descriptive metadata read from the EPUB (description, series, publisher, …); nil when unknown.
+    var details: EPUBDetails? = nil
 
     var isSample: Bool { sampleLanguage != nil }
 

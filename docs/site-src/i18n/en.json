@@ -31,7 +31,7 @@
   "index.what_title": "What it does",
   "index.what_lede": "A full reading app, designed for the smallest screen you own.",
   "index.f1_title": "Your books, on your wrist",
-  "index.f1_text": "Import <code>.epub</code> books on your iPhone (Files, share sheet or the import button); they are sent to your watch, where you read them, offline. The reader estimates the time left in the chapter and the book from your own reading speed. A watch-face complication or the Smart Stack shows your progress and takes you back to your page.",
+  "index.f1_text": "Import <code>.epub</code> books on your iPhone (Files, share sheet or the import button); they are sent to your watch, where you read them, offline. Covers, series and descriptions are read from the EPUB itself. The reader estimates the time left in the chapter and the book from your own reading speed. A watch-face complication or the Smart Stack shows your progress and takes you back to your page.",
   "index.f2_title": "Typography your way",
   "index.f2_text": "Adjustable typography (typeface, size, spacing, themes) from the watch or the iPhone.",
   "index.f3_title": "Look up any word",

@@ -38,7 +38,7 @@ A full reading app, designed for the smallest screen you own.
     <td width="33%" valign="top">
       <img src="docs/readme/books.svg" width="44" height="44" alt=""><br>
       <b>Your books, on your wrist</b><br>
-      Import <code>.epub</code> books on your iPhone (Files, share sheet or the import button); they are sent to your watch, where you read them, offline. The reader estimates the time left in the chapter and the book from your own reading speed, and a watch-face complication or the Smart Stack shows your progress and takes you back to your page.
+      Import <code>.epub</code> books on your iPhone (Files, share sheet or the import button); they are sent to your watch, where you read them, offline. Covers, series and descriptions come from the EPUB itself. The reader estimates the time left in the chapter and the book from your own reading speed, and a watch-face complication or the Smart Stack shows your progress and takes you back to your page.
     </td>
     <td width="33%" valign="top">
       <img src="docs/readme/typography.svg" width="44" height="44" alt=""><br>
@@ -78,7 +78,7 @@ Folito works **without an account and offline** with your own EPUB files. Readin
 - [Architecture](#architecture)
 - [Building](#building) · [Signing](#signing-with-a-free-personal-team) · [Installing](#installing-on-iphone-and-apple-watch)
 - [Complications and Smart Stack](#complications-and-smart-stack) · [Progress sync (optional)](#progress-sync-optional)
-- [Typography](#typography) · [Dictionary](#dictionary-word-lookup) · [Time remaining](#time-remaining) · [Importing EPUBs](#importing-epubs) · [Languages](#languages)
+- [Typography](#typography) · [Dictionary](#dictionary-word-lookup) · [Time remaining](#time-remaining) · [Importing EPUBs](#importing-epubs) ([covers and book details](#covers-and-book-details)) · [Languages](#languages)
 - [Releasing to TestFlight / App Store](#releasing-to-testflight--app-store-without-a-mac)
 - [Limitations](#limitations) · [Development](#development) · [Documentation](#documentation)
 - [License](#license) · [Third-party components](#third-party-components)
@@ -256,6 +256,23 @@ book, and the rectangular complication and Smart Stack show the minutes left in 
 - From the iPhone: open an `.epub` with "Open in Folito" (share sheet in Files, Safari, etc.) or use the import button in the app. The app transfers them to the watch.
 - If the watch app wasn't installed yet, nothing is lost: sync settings and pending books are resent automatically when the session activates, the watch app is installed, connectivity changes or you open the iPhone app. The watch reports which books it has, so missing ones are resent.
 - The app exposes its Documents folder in the Files app (`UIFileSharingEnabled`).
+
+### Covers and book details
+
+Covers and metadata are read from the EPUB itself at import (`EPUBMetadataReader` in ReaderCore); nothing is
+looked up online. The cover is the EPUB 3 `cover-image` item, else the EPUB 2 `<meta name="cover">`, else the
+guide's `cover` reference, else the first image of the first page. A book without a usable cover (none, or SVG)
+gets a placeholder like Apple Books': title and author on a colour picked from the title. Books imported
+before covers existed get theirs the next time the Library opens, from the kept original file.
+
+Tap a book in the Library for its details: a large cover, title, authors, series ("Book 2 of Dune", from
+`calibre:series` or EPUB 3 `belongs-to-collection`), the description with a **More** button, publisher, year,
+language, ISBN, the progress and time left reported by the watch, and the same actions as the row's menu.
+*Upload to Readest* also uploads the cover (`cover.png`), so the Readest apps show it.
+
+The watch shows a small cover (a JPEG of a few KB sent with the book) next to each title in its Library. This is
+an experiment: *Settings › Show Covers* on the watch (on by default) turns it off and brings back the text-only
+rows.
 
 ## Languages
 

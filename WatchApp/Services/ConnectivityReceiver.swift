@@ -5,7 +5,9 @@ import ReaderCore
 /// Receives books (transferFile), settings (applicationContext, or transferUserInfo from older phones)
 /// and delete requests from the iPhone, and tells the phone which books it holds.
 /// Wire names (see docs/WATCH_CONNECTIVITY.md):
-///  - file metadata keys: documentHash, title, author, size; payload = LZFSE-compressed ProcessedBook JSON
+///  - file metadata keys: documentHash, title, author, size, cover? (JPEG thumbnail); payload = LZFSE-compressed
+///    ProcessedBook JSON
+///  - cover of a book already here: `{ type: "book_cover", documentHash, cover }` (userInfo)
 ///  - settings (`type == "settings"`): sync_connector + sync_credentials (any connector; KOSync also as
 ///    kosync_server, kosync_user, kosync_password for older watch builds), settingsStamp,
 ///    or `sync_cleared` / `kosync_cleared == true` + settingsStamp (sync turned off on the phone),
@@ -41,6 +43,23 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
     static let dictionariesKey = "dictionaries"
     /// Watch -> phone: estimated seconds left per book (`ReadingTimeRemaining.bookSeconds`), keyed by hash.
     static let timeRemainingKey = "timeRemaining"
+    /// Watch -> phone: whole percent read per book that has been opened.
+    static let progressKey = "progress"
+    static let coverKey = "cover"
+    static let bookCoverType = "book_cover"
+
+    /// The cover thumbnail in a book transfer's metadata or a `book_cover` message, if any.
+    static func cover(from info: [String: Any]?) -> Data? {
+        guard let data = info?[coverKey] as? Data, !data.isEmpty, data.count <= BookStorage.maxCoverBytes else { return nil }
+        return data
+    }
+
+    /// `(hash, cover)` of a `book_cover` message, nil for any other message.
+    static func bookCover(from info: [String: Any]) -> (hash: String, cover: Data)? {
+        guard (info[typeKey] as? String) == bookCoverType, let hash = info[documentHashKey] as? String, !hash.isEmpty,
+              let cover = cover(from: info) else { return nil }
+        return (hash, cover)
+    }
     static let sha256Key = "sha256"
     static let sizeKey = "size"
 
@@ -75,7 +94,8 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
     /// so an unchanged estimate does not produce a new context.
     static func libraryContext(hashes: [String], dictionaries: [String] = [],
                                typography: ReaderTypography? = nil,
-                               timeRemaining: [String: ReadingTimeRemaining] = [:]) -> [String: Any] {
+                               timeRemaining: [String: ReadingTimeRemaining] = [:],
+                               progress: [String: Double] = [:]) -> [String: Any] {
         var context: [String: Any] = [typeKey: libraryType, hashesKey: hashes.sorted(),
                                       dictionariesKey: dictionaries.sorted()]
         var times: [String: Double] = [:]
@@ -83,6 +103,11 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
             if let t = timeRemaining[hash] { times[hash] = Double(ReadingTimeEstimator.displayMinutes(t.bookSeconds) * 60) }
         }
         if !times.isEmpty { context[timeRemainingKey] = times }
+        var percents: [String: Int] = [:]
+        for hash in hashes {
+            if let p = progress[hash], p.isFinite, p > 0 { percents[hash] = min(100, max(0, Int((p * 100).rounded()))) }
+        }
+        if !percents.isEmpty { context[progressKey] = percents }
         if let typography { context.merge(TypographySync.context(for: typography)) { _, new in new } }
         return context
     }
@@ -142,7 +167,8 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
             let hashes = library.entries.map(\.documentHash)
             try? session.updateApplicationContext(Self.libraryContext(hashes: hashes, dictionaries: dictionaryIds,
                                                                       typography: typography(),
-                                                                      timeRemaining: library.positions.readingTimes.all()))
+                                                                      timeRemaining: library.positions.readingTimes.all(),
+                                                                      progress: library.progress))
         }
     }
 
@@ -155,7 +181,8 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
         let copy = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".book")
         do { try FileManager.default.copyItem(at: file.fileURL, to: copy) } catch { return }
         let library = self.library
-        Task { @MainActor in await library.importReceivedFile(at: copy) }
+        let cover = Self.cover(from: file.metadata)
+        Task { @MainActor in await library.importReceivedFile(at: copy, cover: cover) }
     }
 
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
@@ -200,6 +227,7 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
             }
         }
         let deleteHash = Self.deleteHash(from: info)
+        let bookCover = Self.bookCover(from: info)
         if let id = Self.deleteDictionaryId(from: info) {
             dictionaries.remove(id: id)
             let changed = onDictionariesChanged
@@ -214,6 +242,7 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
             if let incomingTypography { applyTypography(incomingTypography) }
             if changed { notify() }
             if let hash = deleteHash { library.delete(documentHash: hash) }
+            if let bookCover { library.setCover(bookCover.cover, documentHash: bookCover.hash) }
         }
     }
 }

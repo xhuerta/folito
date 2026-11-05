@@ -58,7 +58,7 @@ accounts). The iPhone signs in once; the watch then syncs and refreshes the sess
 | same | Device name / ID | no | |
 | Readest, `https://web.readest.com/api/sync?type=books` (iPhone Library) | Access token of the iPhone's own library session | yes | Reads the account's book list (titles, authors, hashes, upload state). |
 | Readest, `https://web.readest.com/api/storage/download`, `list`, `stats` (iPhone) | File keys (`{user id}/Readest/Books/{book hash}/…`) | yes | Download of a cover or EPUB only when shown / tapped; storage usage in Settings. |
-| Readest's storage (presigned URLs returned by the API) | The EPUB file | **only on explicit user action**: *Upload to Readest*, or the opt-in *Upload Imported Books Automatically* (off by default) | The original file as imported. Plus, in `POST /api/sync`, that book's row: `hash`, `metaHash`, `format`, `title`, `author`, `uploadedAt`. |
+| Readest's storage (presigned URLs returned by the API) | The EPUB file | **only on explicit user action**: *Upload to Readest*, or the opt-in *Upload Imported Books Automatically* (off by default) | The original file as imported, and its cover as `cover.png` (taken from that file). Plus, in `POST /api/sync`, that book's row: `hash`, `metaHash`, `format`, `title`, `author`, `uploadedAt`. |
 | Readest, `DELETE /api/storage/delete` + `POST /api/sync` (tombstone) | File keys, book row | only when the user confirms *Delete from Readest* | |
 
 Endpoints: `POST /auth/v1/token` (password and refresh grants), `POST /auth/v1/logout?scope=local` (sign out,
@@ -91,10 +91,10 @@ Not sent: any looked-up word, book title, author, text, position, account data o
   credentials so the watch can sync on its own (see `docs/WATCH_CONNECTIVITY.md`): for KOSync the server URL,
   username and password (the real password; the watch computes the MD5 itself), for Readest the account email
   and the session (access + refresh token, never the password). They travel only between the user's own
-  paired devices.
+  paired devices. Books carry a small JPEG of their cover (taken from the EPUB) when they have one.
 - Apple Watch to iPhone (same channel, the `library` report): the hashes of the books and dictionaries on the
-  watch, the watch's typography, and the estimated reading time left per book (seconds, rounded to whole
-  minutes), shown in the iPhone library. The learned reading speed itself never leaves the watch.
+  watch, the watch's typography, the estimated reading time left per book (seconds, rounded to whole
+  minutes) and the percentage read of each book opened on the watch, shown in the iPhone library and book details. The learned reading speed itself never leaves the watch.
 - No iCloud, CloudKit, Keychain access groups or app groups are used.
 
 ## 2. Data stored on device only
@@ -106,6 +106,7 @@ Not sent: any looked-up word, book title, author, text, position, account data o
 | Readest email and session (access + refresh token) | Keychain (iPhone and watch; the watch updates its copy when the session is refreshed) | No password. Removed on Sign Out. |
 | Readest library session (access + refresh token) | iPhone Keychain only (`readest_library_session`) | Never sent to the watch. Removed and revoked on Sign Out. |
 | Library (processed books and, on the iPhone, the original EPUB) | `Application Support/Folito/Books` (iPhone), watch app's Application Support (processed books only) | Files the user imports or downloads from Readest. Uploaded only as described in 1a-bis. |
+| Covers and book details of local books (description, series, publisher, year, language, ISBN) | iPhone: `Application Support/Folito/Books/<hash>.cover.jpg` and `<hash>.watch.jpg`, details in `library.json`; watch: `Books/<hash>.cover.jpg` | Read from the EPUB at import; nothing is looked up online. Removed with the book. |
 | Readest book list and covers (cache) | iPhone: `Application Support/Folito/readest-library.json`, `Caches/ReadestCovers` | So the Library can show Readest books offline. Removed on Sign Out. |
 | "Upload Imported Books Automatically", Library filter | UserDefaults | Off / All by default. |
 | Reading position, typography, device UUID, pending sync queue | UserDefaults | |

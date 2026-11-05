@@ -9,13 +9,7 @@ struct LibraryView: View {
     /// The Readest side of the library (nil in previews and when the app did not inject it).
     @Environment(ReadestLibraryModel.self) private var readest: ReadestLibraryModel?
     @State private var showImporter = false
-    @State private var pendingDelete: LibraryEntry?
-    /// A local book that is also in Readest: ask "this iPhone only" or "Readest too".
-    @State private var pendingDeleteChoice: LibraryEntry?
-    /// Deleting from Readest needs its own, explicit confirmation.
-    @State private var pendingReadestDelete: ReadestCloudBook?
-    /// The local copy to delete too once the Readest deletion is confirmed ("Delete from Readest Too").
-    @State private var pendingReadestDeleteLocal: LibraryEntry?
+    @State private var deletion = BookDeletion()
     @State private var showOtherSamples = false
     @AppStorage("library.filter") private var filterRaw = LibraryFilter.all.rawValue
 
@@ -31,7 +25,7 @@ struct LibraryView: View {
     }
 
     var body: some View {
-        withDeletePresentations(withPresentations(
+        withPresentations(
             bookList
             .readableScrollEdges()
             .navigationTitle("Library")
@@ -41,7 +35,12 @@ struct LibraryView: View {
             }
             .task { await readest?.refreshIfStale() }
             .toolbar { toolbarContent }
-        ))
+            .navigationDestination(for: BookDetailRoute.self) { route in
+                BookDetailView(hash: route.hash, library: library, connectivity: connectivity, sendToWatch: sendToWatch)
+            }
+        )
+        .modifier(BookDeletionDialogs(library: library, readest: readest, deletion: $deletion))
+        .task { library.fillMissingCovers() }
     }
 
     private var bookList: some View {
@@ -208,67 +207,12 @@ struct LibraryView: View {
         }
     }
 
-    /// The delete confirmations (this iPhone only, Readest too, and the explicit Readest confirmation).
-    private func withDeletePresentations<Content: View>(_ content: Content) -> some View {
-        content
-        .confirmationDialog(deleteTitle(pendingDelete), isPresented: Binding(get: { pendingDelete != nil },
-                                                                             set: { if !$0 { pendingDelete = nil } }),
-                            titleVisibility: .visible, presenting: pendingDelete) { entry in
-            Button("Delete Book", role: .destructive) { library.delete(entry) }
-            Button("Cancel", role: .cancel) {}
-        } message: { _ in
-            Text("The book is also removed from your Apple Watch, together with its reading position there.")
-        }
-        .confirmationDialog(deleteTitle(pendingDeleteChoice),
-                            isPresented: Binding(get: { pendingDeleteChoice != nil },
-                                                 set: { if !$0 { pendingDeleteChoice = nil } }),
-                            titleVisibility: .visible, presenting: pendingDeleteChoice) { entry in
-            Button("Delete from This iPhone Only") { library.delete(entry) }
-            Button("Delete from Readest Too", role: .destructive) {
-                let book = readest?.cloudBook(hash: entry.documentHash)
-                // Present the explicit confirmation once this dialog has gone.
-                Task {
-                    try? await Task.sleep(nanoseconds: 400_000_000)
-                    pendingReadestDeleteLocal = entry
-                    pendingReadestDelete = book
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: { _ in
-            Text("Deleting it from this iPhone also removes it from your Apple Watch. It stays in Readest, so you can download it again.")
-        }
-        .alert(readestDeleteTitle, isPresented: Binding(get: { pendingReadestDelete != nil },
-                                                        set: { if !$0 { pendingReadestDelete = nil; pendingReadestDeleteLocal = nil } }),
-               presenting: pendingReadestDelete) { book in
-            Button("Delete from Readest", role: .destructive) {
-                let local = pendingReadestDeleteLocal
-                Task {
-                    await readest?.deleteFromReadest(book)
-                    if let local, readest?.cloudBook(hash: book.hash) == nil { library.delete(local) }
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: { _ in
-            Text("The book is removed from your Readest account and from every device that syncs with it. This can’t be undone.")
-        }
-    }
-
     private var filterName: String {
         switch filter {
         case .all: return String(localized: "All", comment: "Library filter: every book")
         case .onThisDevice: return String(localized: "On This iPhone", comment: "Library filter")
         case .inReadest: return String(localized: "In Readest", comment: "Library filter")
         }
-    }
-
-    private func deleteTitle(_ entry: LibraryEntry?) -> String {
-        guard let entry else { return "" }
-        return String(localized: "Delete “\(entry.title)”?", comment: "Confirmation title; the placeholder is the book title")
-    }
-
-    private var readestDeleteTitle: String {
-        guard let book = pendingReadestDelete else { return "" }
-        return String(localized: "Delete “\(book.title)” from Readest?", comment: "Confirmation title; the placeholder is the book title")
     }
 
     private struct ShapedItem: Identifiable {
@@ -284,7 +228,7 @@ struct LibraryView: View {
 
     /// Delete: a book that is also in Readest asks where to delete it from.
     private func requestDelete(_ entry: LibraryEntry, inReadest: Bool) {
-        if inReadest { pendingDeleteChoice = entry } else { pendingDelete = entry }
+        deletion.request(entry, inReadest: inReadest)
     }
 
     private func row(_ entry: LibraryEntry, cloud: ReadestCloudBook?) -> some View {
@@ -295,9 +239,15 @@ struct LibraryView: View {
         let inReadest = readestOn && cloud != nil
         let isUploading = readest?.uploading.contains(entry.documentHash) == true
         let canUpload = readestOn && !inReadest && !isUploading
-        return BookRow(entry: entry, state: state,
-                       timeLeft: state == .onWatch ? connectivity.watchTimeRemaining[entry.documentHash] : nil,
-                       inReadest: inReadest, isUploading: isUploading)
+        // Tapping the row opens the book's details (cover, description, series, actions); the swipe,
+        // context-menu and rotor actions stay on the row.
+        return NavigationLink(value: BookDetailRoute(hash: entry.documentHash)) {
+            BookRow(entry: entry, state: state,
+                    timeLeft: state == .onWatch ? connectivity.watchTimeRemaining[entry.documentHash] : nil,
+                    inReadest: inReadest, isUploading: isUploading,
+                    cover: entry.hasCover == true ? CoverImages.shared.cover(hash: entry.documentHash,
+                                                                            in: library.booksDirectory) : nil)
+        }
             // VoiceOver reads the row as one element ("title, author, size, watch state"); the swipe and
             // context-menu actions are offered in the Actions rotor.
             .accessibilityElement(children: .combine)
@@ -384,10 +334,10 @@ struct LibraryView: View {
         content
             .accessibilityActions {
                 if !downloading { Button("Download") { download(book) } }
-                Button("Delete from Readest") { pendingReadestDelete = book }
+                Button("Delete from Readest") { deletion.readestBook = book }
             }
             .swipeActions(edge: .trailing) {
-                Button { pendingReadestDelete = book } label: { Label("Delete", systemImage: "trash") }
+                Button { deletion.readestBook = book } label: { Label("Delete", systemImage: "trash") }
                     .tint(.red)
             }
             .swipeActions(edge: .leading) {
@@ -400,7 +350,7 @@ struct LibraryView: View {
                 if !downloading {
                     Button { download(book) } label: { Label("Download", systemImage: "icloud.and.arrow.down") }
                 }
-                Button(role: .destructive) { pendingReadestDelete = book } label: {
+                Button(role: .destructive) { deletion.readestBook = book } label: {
                     Label("Delete from Readest", systemImage: "trash")
                 }
             }
@@ -431,7 +381,7 @@ private struct CloudBookRow: View {
         // The cover shows at every text size: a layout that switches at `isAccessibilitySize` is replaced under
         // the Dynamic Type audits (docs/ACCESSIBILITY.md).
         HStack(spacing: 12) {
-            CoverThumbnail(image: cover)
+            CoverThumbnail(image: cover, title: book.title, author: book.author)
                 .opacity(offline ? 0.5 : 1)
             VStack(alignment: .leading, spacing: 4) {
                 Text(verbatim: book.title)
@@ -467,27 +417,6 @@ private struct CloudBookRow: View {
         }
         .padding(.vertical, 2)
         .contentShape(Rectangle())
-    }
-}
-
-/// Book cover from Readest, or a neutral placeholder.
-private struct CoverThumbnail: View {
-    let image: UIImage?
-
-    var body: some View {
-        Group {
-            if let image {
-                Image(uiImage: image).resizable().scaledToFill()
-            } else {
-                ZStack {
-                    Rectangle().fill(.quaternary)
-                    Image(systemName: "book.closed").foregroundStyle(.secondary)
-                }
-            }
-        }
-        .frame(width: 40, height: 60)
-        .clipShape(RoundedRectangle(cornerRadius: 4))
-        .accessibilityHidden(true)
     }
 }
 
@@ -553,8 +482,19 @@ private struct BookRow: View {
     /// Also in the user's Readest library: a small `checkmark.icloud`, like a downloaded item in Files.
     var inReadest = false
     var isUploading = false
+    /// The stored cover; nil draws the placeholder.
+    var cover: UIImage? = nil
 
     var body: some View {
+        // The cover shows at every text size, as in the Readest rows (CloudBookRow).
+        HStack(spacing: 12) {
+            CoverThumbnail(image: cover, title: entry.title, author: entry.author)
+            details
+        }
+        .padding(.vertical, 2)
+    }
+
+    private var details: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(entry.title)
                 .font(.headline)
@@ -587,7 +527,6 @@ private struct BookRow: View {
             .font(.footnote)
             .foregroundStyle(.secondaryText)
         }
-        .padding(.vertical, 2)
     }
 }
 

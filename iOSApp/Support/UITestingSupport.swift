@@ -19,12 +19,15 @@ enum UITesting {
     static let seedSampleBookArgument = "-UITestingSeedSampleBook"
     static let mockReadestArgument = "-UITestingMockReadest"
     static let readestOfflineArgument = "-UITestingReadestOffline"
+    /// `-UITestingSeedCovers` (implies `-UITesting`): the sample book (no cover: placeholder) plus two books with
+    /// generated covers and full details (series, description, publisher), for the covers screenshots.
+    static let seedCoversArgument = "-UITestingSeedCovers"
 
     #if DEBUG
     static var isActive: Bool {
         let args = ProcessInfo.processInfo.arguments
         return args.contains(isolateArgument) || args.contains(seedSampleBookArgument)
-            || args.contains(OnboardingPolicy.showArgument)
+            || args.contains(OnboardingPolicy.showArgument) || args.contains(seedCoversArgument)
     }
 
     /// Root directory for `LibraryStore`; nil means the normal Application Support location.
@@ -40,7 +43,50 @@ enum UITesting {
         if ProcessInfo.processInfo.arguments.contains(seedSampleBookArgument) {
             try? store.addForUITesting(sampleBook, fileName: "sample.epub")
         }
+        if ProcessInfo.processInfo.arguments.contains(seedCoversArgument) {
+            seedCovers(into: store)
+        }
         return store
+    }
+
+    /// Public-domain books with generated covers (no cover art ships in the app).
+    @MainActor
+    private static func seedCovers(into store: LibraryStore) {
+        try? store.addForUITesting(sampleBook, fileName: "sample.epub")
+        func book(_ hash: String, _ title: String, _ author: String) -> ProcessedBook {
+            let text = "Chapter one." // i18n-ignore: UI-test fixture (Debug only)
+            return ProcessedBook(metadata: BookMetadata(title: title, authors: [author]), documentHash: hash, metaHash: hash + "m",
+                                 chapters: [Chapter(spineIndex: 1, title: nil, blocks: [
+                                     Block(text: text, xpointer: "/body/DocFragment[1]/body/p", globalOffset: 0)])],
+                                 totalCharacters: text.count)
+        }
+        let emma = book("00000000000000000000000000e00a01", "Emma", "Jane Austen") // i18n-ignore: UI-test fixture
+        try? store.addForUITesting(emma, fileName: "emma.epub", coverPNG: generatedCover(.systemTeal),
+                                   details: EPUBDetails(title: "Emma", creators: [BookCreator(name: "Jane Austen", role: "aut")], // i18n-ignore: UI-test fixture
+                                                        publisher: "John Murray", year: 1815, language: "en"), // i18n-ignore: UI-test fixture
+                                   sentToWatch: true)
+        let mars = book("00000000000000000000000000e00a02", "The Gods of Mars", "Edgar Rice Burroughs") // i18n-ignore: UI-test fixture
+        let blurb = "John Carter returns to Barsoom after ten years on Earth, only to find himself in the Valley Dor, the paradise every Martian hopes to reach at the end of life. It is a trap: the valley is ruled by plant men and great white apes, and the holy therns who guard it prey on the pilgrims who come there.\n\nWith Tars Tarkas at his side, Carter fights his way out and sets out to expose the false religion of Mars." // i18n-ignore: UI-test fixture
+        try? store.addForUITesting(mars, fileName: "mars.epub", coverPNG: generatedCover(.systemOrange),
+                                   details: EPUBDetails(title: "The Gods of Mars", // i18n-ignore: UI-test fixture
+                                                        creators: [BookCreator(name: "Edgar Rice Burroughs", role: "aut")], // i18n-ignore: UI-test fixture
+                                                        description: blurb, publisher: "A. C. McClurg", year: 1918, // i18n-ignore: UI-test fixture
+                                                        language: "en", subjects: ["Science fiction"], // i18n-ignore: UI-test fixture
+                                                        series: BookSeries(name: "Barsoom", index: 2)), // i18n-ignore: UI-test fixture
+                                   sentToWatch: true)
+    }
+
+    /// A simple, recognisable cover: a colour field with two "title" bars and a disc.
+    static func generatedCover(_ color: UIColor) -> Data? {
+        UIGraphicsImageRenderer(size: CGSize(width: 200, height: 300)).image { ctx in
+            color.setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: 200, height: 300))
+            UIColor.black.withAlphaComponent(0.25).setFill()
+            ctx.cgContext.fillEllipse(in: CGRect(x: 40, y: 130, width: 120, height: 120))
+            UIColor.white.withAlphaComponent(0.9).setFill()
+            ctx.fill(CGRect(x: 24, y: 36, width: 152, height: 16))
+            ctx.fill(CGRect(x: 24, y: 64, width: 100, height: 12))
+        }.pngData()
     }
 
     private static var mockReadest: Bool { ProcessInfo.processInfo.arguments.contains(mockReadestArgument) }

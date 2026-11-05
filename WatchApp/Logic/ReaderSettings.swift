@@ -9,6 +9,8 @@ enum ReaderSettings {
     static let tapToLookUpKey = "settings.tapToLookUp"
     /// Estimated reading time left at the top of Reading Options (on by default).
     static let showTimeRemainingKey = "settings.showTimeRemaining"
+    /// Book covers next to the titles in the Library (on by default while covers are an experiment).
+    static let showCoversKey = "settings.showCovers"
 
     static let minFontSize = 12.0
     static let maxFontSize = 28.0
@@ -24,5 +26,6 @@ enum ReaderSettings {
         defaults.removeObject(forKey: showSyncInfoKey)
         defaults.removeObject(forKey: tapToLookUpKey)
         defaults.removeObject(forKey: showTimeRemainingKey)
+        defaults.removeObject(forKey: showCoversKey)
     }
 }

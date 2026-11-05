@@ -135,6 +135,23 @@ final class ReadestLibraryTests: XCTestCase {
         XCTAssertTrue(row["deletedAt"] is NSNull)
     }
 
+    func testUploadCoverSendsTicketAndPut() async throws {
+        let c = client { r in
+            r.url.path == "/api/storage/upload" ? (200, self.json(["uploadUrl": "https://r2.example/cover"]))
+                : (200, Data())
+        }
+        let png = Data([0x89, 0x50, 0x4E, 0x47])
+        try await c.uploadCover(png, hash: Self.hash)
+        let r = requests
+        XCTAssertEqual(r.map(\.method), ["POST", "PUT"])
+        let ticket = object(r[0].body)
+        XCTAssertEqual(ticket["fileName"] as? String, "Readest/Books/\(Self.hash)/cover.png")
+        XCTAssertEqual(ticket["fileSize"] as? Int, png.count)
+        XCTAssertEqual(ticket["bookHash"] as? String, Self.hash)
+        XCTAssertEqual(r[1].body, png)
+        XCTAssertEqual(ReadestFileKey.cover(userID: "u", hash: "h"), "u/Readest/Books/h/cover.png")
+    }
+
     func testUploadOfExistingRowKeepsItsFields() async throws {
         let c = client { r in
             r.url.path == "/api/storage/upload" ? (200, self.json(["uploadUrl": "https://r2.example/put"]))

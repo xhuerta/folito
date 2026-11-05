@@ -19,6 +19,9 @@ final class LibraryStore: ObservableObject {
     /// Called after a successful import so the app can auto-send to the watch.
     var onImported: ((LibraryEntry) -> Void)?
     var onDeleted: ((LibraryEntry) -> Void)?
+    /// Called when a book imported before covers existed gained a cover (`fillMissingCovers`).
+    var onCoverAdded: ((LibraryEntry) -> Void)?
+    private var isFillingCovers = false
 
     init(parser: EPUBParsing = EPUBParser(), rootDirectory: URL? = nil) {
         self.parser = parser
@@ -83,6 +86,7 @@ final class LibraryStore: ObservableObject {
         switch outcome {
         case .success(var result):
             result.sampleLanguage = sampleLanguage
+            CoverImages.shared.invalidate(hash: result.documentHash)
             finishImport(result)
             return result
         case .failure(let error):
@@ -101,12 +105,65 @@ final class LibraryStore: ObservableObject {
         let original = dir.appendingPathComponent(LibraryEntry.originalFileName(forHash: book.documentHash))
         try? FileManager.default.removeItem(at: original)
         try? FileManager.default.copyItem(at: epub, to: original)
+        let extras = readExtras(epub: epub, hash: book.documentHash, into: dir)
         return LibraryEntry(
             documentHash: book.documentHash,
             title: BookDisplay.title(book.metadata.title, fallbackFileName: originalName),
-            author: BookDisplay.author(from: book.metadata.authors),
+            author: BookDisplay.author(from: extras.details?.authors ?? book.metadata.authors),
             fileName: fileName, size: data.count, importedAt: Date(), sentToWatch: false,
-            metaHash: book.metaHash)
+            metaHash: book.metaHash, hasCover: extras.hasCover, details: extras.details)
+    }
+
+    /// Cover thumbnails and descriptive metadata of an EPUB (local only). A book whose metadata cannot be read
+    /// still imports; it just has no details and gets a placeholder cover.
+    nonisolated static func readExtras(epub: URL, hash: String, into dir: URL) -> (hasCover: Bool, details: EPUBDetails?) {
+        guard let read = try? EPUBMetadataReader.read(epubAt: epub) else {
+            CoverStore.removeCovers(hash: hash, in: dir)
+            return (false, nil)
+        }
+        return (CoverStore.storeCover(read.cover, hash: hash, in: dir), read.details)
+    }
+
+    // MARK: Covers of older books
+
+    /// Books imported before covers existed get their cover and details from the kept original EPUB, once,
+    /// in the background. Books without an original get the placeholder. `onCoverAdded` reports each book
+    /// that gained a real cover (so the watch can get it too).
+    func fillMissingCovers() {
+        let pending = entries.filter { $0.hasCover == nil }
+        guard !pending.isEmpty, !isFillingCovers else { return }
+        isFillingCovers = true
+        let dir = booksDirectory
+        let work: [(hash: String, original: URL?)] = pending.map { ($0.documentHash, originalFileURL(for: $0)) }
+        Task {
+            var results: [String: (Bool, EPUBDetails?)] = [:]
+            for item in work {
+                let result: (Bool, EPUBDetails?) = await Task.detached(priority: .utility) {
+                    guard let original = item.original else { return (false, nil) }
+                    let extras = LibraryStore.readExtras(epub: original, hash: item.hash, into: dir)
+                    return (extras.hasCover, extras.details)
+                }.value
+                results[item.hash] = result
+            }
+            var added: [LibraryEntry] = []
+            for i in entries.indices {
+                guard entries[i].hasCover == nil, let result = results[entries[i].documentHash] else { continue }
+                let (hasCover, details) = result
+                entries[i].hasCover = hasCover
+                if entries[i].details == nil { entries[i].details = details }
+                CoverImages.shared.invalidate(hash: entries[i].documentHash)
+                if hasCover { added.append(entries[i]) }
+            }
+            save()
+            isFillingCovers = false
+            added.forEach { onCoverAdded?($0) }
+        }
+    }
+
+    /// The watch thumbnail (JPEG, a few KB) of a book, if it has a cover.
+    func watchCover(for entry: LibraryEntry) -> Data? {
+        guard entry.hasCover == true else { return nil }
+        return try? Data(contentsOf: booksDirectory.appendingPathComponent(CoverStore.watchFileName(forHash: entry.documentHash)))
     }
 
     private func finishImport(_ entry: LibraryEntry) {
@@ -125,15 +182,19 @@ final class LibraryStore: ObservableObject {
 
     #if DEBUG
     /// UI testing only (see UITestingSupport): adds an already-converted book without the import pipeline.
-    func addForUITesting(_ book: ProcessedBook, fileName: String) throws {
+    /// `coverPNG` is stored like an EPUB's cover; nil gives the placeholder.
+    func addForUITesting(_ book: ProcessedBook, fileName: String, coverPNG: Data? = nil, details: EPUBDetails? = nil,
+                         sentToWatch: Bool = false) throws {
         let data = try BookCodec.encode(book)
         let payload = LibraryEntry.fileName(forHash: book.documentHash)
         try data.write(to: booksDirectory.appendingPathComponent(payload), options: .atomic)
+        let cover = coverPNG.map { EPUBCover(data: $0, mediaType: "image/png", path: "cover.png", source: .coverImageProperty) }
+        let hasCover = CoverStore.storeCover(cover, hash: book.documentHash, in: booksDirectory)
         let entry = LibraryEntry(documentHash: book.documentHash,
                                  title: BookDisplay.title(book.metadata.title, fallbackFileName: fileName),
                                  author: BookDisplay.author(from: book.metadata.authors),
-                                 fileName: payload, size: data.count, importedAt: Date(), sentToWatch: false,
-                                 metaHash: book.metaHash)
+                                 fileName: payload, size: data.count, importedAt: Date(), sentToWatch: sentToWatch,
+                                 metaHash: book.metaHash, hasCover: hasCover, details: details)
         entries.removeAll { $0.documentHash == entry.documentHash }
         entries.insert(entry, at: 0)
         save()
@@ -163,6 +224,8 @@ final class LibraryStore: ObservableObject {
     func delete(_ entry: LibraryEntry) {
         try? fm.removeItem(at: fileURL(for: entry))
         try? fm.removeItem(at: booksDirectory.appendingPathComponent(LibraryEntry.originalFileName(forHash: entry.documentHash)))
+        CoverStore.removeCovers(hash: entry.documentHash, in: booksDirectory)
+        CoverImages.shared.invalidate(hash: entry.documentHash)
         entries.removeAll { $0.id == entry.id }
         save()
         onDeleted?(entry)

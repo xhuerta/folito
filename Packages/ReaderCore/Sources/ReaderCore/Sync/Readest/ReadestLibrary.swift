@@ -152,7 +152,10 @@ public enum ReadestFileKey {
     }
 
     /// The cover, always `cover.png` (utils/book.ts `getCoverFilename`).
-    public static func cover(userID: String, hash: String) -> String { "\(userID)/\(booksSubdir)/\(hash)/cover.png" }
+    public static func cover(userID: String, hash: String) -> String { "\(userID)/\(coverUploadName(hash: hash))" }
+
+    /// The `fileName` the cover is uploaded under (relative to the user, like `uploadName`).
+    public static func coverUploadName(hash: String) -> String { "\(booksSubdir)/\(hash)/cover.png" }
 }
 
 /// Client for the library side of Readest Cloud: book rows (`/api/sync?type=books`) and files
@@ -301,6 +304,14 @@ public struct ReadestLibraryClient: Sendable {
         let answer = try await pushBooks([row])
         return answer.first { $0.hash == book.hash } ?? ReadestCloudBook.parse(Self.dbShape(row)) ??
             ReadestCloudBook(hash: book.hash, title: book.title, uploadedAt: now())
+    }
+
+    /// Uploads the book's `cover.png` (a separate file next to the book, as the Readest app does). Callers treat
+    /// it as best effort: a book without a cover in Readest just shows Readest's placeholder.
+    public func uploadCover(_ png: Data, hash: String) async throws {
+        let ticket = try await requestUpload(fileName: ReadestFileKey.coverUploadName(hash: hash),
+                                             fileSize: png.count, bookHash: hash)
+        try await put(png, to: ticket.uploadURL)
     }
 
     /// Removes the book from Readest: deletes every stored file of the hash (book, cover; like the koplugin's

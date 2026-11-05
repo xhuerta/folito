@@ -398,6 +398,22 @@ final class AccessibilityAuditTests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["libraryCloudRow"].exists, "Readest-only books not shown")
     }
 
+    // MARK: Book detail
+
+    /// The detail screen of a book with a cover, series and description (`-UITestingSeedCovers`).
+    @MainActor
+    func testBookDetailAudit() throws {
+        try auditScreen("Book detail", extraArguments: ["-UITestingSeedCovers"]) { app in
+            let row = app.descendants(matching: .any)
+                .matching(NSPredicate(format: "identifier == 'libraryRow' AND label BEGINSWITH 'The Gods of Mars'")).firstMatch
+            for _ in 0..<8 where !(row.exists && row.isHittable) { Self.scrollDown(app) }
+            XCTAssertTrue(row.exists, "Seeded book not shown")
+            row.tap()
+            XCTAssertTrue(app.descendants(matching: .any)["bookDetail"].waitForExistence(timeout: 5)
+                          || app.navigationBars["The Gods of Mars"].waitForExistence(timeout: 5), "Detail did not open")
+        }
+    }
+
     // MARK: Welcome tour
 
     /// The tour's first page (it opens on first launch). Its later pages use the same layout.

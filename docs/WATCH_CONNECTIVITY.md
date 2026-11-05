@@ -16,8 +16,14 @@ Metadata keys:
 | `author` | String | authors joined by ", " |
 | `size` | Int | compressed file size in bytes |
 | `formatVersion` | Int | `ProcessedBook.formatVersion` |
+| `cover` | Data (optional) | the book's cover as a JPEG for the watch's Library row: at most 108 px on the longer side and 6 KB (usually 2–4 KB). Omitted when the EPUB has no usable cover. The watch stores at most 64 KB. |
 
-The watch should replace any existing book with the same `documentHash`.
+The watch should replace any existing book with the same `documentHash`. Older watch builds ignore `cover`.
+
+**Covers of books already on the watch** (`WCSession.transferUserInfo`):
+`{ "type": "book_cover", "documentHash": "<hash>", "cover": <JPEG Data> }`. Sent once when a book imported before
+covers existed gains its cover on the phone (lazy fill from the kept EPUB). If it is lost, the next resend of the
+book carries the cover anyway.
 
 ## Settings (`WCSession.updateApplicationContext`)
 Latest-state semantics: only the newest settings matter, and a watch app installed later still receives
@@ -118,6 +124,10 @@ Optional key `timeRemaining`: `{ "<documentHash>": <seconds>, ... }`, the watch'
 left in each book it has opened (`ReadingTimeRemaining.bookSeconds`, rounded to whole minutes), shown in the
 iPhone library row. Absent until a book has been opened; the phone ignores invalid values. The watch also
 publishes the report when the library list reappears (back from the reader).
+
+Optional key `progress`: `{ "<documentHash>": <Int percent 0...100>, ... }`, the percentage read of each book with a
+reading position on the watch (whole percent, so small moves do not produce a new context), shown in the iPhone's
+book details.
 
 ## Typography (both directions, last writer wins)
 `ReaderTypography` (ReaderCore) is a versioned, clamped, tolerant-decoding Codable: font family, size, line

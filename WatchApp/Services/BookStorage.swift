@@ -7,6 +7,8 @@ struct LibraryEntry: Codable, Identifiable, Equatable {
     var author: String
     var totalCharacters: Int
     var addedAt: Date
+    /// A cover thumbnail from the iPhone is stored next to the book. Optional: older indexes decode unchanged.
+    var hasCover: Bool? = nil
     var id: String { documentHash }
 }
 
@@ -68,12 +70,29 @@ final class BookStorage: @unchecked Sendable {
                             addedAt: Date())
     }
 
+    // MARK: Covers
+
+    /// The cover thumbnail (JPEG from the iPhone) of a book.
+    func coverURL(_ hash: String) -> URL {
+        directory.appendingPathComponent(Self.safeName(hash)).appendingPathExtension("cover.jpg")
+    }
+
+    /// Stores a received cover; refuses anything that is not a small image (the phone sends 2–6 KB).
+    @discardableResult
+    func saveCover(_ data: Data, documentHash: String) -> Bool {
+        guard !data.isEmpty, data.count <= Self.maxCoverBytes else { return false }
+        return (try? data.write(to: coverURL(documentHash), options: .atomic)) != nil
+    }
+
+    static let maxCoverBytes = 64 * 1024
+
     func load(documentHash: String) throws -> ProcessedBook {
         try Self.decode(compressed: Data(contentsOf: fileURL(documentHash), options: .mappedIfSafe))
     }
 
     func delete(documentHash: String) {
         try? fm.removeItem(at: fileURL(documentHash))
+        try? fm.removeItem(at: coverURL(documentHash))
     }
 
     func deleteAll() {
