@@ -110,8 +110,8 @@ part of the PR-blocking macOS workflow and not a required check. It has its own 
 - on a pull request that has the label `accessibility` (when the label is added, and on every later push
   while it is set). Add the label to PRs that change UI.
 
-Each test has a time limit (`-test-timeouts-enabled YES`, 180 s by default, 300 s at most) and the job stops
-after 30 minutes, so a hung simulator fails the run instead of stalling it. The job always prints the
+Each test has a time limit (`-test-timeouts-enabled YES`, 180 s by default, 300 s at most) and the audit
+step stops after 55 minutes (the job after 62), so a hung simulator fails the run instead of stalling it. The job always prints the
 findings and uploads `ios-accessibility-xcresult`. The fast, deterministic accessibility checks (for example
 `SecondaryTextContrastTests` and the reader palette contrast tests in ReaderCore) are unit tests and still run
 on every PR.
