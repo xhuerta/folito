@@ -94,7 +94,7 @@ final class AccessibilityAuditTests: XCTestCase {
         Self.output("Auditing \(name) at the largest accessibility text size")
         let large = launch(seedSampleBook: seedSampleBook, largestText: true, showTour: showTour,
                            extraArguments: extraArguments)
-        (openAtLargestText ?? open)(large)
+        if let openAtLargestText { openAtLargestText(large) } else { open(large) }
         try forEachPage(of: large) {
             for type in Self.largestTextTypes {
                 failures += try audit(large, type, acceptFormFooterFindings: formFooterFindingsAtLargestText).failures
