@@ -63,6 +63,28 @@ jobs:
         working-directory: Packages/ReaderCore
         run: swift test
 
+  # One live request to Open Library (docs/ONLINE_METADATA.md): the Books API by ISBN, to notice a change in
+  # their answer format. Network errors skip the test instead of failing it.
+  openlibrary-smoke:
+    runs-on: ubuntu-latest
+    container: swift:6.0
+    steps:
+      - uses: actions/checkout@v4
+
+      # Same cache as test-core (key includes the repository name; see the comment there).
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: Packages/ReaderCore/.build
+          key: spm-${{ runner.os }}-${{ github.event.repository.name }}-${{ hashFiles('Packages/ReaderCore/Package.swift', 'Packages/ReaderCore/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-${{ github.event.repository.name }}-
+
+      - name: Live smoke test against Open Library
+        working-directory: Packages/ReaderCore
+        env:
+          OPENLIBRARY_LIVE_TEST: "1"
+        run: swift test --filter OpenLibraryLiveTests
+
   kosync-integration:
     runs-on: ubuntu-latest
     container: swift:6.0

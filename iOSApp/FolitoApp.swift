@@ -12,6 +12,8 @@ struct FolitoApp: App {
     @State private var readest = UITesting.makeReadestLibrary()
     @StateObject private var typography = TypographyModel()
     @StateObject private var dictionaries = UITesting.makeDictionaryManager()
+    // Optional lookup of missing covers and descriptions on Open Library; off by default (docs/ONLINE_METADATA.md).
+    @StateObject private var onlineMetadata = UITesting.makeOnlineMetadata()
     // Welcome tour: opens by itself on the first launch (UI-testing launches skip it unless asked; see
     // OnboardingPolicy) and from Settings › About.
     @StateObject private var onboarding = OnboardingModel()
@@ -31,6 +33,8 @@ struct FolitoApp: App {
             }
             .environment(\.showWelcomeTour, ShowWelcomeTourAction { onboarding.show() })
             .environment(readest)
+            .environmentObject(onlineMetadata)
+            .environmentObject(library)
             .fullScreenCover(isPresented: $onboarding.isPresented) {
                 OnboardingView(model: onboarding, library: library, connectivity: connectivity,
                                settings: settings, dictionaries: dictionaries)
@@ -50,6 +54,7 @@ struct FolitoApp: App {
         library.onImported = { entry in
             sendToWatch(entry) // auto-send
             readest.autoUploadIfNeeded(entry, from: library) // opt-in, off by default
+            onlineMetadata.bookImported(entry, library: library) // opt-in, off by default
             Announcer.announce(String(localized: "Imported “\(entry.title)”.",
                                       comment: "VoiceOver announcement after an import; the placeholder is the book title"))
         }
@@ -60,6 +65,11 @@ struct FolitoApp: App {
             if entry.sentToWatch, let cover = library.watchCover(for: entry) {
                 connectivity.send(cover: cover, hash: entry.documentHash)
             }
+        }
+        // An Open Library cover that was removed again: re-send the book, which replaces its cover on the watch with
+        // the placeholder (the same transfer as "Send to Apple Watch Again").
+        library.onCoverRemoved = { entry in
+            if entry.sentToWatch { sendToWatch(entry) }
         }
         connectivity.onTransferFinished = { library.markSent(hash: $0) }
         // Settings and unconfirmed books are (re)sent whenever the session activates, the watch app

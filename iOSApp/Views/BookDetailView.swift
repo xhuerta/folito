@@ -8,12 +8,15 @@ struct BookDetailRoute: Hashable {
 }
 
 /// A local book: large cover, title, authors, series, description, publication details, reading state and the
-/// same actions as the Library row. Everything shown comes from the EPUB and the watch; nothing is fetched.
+/// same actions as the Library row. Everything shown comes from the EPUB and the watch, plus the details the user
+/// took from Open Library (*Find Details Online*, docs/ONLINE_METADATA.md), each marked "From Open Library".
 struct BookDetailView: View {
     let hash: String
     @ObservedObject var library: LibraryStore
     @ObservedObject var connectivity: PhoneConnectivity
     var sendToWatch: (LibraryEntry) -> Void
+    @EnvironmentObject private var onlineMetadata: OnlineMetadataModel
+    @State private var showOnlineLookup = false
     @Environment(ReadestLibraryModel.self) private var readest: ReadestLibraryModel?
     @Environment(\.dismiss) private var dismiss
     @State private var deletion = BookDeletion()
@@ -35,6 +38,9 @@ struct BookDetailView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .modifier(BookDeletionDialogs(library: library, readest: readest, deletion: $deletion))
+        .sheet(isPresented: $showOnlineLookup) {
+            OnlineMatchSheet(hash: hash, library: library, provider: onlineMetadata.provider)
+        }
         .onChange(of: entry == nil) { _, removed in
             if removed { dismiss() }
         }
@@ -49,15 +55,20 @@ struct BookDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 header(entry)
-                if let text = entry.details?.description, !text.isEmpty {
+                if let text = entry.mergedDetails.description {
                     section(Text("Description", comment: "Book detail section: the book's own blurb")) {
-                        description(text)
+                        description(text.value)
+                        if text.source == .openLibrary { Self.fromOpenLibrary }
                     }
                 }
                 section(Text("Information", comment: "Book detail section: publisher, year, language, progress")) {
                     information(entry)
                 }
                 section(nil) { actions(entry) }
+                if let online = entry.online {
+                    OpenLibraryCredit(pageURL: online.sourceURL)
+                        .padding(.horizontal, 4)
+                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
@@ -94,6 +105,12 @@ struct BookDetailView: View {
                                                                                     in: library.booksDirectory) : nil,
                            title: entry.title, author: entry.author, width: 150)
                 .padding(.bottom, 4)
+            if entry.online?.hasCover == true {
+                Text("Cover from Open Library", comment: "Book detail: caption under a cover found online")
+                    .font(.footnote)
+                    .foregroundStyle(.secondaryText)
+                    .accessibilityIdentifier("onlineCoverCaption")
+            }
             Text(entry.title)
                 .font(.title2.bold())
                 .multilineTextAlignment(.center)
@@ -161,12 +178,14 @@ struct BookDetailView: View {
     @ViewBuilder
     private func information(_ entry: LibraryEntry) -> some View {
         let details = entry.details
+        let merged = entry.mergedDetails
         let state = watchState(entry)
-        if let publisher = details?.publisher {
-            row(Text("Publisher", comment: "Book detail label"), value: publisher)
+        if let publisher = merged.publisher {
+            row(Text("Publisher", comment: "Book detail label"), value: publisher.value, online: publisher.source == .openLibrary)
         }
-        if let year = details?.year {
-            row(Text("Published", comment: "Book detail label: publication year"), value: String(year))
+        if let year = merged.year {
+            row(Text("Published", comment: "Book detail label: publication year"), value: String(year.value),
+                online: year.source == .openLibrary)
         }
         if let language = details?.language {
             row(Text("Language", comment: "Book detail label"),
@@ -182,6 +201,10 @@ struct BookDetailView: View {
                 value: DisplayFormat.timeLeft(seconds, style: .full))
         }
         row(Text("Apple Watch", comment: "Book detail label: whether the book is on the watch"), value: state.text)
+        if let subjects = merged.subjects {
+            row(Text("Subjects", comment: "Book detail label: the book's subjects or genres"),
+                value: subjects.value.joined(separator: ", "), online: subjects.source == .openLibrary)
+        }
         if let isbn = details?.isbn {
             row(Text(verbatim: "ISBN"), value: isbn) // i18n-ignore: an international standard abbreviation
         }
@@ -191,13 +214,19 @@ struct BookDetailView: View {
     /// Title above value at every text size (not a `LabeledContent`, which switches layout at accessibility
     /// sizes); one element for VoiceOver. The value uses `secondaryText` (the system's secondary label is below
     /// 4.5:1, docs/ACCESSIBILITY.md).
-    private func row(_ title: Text, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            title.font(.body)
-            Text(verbatim: value).font(.body).foregroundStyle(.secondaryText)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
+    /// `online` adds the "From Open Library" caption.
+    private func row(_ title: Text, value: String, online: Bool = false) -> some View {
+        DetailRow(title: title, value: value, caption: online ? Self.fromOpenLibraryText : nil)
+    }
+
+    static let fromOpenLibraryText = Text("From Open Library", comment: "Caption on a book detail that was found online")
+
+    /// The caption under a value found online (subtle: footnote, secondary colour).
+    static var fromOpenLibrary: some View {
+        fromOpenLibraryText
+            .font(.footnote)
+            .foregroundStyle(.secondaryText)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: Actions
@@ -237,6 +266,23 @@ struct BookDetailView: View {
             }
             .buttonStyle(.borderless)
         }
+        if !OnlineMetadataMerge.missing(details: entry.details, hasEPUBCover: entry.hasEPUBCover).isEmpty {
+            // An explicit, one-off lookup: works whether or not Find Missing Details Online is on.
+            Button { showOnlineLookup = true } label: {
+                Label("Find Details Online", systemImage: "text.magnifyingglass").modifier(ActionLabel())
+            }
+            .buttonStyle(.borderless)
+            .accessibilityHint(Text("Looks this book up on Open Library. You choose what to add."))
+            .accessibilityIdentifier("bookDetailFindOnline")
+        }
+        if entry.online != nil {
+            Button { library.removeOnlineDetails(hash: entry.documentHash) } label: {
+                Label("Remove Online Details", systemImage: "arrow.uturn.backward").modifier(ActionLabel())
+            }
+            .buttonStyle(.borderless)
+            .accessibilityHint(Text("Shows only the details from the book file again."))
+            .accessibilityIdentifier("bookDetailRemoveOnline")
+        }
         if inReadest {
             Button { library.delete(entry) } label: {
                 Label("Remove Download", systemImage: "xmark.icloud").modifier(ActionLabel())
@@ -255,7 +301,7 @@ struct BookDetailView: View {
 }
 
 /// An action row's label: body text that wraps at every size, the full row width as hit area, at least 44 pt tall.
-private struct ActionLabel: ViewModifier {
+struct ActionLabel: ViewModifier {
     func body(content: Content) -> some View {
         content
             .font(.body)

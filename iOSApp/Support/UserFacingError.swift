@@ -139,6 +139,27 @@ struct UserFacingError: Equatable, Identifiable {
     // MARK: Dictionaries
 
     /// Downloading or converting a dictionary failed. `language` is the dictionary's language name.
+    // MARK: Online book details
+
+    /// A lookup on Open Library the user asked for failed (the background lookup fails quietly instead).
+    static func onlineLookupFailed(_ error: Error) -> UserFacingError {
+        let title = String(localized: "Couldn’t Reach Open Library",
+                           comment: "Error title: looking up book details online failed")
+        let message: String
+        switch error as? OnlineMetadataError {
+        case .offline?:
+            message = String(localized: "Your iPhone seems to be offline. Connect to the internet and try again.",
+                             comment: "Error message: looking up book details online needs a connection")
+        case .rateLimited?:
+            message = String(localized: "Open Library is busy right now. Try again in a few minutes.",
+                             comment: "Error message: Open Library asked the app to slow down")
+        default:
+            message = String(localized: "Open Library didn’t answer as expected. Try again later.",
+                             comment: "Error message: Open Library returned an error or an unexpected answer")
+        }
+        return UserFacingError(title: title, message: message)
+    }
+
     static func dictionaryFailed(language: String, error: Error) -> UserFacingError {
         let title = String(localized: "Couldn’t Install Dictionary", comment: "Alert title: downloading or converting a dictionary failed")
         if let e = error as? CocoaError, e.code == .fileWriteOutOfSpace {

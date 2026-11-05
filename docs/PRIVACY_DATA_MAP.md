@@ -7,12 +7,14 @@ Source of truth for what data leaves the device, to whom and why. The privacy po
 Summary: the developer operates **no server** and receives **no data**. The App Store label still declares the
 optional sync data (section 3). There is no analytics, advertising,
 crash-reporting or third-party SDK, and no tracking. Network traffic goes only to (a) the progress-sync
-service the user chooses and signs in to (a KOReader Sync server, or Readest Cloud; at most one at a time) and
-(b) the reader.dict website when the user downloads a dictionary on the iPhone. Word lookups are offline.
+service the user chooses and signs in to (a KOReader Sync server, or Readest Cloud; at most one at a time),
+(b) the reader.dict website when the user downloads a dictionary on the iPhone, and (c) Open Library when the user
+asks the iPhone to look up missing book details (off by default; section 1b-bis). Word lookups are offline.
 
 ## 1. Network traffic (complete list)
 
-Only the sync connectors and the dictionary use `URLSession`; there are no other networking APIs (no WebKit,
+Only the sync connectors, the dictionary download and the online book-details lookup use `URLSession`; there are
+no other networking APIs (no WebKit,
 no sockets, no Bonjour). Sync connectors are listed in `SyncConnectorRegistry.standard`
 (`Packages/ReaderCore/Sources/ReaderCore/Sync/Connectors/SyncConnector.swift`).
 
@@ -84,6 +86,25 @@ persistent cache). Triggered only when the user taps *Download*, *Update* or *Do
 
 Not sent: any looked-up word, book title, author, text, position, account data or device ID.
 
+### 1b-bis. Online book details from Open Library (iPhone only, opt-in or on user action)
+
+Code: `Packages/ReaderCore/Sources/ReaderCore/OnlineMetadata/` (`OpenLibraryAPI`, `OpenLibraryClient`,
+`URLSessionMetadataTransport`: ephemeral `URLSession`, no cookies, no disk cache) and `iOSApp/Library/OnlineMetadata.swift`.
+Details: `docs/ONLINE_METADATA.md`. Runs only when the user (a) taps *Find Details Online* on a book, (b) turns on
+*Settings › Book Details › Find Missing Details Online* (**off by default**; then each book imported afterwards
+without a cover or description is looked up once), or (c) taps *Look Up Missing Details Now*. The watch never
+does it. It is not part of sync or of any Readest request.
+
+| Recipient | Request | Data sent |
+|---|---|---|
+| Open Library (Internet Archive), `https://openlibrary.org/api/books`, `/search.json`, `/books/OL…M.json`, `/works/OL…W.json` | HTTPS GET | The book's **ISBN** (normalised to ISBN-13, plus the ISBN-10 when the EPUB has one); without an ISBN, or when Open Library does not know it, the book's **title and first author**; for a description, the Open Library key of the match. `User-Agent: Folito/1.0 (https://folito.app; book details lookup)`, plus the IP address inherent to any request. |
+| Open Library covers, `https://covers.openlibrary.org/b/id/{id}-L.jpg?default=false` (redirects to `archive.org` hosts) | HTTPS GET | The cover id of the match; same User-Agent and IP address. |
+
+Not sent: anything about the user, any account, device identifier, reading position or progress, the book file or
+its text, or anything about other books in the library. Requests are sequential and at least a second apart.
+Received data is stored on the iPhone only (section 2). The developer is not a party and receives nothing; Open
+Library handles the request under the Internet Archive's policy (<https://archive.org/about/terms>).
+
 ### 1c. Not network, but data movement to document
 
 - iPhone to Apple Watch (WatchConnectivity, local to the user's paired devices, handled by Apple's frameworks):
@@ -91,7 +112,8 @@ Not sent: any looked-up word, book title, author, text, position, account data o
   credentials so the watch can sync on its own (see `docs/WATCH_CONNECTIVITY.md`): for KOSync the server URL,
   username and password (the real password; the watch computes the MD5 itself), for Readest the account email
   and the session (access + refresh token, never the password). They travel only between the user's own
-  paired devices. Books carry a small JPEG of their cover (taken from the EPUB) when they have one.
+  paired devices. Books carry a small JPEG of their cover (taken from the EPUB, or the Open Library cover the
+  user accepted for a book whose EPUB has none) when they have one.
 - Apple Watch to iPhone (same channel, the `library` report): the hashes of the books and dictionaries on the
   watch, the watch's typography, the estimated reading time left per book (seconds, rounded to whole
   minutes) and the percentage read of each book opened on the watch, shown in the iPhone library and book details. The learned reading speed itself never leaves the watch.
@@ -106,7 +128,9 @@ Not sent: any looked-up word, book title, author, text, position, account data o
 | Readest email and session (access + refresh token) | Keychain (iPhone and watch; the watch updates its copy when the session is refreshed) | No password. Removed on Sign Out. |
 | Readest library session (access + refresh token) | iPhone Keychain only (`readest_library_session`) | Never sent to the watch. Removed and revoked on Sign Out. |
 | Library (processed books and, on the iPhone, the original EPUB) | `Application Support/Folito/Books` (iPhone), watch app's Application Support (processed books only) | Files the user imports or downloads from Readest. Uploaded only as described in 1a-bis. |
-| Covers and book details of local books (description, series, publisher, year, language, ISBN) | iPhone: `Application Support/Folito/Books/<hash>.cover.jpg` and `<hash>.watch.jpg`, details in `library.json`; watch: `Books/<hash>.cover.jpg` | Read from the EPUB at import; nothing is looked up online. Removed with the book. |
+| Covers and book details of local books (description, series, publisher, year, language, ISBN) | iPhone: `Application Support/Folito/Books/<hash>.cover.jpg` and `<hash>.watch.jpg`, details in `library.json`; watch: `Books/<hash>.cover.jpg` | Read from the EPUB at import. Removed with the book. |
+| Online book details (cover, description, year, publisher, subjects from Open Library; the Open Library record key; when the background lookup last tried the book) | iPhone: the same cover files, `online` / `onlineLookupAt` in `library.json`; the watch gets only the cover thumbnail | Only what the user accepted (or the opt-in background lookup applied), only for fields the EPUB lacks; the EPUB file is never changed. *Remove Online Details* deletes them. Removed with the book. |
+| "Find Missing Details Online" | UserDefaults (`onlineMetadata.autoLookup`) | Off by default. |
 | Readest book list and covers (cache) | iPhone: `Application Support/Folito/readest-library.json`, `Caches/ReadestCovers` | So the Library can show Readest books offline. Removed on Sign Out. |
 | "Upload Imported Books Automatically", Library filter | UserDefaults | Off / All by default. |
 | Reading position, typography, device UUID, pending sync queue | UserDefaults | |
@@ -134,7 +158,10 @@ Not sent: any looked-up word, book title, author, text, position, account data o
   it is declared **linked**. Not declared: the password hash and session tokens (credentials, not a listed data
   type), the IP address (inherent to any request), and dictionary downloads from reader.dict, which send no user
   data beyond the request itself. Lookups are on device. (Before the offline dictionaries, looked-up words went
-  to Wiktionary / dictionaryapi.dev and were declared as Search History.)
+  to Wiktionary / dictionaryapi.dev and were declared as Search History.) The Open Library lookup (1b-bis) is not
+  collection either: the ISBN or title and author goes to Open Library only to answer that request in real time,
+  the developer never receives it, and Open Library is not a partner of the developer (no SDK, no agreement); see
+  `docs/appstore/APP_PRIVACY.md`, "Online book details". No data type, tracking domain or manifest entry is added.
 
 | Declared type | What it is in Folito | Sent to |
 |---|---|---|
@@ -152,5 +179,6 @@ above), all linked to the user, all App Functionality only, no tracking. Privacy
 ## 5. Items needing owner verification
 
 1. The download User-Agent contains the GitHub project URL; replace it with a real contact URL/email if the repo moves.
+   The Open Library User-Agent names https://folito.app; Open Library's etiquette also suggests an email address.
 2. Local network permission: iOS shows a prompt the first time the app contacts a LAN address
    (`NSLocalNetworkUsageDescription`, localised en/es, in the iOS and watch Info.plists).

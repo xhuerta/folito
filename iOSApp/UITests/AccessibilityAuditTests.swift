@@ -414,6 +414,22 @@ final class AccessibilityAuditTests: XCTestCase {
         }
     }
 
+    /// *Find Details Online* with a mocked Open Library (`-UITestingMockOnlineMetadata`): the sheet with one match
+    /// (cover, title, author, year, description, the separate Use actions). docs/ONLINE_METADATA.md.
+    @MainActor
+    func testOnlineMatchSheetAudit() throws {
+        try auditScreen("Find Details Online", seedSampleBook: true, extraArguments: ["-UITestingMockOnlineMetadata"]) { app in
+            let row = app.descendants(matching: .any)["libraryRow"]
+            for _ in 0..<8 where !(row.exists && row.isHittable) { Self.scrollDown(app) }
+            XCTAssertTrue(row.exists, "Sample book not shown")
+            row.tap()
+            XCTAssertTrue(app.descendants(matching: .any)["bookDetail"].waitForExistence(timeout: 5), "Detail did not open")
+            Self.scrollAndTap(app.buttons["bookDetailFindOnline"], in: app)
+            XCTAssertTrue(app.descendants(matching: .any)["onlineMatchReview"].waitForExistence(timeout: 10), "Match not shown")
+            _ = app.buttons["onlineUseCover"].waitForExistence(timeout: 5)
+        }
+    }
+
     // MARK: Welcome tour
 
     /// The tour's first page (it opens on first launch). Its later pages use the same layout.

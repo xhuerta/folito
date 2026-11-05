@@ -89,7 +89,7 @@ Sync is **optional**; you don't need any account (Readest, KOReader or otherwise
 
 1. Import your EPUBs in the iPhone app (the **+** button, or "Open in Folito" from Files or the share sheet). They are sent to the watch automatically.
 2. Read on the watch. Your position is stored on the watch itself and everything works offline.
-3. With no sync service chosen (*None*), the app makes no sync requests and shows no sync prompts or indicators. The only other network use is downloading a dictionary when you tap *Download* in *Settings › Dictionaries*; looking words up is offline.
+3. With no sync service chosen (*None*), the app makes no sync requests and shows no sync prompts or indicators. The only other network uses are downloading a dictionary when you tap *Download* in *Settings › Dictionaries* (looking words up is offline) and, only if you ask, looking up missing book details on Open Library (*Find Details Online*, or *Settings › Book Details*, off by default).
 4. If you later want to sync, go to *Settings › Progress Sync* on the iPhone (see [below](#progress-sync-optional)). You can turn it off at any time with *Turn Off Sync and Remove Login* (*Sign Out* for Readest), which deletes the credentials from the iPhone and the watch and clears pending progress (also available in the watch's Settings → *Remove credentials*).
 
 ## Architecture
@@ -260,7 +260,7 @@ book, and the rectangular complication and Smart Stack show the minutes left in 
 ### Covers and book details
 
 Covers and metadata are read from the EPUB itself at import (`EPUBMetadataReader` in ReaderCore); nothing is
-looked up online. The cover is the EPUB 3 `cover-image` item, else the EPUB 2 `<meta name="cover">`, else the
+looked up online unless you ask (see below). The cover is the EPUB 3 `cover-image` item, else the EPUB 2 `<meta name="cover">`, else the
 guide's `cover` reference, else the first image of the first page. A book without a usable cover (none, or SVG)
 gets a placeholder like Apple Books': title and author on a colour picked from the title. Books imported
 before covers existed get theirs the next time the Library opens, from the kept original file.
@@ -269,6 +269,16 @@ Tap a book in the Library for its details: a large cover, title, authors, series
 `calibre:series` or EPUB 3 `belongs-to-collection`), the description with a **More** button, publisher, year,
 language, ISBN, the progress and time left reported by the watch, and the same actions as the row's menu.
 *Upload to Readest* also uploads the cover (`cover.png`), so the Readest apps show it.
+
+**Missing details from Open Library (optional, iPhone only).** For a book whose EPUB has no cover or description,
+*Find Details Online* in its details looks it up on [Open Library](https://openlibrary.org) (free, no key, run by
+the Internet Archive) and shows the match, or up to five, to confirm; *Use This Cover* and *Use Description* are
+separate choices. *Settings › Book Details › Find Missing Details Online* (**off by default**) does the same, once
+and only for unambiguous matches, for books imported afterwards, and *Look Up Missing Details Now* for the existing
+library. Only the ISBN, or the title and first author, is sent. Online values only fill fields the EPUB lacks, are
+marked "From Open Library", never change the EPUB file (so its hash and sync are unaffected), and *Remove Online
+Details* reverts to the EPUB's data. An accepted cover is also used for the watch and, if you upload the book,
+as its Readest cover. See [docs/ONLINE_METADATA.md](docs/ONLINE_METADATA.md).
 
 The watch shows a small cover (a JPEG of a few KB sent with the book) next to each title in its Library.
 *Settings › Show Covers* on the watch is on by default; turning it off brings back the text-only rows.
@@ -324,6 +334,7 @@ What runs where: [docs/TESTING.md](docs/TESTING.md). Future plans: [ROADMAP.md](
 | [READEST_SYNC.md](docs/READEST_SYNC.md) | Readest Cloud protocol, mapping, terms |
 | [DISCREPANCIES.md](docs/DISCREPANCIES.md) | Compatibility notes vs. KOReader/Readest: document hash, XPointer, KOSync |
 | [PRIVACY_DATA_MAP.md](docs/PRIVACY_DATA_MAP.md) | What data is stored and sent, and where |
+| [ONLINE_METADATA.md](docs/ONLINE_METADATA.md) | Optional lookup of missing covers and details on Open Library |
 | [EXPORT_COMPLIANCE.md](docs/EXPORT_COMPLIANCE.md) | Export compliance (encryption) |
 | [ROADMAP.md](ROADMAP.md) | Future plans |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute, CLA |
