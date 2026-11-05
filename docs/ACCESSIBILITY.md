@@ -133,6 +133,19 @@ the first book (PR #43): the watch state and size line switched from an `HStack`
 first row was flagged. It now uses a wrapping layout at every size, and cloud-only rows show their cover at
 every size.
 
+**Rows in the middle of a long list at AX5.** The Readest library audits still flagged the first, local row
+(title, author, "Waiting for Apple Watch", size: "Dynamic Type font sizes are partially unsupported", and
+"Text clipped" on the watch state) after the wrapping layout (PR #45). At AX5 the "No Apple Watch" card fills
+the first screen, so that row is fully on screen only at a scroll offset of about 500 pt, with the three
+Readest-only rows still below it; the audits re-render the screen at smaller sizes at that offset, where the
+row has moved off the screen. Logged row frames per page (CI run on 92d96bf) showed it is flagged only on that
+page, not where it is partly off screen and not in the one-book library, where it is the last row and the list
+cannot stay scrolled. Simulating a paired watch (a small status row instead of the card) did not help: the
+row's watch state was then flagged at the next mid-list page. Not a layout problem, and not accepted: the
+Readest audits start their largest-size pass below the local row (`openCloudRowsAtLargestText`), and
+`testLibraryReadestLocalRowAudit` audits that row, Readest icon included, with the library filtered to *On
+This iPhone*, where it is the last row as in the one-book audit.
+
 Every finding (accepted or not) is printed in the CI log ("Accessibility audit issue (accepted|FAILS)") with
 its element, frame, the audit's detailed description and, for contrast findings, the contrast measured from
 a screenshot of the element; findings that fail also attach a screenshot to the result bundle.

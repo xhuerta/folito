@@ -56,13 +56,15 @@ final class AccessibilityAuditTests: XCTestCase {
 
     /// Audits one screen at the default text size and at the largest accessibility size (see the type comment)
     /// and fails the test, after logging every finding, if any finding is not accepted.
-    /// `open` navigates from the Library to the screen. `formFooterFindingsAtLargestText` accepts, at the largest
-    /// size only, the element-less findings that the screen's `Form` section footers cause (see `verdict`).
+    /// `open` navigates from the Library to the screen; `openAtLargestText`, if given, replaces it for the largest
+    /// size. `formFooterFindingsAtLargestText` accepts, at the largest size only, the element-less findings that
+    /// the screen's `Form` section footers cause (see `verdict`).
     @MainActor
     private func auditScreen(_ name: String, seedSampleBook: Bool = false, showTour: Bool = false,
                              extraArguments: [String] = [],
                              formFooterFindingsAtLargestText: Bool = false,
                              file: StaticString = #filePath, line: UInt = #line,
+                             openAtLargestText: (@MainActor (XCUIApplication) -> Void)? = nil,
                              open: @MainActor (XCUIApplication) -> Void) throws {
         var failures: [String] = []
         // Contrast findings accepted only because the element was under a bar's scroll edge effect (key -> log
@@ -92,7 +94,7 @@ final class AccessibilityAuditTests: XCTestCase {
         Self.output("Auditing \(name) at the largest accessibility text size")
         let large = launch(seedSampleBook: seedSampleBook, largestText: true, showTour: showTour,
                            extraArguments: extraArguments)
-        open(large)
+        if let openAtLargestText { openAtLargestText(large) } else { open(large) }
         try forEachPage(of: large) {
             for type in Self.largestTextTypes {
                 failures += try audit(large, type, acceptFormFooterFindings: formFooterFindingsAtLargestText).failures
@@ -346,25 +348,54 @@ final class AccessibilityAuditTests: XCTestCase {
     }
 
     /// A mocked Readest library (`-UITestingMockReadest`): one local book that is also in Readest and three
-    /// cloud-only rows with covers and download buttons.
+    /// cloud-only rows with covers and download buttons. At the largest size the local row is audited by
+    /// `testLibraryReadestLocalRowAudit` (see `openCloudRowsAtLargestText`).
     @MainActor
     func testLibraryWithReadestAudit() throws {
-        try auditScreen("Library (Readest)", seedSampleBook: true, extraArguments: ["-UITestingMockReadest"]) { app in
-            let row = app.descendants(matching: .any)["libraryCloudRow"]
-            for _ in 0..<6 where !row.waitForExistence(timeout: 2) { Self.scrollDown(app) }
-            XCTAssertTrue(row.exists, "Readest-only books not shown")
-        }
+        try auditScreen("Library (Readest)", seedSampleBook: true, extraArguments: ["-UITestingMockReadest"],
+                        openAtLargestText: Self.openCloudRowsAtLargestText, open: Self.openCloudRows)
     }
 
     /// The same library offline: cloud-only rows are dimmed and say they need a connection.
     @MainActor
     func testLibraryReadestOfflineAudit() throws {
         try auditScreen("Library (Readest, offline)", seedSampleBook: true,
-                        extraArguments: ["-UITestingMockReadest", "-UITestingReadestOffline"]) { app in
-            let row = app.descendants(matching: .any)["libraryCloudRow"]
+                        extraArguments: ["-UITestingMockReadest", "-UITestingReadestOffline"],
+                        openAtLargestText: Self.openCloudRowsAtLargestText, open: Self.openCloudRows)
+    }
+
+    /// The Readest library filtered to *On This iPhone*: the local book that is also in Readest (with its
+    /// Readest icon) is the last row, as in `testLibraryWithBookAudit`.
+    @MainActor
+    func testLibraryReadestLocalRowAudit() throws {
+        try auditScreen("Library (Readest, on this iPhone)", seedSampleBook: true,
+                        extraArguments: ["-UITestingMockReadest", "-library.filter", "onThisDevice"]) { app in
+            let row = app.descendants(matching: .any)["libraryRow"]
             for _ in 0..<6 where !row.waitForExistence(timeout: 2) { Self.scrollDown(app) }
-            XCTAssertTrue(row.exists, "Readest-only books not shown")
+            XCTAssertTrue(row.exists, "Local book not shown")
+            XCTAssertFalse(app.descendants(matching: .any)["libraryCloudRow"].exists, "Filter should hide Readest-only books")
         }
+    }
+
+    @MainActor
+    private static func openCloudRows(_ app: XCUIApplication) {
+        let row = app.descendants(matching: .any)["libraryCloudRow"]
+        for _ in 0..<6 where !row.waitForExistence(timeout: 2) { scrollDown(app) }
+        XCTAssertTrue(row.exists, "Readest-only books not shown")
+    }
+
+    /// At the largest size the "No Apple Watch" card fills the first screen, so the local row is fully on screen
+    /// only at a scroll offset in the middle of the list. The Dynamic Type and Text clipped audits re-render the
+    /// screen at smaller sizes at that same offset, where the shorter rows have moved the local row off the
+    /// screen, and they flag every text in it (CI runs on d8be657 and 92d96bf; the same row passes as the last
+    /// row of the list). So this pass starts below the local row, which `testLibraryReadestLocalRowAudit` audits.
+    @MainActor
+    private static func openCloudRowsAtLargestText(_ app: XCUIApplication) {
+        openCloudRows(app)
+        let local = app.descendants(matching: .any)["libraryRow"]
+        for _ in 0..<6 where local.exists && local.frame.maxY > clearArea(in: app).top { scrollDown(app) }
+        XCTAssertFalse(local.exists && local.frame.maxY > clearArea(in: app).top, "Local row still on screen")
+        XCTAssertTrue(app.descendants(matching: .any)["libraryCloudRow"].exists, "Readest-only books not shown")
     }
 
     // MARK: Welcome tour
