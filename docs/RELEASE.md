@@ -8,6 +8,7 @@ Placeholders still in the repository (search for the bracketed text):
 * [x] `[DEVELOPER_NAME]`: `docs/site/privacy.html`, `docs/site/es/privacy.html` (responsible party), `docs/appstore/metadata-en.md` (copyright). Filled: Xabier Lahuerta.
 * [x] `[DATE]`: "Last updated" in `docs/site/privacy.html` and `docs/site/es/privacy.html` set to 28 October 2026; update it whenever the policy changes.
 * [x] In-app links: `iOSApp/Support/AppLinks.swift` (PR #20) points to the GitHub Pages site (Spanish pages for Spanish speakers).
+* [ ] Apple Developer: register the App Group `group.com.xlahuerta.folito` and the third bundle id `com.xlahuerta.folito.watchkitapp.widgets` (complications), and enable the App Group on the watch app and the widgets ids ([step 2](#2-register-the-bundle-ids-and-the-app-group)).
 * [ ] GitHub: `APPLE_TEAM_ID`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` secrets and the `BUNDLE_ID_BASE` variable (step 5; optional, the default is `com.xlahuerta.folito` from `Config/Base.xcconfig`).
 
 Decisions and checks only the owner can make (details in [What only the owner can decide](#what-only-the-owner-can-decide)):
@@ -22,7 +23,7 @@ Decisions and checks only the owner can make (details in [What only the owner ca
 
 This guide takes you from "nothing" to a build on your iPhone and Apple Watch through TestFlight, and then to App Store review, using only a browser and GitHub. All building, signing and uploading happens on a GitHub-hosted macOS runner (`.github/workflows/release.yml`).
 
-Contents: [1 Enrol](#1-enrol-in-the-apple-developer-program) · [2 Bundle ids](#2-register-the-two-bundle-ids) · [3 App record](#3-create-the-app-record-in-app-store-connect) · [4 API key](#4-create-an-app-store-connect-api-key) · [5 GitHub config](#5-configure-github) · [6 Run](#6-run-the-workflow) · [7 TestFlight](#7-install-with-testflight) · [8 App Store](#8-submit-for-app-store-review) · [9 Site](#9-publishing-the-site) · [Owner decisions](#what-only-the-owner-can-decide) · [Design notes](#why-xcodebuild-cloud-signing-and-not-fastlane) · [Sources](#sources)
+Contents: [1 Enrol](#1-enrol-in-the-apple-developer-program) · [2 Bundle ids](#2-register-the-bundle-ids-and-the-app-group) · [3 App record](#3-create-the-app-record-in-app-store-connect) · [4 API key](#4-create-an-app-store-connect-api-key) · [5 GitHub config](#5-configure-github) · [6 Run](#6-run-the-workflow) · [7 TestFlight](#7-install-with-testflight) · [8 App Store](#8-submit-for-app-store-review) · [9 Site](#9-publishing-the-site) · [Owner decisions](#what-only-the-owner-can-decide) · [Design notes](#why-xcodebuild-cloud-signing-and-not-fastlane) · [Sources](#sources)
 
 ## 1. Enrol in the Apple Developer Program
 
@@ -30,16 +31,19 @@ TestFlight and the App Store need a paid membership (individual or organisation;
 
 Note your **Team ID** (10 characters): developer.apple.com → Account → Membership details. It becomes the `APPLE_TEAM_ID` secret.
 
-## 2. Register the two bundle ids
+## 2. Register the bundle ids and the App Group
 
-At <https://developer.apple.com/account/resources/identifiers/list> → **+** → *App IDs* → *App*:
+**App Group** first: <https://developer.apple.com/account/resources/identifiers/list/applicationGroup> → **+** → *App Groups* → identifier `group.<base id>` (for the default base id: `group.com.xlahuerta.folito`). The watch app and its complications share it for the reading snapshot the complications show (`WR_APP_GROUP` in `Config/Base.xcconfig`); nothing in it leaves the watch.
 
-| App | Bundle id | Example |
-|---|---|---|
-| iPhone app | your base id | `com.yourname.folito` |
-| Watch app | base id + `.watchkitapp` | `com.yourname.folito.watchkitapp` |
+Then the three App IDs, at <https://developer.apple.com/account/resources/identifiers/list> → **+** → *App IDs* → *App*:
 
-Use an *Explicit* id. No capabilities are needed (the app uses no iCloud, App Groups or push). The base id is what you will store in the `BUNDLE_ID_BASE` variable; the watch id is derived by `project.yml` and must be exactly `<base>.watchkitapp`. Registering them up front avoids relying on automatic creation during the first CI run.
+| App | Bundle id | Example | Capability |
+|---|---|---|---|
+| iPhone app | your base id | `com.yourname.folito` | none |
+| Watch app | base id + `.watchkitapp` | `com.yourname.folito.watchkitapp` | App Groups → `group.<base id>` |
+| Watch complications (widget extension) | base id + `.watchkitapp.widgets` | `com.yourname.folito.watchkitapp.widgets` | App Groups → `group.<base id>` |
+
+Use *Explicit* ids. The only capability is **App Groups** on the two watch ids (tick it, then *Configure* → select the group); no iCloud or push. The base id is what you will store in the `BUNDLE_ID_BASE` variable; the other two are derived by `project.yml` and must be exactly `<base>.watchkitapp` and `<base>.watchkitapp.widgets`. Registering them up front avoids relying on automatic creation during the first CI run (cloud signing with an Admin key can create ids and add capabilities itself, but an App Group registered by hand is the reliable path).
 
 ## 3. Create the app record in App Store Connect
 

@@ -124,12 +124,45 @@ def check_bundle(app, kind):
         for table in ("InfoPlist",) if lang == "en" else ("InfoPlist", "Localizable"):
             if not os.path.isfile(os.path.join(app, f"{lang}.lproj", f"{table}.strings")):
                 fail(f"{label}: {lang}.lproj/{table}.strings missing")
+    if kind == "watch":
+        check_widget_extension(app, info)
     bid = info.get("CFBundleIdentifier", "")
     if os.environ.get("RELEASE_STRICT") and bid.startswith("com.example"):
         fail(f"{label}: RELEASE_STRICT set but bundle id is still the placeholder {bid}")
     else:
         ok(f"{label}: bundle id {bid}")
     return info
+
+
+def check_widget_extension(app, app_info):
+    """The complications / Smart Stack widget extension embedded in the watch app (WatchWidgets/)."""
+    appex = os.path.join(app, "PlugIns", "FolitoWidgets.appex")
+    label = "widget extension (FolitoWidgets.appex)"
+    if not os.path.isdir(appex):
+        return fail(f"{label}: missing from {app}/PlugIns")
+    info = load_plist(os.path.join(appex, "Info.plist"))
+    if info is None:
+        return
+    if info.get("NSExtension", {}).get("NSExtensionPointIdentifier") != "com.apple.widgetkit-extension":
+        fail(f"{label}: NSExtensionPointIdentifier is not com.apple.widgetkit-extension")
+    bid = info.get("CFBundleIdentifier", "")
+    if bid != app_info.get("CFBundleIdentifier", "") + ".widgets":
+        fail(f"{label}: bundle id {bid} is not the watch app's id + .widgets")
+    for key in ("CFBundleShortVersionString", "CFBundleVersion"):
+        if info.get(key) != app_info.get(key):
+            fail(f"{label}: {key} {info.get(key)} differs from the watch app's {app_info.get(key)}")
+    group = str(info.get("FolitoAppGroup", ""))
+    if not group.startswith("group.") or "$(" in group:
+        fail(f"{label}: FolitoAppGroup {group!r} is not an expanded App Group id")
+    pm = load_plist(os.path.join(appex, "PrivacyInfo.xcprivacy")) if os.path.isfile(os.path.join(appex, "PrivacyInfo.xcprivacy")) else None
+    if pm is None:
+        fail(f"{label}: PrivacyInfo.xcprivacy missing")
+    elif pm.get("NSPrivacyTracking") is not False or pm.get("NSPrivacyCollectedDataTypes"):
+        fail(f"{label}: privacy manifest must declare no tracking and no collected data")
+    for lang in ("es", "fr", "de", "it", "pt-BR", "ja", "zh-Hans"):
+        if not os.path.isfile(os.path.join(appex, f"{lang}.lproj", "Localizable.strings")):
+            fail(f"{label}: {lang}.lproj/Localizable.strings missing")
+    ok(f"{label}: {bid}, App Group {group}")
 
 
 def main():

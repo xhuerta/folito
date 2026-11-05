@@ -38,7 +38,7 @@ A full reading app, designed for the smallest screen you own.
     <td width="33%" valign="top">
       <img src="docs/readme/books.svg" width="44" height="44" alt=""><br>
       <b>Your books, on your wrist</b><br>
-      Import <code>.epub</code> books on your iPhone (Files, share sheet or the import button); they are sent to your watch, where you read them, offline. The reader estimates the time left in the chapter and the book from your own reading speed.
+      Import <code>.epub</code> books on your iPhone (Files, share sheet or the import button); they are sent to your watch, where you read them, offline. The reader estimates the time left in the chapter and the book from your own reading speed, and a watch-face complication or the Smart Stack shows your progress and takes you back to your page.
     </td>
     <td width="33%" valign="top">
       <img src="docs/readme/typography.svg" width="44" height="44" alt=""><br>
@@ -70,14 +70,14 @@ A full reading app, designed for the smallest screen you own.
   </tr>
 </table>
 
-Folito works **without an account and offline** with your own EPUB files. Reading progress can optionally be synced with any server that speaks the **KOReader Sync** protocol (KOReader's, Readest's, or your own) or with **Readest Cloud** (your Readest account, the service the Readest apps and the Readest plugin for KOReader use). It installs on your watch with a free Apple account (Personal Team): no paid developer program and no special capabilities (no iCloud, App Groups or push notifications).
+Folito works **without an account and offline** with your own EPUB files. Reading progress can optionally be synced with any server that speaks the **KOReader Sync** protocol (KOReader's, Readest's, or your own) or with **Readest Cloud** (your Readest account, the service the Readest apps and the Readest plugin for KOReader use). It installs on your watch with a free Apple account (Personal Team): no paid developer program and no iCloud or push notifications. The only capability is an App Group shared with the watch complications; a Personal Team that cannot use it can turn it off (see [Signing](#signing-with-a-free-personal-team)).
 
 ## Contents
 
 - [Using it without an account](#using-it-without-an-account)
 - [Architecture](#architecture)
 - [Building](#building) · [Signing](#signing-with-a-free-personal-team) · [Installing](#installing-on-iphone-and-apple-watch)
-- [Progress sync (optional)](#progress-sync-optional)
+- [Complications and Smart Stack](#complications-and-smart-stack) · [Progress sync (optional)](#progress-sync-optional)
 - [Typography](#typography) · [Dictionary](#dictionary-word-lookup) · [Time remaining](#time-remaining) · [Importing EPUBs](#importing-epubs) · [Languages](#languages)
 - [Releasing to TestFlight / App Store](#releasing-to-testflight--app-store-without-a-mac)
 - [Limitations](#limitations) · [Development](#development) · [Documentation](#documentation)
@@ -100,6 +100,8 @@ Packages/ReaderCore   SwiftPM package (pure logic, also tested on Linux):
                       Readest), document hash.
 iOSApp/               iPhone app (SwiftUI): imports EPUBs and sends them to the watch.
 WatchApp/             watchOS app (SwiftUI): reader and sync.
+WatchWidgets/         watchOS widget extension: complications and Smart Stack widget.
+WidgetShared/         Snapshot, deep links and complication views (watch app + extension).
 Config/               Build settings (xcconfig).
 project.yml           XcodeGen spec (the .xcodeproj is not checked in).
 ```
@@ -130,7 +132,14 @@ open Folito.xcodeproj
    The identifier must be **globally unique**; the watch app's will be `WR_BUNDLE_ID.watchkitapp`. You can also pass `DEVELOPMENT_TEAM=...` to `xcodebuild`.
 3. Run `xcodegen generate` again if you changed anything.
 
-With automatic signing, Xcode creates the provisioning profiles. No entitlements that require a paid account are used.
+With automatic signing, Xcode creates the provisioning profiles. The only entitlement is the App Group `group.<WR_BUNDLE_ID>` that the watch app shares with its complications (widget extension, `WR_BUNDLE_ID.watchkitapp.widgets`). If Xcode reports that your Personal Team does not support App Groups, add these two lines to `Config/Local.xcconfig` (they are in `Local.xcconfig.example`):
+
+```
+WR_WATCH_ENTITLEMENTS =
+WR_WIDGETS_ENTITLEMENTS =
+```
+
+Everything else works the same; the complications then always show "Start reading". The extension counts as one more identifier towards the Personal Team's weekly limit.
 
 ### Installing on iPhone and Apple Watch
 
@@ -142,6 +151,23 @@ With automatic signing, Xcode creates the provisioning profiles. No entitlements
 
 > [!NOTE]
 > **7-day limit:** with a Personal Team, the signature expires after 7 days. Reinstall from Xcode (Run) to renew it; data is kept if you reinstall without deleting the app. There is also a limit of 3 active apps and of new identifiers per week.
+
+## Complications and Smart Stack
+
+The watch app includes a WidgetKit extension (`WatchWidgets/`, shared code in `WidgetShared/`) with one widget in four families:
+
+| Family | Shows |
+|---|---|
+| Circular | Progress gauge with the percentage and a book symbol |
+| Corner | Book symbol with a curved progress gauge |
+| Inline | "45% · Book title" (shortens, then drops, the title when space runs out) |
+| Rectangular (also the Smart Stack) | Title, current chapter, progress bar and the estimated time left in the chapter ("12 min left in chapter") |
+
+- Tapping opens the book at its saved position (`folito://book/<id>`); with no book in progress it shows "Start reading" and opens the library (`folito://library`).
+- The watch app writes a small snapshot (book id, title, chapter, percentage, minutes left in the chapter) to the App Group whenever it saves the reading position, once the words of a newly opened book are counted and when the book is closed, then reloads the timelines.
+- The minutes left are the same estimate as the reader's [time remaining](#time-remaining) line (at least 1 min); turning off *Settings › Show Time Remaining* hides them in the complications too, and they stay hidden until the book's words are counted. The timeline never polls (`.never`).
+- Tinted faces colour the gauge and symbol only; on a locked watch the title and chapter are hidden and only the percentage stays; Always On dims the accent. VoiceOver reads "Folito, 45% of <title>".
+- CI renders every family (default, tinted, redacted, Always On, placeholder) as the `complication-screenshots` artifact of the macOS workflow (watch job).
 
 ## Progress sync (optional)
 
@@ -213,7 +239,7 @@ divides by your reading speed: 200 words or 500 characters per minute at first, 
 spend on each page of about 50 words, with a moving average that ignores pages skimmed in under 2 seconds,
 pauses over 5 minutes and implausible speeds. The speed is stored only on the watch. The iPhone library shows
 the time left in each book the watch has opened. `ReadingTimeStore` (ReaderCore) holds the latest estimate per
-book for other watch surfaces.
+book, and the rectangular complication and Smart Stack show the minutes left in the chapter.
 
 ## Importing EPUBs
 
@@ -230,14 +256,14 @@ The iPhone and watch apps are localized in English (base), Spanish, French, Germ
 The whole process (build, sign with cloud signing and upload to TestFlight) runs in GitHub Actions on a macOS runner, with a paid Apple Developer Program membership and an App Store Connect API key (Admin role). Step-by-step guide: [docs/RELEASE.md](docs/RELEASE.md).
 
 - Workflow: `.github/workflows/release.yml` (*Actions → Release → Run workflow*). With `dry_run = true` (the default) it needs no secrets: it generates the project with XcodeGen, makes an unsigned Release archive and shows what would be uploaded. With `dry_run = false` (or when pushing a `v1.0.0` tag) it signs and uploads the build.
-- Secrets: `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` (the .p8 in plain text or base64), `APPLE_TEAM_ID`. Variables: `BUNDLE_ID_BASE` (your identifier; the watch app uses `.watchkitapp`) and, optionally, `APP_NAME`.
+- Secrets: `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` (the .p8 in plain text or base64), `APPLE_TEAM_ID`. Variables: `BUNDLE_ID_BASE` (your identifier; the watch app uses `.watchkitapp` and its complications `.watchkitapp.widgets`) and, optionally, `APP_NAME`.
 - App Store Connect metadata (English and Spanish), privacy answers, reviewer notes and rejection risks: [docs/appstore/](docs/appstore/). Privacy policy and support page (the project website, in the app's 8 languages): [docs/site/](docs/site/), generated from [docs/site-src/](docs/site-src/) by `python3 scripts/site/build.py`.
 
 ## Limitations
 
 - Position granularity is the **start of the paragraph** (XPointer): syncing with KOReader/Readest lands on the paragraph, not the exact word or line.
 - If the remote XPointer can't be resolved (for example, the book reflows differently), the progress **percentage** is used instead.
-- The app doesn't use iCloud or App Groups because of the free-account restriction.
+- The app doesn't use iCloud because of the free-account restriction. Its only App Group (watch app and complications) can be turned off for a free account, which leaves the complications on their placeholder.
 - DRM-protected EPUBs are not supported.
 
 ## Development

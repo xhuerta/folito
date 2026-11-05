@@ -37,6 +37,10 @@ final class ReaderViewModel: ObservableObject {
     /// Clock for the page timer (injectable for tests).
     private let now: () -> Date
     private let resolver: XPointerResolving
+    /// Complications / Smart Stack snapshot writer; nil in previews and most tests.
+    private let complications: ComplicationPublisher?
+    /// Where the *Show Time Remaining* setting lives (the app's `@AppStorage` uses `.standard`).
+    private let settings: UserDefaults
     let dictionary: DictionaryProviding
 
     init(book: ProcessedBook, positions: PositionStore, sync: SyncCoordinator,
@@ -44,8 +48,12 @@ final class ReaderViewModel: ObservableObject {
          dictionary: DictionaryProviding = MockDictionaryProvider.sample,
          speeds: ReadingSpeedStore? = nil,
          times: ReadingTimeStore? = nil,
-         now: @escaping () -> Date = { Date() }) {
+         now: @escaping () -> Date = { Date() },
+         complications: ComplicationPublisher? = nil,
+         settings: UserDefaults = .standard) {
         self.book = book
+        self.complications = complications
+        self.settings = settings
         // By default next to the positions (same UserDefaults), so Reset and deleting a book clear them too.
         let speeds = speeds ?? positions.readingSpeed
         self.speeds = speeds
@@ -77,6 +85,8 @@ final class ReaderViewModel: ObservableObject {
     private func lengthsReady(_ index: BookLengthIndex) {
         lengths = index
         saveTimeRemaining()
+        // The snapshot published on open had no estimate yet: refresh it now that minutes left are known.
+        publishComplication(force: false)
     }
 
     var documentHash: String { book.documentHash }
@@ -139,6 +149,7 @@ final class ReaderViewModel: ObservableObject {
         positions.save(StoredPosition(position: pos, percentage: flat.percentage(at: currentIndex)),
                        for: documentHash)
         saveTimeRemaining()
+        publishComplication(force: false)
     }
 
     // MARK: Time remaining
@@ -152,9 +163,40 @@ final class ReaderViewModel: ObservableObject {
                                     fractionRead: flat.percentage(at: currentIndex), updatedAt: now())
     }
 
-    /// Saved with the reading position, for the iPhone library and a future complication (`ReadingTimeStore`).
+    /// Saved with the reading position, for the iPhone library (`ReadingTimeStore`).
     private func saveTimeRemaining() {
         if let value = timeRemaining { times.save(value) }
+    }
+
+    // MARK: Complications
+
+    /// What the complications show for the current position.
+    var complicationSnapshot: ReadingSnapshot {
+        let chapter = flat.chapterRefIndex(containing: currentIndex).map { flat.chapterRefs[$0].title }
+        return ReadingSnapshot(bookID: documentHash, title: title, chapterTitle: chapter,
+                               fraction: flat.percentage(at: currentIndex),
+                               minutesLeft: minutesLeftInChapter())
+    }
+
+    /// Estimated minutes left in the current chapter, shown by the rectangular complication / Smart Stack.
+    ///
+    /// Same estimate as the reader's time-remaining line (`timeRemaining.chapterSeconds`, rounded with
+    /// `ReadingTimeEstimator.displayMinutes`). Nil, which hides the line, while the words are still being
+    /// counted or when the user turned off *Show Time Remaining* in Settings.
+    func minutesLeftInChapter() -> Int? {
+        guard showsTimeRemaining, let remaining = timeRemaining else { return nil }
+        // At least 1, like the reader's line ("1 min left"), so the end of a chapter never reads "0 min".
+        return max(ReadingTimeEstimator.displayMinutes(remaining.chapterSeconds), 1)
+    }
+
+    /// The *Show Time Remaining* setting (on by default).
+    private var showsTimeRemaining: Bool {
+        settings.object(forKey: ReaderSettings.showTimeRemainingKey) as? Bool ?? true
+    }
+
+    private func publishComplication(force: Bool) {
+        guard !flat.isEmpty else { return }
+        complications?.publish(complicationSnapshot, force: force)
     }
 
     /// Suppresses position updates while the scroll view settles after a programmatic scroll.
@@ -172,6 +214,8 @@ final class ReaderViewModel: ObservableObject {
     func restoreInitialPosition() {
         beginRestore()
         jumpRequest = JumpRequest(index: startIndex)
+        // The opened book becomes the one the complications show.
+        publishComplication(force: false)
     }
 
     func jump(to index: Int) {
@@ -228,5 +272,7 @@ final class ReaderViewModel: ObservableObject {
     func leave() {
         restoreTask?.cancel()
         reportProgress(immediately: true)
+        // Closing the book: always refresh the complications with the final position.
+        publishComplication(force: true)
     }
 }

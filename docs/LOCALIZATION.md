@@ -21,6 +21,7 @@ Folito (iPhone app and Apple Watch app) is localized with Xcode String Catalogs.
 | `iOSApp/Resources/InfoPlist.xcstrings` | Localized Info.plist values (`NSLocalNetworkUsageDescription`). |
 | `WatchApp/Resources/Localizable.xcstrings` | Every UI string of the watch app, including `Shared/`. |
 | `WatchApp/Resources/InfoPlist.xcstrings` | Localized Info.plist values of the watch app. |
+| `WatchWidgets/Resources/Localizable.xcstrings` | The complications / Smart Stack widget extension. `WidgetShared/` is compiled into both the watch app and the extension, so its strings are in both watch catalogs. |
 
 `Shared/` has no catalog of its own: it is compiled into both app targets, so its strings are extracted into
 each app's `Localizable.xcstrings` (a third catalog with the same table name in the same target would
