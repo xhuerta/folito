@@ -9,7 +9,7 @@ import UIKit
 ///   user's real library is never touched.
 /// - `-UITestingSeedSampleBook` (implies `-UITesting`): also adds one small built-in sample book, so the
 ///   non-empty library can be audited.
-/// - `-UITestingMockReadest` (with `-UITesting...`): Readest is signed in (throw-away Keychain service and defaults)
+/// - `-UITestingMockReadest` (with `-UITesting...`): Readest is signed in (in-memory Keychain and throw-away defaults)
 ///   and the Library shows a fixed, mocked Readest library (`MockReadestLibraryService`); no network.
 ///   `-UITestingReadestOffline` also shows the offline state.
 /// - `-UITestingShowOnboarding` (implies `-UITesting`): opens the welcome tour on launch. Every other UI-testing
@@ -49,7 +49,7 @@ enum UITesting {
     @MainActor
     static func makeSyncSettings() -> SyncSettings {
         guard mockReadest else { return SyncSettings() }
-        let keychain = KeychainStore(service: "com.xlahuerta.folito.uitesting")
+        let keychain = KeychainStore(service: "com.xlahuerta.folito.uitesting", memory: MemoryKeychain())
         let suite = "uitesting-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite) ?? .standard
         let key = ReadestConnectorFactory.Key.self

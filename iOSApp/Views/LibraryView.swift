@@ -56,7 +56,7 @@ struct LibraryView: View {
             } else {
                 booksSection(shown)
             }
-            if all.isEmpty, let readest, readest.needsSignIn || readest.refreshError != nil {
+            if all.isEmpty, ReadestFooter.hasMessage(readest, hasCloudOnly: false) {
                 Section {} footer: { ReadestFooter(readest: readest, hasCloudOnly: false) }
             }
         }
@@ -110,19 +110,41 @@ struct LibraryView: View {
         }
     }
 
+    /// The footer is only added when it has something to say: an empty section footer is an unlabelled
+    /// accessibility element ("Element has no description").
+    @ViewBuilder
     private func booksSection(_ shown: [MergedLibraryItem<LibraryEntry>]) -> some View {
-        Section {
-            ForEach(shown) { item in
-                if let entry = item.local {
-                    row(entry, cloud: item.cloud)
-                } else if let book = item.cloud {
-                    cloudRow(book)
-                }
+        let hasCloudOnly = shown.contains { $0.availability == .readestOnly }
+        if ReadestFooter.hasMessage(readest, hasCloudOnly: hasCloudOnly) {
+            Section {
+                bookRows(shown)
+            } header: {
+                Text("Books").foregroundStyle(.secondaryText)
+            } footer: {
+                ReadestFooter(readest: readest, hasCloudOnly: hasCloudOnly)
             }
-        } header: {
-            Text("Books").foregroundStyle(.secondaryText)
-        } footer: {
-            ReadestFooter(readest: readest, hasCloudOnly: shown.contains { $0.availability == .readestOnly })
+        } else {
+            Section {
+                bookRows(shown)
+            } header: {
+                Text("Books").foregroundStyle(.secondaryText)
+            }
+        }
+    }
+
+    /// Rows are identified by their hash *and* their shape (local / Readest / both, uploading, downloading):
+    /// when a row gains or loses a line (the Readest icon, "Uploading to Readest…", the download progress) the
+    /// List gets a new cell sized for it. Updated in place, the cell kept its old height and, at accessibility
+    /// text sizes, squeezed the watch state to one truncated line ("Waiting for…").
+    private func bookRows(_ shown: [MergedLibraryItem<LibraryEntry>]) -> some View {
+        let rows: [ShapedItem] = shown.map { ShapedItem(id: rowShapeID($0), item: $0) }
+        return ForEach(rows) { shaped in
+            let item = shaped.item
+            if let entry = item.local {
+                row(entry, cloud: item.cloud)
+            } else if let book = item.cloud {
+                cloudRow(book)
+            }
         }
     }
 
@@ -247,6 +269,17 @@ struct LibraryView: View {
     private var readestDeleteTitle: String {
         guard let book = pendingReadestDelete else { return "" }
         return String(localized: "Delete “\(book.title)” from Readest?", comment: "Confirmation title; the placeholder is the book title")
+    }
+
+    private struct ShapedItem: Identifiable {
+        let id: String
+        let item: MergedLibraryItem<LibraryEntry>
+    }
+
+    private func rowShapeID(_ item: MergedLibraryItem<LibraryEntry>) -> String {
+        let uploading = readest?.uploading.contains(item.hash) == true
+        let downloading = readest?.downloads[item.hash] != nil
+        return "\(item.hash)|\(item.availability)|\(uploading)|\(downloading)"
     }
 
     /// Delete: a book that is also in Readest asks where to delete it from.
@@ -480,6 +513,15 @@ private struct DownloadRing: View {
 private struct ReadestFooter: View {
     let readest: ReadestLibraryModel?
     let hasCloudOnly: Bool
+
+    /// True when `body` shows a message (sign in again, offline, or a refresh error).
+    @MainActor
+    static func hasMessage(_ readest: ReadestLibraryModel?, hasCloudOnly: Bool) -> Bool {
+        guard let readest else { return false }
+        if readest.needsSignIn { return true }
+        guard readest.isAvailable else { return false }
+        return (readest.isOffline && hasCloudOnly) || readest.refreshError != nil
+    }
 
     var body: some View {
         if let readest {

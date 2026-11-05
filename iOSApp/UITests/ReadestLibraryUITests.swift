@@ -32,6 +32,19 @@ final class ReadestLibraryUITests: XCTestCase {
         app.descendants(matching: .any).matching(NSPredicate(format: "identifier == 'libraryCloudRow' AND label BEGINSWITH %@", title)).firstMatch
     }
 
+    /// Scrolls the Library until `element` exists: List rows below the fold are not in the accessibility tree
+    /// (on the small CI simulator and at the largest text size the cloud rows start off screen).
+    @MainActor
+    @discardableResult
+    private func scrollTo(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
+        for _ in 0..<8 where !element.waitForExistence(timeout: 2) {
+            let window = app.windows.firstMatch
+            window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
+                .press(forDuration: 0.1, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35)))
+        }
+        return element.exists
+    }
+
     @MainActor
     func testLibraryStatesScreenshots() throws {
         let app = launch()
@@ -91,9 +104,8 @@ final class ReadestLibraryUITests: XCTestCase {
     func testOfflineScreenshot() throws {
         let app = launch(["-UITestingReadestOffline"])
         let row = cloudRow(app, "Frankenstein")
-        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertTrue(scrollTo(row, in: app), "Frankenstein row missing")
         XCTAssertTrue((row.value as? String)?.contains("connection") == true, "offline value: \(String(describing: row.value))")
-        app.swipeUp()
         sleep(1)
         screenshot(app, "readest-9-offline")
     }
@@ -101,7 +113,8 @@ final class ReadestLibraryUITests: XCTestCase {
     @MainActor
     func testLargestTextScreenshot() throws {
         let app = launch(["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
-        XCTAssertTrue(cloudRow(app, "Pride and Prejudice").waitForExistence(timeout: 10))
+        XCTAssertTrue(scrollTo(cloudRow(app, "Pride and Prejudice"), in: app), "cloud-only book missing")
+        sleep(1)
         screenshot(app, "readest-10-largest-text")
     }
 }
