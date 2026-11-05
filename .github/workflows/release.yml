@@ -80,7 +80,7 @@ jobs:
         if: ${{ env.WR_APP_NAME != '' }}
         run: |
           set -euo pipefail
-          for p in GeneratedInfo/iOS-Info.plist GeneratedInfo/Watch-Info.plist; do
+          for p in GeneratedInfo/iOS-Info.plist GeneratedInfo/Watch-Info.plist GeneratedInfo/WatchWidgets-Info.plist; do
             plutil -replace CFBundleDisplayName -string "$WR_APP_NAME" "$p"
             echo "$p -> CFBundleDisplayName=$(plutil -extract CFBundleDisplayName raw "$p")"
           done
@@ -112,11 +112,14 @@ jobs:
           WATCH="$APP/Watch/Folito.app"
           [ -d "$APP" ]   || { echo "::error::iOS app missing from archive"; exit 1; }
           [ -d "$WATCH" ] || { echo "::error::watch app is not embedded in the iOS app (expected $WATCH)"; ls -R "$APP" | head -50; exit 1; }
+          WIDGETS="$WATCH/PlugIns/FolitoWidgets.appex"
+          [ -d "$WIDGETS" ] || { echo "::error::complications extension is not embedded in the watch app (expected $WIDGETS)"; exit 1; }
           get() { plutil -extract "$2" raw -o - "$1/Info.plist"; }
           IOS_ID=$(get "$APP" CFBundleIdentifier); WATCH_ID=$(get "$WATCH" CFBundleIdentifier)
           IOS_VER=$(get "$APP" CFBundleShortVersionString); IOS_BLD=$(get "$APP" CFBundleVersion)
           W_VER=$(get "$WATCH" CFBundleShortVersionString);  W_BLD=$(get "$WATCH" CFBundleVersion)
           COMPANION=$(get "$WATCH" WKCompanionAppBundleIdentifier)
+          WIDGETS_ID=$(get "$WIDGETS" CFBundleIdentifier); W_GROUP=$(get "$WIDGETS" FolitoAppGroup)
           {
             echo "### Release dry run (nothing uploaded)"
             echo
@@ -126,12 +129,16 @@ jobs:
             echo "| Version (build) | $IOS_VER ($IOS_BLD) | $W_VER ($W_BLD) |"
             echo "| Display name | $(get "$APP" CFBundleDisplayName) | $(get "$WATCH" CFBundleDisplayName) |"
             echo
+            echo "Complications extension: \`$WIDGETS_ID\`, App Group \`$W_GROUP\`."
+            echo
             echo "Lane: \`$WR_LANE\`. A real run would archive with cloud signing (team \`APPLE_TEAM_ID\`) and upload to App Store Connect with ExportOptions:"
             echo '```'; cat .github/release/ExportOptions.plist; echo '```'
           } | tee -a "$GITHUB_STEP_SUMMARY"
           fail=0
           [ "$IOS_ID" = "$WR_BUNDLE_ID" ]            || { echo "::error::iOS bundle id $IOS_ID != $WR_BUNDLE_ID"; fail=1; }
           [ "$WATCH_ID" = "$WR_BUNDLE_ID.watchkitapp" ] || { echo "::error::watch bundle id $WATCH_ID != $WR_BUNDLE_ID.watchkitapp"; fail=1; }
+          [ "$WIDGETS_ID" = "$WR_BUNDLE_ID.watchkitapp.widgets" ] || { echo "::error::widgets bundle id $WIDGETS_ID != $WR_BUNDLE_ID.watchkitapp.widgets"; fail=1; }
+          [ "$W_GROUP" = "group.$WR_BUNDLE_ID" ]     || { echo "::error::App Group $W_GROUP != group.$WR_BUNDLE_ID"; fail=1; }
           [ "$COMPANION" = "$IOS_ID" ]               || { echo "::error::WKCompanionAppBundleIdentifier $COMPANION != $IOS_ID"; fail=1; }
           [ "$IOS_VER" = "$WR_VERSION" ] && [ "$W_VER" = "$WR_VERSION" ] || { echo "::error::marketing version mismatch"; fail=1; }
           [ "$IOS_BLD" = "$WR_BUILD" ] && [ "$W_BLD" = "$WR_BUILD" ]     || { echo "::error::build number mismatch"; fail=1; }
@@ -195,7 +202,7 @@ jobs:
           {
             echo "### Uploaded to App Store Connect"
             echo "- Lane: \`$WR_LANE\`"
-            echo "- Bundle ids: \`$WR_BUNDLE_ID\`, \`$WR_BUNDLE_ID.watchkitapp\`"
+            echo "- Bundle ids: \`$WR_BUNDLE_ID\`, \`$WR_BUNDLE_ID.watchkitapp\`, \`$WR_BUNDLE_ID.watchkitapp.widgets\` (App Group \`group.$WR_BUNDLE_ID\`)"
             echo "- Version: $WR_VERSION (build $WR_BUILD)"
             echo "- Processing takes a few minutes; then the build appears under TestFlight in App Store Connect."
           } >> "$GITHUB_STEP_SUMMARY"

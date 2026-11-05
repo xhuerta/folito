@@ -11,6 +11,14 @@ WR_APP_NAME = Folito
 MARKETING_VERSION = 0.1.0
 CURRENT_PROJECT_VERSION = 1
 
+// App Group shared by the watch app and its complications (widget extension), used for the reading snapshot
+// the complications show. Needs a paid team (register it as described in docs/RELEASE.md). A free Personal
+// Team clears the two entitlement settings in Config/Local.xcconfig; the complications then show their
+// "Start reading" placeholder.
+WR_APP_GROUP = group.$(WR_BUNDLE_ID)
+WR_WATCH_ENTITLEMENTS = WatchApp/FolitoWatch.entitlements
+WR_WIDGETS_ENTITLEMENTS = WatchWidgets/FolitoWatchWidgets.entitlements
+
 // Empty by default so CI and fresh clones build unsigned.
 DEVELOPMENT_TEAM =
 

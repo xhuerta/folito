@@ -103,12 +103,19 @@ advertising and no data broker, so *Tracking* stays **No**.
 
 ## Privacy manifests (in the app bundles)
 
-`iOSApp/PrivacyInfo.xcprivacy` and `WatchApp/PrivacyInfo.xcprivacy` are identical: `NSPrivacyTracking = false`,
-no tracking domains, required-reason API `UserDefaults` (`CA92.1`) only, and `NSPrivacyCollectedDataTypes` with
+`iOSApp/PrivacyInfo.xcprivacy` and `WatchApp/PrivacyInfo.xcprivacy` declare the same: `NSPrivacyTracking = false`,
+no tracking domains, required-reason API `UserDefaults` only (`CA92.1`; the watch app also `1C8F.1`, because it
+writes the complication snapshot to the App Group shared with its own widget extension), and `NSPrivacyCollectedDataTypes` with
 `EmailAddress`, `UserID`, `DeviceID` and `OtherUserContent`, each `Linked = true`, `Tracking = false`,
 purpose `AppFunctionality`. Both apps declare the full set because the label covers the app record as a whole
 (the watch app ships inside the iOS app) and the split between the devices may change; declaring the union in
 each costs nothing.
+
+`WatchWidgets/PrivacyInfo.xcprivacy` (the complications / Smart Stack widget extension inside the watch app):
+`NSPrivacyTracking = false`, no tracking domains, **no collected data types**, required-reason API `UserDefaults`
+(`1C8F.1`: it reads the snapshot the watch app writes to their shared App Group). The complications add **no data
+collection**: the snapshot (book id, title, chapter title, percentage) stays on the watch and is never sent anywhere,
+so the App Store privacy answers above do not change.
 
 ## Accessibility (App Store "Accessibility Nutrition Labels")
 

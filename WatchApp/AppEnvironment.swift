@@ -14,6 +14,15 @@ final class AppEnvironment: ObservableObject {
     let dictionary: DictionaryProviding
     /// What Settings shows; refreshed whenever a dictionary is installed or removed.
     @Published private(set) var dictionaryInfos: [CompactDictionaryInfo] = []
+    /// Writes what the complications / Smart Stack widget show (see WatchWidgets/).
+    let complications: ComplicationPublisher
+    /// Latest deep link from a complication (`widgetURL`), consumed by LibraryView.
+    @Published var deepLink: DeepLinkRequest?
+
+    struct DeepLinkRequest: Equatable {
+        let token = UUID()
+        let link: FolitoDeepLink
+    }
     private var connectivity: ConnectivityReceiver?
 
     init() {
@@ -31,6 +40,15 @@ final class AppEnvironment: ObservableObject {
         self.dictionaries = dictionaries
         self.dictionary = OfflineDictionaryService(installed: dictionaries)
         self.dictionaryInfos = dictionaries.infos
+        // UI tests must not touch the real complication snapshot.
+        self.complications = ComplicationPublisher(store: UITesting.isActive ? ReadingSnapshotStore(defaults: nil)
+                                                                             : .shared)
+    }
+
+    /// A complication was tapped (`folito://book/<id>` or `folito://library`).
+    func handle(url: URL) {
+        guard let link = FolitoDeepLink(url: url) else { return }
+        deepLink = DeepLinkRequest(link: link)
     }
 
     /// Re-reads the installed dictionaries (after the iPhone installed or removed one).
@@ -50,7 +68,8 @@ final class AppEnvironment: ObservableObject {
                                             onTypography: { typography.applyRemote($0) },
                                             onSettingsChanged: { sync.configurationChanged() })
         typography.onLocalChange = { [weak receiver] _ in receiver?.publishLibrary() }
-        library.onBookDeleted = { sync.discard(document: $0) }
+        let complications = self.complications
+        library.onBookDeleted = { sync.discard(document: $0); complications.bookRemoved($0) }
         library.onLibraryChanged = { [weak receiver] in receiver?.publishLibrary() }
         receiver.start()
         connectivity = receiver
@@ -70,6 +89,7 @@ final class AppEnvironment: ObservableObject {
         typography.reset()
         AttributedBlockCache.shared.removeAll()
         positions.removeAll()
+        complications.clear()
         sync.resetPending()
         CredentialsStore.clear()
         sync.configurationChanged()

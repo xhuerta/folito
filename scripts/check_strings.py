@@ -39,7 +39,15 @@ TARGETS = {
     "FolitoWatch (watchOS)": (
         "WatchApp/Resources/Localizable.xcstrings",
         ["WatchApp/Resources/InfoPlist.xcstrings"],
-        ["WatchApp", "Shared"],
+        ["WatchApp", "Shared", "WidgetShared"],
+        {"Tests", "UITests"},
+    ),
+    # Complications / Smart Stack widget. WidgetShared/ is compiled into both the watch app and the extension,
+    # so its strings are in both catalogs.
+    "FolitoWatchWidgets (watchOS)": (
+        "WatchWidgets/Resources/Localizable.xcstrings",
+        [],
+        ["WatchWidgets", "WidgetShared"],
         {"Tests", "UITests"},
     ),
 }

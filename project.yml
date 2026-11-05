@@ -111,9 +111,15 @@ targets:
         excludes:
           - Tests/**
           - UITests/**
+          - "*.entitlements"
       - path: Shared
+      # Snapshot model, deep links and complication views, shared with the widget extension.
+      - path: WidgetShared
     dependencies:
       - package: ReaderCore
+      # Complications and Smart Stack widget (WidgetKit), embedded in Folito.app/PlugIns.
+      - target: FolitoWatchWidgets
+        embed: true
     # Single-target watchOS app (no WatchKit extension) paired with the iOS app.
     info:
       path: GeneratedInfo/Watch-Info.plist
@@ -128,6 +134,12 @@ targets:
         NSLocalNetworkUsageDescription: Folito connects to your own KOReader sync server on your local network to sync your reading progress.
         WKApplication: true
         WKCompanionAppBundleIdentifier: $(WR_BUNDLE_ID)
+        # App Group shared with the complications (ReadingSnapshotStore); empty or unset disables sharing.
+        FolitoAppGroup: $(WR_APP_GROUP)
+        # Complication taps open folito://book/<id> or folito://library (WidgetShared/FolitoDeepLink.swift).
+        CFBundleURLTypes:
+          - CFBundleURLName: $(WR_BUNDLE_ID).watchkitapp
+            CFBundleURLSchemes: [folito]
         # Required for the app to be installable on a watch simulator that has no paired iPhone
         # (CI unit tests host); also valid for the app itself, which syncs over the network on its own.
         WKRunsIndependentlyOfCompanionApp: true
@@ -152,6 +164,41 @@ targets:
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         SKIP_INSTALL: YES
         GENERATE_INFOPLIST_FILE: NO
+        # App Group entitlement (Config/Base.xcconfig); a free Personal Team clears it in Config/Local.xcconfig.
+        CODE_SIGN_ENTITLEMENTS: $(WR_WATCH_ENTITLEMENTS)
+
+  # WidgetKit extension of the watch app: complications (circular, corner, inline, rectangular) and the Smart
+  # Stack widget. Reads the snapshot the watch app writes to the App Group. See README ("Complications").
+  FolitoWatchWidgets:
+    type: app-extension
+    platform: watchOS
+    sources:
+      - path: WatchWidgets
+        excludes:
+          - "*.entitlements"
+      - path: WidgetShared
+    info:
+      path: GeneratedInfo/WatchWidgets-Info.plist
+      properties:
+        CFBundleDisplayName: $(WR_APP_NAME)
+        # Must match the containing watch app.
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleDevelopmentRegion: en
+        CFBundleLocalizations: [en, es, fr, de, it, pt-BR, ja, zh-Hans]
+        FolitoAppGroup: $(WR_APP_GROUP)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(WR_BUNDLE_ID).watchkitapp.widgets
+        PRODUCT_NAME: FolitoWidgets
+        SDKROOT: watchos
+        TARGETED_DEVICE_FAMILY: "4"
+        SKIP_INSTALL: YES
+        APPLICATION_EXTENSION_API_ONLY: YES
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_ENTITLEMENTS: $(WR_WIDGETS_ENTITLEMENTS)
 
   FolitoTests:
     type: bundle.unit-test

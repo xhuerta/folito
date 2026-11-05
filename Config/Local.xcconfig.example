@@ -5,3 +5,8 @@ DEVELOPMENT_TEAM = ABCDE12345
 
 // Must be globally unique for a free Personal Team.
 WR_BUNDLE_ID = com.yourname.folito
+
+// Free Personal Team: if Xcode says your team does not support App Groups, uncomment these two lines. The app
+// works as before; only the complications stay on their "Start reading" placeholder (see the README).
+// WR_WATCH_ENTITLEMENTS =
+// WR_WIDGETS_ENTITLEMENTS =
