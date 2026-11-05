@@ -12,6 +12,8 @@ import UIKit
 /// - `-UITestingMockReadest` (with `-UITesting...`): Readest is signed in (in-memory Keychain and throw-away defaults)
 ///   and the Library shows a fixed, mocked Readest library (`MockReadestLibraryService`); no network.
 ///   `-UITestingReadestOffline` also shows the offline state.
+/// - `-UITestingWatchReady`: the Library shows the watch as paired with the app installed (display only: transfers
+///   still check the real `WCSession`, so nothing is sent). Without it the simulator shows "No Apple Watch".
 /// - `-UITestingShowOnboarding` (implies `-UITesting`): opens the welcome tour on launch. Every other UI-testing
 ///   launch skips it (`-UITestingSkipOnboarding` says so explicitly); see `OnboardingPolicy`.
 enum UITesting {
@@ -19,6 +21,7 @@ enum UITesting {
     static let seedSampleBookArgument = "-UITestingSeedSampleBook"
     static let mockReadestArgument = "-UITestingMockReadest"
     static let readestOfflineArgument = "-UITestingReadestOffline"
+    static let watchReadyArgument = "-UITestingWatchReady"
 
     #if DEBUG
     static var isActive: Bool {
@@ -41,6 +44,11 @@ enum UITesting {
             try? store.addForUITesting(sampleBook, fileName: "sample.epub")
         }
         return store
+    }
+
+    /// The watch state the Library shows instead of the real one (`-UITestingWatchReady`), or nil.
+    static var simulatedWatchStatus: WatchStatus? {
+        ProcessInfo.processInfo.arguments.contains(watchReadyArgument) ? .ready(reachable: false) : nil
     }
 
     private static var mockReadest: Bool { ProcessInfo.processInfo.arguments.contains(mockReadestArgument) }

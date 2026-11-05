@@ -111,6 +111,8 @@ final class AccessibilityAuditTests: XCTestCase {
     @MainActor
     private func forEachPage(of app: XCUIApplication, _ body: @MainActor () throws -> Void) throws {
         for _ in 0..<10 {
+            let probeRow = app.descendants(matching: .any)["libraryRow"]
+            Self.output("AXProbe page: libraryRow exists=\(probeRow.exists) frame=\(probeRow.exists ? probeRow.frame : .zero)")
             try body()
             let before = Self.layoutSignature(app)
             Self.scrollDown(app)
@@ -364,6 +366,31 @@ final class AccessibilityAuditTests: XCTestCase {
             let row = app.descendants(matching: .any)["libraryCloudRow"]
             for _ in 0..<6 where !row.waitForExistence(timeout: 2) { Self.scrollDown(app) }
             XCTAssertTrue(row.exists, "Readest-only books not shown")
+        }
+    }
+
+    // AXProbe (temporary): which setup makes the Readest audit pass.
+    @MainActor
+    func testAXProbeReadestWatchReady() throws {
+        try auditScreen("AXProbe Readest watch ready", seedSampleBook: true,
+                        extraArguments: ["-UITestingMockReadest", "-UITestingWatchReady"]) { app in
+            XCTAssertTrue(app.descendants(matching: .any)["libraryRow"].waitForExistence(timeout: 5))
+        }
+    }
+
+    @MainActor
+    func testAXProbeReadestNoScroll() throws {
+        try auditScreen("AXProbe Readest no scroll", seedSampleBook: true,
+                        extraArguments: ["-UITestingMockReadest"]) { _ in
+            Thread.sleep(forTimeInterval: 3)
+        }
+    }
+
+    @MainActor
+    func testAXProbeReadestOfflineWatchReady() throws {
+        try auditScreen("AXProbe Readest offline watch ready", seedSampleBook: true,
+                        extraArguments: ["-UITestingMockReadest", "-UITestingReadestOffline", "-UITestingWatchReady"]) { app in
+            XCTAssertTrue(app.descendants(matching: .any)["libraryRow"].waitForExistence(timeout: 5))
         }
     }
 
