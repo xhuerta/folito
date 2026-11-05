@@ -160,6 +160,15 @@ Readest audits start their largest-size pass below the local row (`openCloudRows
 `testLibraryReadestLocalRowAudit` audits that row, Readest icon included, with the library filtered to *On
 This iPhone*, where it is the last row as in the one-book audit.
 
+**The book detail screen** (PR #46) was first a `List`: an inset-grouped section per part, `LabeledContent`
+rows for the publication details, action rows and a separate *More* row under the description. At AX5 the
+audit reported "Dynamic Type font sizes are unsupported" and "Text clipped" with no element on the pages
+showing the section headers, the details and the actions, and "partially unsupported" on *More* (CI run on
+62f6984). It is now a `ScrollView` of cards with one layout at every size: section titles in `.headline`,
+each detail as title above value (one element), action buttons whose labels use `.body`, wrap and keep a
+44 pt minimum height, and *More* as a borderless button under the text with the same rules. No finding is
+accepted for this screen.
+
 Every finding (accepted or not) is printed in the CI log ("Accessibility audit issue (accepted|FAILS)") with
 its element, frame, the audit's detailed description and, for contrast findings, the contrast measured from
 a screenshot of the element; findings that fail also attach a screenshot to the result bundle.
@@ -226,7 +235,7 @@ behind a `confirmationDialog`.
 **VoiceOver.**
 - Library rows are one element: "title, author, 43% read". *Delete* is also an accessibility action
   (Actions rotor), and it asks for confirmation like the swipe does.
-- With *Settings › Show Covers* on (the default while covers are an experiment), each row starts with a small
+- With *Settings › Show Covers* on (the default), each row starts with a small
   cover (30 × 45 pt, decorative and hidden from VoiceOver, so the row still reads "title, author, 43% read").
   The cover keeps its size at every text size and the text wraps beside it; a cover-less book gets a tile in
   the colour the iPhone uses for its placeholder. Turning the setting off restores the text-only row exactly.

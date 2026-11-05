@@ -270,9 +270,8 @@ Tap a book in the Library for its details: a large cover, title, authors, series
 language, ISBN, the progress and time left reported by the watch, and the same actions as the row's menu.
 *Upload to Readest* also uploads the cover (`cover.png`), so the Readest apps show it.
 
-The watch shows a small cover (a JPEG of a few KB sent with the book) next to each title in its Library. This is
-an experiment: *Settings › Show Covers* on the watch (on by default) turns it off and brings back the text-only
-rows.
+The watch shows a small cover (a JPEG of a few KB sent with the book) next to each title in its Library.
+*Settings › Show Covers* on the watch is on by default; turning it off brings back the text-only rows.
 
 ## Languages
 

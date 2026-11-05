@@ -40,27 +40,50 @@ struct BookDetailView: View {
         }
     }
 
+    /// A scroll view of cards, not a `List`: as a `List` at the largest text size the accessibility audit
+    /// reported Dynamic Type and Text clipped findings with no element on the pages showing the section
+    /// headers, the `LabeledContent` rows (which switch to a stacked layout at accessibility sizes) and the
+    /// action rows, and "partially unsupported" on the More row (docs/ACCESSIBILITY.md). Here every row has
+    /// one layout at every text size and every text uses a text style.
     private func content(_ entry: LibraryEntry) -> some View {
-        List {
-            Section { header(entry) }
-                .listRowBackground(Color.clear)
-            if let text = entry.details?.description, !text.isEmpty {
-                Section {
-                    description(text)
-                } header: {
-                    Text("Description", comment: "Book detail section: the book's own blurb").foregroundStyle(.secondaryText)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                header(entry)
+                if let text = entry.details?.description, !text.isEmpty {
+                    section(Text("Description", comment: "Book detail section: the book's own blurb")) {
+                        description(text)
+                    }
                 }
+                section(Text("Information", comment: "Book detail section: publisher, year, language, progress")) {
+                    information(entry)
+                }
+                section(nil) { actions(entry) }
             }
-            Section {
-                information(entry)
-            } header: {
-                Text("Information", comment: "Book detail section: publisher, year, language, progress")
-                    .foregroundStyle(.secondaryText)
-            }
-            Section { actions(entry) }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
         }
+        .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle(entry.title)
         .accessibilityIdentifier("bookDetail")
+    }
+
+    /// A titled card, like an inset grouped list section.
+    private func section<Content: View>(_ title: Text?, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let title {
+                title
+                    .font(.headline)
+                    .foregroundStyle(.secondaryText)
+                    .accessibilityAddTraits(.isHeader)
+                    .padding(.horizontal, 4)
+            }
+            VStack(alignment: .leading, spacing: 12) {
+                content()
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+        }
     }
 
     // MARK: Header
@@ -107,14 +130,26 @@ struct BookDetailView: View {
         let preview = DescriptionExcerpt.excerpt(text, maxCharacters: Self.descriptionPreviewLength)
         Text(verbatim: showFullDescription || !preview.truncated ? text : preview.text)
             .font(.body)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityIdentifier("bookDescription")
         if preview.truncated {
+            // A text-style font, no line limit: the label grows with Dynamic Type; the minimum height keeps a
+            // 44 pt hit area at small sizes.
             Button {
                 showFullDescription.toggle()
             } label: {
-                showFullDescription ? Text("Less", comment: "Button: collapse the book description")
-                                    : Text("More", comment: "Button: show the whole book description")
+                Group {
+                    if showFullDescription {
+                        Text("Less", comment: "Button: collapse the book description")
+                    } else {
+                        Text("More", comment: "Button: show the whole book description")
+                    }
+                }
+                .font(.body.weight(.semibold))
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.borderless)
             .accessibilityHint(showFullDescription ? Text("Shows a shorter description.")
                                                    : Text("Shows the whole description."))
             .accessibilityIdentifier("bookDescriptionMore")
@@ -153,14 +188,16 @@ struct BookDetailView: View {
         row(Text("File Size", comment: "Book detail label: size of the converted book"), value: DisplayFormat.fileSize(entry.size))
     }
 
-    /// `LabeledContent` stacks title and value at large text sizes by itself; the value uses `secondaryText`
-    /// (the system's secondary label is below 4.5:1, docs/ACCESSIBILITY.md).
+    /// Title above value at every text size (not a `LabeledContent`, which switches layout at accessibility
+    /// sizes); one element for VoiceOver. The value uses `secondaryText` (the system's secondary label is below
+    /// 4.5:1, docs/ACCESSIBILITY.md).
     private func row(_ title: Text, value: String) -> some View {
-        LabeledContent {
-            Text(verbatim: value).foregroundStyle(.secondaryText)
-        } label: {
-            title
+        VStack(alignment: .leading, spacing: 2) {
+            title.font(.body)
+            Text(verbatim: value).font(.body).foregroundStyle(.secondaryText)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: Actions
@@ -182,31 +219,48 @@ struct BookDetailView: View {
         let isUploading = readest?.uploading.contains(entry.documentHash) == true
         if connectivity.status.canSend && state != .sending {
             Button { sendToWatch(entry) } label: {
-                Label("Send to Apple Watch Again", systemImage: "applewatch.and.arrow.forward")
+                Label("Send to Apple Watch Again", systemImage: "applewatch.and.arrow.forward").modifier(ActionLabel())
             }
+            .buttonStyle(.borderless)
         }
         if isUploading {
             HStack(spacing: 8) {
                 ProgressView()
-                Text("Uploading to Readest…")
+                Text("Uploading to Readest…").font(.body)
             }
+            .frame(minHeight: 44)
         } else if readestOn && !inReadest {
             Button {
                 Task { await readest?.upload(entry, from: library) }
             } label: {
-                Label("Upload to Readest", systemImage: "icloud.and.arrow.up")
+                Label("Upload to Readest", systemImage: "icloud.and.arrow.up").modifier(ActionLabel())
             }
+            .buttonStyle(.borderless)
         }
         if inReadest {
-            Button { library.delete(entry) } label: { Label("Remove Download", systemImage: "xmark.icloud") }
+            Button { library.delete(entry) } label: {
+                Label("Remove Download", systemImage: "xmark.icloud").modifier(ActionLabel())
+            }
+            .buttonStyle(.borderless)
         }
         Button(role: .destructive) {
             deletion.request(entry, inReadest: inReadest)
         } label: {
             // The increased-contrast red: system red text on a white row is about 3.6:1, below 4.5:1.
-            Label("Delete", systemImage: "trash").foregroundStyle(Color(uiColor: Self.readableRed))
+            Label("Delete", systemImage: "trash").foregroundStyle(Color(uiColor: Self.readableRed)).modifier(ActionLabel())
         }
+        .buttonStyle(.borderless)
         .accessibilityIdentifier("bookDetailDelete")
+    }
+}
+
+/// An action row's label: body text that wraps at every size, the full row width as hit area, at least 44 pt tall.
+private struct ActionLabel: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .font(.body)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
     }
 }
 
