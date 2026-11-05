@@ -11,6 +11,10 @@ enum AppLinks {
     /// Same URL as App Store Connect's privacy policy field (guideline 5.1.1(i)).
     static var privacyPolicy: URL { page("privacy.html") }
 
+    /// The Internet Archive's Terms of Use, Privacy Policy and Copyright Policy (one page), which covers Open Library,
+    /// the service *Find Details Online* asks (docs/ONLINE_METADATA.md). Open Library's own footer links here.
+    static let internetArchivePrivacy = URL(string: "https://archive.org/about/terms")!
+
     /// App Store Connect "Support URL".
     static var support: URL { page("support.html") }
 

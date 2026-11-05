@@ -1,7 +1,7 @@
 import SwiftUI
 import ReaderCore
 
-/// Settings tab: dictionaries, progress sync and About (privacy policy, support, version, acknowledgements).
+/// Settings tab: dictionaries, progress sync, book details (online lookup) and About (privacy policy, support, version, acknowledgements).
 struct SettingsView: View {
     @ObservedObject var settings: SyncSettings
     @ObservedObject var dictionaries: DictionaryManager
@@ -38,6 +38,8 @@ struct SettingsView: View {
             } footer: {
                 Text("Optional. Continue the same book in KOReader, Readest and other compatible reading apps.").foregroundStyle(.secondaryText)
             }
+
+            BookDetailsSettingsSection()
 
             Section {
                 ShowWelcomeTourButton()
@@ -134,6 +136,8 @@ struct LicenseView: View {
         SettingsView(settings: SyncSettings(clientFactory: { _ in MockKOSyncClient() }),
                      dictionaries: DictionaryManager(), connectivity: PhoneConnectivity())
     }
+    .environmentObject(OnlineMetadataModel())
+    .environmentObject(LibraryStore())
 }
 
 /// A Settings row label: icon and title, or the title alone at accessibility sizes, where the icon-plus-text label
@@ -155,5 +159,79 @@ private struct AboutRowLabel: View {
         } else {
             Label { title } icon: { Image(systemName: systemImage) }
         }
+    }
+}
+
+/// *Book Details*: the opt-in online lookup of missing covers and descriptions (docs/ONLINE_METADATA.md). The
+/// footer says exactly what is sent and to whom.
+private struct BookDetailsSettingsSection: View {
+    @EnvironmentObject private var model: OnlineMetadataModel
+    @EnvironmentObject private var library: LibraryStore
+
+    var body: some View {
+        Section {
+            Toggle(isOn: $model.autoLookup) {
+                Text("Find Missing Details Online", comment: "Settings toggle: look up missing covers and descriptions on Open Library")
+            }
+            .accessibilityIdentifier("onlineAutoLookupToggle")
+            bulkRows
+            Link(destination: AppLinks.internetArchivePrivacy) {
+                Text("Internet Archive Privacy Policy", comment: "Settings link: the privacy policy of the Internet Archive, which runs Open Library")
+            }
+            .accessibilityHint(Text("Opens in your web browser."))
+        } header: {
+            Text("Book Details", comment: "Settings section: online lookup of missing book details").foregroundStyle(.secondaryText)
+        } footer: {
+            Text("Off by default. When on, books you import without a cover or description are looked up once on Open Library, a service of the Internet Archive. Only the book’s ISBN, or its title and author, is sent; nothing about you or the rest of your library. You confirm details for a single book in its details.",
+                 comment: "Settings footer: what Find Missing Details Online sends, and to whom")
+                .foregroundStyle(.secondaryText)
+        }
+    }
+
+    @ViewBuilder
+    private var bulkRows: some View {
+        switch model.bulk {
+        case .running(let done, let total):
+            VStack(alignment: .leading, spacing: 8) {
+                ProgressView(value: Double(done), total: Double(max(total, 1)))
+                    .accessibilityHidden(true)
+                Text("Looking up \(min(done + 1, total)) of \(total) books…",
+                     comment: "Settings › Book Details: lookup progress; placeholders: current book, number of books")
+                    .foregroundStyle(.secondaryText)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("onlineBulkProgress")
+            Button(role: .cancel) {
+                model.cancelBulk()
+            } label: {
+                Text("Stop Looking Up", comment: "Settings › Book Details: cancel the running lookup")
+            }
+            .accessibilityIdentifier("onlineBulkCancel")
+        case .finished(let updated, let total, let cancelled):
+            startButton
+            Text(verbatim: OnlineMetadataModel.summary(updated: updated, total: total, cancelled: cancelled))
+                .foregroundStyle(.secondaryText)
+                .accessibilityIdentifier("onlineBulkSummary")
+        case .failed(let error):
+            startButton
+            VStack(alignment: .leading, spacing: 2) {
+                Text(verbatim: error.title)
+                Text(verbatim: error.message).foregroundStyle(.secondaryText)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("onlineBulkSummary")
+        case .idle:
+            startButton
+        }
+    }
+
+    private var startButton: some View {
+        Button {
+            model.startBulk(library: library)
+        } label: {
+            Text("Look Up Missing Details Now", comment: "Settings button: look up missing covers and descriptions for the whole library")
+        }
+        .accessibilityHint(Text("Looks up the books without a cover or description on Open Library."))
+        .accessibilityIdentifier("onlineBulkStart")
     }
 }

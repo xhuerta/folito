@@ -21,6 +21,8 @@ final class LibraryStore: ObservableObject {
     var onDeleted: ((LibraryEntry) -> Void)?
     /// Called when a book imported before covers existed gained a cover (`fillMissingCovers`).
     var onCoverAdded: ((LibraryEntry) -> Void)?
+    /// Called when an Open Library cover was removed again (*Remove Online Details*), so the watch can drop it.
+    var onCoverRemoved: ((LibraryEntry) -> Void)?
     private var isFillingCovers = false
 
     init(parser: EPUBParsing = EPUBParser(), rootDirectory: URL? = nil) {
@@ -158,6 +160,64 @@ final class LibraryStore: ObservableObject {
             isFillingCovers = false
             added.forEach { onCoverAdded?($0) }
         }
+    }
+
+    // MARK: Online details (docs/ONLINE_METADATA.md)
+
+    /// Applies the chosen pieces of an Open Library match, filling only what the EPUB lacks. The EPUB file is
+    /// never touched (same hash, same sync). `coverData` is the downloaded cover image, when the cover was chosen.
+    /// Returns the pieces that were applied.
+    @discardableResult
+    func applyOnline(_ match: OnlineBookMatch, selection: OnlineFieldSelection, coverData: Data?,
+                     to hash: String) async -> OnlineFieldSelection {
+        guard let entry = entries.first(where: { $0.documentHash == hash }) else { return [] }
+        let allowed = OnlineMetadataMerge.applicable(match, details: entry.details, hasEPUBCover: entry.hasEPUBCover,
+                                                     online: entry.online).intersection(selection)
+        guard !allowed.isEmpty else { return [] }
+        var coverStored = false
+        if allowed.contains(.cover), let coverData {
+            let dir = booksDirectory
+            coverStored = await Task.detached(priority: .userInitiated) {
+                CoverStore.storeImage(coverData, hash: hash, in: dir)
+            }.value
+        }
+        // The entry may have changed (or gone) while the cover was being stored.
+        guard let i = entries.firstIndex(where: { $0.documentHash == hash }) else { return [] }
+        let before = entries[i].online
+        guard let online = OnlineMetadataMerge.apply(match, selection: allowed, details: entries[i].details,
+                                                     hasEPUBCover: entries[i].hasEPUBCover, online: before,
+                                                     coverStored: coverStored) else { return [] }
+        entries[i].online = online
+        var applied = allowed
+        if !coverStored { applied.remove(.cover) }
+        if coverStored {
+            entries[i].hasCover = true
+            CoverImages.shared.invalidate(hash: hash)
+        }
+        save()
+        if coverStored { onCoverAdded?(entries[i]) }
+        return applied
+    }
+
+    /// Drops everything that came from Open Library: the book shows its EPUB-only data again and, if the cover
+    /// was Open Library's, the generated placeholder.
+    func removeOnlineDetails(hash: String) {
+        guard let i = entries.firstIndex(where: { $0.documentHash == hash }), let online = entries[i].online else { return }
+        entries[i].online = nil
+        if online.hasCover {
+            CoverStore.removeCovers(hash: hash, in: booksDirectory)
+            entries[i].hasCover = false
+            CoverImages.shared.invalidate(hash: hash)
+        }
+        save()
+        if online.hasCover { onCoverRemoved?(entries[i]) }
+    }
+
+    /// Records that the background lookup has tried this book.
+    func markLookedUpOnline(hash: String) {
+        guard let i = entries.firstIndex(where: { $0.documentHash == hash }) else { return }
+        entries[i].onlineLookupAt = Date()
+        save()
     }
 
     /// The watch thumbnail (JPEG, a few KB) of a book, if it has a cover.

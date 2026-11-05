@@ -31,6 +31,41 @@ credentials, not a data type in Apple's list; the IP address is inherent to any 
 send or store it; a dictionary download from reader.dict (`www.reader-dict.com`) is a plain file request that
 reveals only the chosen language and is kept by nobody on the developer's behalf; word lookups are offline.
 
+## Online book details (Open Library): no change to the answers
+
+*Find Details Online* and the opt-in *Find Missing Details Online* (off by default) send the book's **ISBN**, or
+its **title and first author**, from the iPhone to **Open Library** (openlibrary.org / covers.openlibrary.org, run by
+the Internet Archive) to fetch a missing cover, description, year, publisher or subjects
+(`docs/ONLINE_METADATA.md`, `docs/PRIVACY_DATA_MAP.md` 1b-bis). Evaluated against Apple's definition:
+
+* **Is it "collected"?** Apple: collecting means transmitting data off the device "in a way that allows you
+  and/or your third-party partners to access it for longer than necessary to service the transmitted request in
+  real time". The request goes straight from the iPhone to Open Library and is answered at once; nothing is sent
+  to the developer, who runs no server and never receives the ISBN, title, author or the answer. Open Library is
+  **not a third-party partner** of the developer: there is no SDK, no contract, no data sharing, no account; it is a
+  public service the app calls on the user's behalf, like a web page the user opens. Whatever Open Library logs
+  (the Internet Archive says it encrypts IP addresses with a daily key) is its own processing under its own
+  policy, not access by the developer or a partner. So by the definition the data is **not collected**.
+* **Even on the conservative reading used for sync** (treating a fixed, named service as the collecting party), the
+  data is not a user data type that the label covers: an ISBN or a published book's title and author is
+  bibliographic data about a commercially published work, not the user's content (the EPUB, the reading position,
+  or anything the user wrote), not an identifier, and not *Search History* (the user types no query; the app sends
+  metadata it already has, and no history is kept or associated with an account). Unlike the sync services, there
+  is no sign-in, no account and nothing stored per user, so there is nothing for "Linked to You" to describe.
+* **Tracking**: none. Open Library is not an advertising or data-broker service; no identifier is sent.
+
+**Conclusion: no App Privacy answer changes.** The four declared types, their purposes (App Functionality), *Linked
+to You* and *Tracking: No* stay exactly as below; no new type is ticked. The privacy manifests do not change either:
+`NSPrivacyTrackingDomains` lists tracking domains only, and openlibrary.org / archive.org are not tracking domains;
+no required-reason API is added (the lookup uses UserDefaults for its setting, already declared with `CA92.1`). The
+privacy policy describes the lookup (section "Book details from Open Library"), so the policy, the label and the
+manifests stay consistent. Re-evaluate if the lookup ever sends anything about the user or goes through a server
+of the developer.
+
+**Readest.** A cover the user accepted from Open Library (only for a book whose EPUB has none) is uploaded as that
+book's `cover.png` when the user uploads the book to their own Readest account. That upload is already covered by
+**Other User Content** (the EPUB files the user uploads and their library row); no change.
+
 ## Why "Linked to You" (changed from the first draft's "not linked")
 
 The first draft said *not linked to the user's identity by the developer*. That is true of the developer, but
@@ -94,6 +129,8 @@ advertising and no data broker, so *Tracking* stays **No**.
   chooses *Upload to Readest* or turns on *Upload Imported Books Automatically* (off by default). Files go to the
   user's own Readest storage (presigned URLs on Readest's storage host). Already covered by **Other User Content**
   (linked, App Functionality, not tracking): no new data type and no change to the privacy manifests.
+* **Online book details** (optional, iPhone only, off by default or on an explicit tap): the book's ISBN, or its
+  title and first author, to Open Library; nothing about the user; not collected (see above), no new data type.
 * **Dictionaries**: downloaded on the iPhone from `www.reader-dict.com` only when the user taps Download or
   Update (plus a HEAD update check while *Settings › Dictionaries* is open). Lookups run on the watch offline.
 * **Between the user's own devices** (WatchConnectivity): books, dictionaries, typography and the active sync

@@ -70,8 +70,8 @@
 <div class="doc">
 <h1>プライバシーポリシー</h1>
 <p class="translation-note">この翻訳は機械翻訳の支援を受けて作成された参考訳です。内容に相違がある場合は、<a href="../privacy.html" hreflang="en">英語版</a>が優先されます。</p>
-<p class="muted">最終更新日：2026年11月4日。iPhone および Apple Watch 用の Folito アプリに適用されます。</p>
-<div class="card note lead-card"><span class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2.8 19 5.6v5.7c0 4.6-3 8.3-7 9.9-4-1.6-7-5.3-7-9.9V5.6z"/><path d="m8.8 12.1 2.2 2.2 4.3-4.5"/></svg></span><p>要約：Folito はアカウントなしで使えます。分析、広告、トラッキングはなく、開発者はサーバを運営せず、データを受け取りません。アプリが通信するのは、設定した場合の同期サーバと、辞書をダウンロードするときの下記のダウンロードサイトだけです。</p></div>
+<p class="muted">最終更新日：2026年11月5日。iPhone および Apple Watch 用の Folito アプリに適用されます。</p>
+<div class="card note lead-card"><span class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2.8 19 5.6v5.7c0 4.6-3 8.3-7 9.9-4-1.6-7-5.3-7-9.9V5.6z"/><path d="m8.8 12.1 2.2 2.2 4.3-4.5"/></svg></span><p>要約：Folito はアカウントなしで使えます。分析、広告、トラッキングはなく、開発者はサーバを運営せず、データを受け取りません。アプリが通信するのは、設定した場合の同期サーバと、辞書をダウンロードするときの下記のダウンロードサイトだけです。また、指定した場合に限り、iPhone はブックに不足している詳細を Open Library で検索します（下記参照）。</p></div>
 
 <section class="group">
 <h2>責任者</h2>
@@ -122,6 +122,13 @@
 <h2>単語の検索</h2>
 <div class="card">
 <p>単語を調べても、どこにも何も送信されません。辞書は Apple Watch 上にあります。<em>設定 › 辞書</em>で<em>ダウンロード</em>または<em>アップデート</em>をタップしたときだけ、iPhone が HTTPS で <strong>www.reader-dict.com</strong>（Wiktionary から辞書ファイルを作成している reader.dict）から辞書ファイルをダウンロードします。リクエストに含まれるのは、選んだ言語がわかるファイルのアドレスと、アプリ名を示す User-Agent だけです。サイトには IP アドレスが見え、サイト自身のポリシーに従って扱われます。この画面を開いている間、アプリはインストール済みの辞書が更新されたかどうかもサイトに問い合わせます（同じ情報のみで、ファイルは転送されません）。その後 iPhone がファイルを変換し、Apple Watch との接続を通じて送ります。単語、本のタイトル、本文、読書位置が送信されることはありません。</p>
+</div>
+</section>
+<section class="group">
+<h2>Open Library からのブックの詳細（オプション、iPhone のみ）</h2>
+<div class="card">
+<p>表紙と詳細は EPUB ファイル自体から読み取られ、指定しない限りオンラインで検索されることはありません。検索を指定する方法は 2 つあります。ブックの詳細画面の<em>オンラインで詳細を検索</em>（そのブックについて 1 回）と、<em>設定 › ブックの詳細</em>です。後者では、<em>不足している詳細をオンラインで検索</em>（デフォルトはオフ）をオンにすると以後に読み込む表紙や説明のないブックを検索し、<em>不足している詳細を今すぐ検索</em>で既存のブックについて同じことを行います。このとき iPhone は HTTPS で <strong>Open Library</strong>（非営利団体 Internet Archive が運営する openlibrary.org と covers.openlibrary.org。表紙画像は archive.org から配信される場合があります）に問い合わせます。送信されるのはブックの <strong>ISBN</strong>、ISBN がない場合は<strong>タイトルと最初の著者</strong>、そしてアプリ名を示す User-Agent だけです。あなた自身、アカウント、読書状況、ライブラリのほかのブックに関する情報は送信されず、開発者は何も受け取りません。Open Library はあなたの IP アドレスを認識し、<a href="https://archive.org/about/terms">Internet Archive のプライバシーポリシー</a>に従って取り扱います。追加した詳細は iPhone のブックの横にのみ保存され、「Open Libraryから」と表示されます。EPUB に欠けている項目を補うだけで、EPUB ファイルが変更されることはありません。ブックの詳細画面の<em>オンラインの詳細を削除</em>で再び削除できます。</p>
+<p>Open Library の表紙を追加した（EPUB に表紙がないため）ブックを Readest アカウントにアップロードすると、その表紙は EPUB の表紙と同様に、Readest のストレージにブックの表紙画像としてアップロードされます。</p>
 </div>
 </section>
 <section class="group">

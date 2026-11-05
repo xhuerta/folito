@@ -70,8 +70,8 @@
 <div class="doc">
 <h1>Informativa sulla privacy</h1>
 <p class="translation-note">Questa traduzione è stata realizzata con l’ausilio della traduzione automatica ed è fornita solo a titolo informativo. In caso di discrepanze, prevale la <a href="../privacy.html" hreflang="en">versione inglese</a>.</p>
-<p class="muted">Ultimo aggiornamento: 4 novembre 2026. Si applica alle app Folito per iPhone e Apple Watch.</p>
-<div class="card note lead-card"><span class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2.8 19 5.6v5.7c0 4.6-3 8.3-7 9.9-4-1.6-7-5.3-7-9.9V5.6z"/><path d="m8.8 12.1 2.2 2.2 4.3-4.5"/></svg></span><p>In breve: Folito funziona senza alcun account. Non ci sono analisi, pubblicità né tracciamento, e lo sviluppatore non gestisce alcun server e non riceve dati. L’app contatta solo un server di sincronizzazione se scegli di configurarne uno e, quando scarichi un dizionario, il sito di download indicato sotto.</p></div>
+<p class="muted">Ultimo aggiornamento: 5 novembre 2026. Si applica alle app Folito per iPhone e Apple Watch.</p>
+<div class="card note lead-card"><span class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2.8 19 5.6v5.7c0 4.6-3 8.3-7 9.9-4-1.6-7-5.3-7-9.9V5.6z"/><path d="m8.8 12.1 2.2 2.2 4.3-4.5"/></svg></span><p>In breve: Folito funziona senza alcun account. Non ci sono analisi, pubblicità né tracciamento, e lo sviluppatore non gestisce alcun server e non riceve dati. L’app contatta solo un server di sincronizzazione se scegli di configurarne uno e, quando scarichi un dizionario, il sito di download indicato sotto. Se lo chiedi, l’iPhone cerca anche su Open Library i dettagli mancanti dei libri (vedi sotto).</p></div>
 
 <section class="group">
 <h2>Titolare</h2>
@@ -122,6 +122,13 @@
 <h2>Ricerca delle parole</h2>
 <div class="card">
 <p>Cercare una parola non invia nulla a nessuno: i dizionari sono sull’orologio. Solo quando tocchi <em>Scarica</em> o <em>Aggiorna</em> in <em>Impostazioni › Dizionari</em>, l’iPhone scarica via HTTPS un file di dizionario da <strong>www.reader-dict.com</strong> (reader.dict, che compila i file a partire da Wiktionary). La richiesta contiene solo l’indirizzo del file, che indica la lingua scelta, e uno User-Agent con il nome dell’app; il sito vede il tuo indirizzo IP e lo tratta secondo la propria informativa. Mentre quella schermata è aperta, l’app chiede anche al sito (stesse informazioni, senza trasferire file) se un dizionario installato è cambiato. L’iPhone poi converte il file e lo invia all’orologio tramite la connessione con Apple Watch. Non vengono mai inviati parole, titoli, testi o posizioni di lettura.</p>
+</div>
+</section>
+<section class="group">
+<h2>Dettagli dei libri da Open Library (facoltativo, solo iPhone)</h2>
+<div class="card">
+<p>Copertine e dettagli vengono letti dal file EPUB stesso, e non viene cercato nulla online se non lo chiedi tu. Puoi chiederlo in due modi: <em>Cerca dettagli online</em> nella scheda di un libro (una volta, per quel libro), oppure <em>Impostazioni › Dettagli dei libri</em>, dove <em>Cerca online i dettagli mancanti</em> (disattivato per impostazione predefinita) cerca i libri importati da quel momento senza copertina o descrizione, e <em>Cerca ora i dettagli mancanti</em> fa lo stesso per i libri che hai già. L’iPhone interroga quindi <strong>Open Library</strong> (openlibrary.org e covers.openlibrary.org, gestiti dall’organizzazione no profit Internet Archive; le immagini di copertina possono essere servite da archive.org) tramite HTTPS. La richiesta contiene solo l’<strong>ISBN</strong> del libro o, se manca, il <strong>titolo e il primo autore</strong>, più uno User-Agent con il nome dell’app. Non viene inviato nulla su di te, sul tuo account, sulla tua lettura o sul resto della libreria, e lo sviluppatore non riceve nulla. Open Library vede il tuo indirizzo IP e lo tratta secondo l’<a href="https://archive.org/about/terms">informativa sulla privacy di Internet Archive</a>. I dettagli che accetti vengono salvati solo sull’iPhone, insieme al libro, e contrassegnati con «Da Open Library»; completano solo ciò che manca all’EPUB e non modificano mai il file EPUB. <em>Rimuovi dettagli online</em>, nella scheda del libro, li elimina.</p>
+<p>Se carichi sul tuo account Readest un libro con una copertina accettata da Open Library (perché l’EPUB non ne ha), quella copertina viene caricata come immagine di copertina del libro nel tuo spazio Readest, come una copertina presa dall’EPUB.</p>
 </div>
 </section>
 <section class="group">

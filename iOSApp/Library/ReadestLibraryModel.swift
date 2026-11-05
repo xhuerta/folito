@@ -52,7 +52,10 @@ struct LiveReadestLibraryService: ReadestLibraryService {
         let data = try Data(contentsOf: url, options: .mappedIfSafe)
         let row = try await client.uploadBook(data, book: book, existing: existing)
         // The cover is a separate `cover.png` (docs/READEST_SYNC.md); best effort, the book is already uploaded.
-        if let png = CoverStore.readestPNG(epubAt: url) { try? await client.uploadCover(png, hash: book.hash) }
+        // A book whose EPUB has no cover uses the cover the user accepted from Open Library, if any: it is stored
+        // next to the original (docs/ONLINE_METADATA.md, "Readest").
+        let accepted = url.deletingLastPathComponent().appendingPathComponent(CoverStore.coverFileName(forHash: book.hash))
+        if let png = CoverStore.readestPNG(epubAt: url, fallback: accepted) { try? await client.uploadCover(png, hash: book.hash) }
         return row
     }
 

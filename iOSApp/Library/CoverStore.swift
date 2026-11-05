@@ -4,7 +4,8 @@ import ReaderCore
 import UIKit
 import UniformTypeIdentifiers
 
-/// Cover images of local books. Everything comes from the EPUB itself; nothing is looked up online.
+/// Cover images of local books, from the EPUB itself or, when the user accepted one, from Open Library
+/// (docs/ONLINE_METADATA.md; only for books whose EPUB has no cover).
 ///
 /// Files, next to the book payloads in the books directory:
 /// - `<hash>.cover.jpg`: the cover, downscaled to at most `libraryPixels` on its longer side (rows and the detail view);
@@ -27,11 +28,21 @@ enum CoverStore {
         let small = dir.appendingPathComponent(watchFileName(forHash: hash))
         try? FileManager.default.removeItem(at: large)
         try? FileManager.default.removeItem(at: small)
-        guard let cover, cover.isRaster,
-              let big = thumbnail(cover.data, maxPixels: libraryPixels),
+        guard let cover, cover.isRaster else { return false }
+        return storeImage(cover.data, hash: hash, in: dir)
+    }
+
+    /// Writes both thumbnails of an image (any format ImageIO reads). Returns false, writing nothing, when the
+    /// data is not a usable image.
+    @discardableResult
+    static func storeImage(_ data: Data, hash: String, in dir: URL) -> Bool {
+        let large = dir.appendingPathComponent(coverFileName(forHash: hash))
+        let small = dir.appendingPathComponent(watchFileName(forHash: hash))
+        guard let big = thumbnail(data, maxPixels: libraryPixels), big.width >= 16, big.height >= 16,
               let bigJPEG = UIImage(cgImage: big).jpegData(compressionQuality: 0.8) else { return false }
         do { try bigJPEG.write(to: large, options: .atomic) } catch { return false }
-        if let watch = watchJPEG(from: cover.data) { try? watch.write(to: small, options: .atomic) }
+        try? FileManager.default.removeItem(at: small)
+        if let watch = watchJPEG(from: data) { try? watch.write(to: small, options: .atomic) }
         return true
     }
 
@@ -64,9 +75,15 @@ enum CoverStore {
     }
 
     /// PNG of the book's cover for Readest (`cover.png`), at most 1024 px on its longer side; nil without one.
-    static func readestPNG(epubAt url: URL) -> Data? {
-        guard let cover = try? EPUBMetadataReader.cover(epubAt: url), cover.isRaster,
-              let image = thumbnail(cover.data, maxPixels: 1024) else { return nil }
+    /// The EPUB's own cover; for a book without one, the stored cover the user accepted from Open Library
+    /// (`fallback`), if any (docs/ONLINE_METADATA.md, "Readest").
+    static func readestPNG(epubAt url: URL, fallback: URL? = nil) -> Data? {
+        if let cover = try? EPUBMetadataReader.cover(epubAt: url), cover.isRaster,
+           let image = thumbnail(cover.data, maxPixels: 1024) {
+            return UIImage(cgImage: image).pngData()
+        }
+        guard let fallback, let data = try? Data(contentsOf: fallback),
+              let image = thumbnail(data, maxPixels: 1024) else { return nil }
         return UIImage(cgImage: image).pngData()
     }
 }

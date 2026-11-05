@@ -69,8 +69,8 @@
 <main id="main">
 <div class="doc">
 <h1>Privacy Policy</h1>
-<p class="muted">Last updated: 4 November 2026. Applies to the Folito apps for iPhone and Apple Watch.</p>
-<div class="card note lead-card"><span class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2.8 19 5.6v5.7c0 4.6-3 8.3-7 9.9-4-1.6-7-5.3-7-9.9V5.6z"/><path d="m8.8 12.1 2.2 2.2 4.3-4.5"/></svg></span><p>In short: Folito works without any account. It has no analytics, no advertising and no tracking, and the developer runs no server and receives no data. The app only contacts a sync server if you choose to set one up, and the dictionary download site named below when you download a dictionary.</p></div>
+<p class="muted">Last updated: 5 November 2026. Applies to the Folito apps for iPhone and Apple Watch.</p>
+<div class="card note lead-card"><span class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2.8 19 5.6v5.7c0 4.6-3 8.3-7 9.9-4-1.6-7-5.3-7-9.9V5.6z"/><path d="m8.8 12.1 2.2 2.2 4.3-4.5"/></svg></span><p>In short: Folito works without any account. It has no analytics, no advertising and no tracking, and the developer runs no server and receives no data. The app only contacts a sync server if you choose to set one up, and the dictionary download site named below when you download a dictionary. If you ask it to, the iPhone also looks up missing book details on Open Library (see below).</p></div>
 
 <section class="group">
 <h2>Who is responsible</h2>
@@ -121,6 +121,13 @@
 <h2>Dictionary lookups</h2>
 <div class="card">
 <p>Looking up a word sends nothing anywhere: the dictionaries are on your watch. Only when you tap <em>Download</em> or <em>Update</em> in <em>Settings › Dictionaries</em> does the iPhone download a dictionary file over HTTPS from <strong>www.reader-dict.com</strong> (reader.dict, which compiles the files from Wiktionary). The request contains only the file's address, which shows the language you chose, and a User-Agent naming the app; the site sees your IP address and handles it under its own policy. While that screen is open, the app also asks the site (same information, no file transferred) whether an installed dictionary has changed. The iPhone then converts the file and sends it to your watch over the Apple Watch connection. No word, book title, text or reading position is ever sent.</p>
+</div>
+</section>
+<section class="group">
+<h2>Book details from Open Library (optional, iPhone only)</h2>
+<div class="card">
+<p>Covers and details are read from the EPUB file itself, and nothing is looked up online unless you ask. You can ask in two ways: <em>Find Details Online</em> in a book's details (once, for that book), or <em>Settings › Book Details</em>, where <em>Find Missing Details Online</em> (off by default) looks up books you import from then on that have no cover or description, and <em>Look Up Missing Details Now</em> does the same for the books you already have. The iPhone then asks <strong>Open Library</strong> (openlibrary.org and covers.openlibrary.org, run by the non-profit Internet Archive; cover images may be served from archive.org) over HTTPS. The request contains only the book's <strong>ISBN</strong>, or, without one, its <strong>title and first author</strong>, plus a User-Agent naming the app. Nothing about you, your account, your reading or the rest of your library is sent, and the developer receives nothing. Open Library sees your IP address and handles it under the <a href="https://archive.org/about/terms">Internet Archive's privacy policy</a>. Details you accept are stored only on your iPhone, next to the book, and marked "From Open Library"; they fill only what the EPUB lacks and never change the EPUB file. <em>Remove Online Details</em> in the book's details deletes them again.</p>
+<p>If you upload a book to your Readest account and it has a cover you accepted from Open Library (because the EPUB has none), that cover is uploaded as the book's cover image in your Readest storage, like a cover taken from the EPUB.</p>
 </div>
 </section>
 <section class="group">

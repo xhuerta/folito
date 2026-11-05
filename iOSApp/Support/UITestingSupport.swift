@@ -22,6 +22,10 @@ enum UITesting {
     /// `-UITestingSeedCovers` (implies `-UITesting`): the sample book (no cover: placeholder) plus two books with
     /// generated covers and full details (series, description, publisher), for the covers screenshots.
     static let seedCoversArgument = "-UITestingSeedCovers"
+    /// `-UITestingMockOnlineMetadata`: *Find Details Online* asks `MockOnlineMetadataProvider` instead of Open
+    /// Library (no network). With `-UITestingOnlineMetadataSeveral` it offers three matches, with
+    /// `-UITestingOnlineMetadataEmpty` none, with `-UITestingOnlineMetadataOffline` it fails as if offline.
+    static let mockOnlineMetadataArgument = "-UITestingMockOnlineMetadata"
 
     #if DEBUG
     static var isActive: Bool {
@@ -124,6 +128,21 @@ enum UITesting {
         DictionaryManager(rootDirectory: libraryRoot)
     }
 
+    /// The online lookup, with a mocked provider and throw-away defaults (the setting starts off) when asked.
+    @MainActor
+    static func makeOnlineMetadata() -> OnlineMetadataModel {
+        let args = ProcessInfo.processInfo.arguments
+        guard args.contains(mockOnlineMetadataArgument) else {
+            return isActive ? OnlineMetadataModel(defaults: UserDefaults(suiteName: "uitesting-online-\(UUID().uuidString)") ?? .standard)
+                            : OnlineMetadataModel()
+        }
+        let mode: MockOnlineMetadataProvider.Mode = args.contains("-UITestingOnlineMetadataOffline") ? .offline
+            : args.contains("-UITestingOnlineMetadataEmpty") ? .empty
+            : args.contains("-UITestingOnlineMetadataSeveral") ? .several : .one
+        return OnlineMetadataModel(provider: MockOnlineMetadataProvider(mode: mode),
+                                   defaults: UserDefaults(suiteName: "uitesting-online-\(UUID().uuidString)") ?? .standard)
+    }
+
     /// A tiny public-domain text (Lewis Carroll, 1865), built in code: no EPUB file ships in the app.
     static let sampleBook: ProcessedBook = {
         let text = "Alice was beginning to get very tired of sitting by her sister on the bank, and of having nothing to do." // i18n-ignore: UI-test fixture (Debug only)
@@ -146,6 +165,8 @@ enum UITesting {
     static func makeReadestLibrary() -> ReadestLibraryModel { ReadestLibraryModel() }
     @MainActor
     static func makeDictionaryManager() -> DictionaryManager { DictionaryManager() }
+    @MainActor
+    static func makeOnlineMetadata() -> OnlineMetadataModel { OnlineMetadataModel() }
     #endif
 }
 
@@ -200,6 +221,44 @@ struct MockReadestLibraryService: ReadestLibraryService {
 
     func storageUsage() async throws -> ReadestStorageUsage {
         ReadestStorageUsage(usage: 126_000_000, quota: 524_288_000)
+    }
+}
+
+/// Fixed Open Library answers for UI tests and screenshots: public-domain books, generated covers, no network.
+struct MockOnlineMetadataProvider: OnlineMetadataProviding {
+    enum Mode: Sendable { case one, several, empty, offline }
+    let mode: Mode
+
+    static let alice = OnlineBookMatch(
+        key: "/works/OL138052W", title: "Alice’s Adventures in Wonderland", authors: ["Lewis Carroll"], // i18n-ignore: UI-test fixture
+        year: 1865, publisher: "Macmillan", subjects: ["Fantasy fiction", "Children’s stories"], // i18n-ignore: UI-test fixture
+        description: "Alice follows a White Rabbit down a rabbit hole into a world of nonsense, where she meets the Cheshire Cat, the Mad Hatter and the Queen of Hearts, and grows and shrinks by turns.", // i18n-ignore: UI-test fixture
+        coverID: 1)
+
+    var matches: [OnlineBookMatch] {
+        switch mode {
+        case .one: return [Self.alice]
+        case .several:
+            return [Self.alice,
+                    OnlineBookMatch(key: "/works/OL2W", title: "Alice’s Adventures in Wonderland and Through the Looking-Glass", // i18n-ignore: UI-test fixture
+                                    authors: ["Lewis Carroll"], year: 1871, coverID: 2), // i18n-ignore: UI-test fixture
+                    OnlineBookMatch(key: "/works/OL3W", title: "The Annotated Alice", authors: ["Lewis Carroll", "Martin Gardner"], // i18n-ignore: UI-test fixture
+                                    year: 1960)]
+        case .empty, .offline: return []
+        }
+    }
+
+    func lookup(_ query: OnlineLookupQuery) async throws -> [OnlineBookMatch] {
+        try await Task.sleep(nanoseconds: 300_000_000)
+        if mode == .offline { throw OnlineMetadataError.offline }
+        return matches
+    }
+
+    func description(for match: OnlineBookMatch) async throws -> String? { match.description }
+
+    func cover(for match: OnlineBookMatch) async throws -> Data? {
+        guard let id = match.coverID else { return nil }
+        return UITesting.generatedCover(id == 1 ? .systemPurple : .systemGreen)
     }
 }
 #endif

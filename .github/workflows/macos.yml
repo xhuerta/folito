@@ -273,6 +273,41 @@ jobs:
             covers-uitests.log
           if-no-files-found: ignore
 
+      # Online book details with a mocked Open Library (iOSApp/UITests/OnlineMetadataUITests.swift,
+      # `-UITestingMockOnlineMetadata`, no network): Settings > Book Details, Find Details Online, the confirmation
+      # sheet (one match, several, none, offline), Remove Online Details. Exported as online-metadata-screenshots.
+      - name: Online metadata UI tests
+        if: matrix.platform == 'ios'
+        run: |
+          set -o pipefail
+          rm -rf online-uitests.xcresult
+          xcodebuild test-without-building $XCB_FLAGS \
+            -scheme ${{ matrix.scheme }} \
+            -destination "id=$UDID" \
+            -only-testing:FolitoUITests/OnlineMetadataUITests \
+            -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
+            -resultBundlePath online-uitests.xcresult 2>&1 | tee online-uitests.log
+
+      - name: Export online metadata screenshots
+        if: always() && matrix.platform == 'ios'
+        run: |
+          [ -d online-uitests.xcresult ] || exit 0
+          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:" online-uitests.log || true
+          mkdir -p online-metadata-screenshots
+          xcrun xcresulttool export attachments --path online-uitests.xcresult --output-path online-metadata-screenshots || true
+          python3 scripts/ci/name_attachments.py online-metadata-screenshots || true
+          ls online-metadata-screenshots
+
+      - name: Upload online metadata screenshots
+        if: always() && matrix.platform == 'ios'
+        uses: actions/upload-artifact@v4
+        with:
+          name: online-metadata-screenshots
+          path: |
+            online-metadata-screenshots
+            online-uitests.log
+          if-no-files-found: ignore
+
       # Watch Library with Settings > Show Covers on and off, at the default and the largest accessibility text size
       # (WatchApp/UITests/WatchCoversScreenshotTests.swift), on the smallest and the largest watch simulator the
       # runner has. Exported as the covers-watch artifact.
