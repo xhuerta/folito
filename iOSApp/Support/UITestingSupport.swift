@@ -26,6 +26,9 @@ enum UITesting {
     /// Library (no network). With `-UITestingOnlineMetadataSeveral` it offers three matches, with
     /// `-UITestingOnlineMetadataEmpty` none, with `-UITestingOnlineMetadataOffline` it fails as if offline.
     static let mockOnlineMetadataArgument = "-UITestingMockOnlineMetadata"
+    /// `-UITestingSettingsBookDetailsOnly`: Settings shows only its *Book Details* section, so the accessibility
+    /// audit sees those rows at the top of the screen at every text size (docs/ACCESSIBILITY.md).
+    static let settingsBookDetailsOnlyArgument = "-UITestingSettingsBookDetailsOnly"
 
     #if DEBUG
     static var isActive: Bool {
@@ -156,7 +159,11 @@ enum UITesting {
                              chapters: [Chapter(spineIndex: 0, title: "Down the Rabbit-Hole", blocks: blocks)],
                              totalCharacters: 20 + text.count)
     }()
+    static var settingsShowsOnlyBookDetails: Bool {
+        isActive && ProcessInfo.processInfo.arguments.contains(settingsBookDetailsOnlyArgument)
+    }
     #else
+    static var settingsShowsOnlyBookDetails: Bool { false }
     @MainActor
     static func makeLibrary() -> LibraryStore { LibraryStore() }
     @MainActor

@@ -58,12 +58,14 @@ final class AccessibilityAuditTests: XCTestCase {
     /// and fails the test, after logging every finding, if any finding is not accepted.
     /// `open` navigates from the Library to the screen; `openAtLargestText`, if given, replaces it for the largest
     /// size. `formFooterFindingsAtLargestText` accepts, at the largest size only, the element-less findings that
-    /// the screen's `Form` section footers cause (see `verdict`).
+    /// the screen's `Form` section footers cause (see `verdict`). `afterScrollAtLargestText`, if given, runs after
+    /// each scroll of the largest-size pass (to scroll past rows another test audits).
     @MainActor
     private func auditScreen(_ name: String, seedSampleBook: Bool = false, showTour: Bool = false,
                              extraArguments: [String] = [],
                              formFooterFindingsAtLargestText: Bool = false,
                              file: StaticString = #filePath, line: UInt = #line,
+                             afterScrollAtLargestText: (@MainActor (XCUIApplication) -> Void)? = nil,
                              openAtLargestText: (@MainActor (XCUIApplication) -> Void)? = nil,
                              open: @MainActor (XCUIApplication) -> Void) throws {
         var failures: [String] = []
@@ -95,7 +97,7 @@ final class AccessibilityAuditTests: XCTestCase {
         let large = launch(seedSampleBook: seedSampleBook, largestText: true, showTour: showTour,
                            extraArguments: extraArguments)
         if let openAtLargestText { openAtLargestText(large) } else { open(large) }
-        try forEachPage(of: large) {
+        try forEachPage(of: large, afterScroll: afterScrollAtLargestText) {
             for type in Self.largestTextTypes {
                 failures += try audit(large, type, acceptFormFooterFindings: formFooterFindingsAtLargestText).failures
             }
@@ -109,13 +111,15 @@ final class AccessibilityAuditTests: XCTestCase {
 
     /// Runs `body` on the current scroll position, then scrolls down by about 40% of the screen and runs it
     /// again, until the content stops moving (at most 10 pages). Small steps, so that every element is audited
-    /// at least once away from the top and bottom bars.
+    /// at least once away from the top and bottom bars. `afterScroll` runs after each scroll.
     @MainActor
-    private func forEachPage(of app: XCUIApplication, _ body: @MainActor () throws -> Void) throws {
+    private func forEachPage(of app: XCUIApplication, afterScroll: (@MainActor (XCUIApplication) -> Void)? = nil,
+                             _ body: @MainActor () throws -> Void) throws {
         for _ in 0..<10 {
             try body()
             let before = Self.layoutSignature(app)
             Self.scrollDown(app)
+            afterScroll?(app)
             if Self.layoutSignature(app) == before { break }
         }
     }
@@ -446,9 +450,42 @@ final class AccessibilityAuditTests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
     }
 
+    /// The whole Settings screen. At the largest size the pass skips the pages where the *Book Details* rows
+    /// are fully on screen in the middle of the list (`skipBookDetailsRows`); `testSettingsBookDetailsAudit`
+    /// audits them.
     @MainActor
     func testSettingsAudit() throws {
-        try auditScreen("Settings", formFooterFindingsAtLargestText: true, open: Self.openSettings)
+        try auditScreen("Settings", formFooterFindingsAtLargestText: true,
+                        afterScrollAtLargestText: Self.skipBookDetailsRows, open: Self.openSettings)
+    }
+
+    /// The *Book Details* section alone (`-UITestingSettingsBookDetailsOnly`): its rows are at the top of the
+    /// screen, fully visible at scroll offset 0, at every text size.
+    @MainActor
+    func testSettingsBookDetailsAudit() throws {
+        try auditScreen("Settings (Book Details)", extraArguments: ["-UITestingSettingsBookDetailsOnly"],
+                        formFooterFindingsAtLargestText: true) { app in
+            Self.openSettings(app)
+            let start = app.buttons["onlineBulkStart"]
+            XCTAssertTrue(start.waitForExistence(timeout: 5), "Book Details not shown")
+            XCTAssertTrue(start.exists && Self.clearOfBars(start.frame, in: app),
+                          "Book Details rows not on the first screen: \(start.frame)")
+            XCTAssertFalse(app.descendants(matching: .any)["syncSettingsLink"].exists, "Only Book Details should be shown")
+        }
+    }
+
+    /// At the largest size *Look Up Missing Details Now* is fully on screen only in the middle of the Settings
+    /// list. There the Dynamic Type audit, which re-renders the screen at smaller sizes at the same scroll
+    /// offset, flagged it ("partially unsupported") while the toggle above and the link below, also fully on
+    /// screen, passed, and on no other page (CI on c849128). The same artifact as the
+    /// Library's mid-list row (`openCloudRowsAtLargestText`). So on those pages the pass scrolls on until the
+    /// button is above the screen.
+    @MainActor
+    private static func skipBookDetailsRows(_ app: XCUIApplication) {
+        let start = app.buttons["onlineBulkStart"]
+        guard start.exists, clearOfBars(start.frame, in: app) else { return }
+        for _ in 0..<6 where start.exists && start.frame.maxY > clearArea(in: app).top { scrollDown(app) }
+        XCTAssertFalse(start.exists && start.frame.maxY > clearArea(in: app).top, "Book Details rows still on screen")
     }
 
     @MainActor

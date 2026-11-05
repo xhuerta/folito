@@ -8,6 +8,17 @@ struct SettingsView: View {
     @ObservedObject var connectivity: PhoneConnectivity
 
     var body: some View {
+        if UITesting.settingsShowsOnlyBookDetails {
+            // UI tests only (`-UITestingSettingsBookDetailsOnly`): the accessibility audit of this section.
+            Form { BookDetailsSettingsSection() }
+                .readableScrollEdges()
+                .navigationTitle("Settings")
+        } else {
+            settingsForm
+        }
+    }
+
+    private var settingsForm: some View {
         Form {
             Section {
                 NavigationLink {
