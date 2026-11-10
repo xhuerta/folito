@@ -101,7 +101,6 @@ final class SyncSettings: ObservableObject {
             factory.makeConnector(credentials: creds, store: InMemoryCredentialStore(creds), session: session)
         }
         selectedConnectorID = ""
-        Self.migrateLegacyKeychain(keychain, defaults: defaults)
         activeConnectorID = Self.loadActiveID(keychain: keychain, defaults: defaults, registry: registry)
         selectedConnectorID = activeConnectorID ?? ""
         loadForm()
@@ -196,28 +195,22 @@ final class SyncSettings: ObservableObject {
         return hasAll ? id : nil
     }
 
-    /// Builds before connectors stored the KOSync login under the accounts server/username/password.
-    private static func migrateLegacyKeychain(_ keychain: KeychainStore, defaults: UserDefaults) {
-        guard let user = keychain.get(account: "username") else { return }
-        let k = KOSyncConnectorFactory.Key.self
-        let pairs = [("server", k.server), ("username", k.user), ("password", k.password)]
-        for (old, new) in pairs {
-            if let v = (old == "username" ? user : keychain.get(account: old)) { try? keychain.set(v, account: new) }
-            keychain.remove(account: old)
-        }
-        defaults.set(KOSyncConnectorFactory.id, forKey: connectorKey)
-    }
-
     private func nextStamp() -> Int {
         let previous = max(defaults.integer(forKey: Self.stampKey), defaults.integer(forKey: Self.clearedKey))
         return max(Int(Date().timeIntervalSince1970), previous + 1)
     }
 
-    /// The saved settings to mirror on the watch, or nil if nothing valid is saved.
+    /// What the watch gets for the saved login, or nil if nothing valid is saved: the connector's
+    /// `watchCredentials(from:)`, never the stored credentials as they are (KOSync: no password, only its MD5 key).
     func savedForWatch() -> PhoneConnectivity.WatchSettings? {
-        guard let id = activeConnectorID, let creds = activeCredentials else { return nil }
+        guard let f = activeFactory, let creds = activeCredentials else { return nil }
         let stamp = defaults.integer(forKey: Self.stampKey)
-        return .init(connectorID: id, credentials: creds, stamp: stamp > 0 ? stamp : 1)
+        return Self.watchSettings(factory: f, credentials: creds, stamp: stamp > 0 ? stamp : 1)
+    }
+
+    nonisolated static func watchSettings(factory: SyncConnectorFactory, credentials: SyncCredentials,
+                                          stamp: Int) -> PhoneConnectivity.WatchSettings {
+        .init(connectorID: factory.descriptor.id, credentials: factory.watchCredentials(from: credentials), stamp: stamp)
     }
 
     /// Stamp of the last "turn off sync" while nothing valid is saved; nil if never turned off or if

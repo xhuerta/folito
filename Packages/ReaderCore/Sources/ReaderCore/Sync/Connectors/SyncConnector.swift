@@ -222,10 +222,14 @@ public protocol SyncConnectorFactory: Sendable {
     func formValues(from credentials: SyncCredentials) -> [String: String]
     /// Account label shown when signed in (user name or email), if any.
     func accountLabel(for credentials: SyncCredentials) -> String?
+    /// The subset or derived form of the iPhone's stored credentials that the watch needs. This is all that
+    /// crosses WatchConnectivity, so it must never contain a password (default: the credentials unchanged).
+    func watchCredentials(from credentials: SyncCredentials) -> SyncCredentials
 }
 
 public extension SyncConnectorFactory {
     func signOut(credentials: SyncCredentials, session: URLSession) async {}
+    func watchCredentials(from credentials: SyncCredentials) -> SyncCredentials { credentials }
 }
 
 /// Neutral errors for connectors without their own error type, and form validation.
@@ -301,15 +305,21 @@ public struct SyncConnectorRegistry: Sendable {
     }
 }
 
-/// Settings-channel payload (phone -> watch): which connector is active and its credentials.
+/// Credentials payload (phone -> watch): which connector is active and its credentials.
 /// Generic for every connector; see docs/WATCH_CONNECTIVITY.md.
 public enum SyncSettingsWire {
     public static let connectorKey = "sync_connector"
     public static let credentialsKey = "sync_credentials"
     public static let clearedKey = "sync_cleared"
-    /// Version of the settings payload. 2 = generic connector keys (this format); 1 = KOSync-only keys.
+    /// Version of the settings and credentials payloads. A receiver ignores sync settings with a higher version.
     public static let versionKey = "settingsVersion"
-    public static let version = 2
+    public static let version = 1
+
+    /// False when the payload declares a version this build does not know.
+    public static func isSupported(_ info: [String: Any]) -> Bool {
+        guard let v = info[versionKey] as? Int else { return true }
+        return v <= version
+    }
 
     public static func encode(connectorID: String, credentials: SyncCredentials) -> [String: Any] {
         [connectorKey: connectorID, credentialsKey: credentials.jsonString(), versionKey: version]

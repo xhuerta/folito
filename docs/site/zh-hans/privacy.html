@@ -70,7 +70,7 @@
 <div class="doc">
 <h1>隐私政策</h1>
 <p class="translation-note">本译文借助机器翻译完成，仅供参考。如与原文有任何出入，以<a href="../privacy.html" hreflang="en">英文版本</a>为准。</p>
-<p class="muted">最后更新：2026 年 11 月 5 日。适用于 iPhone 和 Apple Watch 版 Folito App。</p>
+<p class="muted">最后更新：2026 年 11 月 10 日。适用于 iPhone 和 Apple Watch 版 Folito App。</p>
 <div class="card note lead-card"><span class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2.8 19 5.6v5.7c0 4.6-3 8.3-7 9.9-4-1.6-7-5.3-7-9.9V5.6z"/><path d="m8.8 12.1 2.2 2.2 4.3-4.5"/></svg></span><p>简而言之：Folito 无需任何账户即可使用。它没有分析、广告或跟踪，开发者不运营任何服务器，也不接收任何数据。App 只会在你选择设置同步服务器时与之通信，并在你下载词典时访问下文所述的下载网站。如果你要求，iPhone 还会在 Open Library 上查找图书缺少的信息（见下文）。</p></div>
 
 <section class="group">
@@ -86,7 +86,7 @@
 <li><strong>你的图书</strong>（你导入或从 Readest 下载的 EPUB 文件）会在 iPhone 上的 App 存储空间中处理和存储（同时保留原始 EPUB 文件），并通过 Apple 的 WatchConnectivity 在你已配对的设备之间直接发送到 Apple Watch。App 只会在你要求时将图书上传到你自己的 Readest 账户（见下文）。</li>
 <li><strong>你的阅读位置、排版设置、一个随机设备标识符</strong>（见下文），以及在开启同步时<strong>等待同步的进度</strong>，会存储在设备上的 App 设置中。你的排版设置也会发送到已配对的手表。为了估算剩余阅读时间，手表还会学习你的阅读速度并保存在手表上；估算结果也会显示在已配对的 iPhone 上。</li>
 <li>你下载的<strong>词典</strong>存储在你的 iPhone 和 Apple Watch 上。查词在手表本身上进行，因此你查询的内容永远不会离开设备。你可以在 iPhone App 中删除词典（<em>设置 › 词典</em>）。</li>
-<li><strong>你的同步登录信息</strong>（服务器地址、用户名、密码）仅在你开启同步时才会存储在 iPhone 的钥匙串中；由于手表会独立同步，这些信息还会通过 WatchConnectivity 发送到已配对的手表，并存储在手表自己的钥匙串中。这些信息绝不会发送给开发者，在互联网上只会发送到你输入的同步服务器（见下一节）。</li>
+<li><strong>你的同步登录信息</strong>（服务器地址、用户名、密码）仅在你开启同步时才会存储在 iPhone 的钥匙串中；由于手表会独立同步，服务器地址、用户名和密码的哈希值（MD5，而非密码本身）还会通过 WatchConnectivity 发送到已配对的手表，并存储在手表自己的钥匙串中。在手表收到之前，系统会将这条消息保留在 iPhone 上的传输队列中（位于钥匙串之外）；下文所述的 Readest 会话也是如此。这些登录信息绝不会发送给开发者，在互联网上只会发送到你输入的同步服务器（见下一节）。</li>
 <li><strong>你的 Readest 会话</strong>（仅当你选择 Readest 同步时）：你的 Readest 邮箱和两个会话令牌（从不保存你的 Readest 密码）存储在 iPhone 的钥匙串中：一个用于 iPhone 的资料库，仅保留在 iPhone 上；另一个用于同步，发送到配对的手表，由手表存储在自己的钥匙串中。</li>
 <li>本 App 不使用 iCloud。删除 App 会从该设备上移除这些数据。</li>
 </ul>

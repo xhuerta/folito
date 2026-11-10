@@ -204,15 +204,42 @@ final class SyncCoordinatorTests: XCTestCase {
     }
 
     func testClearRequestDetection() {
-        XCTAssertTrue(CredentialsStore.isClearRequest(["type": "settings", "kosync_cleared": true, "settingsStamp": 9]))
-        XCTAssertFalse(CredentialsStore.isClearRequest(["type": "settings", "kosync_cleared": false]))
-        XCTAssertFalse(CredentialsStore.isClearRequest(["type": "settings", "kosync_user": "u"]))
         XCTAssertTrue(CredentialsStore.isClearRequest(["type": "settings", "sync_cleared": true, "settingsStamp": 9]))
-        XCTAssertTrue(CredentialsStore.hasSyncSettings(SyncSettingsWire.encode(connectorID: "readest", credentials: SyncCredentials(["readest_email": "a@b.c"]))))
-        XCTAssertTrue(CredentialsStore.hasSyncSettings(["kosync_user": "u"]))
-        XCTAssertFalse(CredentialsStore.hasSyncSettings(["type": "settings", "typography": "{}"]))
-        XCTAssertTrue(ConnectivityReceiver.shouldApplySettings(incomingStamp: 9, lastApplied: 8))
-        XCTAssertFalse(ConnectivityReceiver.shouldApplySettings(incomingStamp: 8, lastApplied: 8))
+        XCTAssertFalse(CredentialsStore.isClearRequest(["type": "settings", "sync_cleared": false]))
+        XCTAssertFalse(CredentialsStore.isClearRequest(["type": "settings", "typography": "{}"]))
+    }
+
+    func testSyncSettingsAction() {
+        typealias R = ConnectivityReceiver
+        var creds: [String: Any] = ["type": "credentials", "settingsStamp": 9]
+        creds.merge(SyncSettingsWire.encode(connectorID: "kosync", credentials: SyncCredentials(
+            ["kosync_server": "https://s", "kosync_user": "u", "kosync_key": "5ebe2294ecd0e0f08eab7690d2a6ee69"]))) { _, n in n }
+        XCTAssertEqual(R.syncSettingsAction(for: creds, lastApplied: 8), .store)
+        XCTAssertEqual(R.syncSettingsAction(for: creds, lastApplied: 0), .store, "fresh install")
+        XCTAssertEqual(R.syncSettingsAction(for: creds, lastApplied: 9), R.SyncSettingsAction.none, "a resend, or after Reset on the watch")
+        let cleared: [String: Any] = ["type": "settings", "sync_cleared": true, "settingsStamp": 10, "settingsVersion": 1]
+        XCTAssertEqual(R.syncSettingsAction(for: cleared, lastApplied: 9), .clear)
+        XCTAssertEqual(R.syncSettingsAction(for: cleared, lastApplied: 10), R.SyncSettingsAction.none)
+        // A turn-off that arrives after newer credentials (the two travel on different channels) is ignored.
+        XCTAssertEqual(R.syncSettingsAction(for: cleared, lastApplied: 11), R.SyncSettingsAction.none)
+        // Credentials are accepted only as a `credentials` message, never from the settings context.
+        var inContext = creds
+        inContext["type"] = "settings"
+        XCTAssertEqual(R.syncSettingsAction(for: inContext, lastApplied: 0), R.SyncSettingsAction.none)
+        var noStamp = creds
+        noStamp["settingsStamp"] = nil
+        XCTAssertEqual(R.syncSettingsAction(for: noStamp, lastApplied: 0), R.SyncSettingsAction.none)
+        var future = creds
+        future["settingsVersion"] = 99
+        XCTAssertEqual(R.syncSettingsAction(for: future, lastApplied: 0), R.SyncSettingsAction.none)
+        XCTAssertEqual(R.syncSettingsAction(for: ["type": "credentials", "settingsStamp": 9], lastApplied: 0), R.SyncSettingsAction.none)
+        XCTAssertEqual(R.syncSettingsAction(for: ["type": "settings", "typography": "{}"], lastApplied: 0), R.SyncSettingsAction.none)
+        XCTAssertEqual(R.syncSettingsAction(for: ["type": "delete_book", "documentHash": "a"], lastApplied: 0), R.SyncSettingsAction.none)
+    }
+
+    func testLibraryContextReportsTheAppliedSettingsStamp() {
+        XCTAssertEqual(ConnectivityReceiver.libraryContext(hashes: [])["settingsStamp"] as? Int, 0)
+        XCTAssertEqual(ConnectivityReceiver.libraryContext(hashes: ["a"], settingsStamp: 42)["settingsStamp"] as? Int, 42)
     }
 
     @MainActor
@@ -297,14 +324,6 @@ final class MiscLogicTests: XCTestCase {
         XCTAssertEqual(ReaderSettings.clampFontSize(.nan), ReaderSettings.defaultFontSize)
     }
 
-    func testServerURLParsing() {
-        XCTAssertEqual(ServerURL.parse("sync.example.org")?.absoluteString, "https://sync.example.org")
-        XCTAssertEqual(ServerURL.parse("http://10.0.0.2:8080")?.port, 8080)
-        XCTAssertNil(ServerURL.parse("   "))
-        XCTAssertNil(ServerURL.credentials(server: "x.org", user: "u", password: nil))
-        XCTAssertEqual(ServerURL.credentials(server: "", user: "u", password: "p")?.username, "u")
-    }
-
     func testErrorClassification() {
         XCTAssertEqual(SyncErrorClassifier.status(for: KOSyncError.offline), .offline)
         XCTAssertEqual(SyncErrorClassifier.status(for: KOSyncError.unauthorized), .error)
@@ -313,9 +332,9 @@ final class MiscLogicTests: XCTestCase {
     }
 
     func testDeleteMessageSchema() {
-        // Shape sent by the iPhone (WatchSchema.deleteBook) and the legacy shape.
+        // Shape sent by the iPhone (WatchSchema.deleteBook).
         XCTAssertEqual(ConnectivityReceiver.deleteHash(from: ["type": "delete_book", "documentHash": "abc"]), "abc")
-        XCTAssertEqual(ConnectivityReceiver.deleteHash(from: ["delete_book": "abc"]), "abc")
+        XCTAssertNil(ConnectivityReceiver.deleteHash(from: ["delete_book": "abc"]))
         XCTAssertNil(ConnectivityReceiver.deleteHash(from: ["type": "settings", "documentHash": "abc"]))
         XCTAssertNil(ConnectivityReceiver.deleteHash(from: ["type": "delete_book"]))
     }
@@ -338,7 +357,7 @@ final class MiscLogicTests: XCTestCase {
     }
 
     func testSettingsStampPolicy() {
-        XCTAssertTrue(ConnectivityReceiver.shouldApplySettings(incomingStamp: nil, lastApplied: 50))
+        XCTAssertFalse(ConnectivityReceiver.shouldApplySettings(incomingStamp: nil, lastApplied: 50))
         XCTAssertTrue(ConnectivityReceiver.shouldApplySettings(incomingStamp: 51, lastApplied: 50))
         XCTAssertFalse(ConnectivityReceiver.shouldApplySettings(incomingStamp: 50, lastApplied: 50))
         XCTAssertFalse(ConnectivityReceiver.shouldApplySettings(incomingStamp: 10, lastApplied: 50))
