@@ -1,19 +1,21 @@
 name: Accessibility audit
 
 # Xcode's automated accessibility audit (XCUIApplication.performAccessibilityAudit) in UI tests, for the iPhone
-# app (job ios) and the watch app (job watch, plus label / trait / largest-text-size checks), in parallel. It drives the
-# simulator screen by screen and is slow (10-30 minutes), so it is NOT part of the PR-blocking macOS workflow
-# and not a required check. The fast, deterministic accessibility checks (contrast, labels, formatting) are unit
+# app (job ios, split into three parallel shards) and the watch app (job watch, plus label / trait /
+# largest-text-size checks). It drives the simulator screen by screen and is slow (about 25 minutes of iPhone
+# audits before sharding), so it is NOT part of the PR-blocking macOS workflow and not a required check. The
+# fast, deterministic accessibility checks (contrast, labels, formatting) are unit
 # tests and still run on every PR in macos.yml / linux.yml. See docs/TESTING.md and docs/ACCESSIBILITY.md.
 #
 # Runs on:
-#  * every push to main;
+#  * every night on main (not on every push to main);
 #  * manually: Actions tab > "Accessibility audit" > Run workflow (any branch);
 #  * a pull request labelled `accessibility` (when the label is added and on every later push while it is set).
 
 on:
-  push:
-    branches: [main]
+  schedule:
+    # 03:17 UTC, on the default branch. GitHub pauses schedules after 60 days without repository activity.
+    - cron: "17 3 * * *"
   workflow_dispatch:
   pull_request:
     types: [labeled, synchronize]
@@ -30,7 +32,20 @@ jobs:
       (github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'accessibility'))
     # Same runner as macos.yml (arm64 macos-15); set the repository variable MACOS_RUNNER to override.
     runs-on: ${{ vars.MACOS_RUNNER || 'macos-15' }}
-    timeout-minutes: 62
+    timeout-minutes: 40
+    name: ios (${{ matrix.shard }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # Each shard builds the app and runs about a third of AccessibilityAuditTests (roughly 8 minutes of
+        # audits each). `rest` runs every test the other two do not name, so a new audit is never left out.
+        shard: [library, book, rest]
+    env:
+      LIBRARY: >-
+        testLibraryEmptyStateAudit testLibraryWithReadestAudit testLibraryReadestOfflineAudit
+        testLibraryReadestLocalRowAudit
+      BOOK: >-
+        testLibraryWithBookAudit testBookDetailAudit testOnlineMatchSheetAudit testSettingsBookDetailsAudit
     steps:
       - uses: actions/checkout@v4
 
@@ -55,11 +70,22 @@ jobs:
         run: xcodegen generate
 
       # Per-test time limits make a hung audit fail that test instead of stalling the job.
-      - name: iOS accessibility audit (FolitoUITests)
-        # Build plus 13 audits and the onboarding UI tests: about 30 minutes, over 40 on a slow runner.
-        timeout-minutes: 55
+      # The other suites of FolitoUITests (welcome tour, Readest library, covers, online metadata) are not
+      # audits; they run in the UI tier of macos.yml.
+      - name: iOS accessibility audit (FolitoUITests/AccessibilityAuditTests)
+        # Build (about 6 minutes) plus 4 or 5 audits of 1 to 3 minutes each.
+        timeout-minutes: 35
         run: |
           set -o pipefail
+          CLASS=FolitoUITests/AccessibilityAuditTests
+          SELECTION=()
+          case "${{ matrix.shard }}" in
+            library) for t in $LIBRARY; do SELECTION+=("-only-testing:$CLASS/$t"); done ;;
+            book)    for t in $BOOK; do SELECTION+=("-only-testing:$CLASS/$t"); done ;;
+            rest)    SELECTION+=("-only-testing:$CLASS")
+                     for t in $LIBRARY $BOOK; do SELECTION+=("-skip-testing:$CLASS/$t"); done ;;
+          esac
+          echo "shard ${{ matrix.shard }}: ${SELECTION[*]}"
           # A standard 6.1"/6.3" iPhone (e.g. "iPhone 16 Pro") on the newest iOS runtime, not whichever iPhone
           # happens to be listed last (often the 4.7" iPhone SE, where the audit's larger text sizes push rows
           # under the tab bar; see docs/ACCESSIBILITY.md).
@@ -81,9 +107,7 @@ jobs:
             -project Folito.xcodeproj \
             -scheme Folito \
             -destination "id=$UDID" \
-            -only-testing:FolitoUITests \
-            -skip-testing:FolitoUITests/CoversUITests \
-            -skip-testing:FolitoUITests/OnlineMetadataUITests \
+            "${SELECTION[@]}" \
             -clonedSourcePackagesDirPath SourcePackages \
             -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
             -resultBundlePath ios-uitests.xcresult \
@@ -99,7 +123,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ios-accessibility-xcresult
+          name: ios-accessibility-xcresult-${{ matrix.shard }}
           path: ios-uitests.xcresult
           if-no-files-found: ignore
 

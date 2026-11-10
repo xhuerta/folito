@@ -16,22 +16,39 @@ test targets.
 | Sync connector conformance | Linux + macOS | `SyncConnectorConformance.verify` per connector (`*ConnectorConformanceTests`) | see docs/SYNC_CONNECTORS.md |
 | iOS app tests (`FolitoTests`: LogicTests, PresentationTests, TypographySyncTests, SecondaryTextContrastTests, …) | macOS runner, iPhone simulator | `xcodebuild test -scheme Folito -skip-testing:FolitoUITests` | 35 (1 skipped) |
 | watchOS app tests (`FolitoWatchTests`: LogicTests, TypographyDictionaryTests, AccessibilityTests, ComplicationTests) | macOS runner, Apple Watch simulator | `xcodebuild test -scheme FolitoWatch -skip-testing:FolitoWatchUITests` | 64 + 13 complication tests |
-| Complication screenshots (`FolitoWatchTests/ComplicationSnapshotTests`: every family as default, tinted, redacted, Always On and placeholder, plus Smart Stack and a contact sheet, rendered with `ImageRenderer`) | macOS runner, Apple Watch simulator, every PR (`watch` job, same test run) | PNG attachments exported as the `complication-screenshots` artifact | 1 |
-| Welcome tour UI tests (`FolitoUITests/OnboardingUITests`: walk-through, sample book, Skip, Settings) | macOS runner, iPhone simulator, every PR (`ios` job) | `xcodebuild test -scheme Folito -only-testing:FolitoUITests/OnboardingUITests`; page screenshots in the `onboarding-screenshots` artifact | 5 |
-| Online book details UI tests (`FolitoUITests/OnlineMetadataUITests`: Settings › Book Details, Find Details Online, confirmation sheet, Remove Online Details; mocked Open Library, no network) | macOS runner, iPhone simulator, every PR (`ios` job) | `xcodebuild test -scheme Folito -only-testing:FolitoUITests/OnlineMetadataUITests`; screenshots in the `online-metadata-screenshots` artifact | 6 |
+| Complication screenshots (`FolitoWatchTests/ComplicationSnapshotTests`: every family as default, tinted, redacted, Always On and placeholder, plus Smart Stack and a contact sheet, rendered with `ImageRenderer`) | macOS runner, Apple Watch simulator, every PR (`watch` job, same test run) | PNG attachments exported as the `complication-screenshots` artifact (UI tier only: `main` and PRs labelled `ui`) | 1 |
+| Welcome tour UI tests (`FolitoUITests/OnboardingUITests`: walk-through, sample book, Skip, Settings) | macOS runner, iPhone simulator; UI tier (`ios` job on `main` and on PRs labelled `ui`) | `xcodebuild test -scheme Folito -only-testing:FolitoUITests/OnboardingUITests`; page screenshots in the `onboarding-screenshots` artifact | 5 |
+| Online book details UI tests (`FolitoUITests/OnlineMetadataUITests`: Settings › Book Details, Find Details Online, confirmation sheet, Remove Online Details; mocked Open Library, no network) | macOS runner, iPhone simulator; UI tier (`ios` job on `main` and on PRs labelled `ui`) | `xcodebuild test -scheme Folito -only-testing:FolitoUITests/OnlineMetadataUITests`; screenshots in the `online-metadata-screenshots` artifact | 6 |
 | Open Library live smoke test (`OpenLibraryLiveTests`: one Books API request by ISBN; skipped on network errors) | Linux (`swift:6.0` container), `openlibrary-smoke` job | `OPENLIBRARY_LIVE_TEST=1 swift test --filter OpenLibraryLiveTests` | 1 |
 | Sample books (`build_samples.py --check`; parsing in ReaderCore `SampleBooksTests`) | Linux | job `samples`; `test-core` | see docs/SAMPLE_BOOKS.md |
-| iOS accessibility audit (`FolitoUITests`) | macOS runner, iPhone simulator; **not on every PR** (see below) | `accessibility.yml`, `xcodebuild test -scheme Folito -only-testing:FolitoUITests` | 5 |
+| iOS accessibility audit (`FolitoUITests`) | macOS runner, iPhone simulator; **not on every PR** (see below) | `accessibility.yml`, `xcodebuild test -scheme Folito -only-testing:FolitoUITests/AccessibilityAuditTests`, in three parallel shards | 13 |
 | watchOS accessibility UI tests (`FolitoWatchUITests`: audit + label / trait / AX5 checks) | macOS runner, Apple Watch simulator; **not on every PR** (see below) | `accessibility.yml`, `xcodebuild test -scheme FolitoWatch -only-testing:FolitoWatchUITests` | 15 |
 
 ### CI: which workflow runs when
 
+CI runs in tiers, so that an ordinary PR gets its feedback from the fast tier only:
+
+| Tier | What runs | When |
+|---|---|---|
+| Fast | `linux.yml`; `macos.yml` build + unit tests for iOS and watch | every push of a non-draft PR, every push to `main` |
+| UI | The screenshot UI suites, in the same `macos.yml` jobs after the unit tests: iPhone welcome tour, Readest library, covers and online metadata (one `xcodebuild` call); watch covers screenshots (one simulator size on PRs, smallest and largest on `main`); complication screenshots export | every push to `main`; PRs with the label **`ui`** (when the label is added and on every later push); manual runs |
+| Accessibility audit | `accessibility.yml`: iPhone audit in three parallel shards, watch accessibility UI tests | nightly on `main`; PRs with the label **`accessibility`**; manual runs |
+
+Labels: add `ui` to a PR that changes views or layout, and `accessibility` to one that may affect VoiceOver,
+contrast or text sizes. A label starts its tier at once; no new push is needed.
+
+A PR that only touches `iOSApp/` skips the `watch` job, and one that only touches `WatchApp/` or `WatchWidgets/`
+skips the `ios` job (`scripts/ci/pick_platforms.py`, job `scope`). The iOS scheme embeds the watch app, but the
+`watch` job builds the same targets; for such a PR the `watch` job also runs the String Catalog comparison for
+the watch targets. Anything else (`Packages/ReaderCore`, `Shared`, `WidgetShared`, `project.yml`, `Config`,
+scripts, workflows) runs both jobs, and so does every push to `main`.
+
 | Workflow | Runs on | Triggers | Typical time |
 |---|---|---|---|
 | `linux.yml`: `test-core` (ReaderCore `swift test`), `kosync-integration`, `strings`, `site`, `samples` | `ubuntu-latest` | every push to `main` and every PR | 1-2 min |
-| `macos.yml`: jobs `ios` and `watch` in parallel (build + unit tests on simulators, welcome tour UI tests and String Catalog comparison in `ios`) | `macos-15` (arm64) | push to `main` and PRs, **except** docs-only changes (`docs/**`, `*.md`, scripts and workflows that do not affect the build); **draft PRs skip it** and it runs when the PR is marked ready for review; manual (`workflow_dispatch`, optional runner label) | 5-9 min per job, run in parallel (was 15-20 min in one Intel job) |
+| `macos.yml`: jobs `ios` and `watch` in parallel (build + unit tests on simulators, String Catalog comparison in `ios`; plus the UI tier above) | `macos-15` (arm64) | push to `main` and PRs, **except** docs-only changes (`docs/**`, `*.md`, scripts and workflows that do not affect the build); **draft PRs skip it** and it runs when the PR is marked ready for review; manual (`workflow_dispatch`, optional runner label) | fast tier 6-10 min per job, run in parallel; with the UI tier see the PR that introduced the tiers |
 | `release-check.yml`: Release archive of both apps + `validate_release.py` | `macos-15` (arm64) | every push to `main`; PRs (not drafts) only when they touch `project.yml`, `Config/**`, asset catalogs, Info/plist/entitlements/privacy manifests, `InfoPlist.xcstrings`, the package manifest/pins, `scripts/validate_release.py` or the workflow; manual | 2-3 min |
-| `accessibility.yml`: accessibility audit UI tests | `macos-15` (arm64) | push to `main`, manual, PRs labelled `accessibility` | 10-30 min |
+| `accessibility.yml`: accessibility audit UI tests | `macos-15` (arm64) | nightly on `main` (03:17 UTC), manual, PRs labelled `accessibility` | see the PR that introduced the tiers |
 | `release.yml`: signed build + TestFlight upload | `macos-15` (arm64) | tag `v*`, manual; dry run on PRs touching the pipeline | |
 
 `main` has no branch protection or required checks, so path-filtered workflows simply do not run for docs-only PRs. If
@@ -59,7 +76,7 @@ How `macos.yml` stays fast:
 
 Unit tests run with per-test time limits (`-test-timeouts-enabled YES`, 180 s default / 300 s maximum) and skip
 `FolitoUITests` / `FolitoWatchUITests`. The accessibility UI tests are slow, so they run in
-`accessibility.yml` (iOS and watch jobs in parallel) on pushes to `main`, manually (Actions › *Accessibility audit* › *Run workflow*) and on PRs labelled `accessibility`; it is not a
+`accessibility.yml` (three iOS shards and the watch job in parallel) nightly on `main`, manually (Actions › *Accessibility audit* › *Run workflow*) and on PRs labelled `accessibility`; it is not a
 required check. Details in [ACCESSIBILITY.md](ACCESSIBILITY.md#automated-audit).
 
 Each macOS job uploads `ios-tests.xcresult` / `watch-tests.xcresult` (plus its `build.log`) as artifacts and prints a
