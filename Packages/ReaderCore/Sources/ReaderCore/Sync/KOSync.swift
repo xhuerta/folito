@@ -7,13 +7,18 @@ import FoundationNetworking
 public struct KOSyncCredentials: Sendable, Equatable {
     public var serverURL: URL
     public var username: String
-    /// Plain password; the client sends `md5(password)` hex as `x-auth-key`.
-    public var password: String
+    /// Lowercase hex `md5(password)`: what the protocol sends as `x-auth-key`. The plain password is never kept.
+    public var authKey: String
 
-    public init(serverURL: URL = URL(string: "https://sync.koreader.rocks")!, username: String, password: String) {
+    public init(serverURL: URL = URL(string: "https://sync.koreader.rocks")!, username: String, authKey: String) {
         self.serverURL = serverURL
         self.username = username
-        self.password = password
+        self.authKey = authKey
+    }
+
+    /// Derives the auth key from the plain password.
+    public init(serverURL: URL = URL(string: "https://sync.koreader.rocks")!, username: String, password: String) {
+        self.init(serverURL: serverURL, username: username, authKey: KOSyncClient.authKey(forPassword: password))
     }
 }
 
@@ -103,7 +108,7 @@ public struct KOSyncClient: KOSyncClientProtocol {
     public func createUser() async throws {
         struct Body: Encodable { let username: String; let password: String }
         let body = try JSONEncoder().encode(Body(username: credentials.username,
-                                                 password: Self.authKey(forPassword: credentials.password)))
+                                                 password: credentials.authKey))
         let (status, _) = try await send(method: "POST", path: "users/create", body: body, authenticated: false)
         switch status {
         case 200, 201: return
@@ -179,7 +184,7 @@ public struct KOSyncClient: KOSyncClientProtocol {
         request.setValue(Self.acceptHeader, forHTTPHeaderField: "Accept")
         if authenticated {
             request.setValue(credentials.username, forHTTPHeaderField: "x-auth-user")
-            request.setValue(Self.authKey(forPassword: credentials.password), forHTTPHeaderField: "x-auth-key")
+            request.setValue(credentials.authKey, forHTTPHeaderField: "x-auth-key")
         }
         if let body {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")

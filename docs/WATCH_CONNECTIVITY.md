@@ -18,7 +18,7 @@ Metadata keys:
 | `formatVersion` | Int | `ProcessedBook.formatVersion` |
 | `cover` | Data (optional) | the book's cover as a JPEG for the watch's Library row: at most 108 px on the longer side and 6 KB (usually 2–4 KB). Omitted when the EPUB has no usable cover. The watch stores at most 64 KB. |
 
-The watch should replace any existing book with the same `documentHash`. Older watch builds ignore `cover`.
+The watch should replace any existing book with the same `documentHash`.
 
 **Covers of books already on the watch** (`WCSession.transferUserInfo`):
 `{ "type": "book_cover", "documentHash": "<hash>", "cover": <JPEG Data> }`. Sent once when a book imported before
@@ -27,68 +27,97 @@ book carries the cover anyway.
 
 ## Settings (`WCSession.updateApplicationContext`)
 Latest-state semantics: only the newest settings matter, and a watch app installed later still receives
-them (`session.receivedApplicationContext`, applied on activation). Older phone builds sent the same
-dictionary with `transferUserInfo`; the watch accepts both.
+them (`session.receivedApplicationContext`, applied on activation).
+
+**The settings context never carries credentials.** WatchConnectivity keeps the latest application context on
+disk on both devices, outside the Keychain, for as long as the apps are installed. Credentials travel in their
+own message (next section).
 
 | key | type |
 |---|---|
 | `type` | `"settings"` |
-| `settingsVersion` | Int, `2` (generic connector keys). Absent in version 1 (KOSync keys only). |
-| `sync_connector` | String, active connector id (`"kosync"`, `"readest"`, see [SYNC_CONNECTORS.md](SYNC_CONNECTORS.md)) |
-| `sync_credentials` | String, JSON object `{storageKey: value}` of that connector (`SyncCredentials`); KOSync: `kosync_server`, `kosync_user`, `kosync_password`; Readest: `readest_email`, `readest_session` (JSON session with access + refresh token) |
-| `kosync_server` | String, base URL (default `https://sync.koreader.rocks`); only when the connector is KOSync, for watch builds before connectors |
-| `kosync_user` | String; idem |
-| `kosync_password` | String, plain password; idem |
-| `sync_cleared` / `kosync_cleared` | Bool `true` (both are sent), only when the user turned sync off on the phone (see below); never together with the keys above |
-| `settingsStamp` | Int, Unix time of the user's last Save on the phone (optional) |
+| `settingsVersion` | Int, `1`. A watch ignores the sync keys of a payload with a higher version. |
+| `sync_cleared` | Bool `true`, only while sync is turned off on the phone (see "Cleared state") |
+| `settingsStamp` | Int, time of the turn-off; only with `sync_cleared` |
 | `typography` | String, JSON-encoded `ReaderTypography` (optional, see "Typography") |
 | `typographyStamp` | Int, `ReaderTypography.stamp` (optional, same value as inside the JSON) |
 
+The phone always publishes a context (at least `type` + `settingsVersion`); each `updateApplicationContext`
+replaces the previous one.
+
+## Sync credentials (`WCSession.transferUserInfo`)
+
+| key | type |
+|---|---|
+| `type` | `"credentials"` |
+| `settingsVersion` | Int, `1` |
+| `sync_connector` | String, active connector id (`"kosync"`, `"readest"`, see [SYNC_CONNECTORS.md](SYNC_CONNECTORS.md)) |
+| `sync_credentials` | String, JSON object `{storageKey: value}`: the connector's `watchCredentials(from:)`. KOSync: `kosync_server`, `kosync_user`, `kosync_key` (lowercase hex MD5 of the password, the protocol's `x-auth-key`). Readest: `readest_email`, `readest_session` (JSON session with access + refresh token). |
+| `settingsStamp` | Int, Unix time of the user's Save / sign-in on the phone (required) |
+
 The message is generic: any connector travels as `{sync_connector, sync_credentials}`; there are no
-per-connector message types. The watch stores each credential under its storage key in its Keychain, plus the
-active id under `sync_connector`; applying a new connector first removes every other connector's keys, so
-switching service never leaves stale credentials (and the watch drops queued positions recorded for the old
-service). A watch from before connectors ignores the generic keys and keeps using the `kosync_*` keys, which
-the phone still sends for KOSync; a phone from before connectors sends only `kosync_*`, which a new watch
-maps to the KOSync connector.
+per-connector message types.
+
+**No password crosses the link.** The watch only needs what it sends to the server. For KOSync that is
+`md5(password)`, so the phone derives it (`KOSyncConnectorFactory.watchCredentials`) and the watch never sees or
+stores the password. For Readest it is the session; the Readest password is never stored on either device. The
+iPhone keeps the KOSync password in its own Keychain because its Sync form shows and re-uses the saved login
+(edit the server, "Test Connection").
+
+**Why `transferUserInfo`, and how it is made reliable.** A userInfo transfer is queued by the system, delivered
+in the background even if the watch is unreachable at sign-in time, and removed from the queue once delivered;
+on receipt the watch moves the credentials straight into its Keychain (each value under its storage key, plus
+the active id under `sync_connector`) and keeps nothing else. So the secret is on disk outside the Keychain only
+while a transfer is pending, not indefinitely as in the application context. A queue has no latest-state
+semantics, so the watch acknowledges: its `library` report (below) carries the `settingsStamp` it last applied,
+and on every `syncWatchState()` the phone sends the credentials message when that stamp is lower than the stamp
+of its saved credentials (or the watch has not reported yet). This also covers:
+
+- the watch app installed later: nothing is sent until it is installed; then its report (stamp 0) or
+  `sessionWatchStateDidChange` triggers the send;
+- the watch app reinstalled: its `UserDefaults` are gone, it reports stamp 0 and gets the credentials again;
+- no duplicates piling up: the phone never queues a second message with the same stamp, cancels queued messages
+  with another stamp (and all of them when sync is turned off), and does not resend for 60 s after a delivery,
+  the time the watch needs to apply it and report back. A duplicate that does arrive is ignored by its stamp.
+
+Applying credentials first removes every connector's keys from the watch Keychain, so switching service never
+leaves stale credentials (and the watch drops queued positions recorded for the old service).
 
 **Readest sessions.** The phone signs in and sends the session; from then on the watch is the only device
 that refreshes it (Supabase refresh tokens rotate and are single use) and saves rotated tokens in its own
 Keychain. Because resends reuse the stamp, the phone's older copy never overwrites the watch's rotated one.
 If the watch app is reinstalled, the resent session may already be rotated away; the watch then reports
-"sign in again" and a new sign-in on the phone (new stamp) fixes it. The password is never sent or stored.
+"sign in again" and a new sign-in on the phone (new stamp) fixes it.
 
-The sync keys are omitted when no valid credentials are saved; a context may therefore carry only
-`type` + typography. Each `updateApplicationContext` replaces the previous context, so the phone always
-sends the full state (credentials + typography).
-
-Sync is optional. With no credentials saved and the user never having turned sync off, the context carries no
-KOSync keys at all, and the watch makes no sync requests and queues no progress.
+Sync is optional. With no credentials saved, no credentials message exists, and the watch makes no sync
+requests and queues no progress.
 
 **Cleared state.** "Turn off sync and remove credentials" (or "Sign Out" for Readest) on the phone deletes its
-Keychain items, revokes a Readest session on the server (best effort) and sends
-`{ type: "settings", sync_cleared: true, kosync_cleared: true, settingsVersion: 2, settingsStamp: <clear time> }`
-(plus typography as usual). The clear
+Keychain items, revokes a Readest session on the server (best effort), cancels any credentials message still
+queued and publishes
+`{ type: "settings", sync_cleared: true, settingsVersion: 1, settingsStamp: <clear time> }`
+(plus typography as usual) in the settings context. The clear
 stamp is `max(now, previous stamp + 1)`, so it is strictly newer than the last save. The watch, on a
-`sync_cleared` or `kosync_cleared == true` context whose stamp passes the usual newer-than check, removes its Keychain
-credentials, empties its pending-progress queue and hides all sync UI. Older watch builds ignore the unknown
-key and keep their credentials (no breakage). The phone keeps resending the cleared state (same stamp, so it
-is applied once) until credentials are saved again; saving uses a stamp newer than the clear, which
-re-provisions the watch. The watch can also remove its credentials locally (Settings > Remove credentials);
-that does not notify the phone, and the phone's resend is ignored because its stamp was already applied.
+`sync_cleared == true` context whose stamp passes the newer-than check, removes its Keychain
+credentials, empties its pending-progress queue and hides all sync UI. The cleared marker stays in the context
+(it is not a secret; same stamp, so it is applied once) until credentials are saved again; saving uses a stamp
+newer than the clear, which re-provisions the watch. The watch can also remove its credentials locally
+(Settings > Remove credentials); that does not notify the phone, and the phone does not resend because the
+watch still reports the stamp it applied.
 
-The phone does not rely on a single send at Save time. It re-runs `syncWatchState()` (settings + unsent
-books) on: session activation, `sessionWatchStateDidChange` (e.g. `isWatchAppInstalled` becoming true),
+The phone does not rely on a single send at Save time. It re-runs `syncWatchState()` (settings, credentials,
+unsent books) on: session activation, `sessionWatchStateDidChange` (e.g. `isWatchAppInstalled` becoming true),
 `sessionReachabilityDidChange` to reachable, app foreground, and every `library` report from the watch.
 Nothing is sent until the session is activated, paired and the watch app is installed; books stay
 `sentToWatch == false` meanwhile and go out on the next trigger.
 
-`settingsStamp` makes resends idempotent: the watch applies settings only when the stamp is newer than the
-last applied one (messages without a stamp are always applied). So a "Reset" on the watch is not undone by
-the phone's periodic resend; saving again on the phone (new stamp) re-provisions it.
+`settingsStamp` orders the two channels: the watch applies a credentials message or a cleared context only when
+its stamp is strictly newer than the last one applied, and ignores one without a stamp. So a "Reset" on the
+watch is not undone by a resend, and a turn-off that arrives after newer credentials (or the reverse) cannot
+win; saving again on the phone (new stamp) re-provisions the watch.
 
-Tradeoff: for KOSync the plain password crosses WatchConnectivity (encrypted, paired devices) so the watch can
-sync standalone; for Readest only the session tokens do. Both sides store it in their own Keychain (`kSecClassGenericPassword`, no access group).
+Both sides store credentials in their own Keychain (`kSecClassGenericPassword`, no access group,
+`kSecAttrAccessibleAfterFirstUnlock` on the watch so background sync works).
 The watch generates its own `device_id` UUID; it is never sent from the phone.
 
 ## Delete (`WCSession.transferUserInfo`)
@@ -113,9 +142,11 @@ Delete (`transferUserInfo`): `{ "type": "delete_dictionary", "dictionaryId": "<i
 managed on the phone only; the watch lists them read-only.
 
 ## Library report (watch -> phone, `WCSession.updateApplicationContext`)
-`{ "type": "library", "hashes": ["<documentHash>", ...], "dictionaries": ["<dictionaryId>", ...] }` — published
-by the watch on activation and after every import/delete (books or dictionaries). For dictionaries the phone
-waits for the first report (older watch builds send none) and does not resend a file delivered in the last
+`{ "type": "library", "hashes": ["<documentHash>", ...], "dictionaries": ["<dictionaryId>", ...], "settingsStamp": <Int> }` — published
+by the watch on activation, after every import/delete (books or dictionaries) and after applying sync settings.
+`settingsStamp` is the stamp of the credentials or turn-off it last applied (0 = none); the phone uses it to
+decide whether to send the credentials (see "Sync credentials"). For dictionaries the phone
+waits for the first report and does not resend a file delivered in the last
 10 minutes, which the watch may still be verifying. The phone reconciles `sentToWatch` with it (skipping transfers still in flight) and
 sends whatever is missing, which covers a reinstalled watch app, books deleted on the watch and transfers
 lost in transit. The phone also reads `receivedApplicationContext` on its own activation.
