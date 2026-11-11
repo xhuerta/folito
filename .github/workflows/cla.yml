@@ -14,6 +14,7 @@ on:
     types: [opened, closed, synchronize]
 
 permissions:
+  # The action's documented permission set. actions: write lets it re-run the CLA check after a signature.
   actions: write
   contents: write
   pull-requests: write
@@ -29,7 +30,7 @@ jobs:
           (github.event.issue.pull_request &&
            (github.event.comment.body == 'recheck' ||
             github.event.comment.body == 'I have read the CLA Document and I hereby sign the CLA'))
-        uses: contributor-assistant/github-action@v2.6.1
+        uses: contributor-assistant/github-action@ca4a40a7d1004f18d9960b404b97e5f30a505a08 # v2.6.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
