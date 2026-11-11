@@ -21,6 +21,9 @@ final class LibraryStore: ObservableObject {
     var onDeleted: ((LibraryEntry) -> Void)?
     /// Called when a book imported before covers existed gained a cover (`fillMissingCovers`).
     var onCoverAdded: ((LibraryEntry) -> Void)?
+    /// Called when a book took its Readest row's id (`relink`): the old copy is gone from the library (and
+    /// `onDeleted` has run for it); `wasOnWatch` says whether the old copy had been sent to the watch.
+    var onRelinked: ((_ entry: LibraryEntry, _ wasOnWatch: Bool) -> Void)?
     /// Called when an Open Library cover was removed again (*Remove Online Details*), so the watch can drop it.
     var onCoverRemoved: ((LibraryEntry) -> Void)?
     private var isFillingCovers = false
@@ -52,11 +55,58 @@ final class LibraryStore: ObservableObject {
         Task { await runImport(temp: temp, name: url.lastPathComponent, sampleLanguage: sampleLanguage) }
     }
 
-    /// A book downloaded from Readest: the same pipeline as any import (so it keeps the file's hash and is sent
-    /// to the watch), awaited so the Library can show the download until the book is in place.
-    func importDownloaded(from url: URL, fileName: String) async -> LibraryEntry? {
+    /// A book downloaded from Readest: the same pipeline as any import (and sent to the watch), awaited so the
+    /// Library can show the download until the book is in place. The book takes the id of the Readest row it came
+    /// from (`identity`), not the hash of the downloaded bytes: Readest's `book_hash` is not always the partial MD5
+    /// of the file it serves, and every link to Readest (the Library row, the reading position) goes by that id.
+    func importDownloaded(from url: URL, fileName: String, identity: BookIdentityOverride? = nil) async -> LibraryEntry? {
         guard let temp = copyToTemporary(url, displayName: fileName) else { return nil }
-        return await runImport(temp: temp, name: fileName, sampleLanguage: nil)
+        return await runImport(temp: temp, name: fileName, sampleLanguage: nil, identity: identity)
+    }
+
+    /// Gives a book the id of the Readest row the Library paired it with by metadata (a copy downloaded before
+    /// downloads kept Readest's id): its kept original EPUB is processed again under that id, the old copy is
+    /// removed (from the watch too) and the new one takes its place, keeping its import date and online details.
+    /// Its reading position then syncs with the Readest row. Returns nil when there is nothing to do or no original.
+    @discardableResult
+    func relink(_ entry: LibraryEntry, to identity: BookIdentityOverride) async -> LibraryEntry? {
+        guard entry.documentHash != identity.documentHash,
+              !entries.contains(where: { $0.documentHash == identity.documentHash }),
+              let original = originalFileURL(for: entry),
+              let temp = copyToTemporary(original, displayName: entry.title) else { return nil }
+        let parser = self.parser
+        let dir = booksDirectory
+        let name = "\(entry.title).epub"
+        let processed = await Task.detached(priority: .utility) { () -> LibraryEntry? in
+            defer { try? FileManager.default.removeItem(at: temp) }
+            return try? LibraryStore.process(epub: temp, originalName: name, parser: parser, into: dir, identity: identity)
+        }.value
+        guard var relinked = processed,
+              let old = entries.firstIndex(where: { $0.documentHash == entry.documentHash }) else { return nil }
+        relinked.importedAt = entry.importedAt
+        relinked.sampleLanguage = entry.sampleLanguage
+        relinked.online = entry.online
+        relinked.onlineLookupAt = entry.onlineLookupAt
+        if entry.online?.hasCover == true {
+            // The accepted Open Library cover lives next to the book under its id.
+            let names: [(String) -> String] = [CoverStore.coverFileName(forHash:), CoverStore.watchFileName(forHash:)]
+            for fileName in names {
+                let to = dir.appendingPathComponent(fileName(relinked.documentHash))
+                try? fm.removeItem(at: to)
+                try? fm.copyItem(at: dir.appendingPathComponent(fileName(entry.documentHash)), to: to)
+            }
+            relinked.hasCover = true
+        }
+        try? fm.removeItem(at: fileURL(for: entry))
+        try? fm.removeItem(at: original)
+        CoverStore.removeCovers(hash: entry.documentHash, in: dir)
+        CoverImages.shared.invalidate(hash: entry.documentHash)
+        CoverImages.shared.invalidate(hash: relinked.documentHash)
+        entries[old] = relinked
+        save()
+        onDeleted?(entry)
+        onRelinked?(relinked, entry.sentToWatch)
+        return relinked
     }
 
     private func copyToTemporary(_ url: URL, displayName: String? = nil) -> URL? {
@@ -73,14 +123,16 @@ final class LibraryStore: ObservableObject {
     }
 
     @discardableResult
-    private func runImport(temp: URL, name: String, sampleLanguage: String?) async -> LibraryEntry? {
+    private func runImport(temp: URL, name: String, sampleLanguage: String?,
+                           identity: BookIdentityOverride? = nil) async -> LibraryEntry? {
         isImporting = true
         let parser = self.parser
         let dir = booksDirectory
         let outcome: Result<LibraryEntry, Error> = await Task.detached(priority: .userInitiated) {
             defer { try? FileManager.default.removeItem(at: temp) }
             do {
-                return .success(try LibraryStore.process(epub: temp, originalName: name, parser: parser, into: dir))
+                return .success(try LibraryStore.process(epub: temp, originalName: name, parser: parser, into: dir,
+                                                         identity: identity))
             } catch {
                 return .failure(error)
             }
@@ -98,8 +150,14 @@ final class LibraryStore: ObservableObject {
     }
 
     /// Pure(ish) pipeline, runs off the main thread: parse -> JSON -> LZFSE -> file.
-    nonisolated static func process(epub: URL, originalName: String, parser: EPUBParsing, into dir: URL) throws -> LibraryEntry {
-        let book = try parser.process(epubAt: epub)
+    /// `identity` replaces the ids computed from the file (a book downloaded from Readest keeps the row's ids).
+    nonisolated static func process(epub: URL, originalName: String, parser: EPUBParsing, into dir: URL,
+                                    identity: BookIdentityOverride? = nil) throws -> LibraryEntry {
+        var book = try parser.process(epubAt: epub)
+        if let identity {
+            book.documentHash = identity.documentHash
+            if let meta = identity.metaHash, !meta.isEmpty { book.metaHash = meta }
+        }
         let data = try BookCodec.encode(book)
         let fileName = LibraryEntry.fileName(forHash: book.documentHash)
         try data.write(to: dir.appendingPathComponent(fileName), options: .atomic)
@@ -325,4 +383,17 @@ final class LibraryStore: ObservableObject {
         guard let data = try? JSONEncoder().encode(entries) else { return }
         try? data.write(to: indexURL, options: .atomic)
     }
+}
+
+/// The ids a book takes instead of the ones computed from its file: those of the Readest row it came from.
+struct BookIdentityOverride: Sendable, Equatable {
+    var documentHash: String
+    var metaHash: String?
+
+    init(documentHash: String, metaHash: String?) {
+        self.documentHash = documentHash
+        self.metaHash = metaHash
+    }
+
+    init(_ book: ReadestCloudBook) { self.init(documentHash: book.hash, metaHash: book.metaHash) }
 }

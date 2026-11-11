@@ -420,6 +420,9 @@ public struct MergedLibraryItem<Local: Sendable>: Sendable, Identifiable {
     public var local: Local?
     public var cloud: ReadestCloudBook?
 
+    /// The local book was paired with its Readest row by metadata, not by hash (see `LibraryMerge`).
+    public var isLinkedByMetadata: Bool { local != nil && cloud != nil && cloud?.hash != hash }
+
     public var availability: LibraryAvailability {
         if local == nil { return .readestOnly }
         return cloud == nil ? .localOnly : .localAndReadest
@@ -441,11 +444,37 @@ public enum LibraryFilter: String, CaseIterable, Sendable {
     }
 }
 
+/// What the merge knows about a local book to find its Readest row.
+public struct LibraryMatchKeys: Sendable, Equatable {
+    /// The book's id: the partial MD5 of its file, or the `book_hash` of the Readest row it was downloaded from.
+    public var hash: String
+    public var metaHash: String?
+    public var title: String
+    public var author: String
+
+    public init(hash: String, metaHash: String? = nil, title: String = "", author: String = "") {
+        self.hash = hash
+        self.metaHash = metaHash
+        self.title = title
+        self.author = author
+    }
+}
+
 public enum LibraryMerge {
-    /// Local books first, in their own order, each paired with its Readest row (same hash); then the books
-    /// available only in Readest, newest first. Rows that are not `isAvailable` (tombstones, progress-only rows,
-    /// other formats, the placeholder) never appear and never mark a local book as "in Readest".
+    /// Local books first, in their own order, each paired with its Readest row; then the books available only
+    /// in Readest, newest first. Rows that are not `isAvailable` (tombstones, progress-only rows, other formats,
+    /// the placeholder) never appear and never mark a local book as "in Readest".
     public static func merge<Local>(local: [Local], hash: (Local) -> String,
+                                    cloud: [ReadestCloudBook]) -> [MergedLibraryItem<Local>] {
+        merge(local: local, keys: { LibraryMatchKeys(hash: hash($0)) }, cloud: cloud)
+    }
+
+    /// Same, matching a local book with a Readest row by hash first. A local book left without a row is then
+    /// paired with a row no other book claimed that has the same `meta_hash`, or else the same title and author
+    /// when exactly one row and one local book share them. The fallback covers books whose file hash is not
+    /// Readest's `book_hash` (a copy downloaded before Folito kept Readest's id, a file Readest re-keyed, ...),
+    /// which would otherwise be listed twice. `MergedLibraryItem.isLinkedByMetadata` marks those pairs.
+    public static func merge<Local>(local: [Local], keys: (Local) -> LibraryMatchKeys,
                                     cloud: [ReadestCloudBook]) -> [MergedLibraryItem<Local>] {
         var byHash: [String: ReadestCloudBook] = [:]
         for b in cloud where b.isAvailable {
@@ -453,17 +482,58 @@ public enum LibraryMerge {
             byHash[b.hash] = b
         }
         var seen = Set<String>()
+        var claimed = Set<String>()
         var items: [MergedLibraryItem<Local>] = []
+        var localKeys: [LibraryMatchKeys] = []
         for l in local {
-            let h = hash(l)
-            guard seen.insert(h).inserted else { continue }
-            items.append(MergedLibraryItem(hash: h, local: l, cloud: byHash[h]))
+            let k = keys(l)
+            guard seen.insert(k.hash).inserted else { continue }
+            let row = byHash[k.hash]
+            if row != nil { claimed.insert(k.hash) }
+            items.append(MergedLibraryItem(hash: k.hash, local: l, cloud: row))
+            localKeys.append(k)
         }
-        let cloudOnly = byHash.values.filter { !seen.contains($0.hash) }.sorted {
-            let a = $0.updatedAt ?? .distantPast, b = $1.updatedAt ?? .distantPast
-            return a != b ? a > b : $0.hash < $1.hash
+        // Fallback for the local books without a row, against the rows nobody claimed.
+        func newestFirst(_ a: ReadestCloudBook, _ b: ReadestCloudBook) -> Bool {
+            let x = a.updatedAt ?? .distantPast, y = b.updatedAt ?? .distantPast
+            return x != y ? x > y : a.hash < b.hash
         }
+        for i in items.indices where items[i].cloud == nil {
+            guard let meta = localKeys[i].metaHash, !meta.isEmpty else { continue }
+            if let row = byHash.values.filter({ !claimed.contains($0.hash) && $0.metaHash == meta }).sorted(by: newestFirst).first {
+                claimed.insert(row.hash)
+                items[i].cloud = row
+            }
+        }
+        let unmatched = items.indices.filter { items[$0].cloud == nil }
+        var localsByTitle: [String: [Int]] = [:]
+        for i in unmatched {
+            let key = titleKey(title: localKeys[i].title, author: localKeys[i].author)
+            if !key.isEmpty { localsByTitle[key, default: []].append(i) }
+        }
+        var rowsByTitle: [String: [ReadestCloudBook]] = [:]
+        for row in byHash.values where !claimed.contains(row.hash) {
+            let key = titleKey(title: row.title, author: row.author)
+            if !key.isEmpty { rowsByTitle[key, default: []].append(row) }
+        }
+        for (key, locals) in localsByTitle {
+            guard locals.count == 1, let rows = rowsByTitle[key], rows.count == 1 else { continue }
+            claimed.insert(rows[0].hash)
+            items[locals[0]].cloud = rows[0]
+        }
+        let cloudOnly = byHash.values.filter { !seen.contains($0.hash) && !claimed.contains($0.hash) }.sorted(by: newestFirst)
         items += cloudOnly.map { MergedLibraryItem(hash: $0.hash, local: nil, cloud: $0) }
         return items
+    }
+
+    /// Title and author folded for the fallback match: case, diacritics, width, punctuation and spacing are
+    /// ignored (author order is not). Empty when the title is empty.
+    public static func titleKey(title: String, author: String) -> String {
+        func fold(_ s: String) -> String {
+            let folded = s.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil)
+            return String(String.UnicodeScalarView(folded.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) }))
+        }
+        let t = fold(title)
+        return t.isEmpty ? "" : "\(t)|\(fold(author))"
     }
 }

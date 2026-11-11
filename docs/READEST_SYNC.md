@@ -212,10 +212,16 @@ signed in before this feature have no library session: the Library asks them to 
 
 - **Browse.** The Library merges local books with the account's available rows by hash (`LibraryMerge`):
   local-only, local and in Readest (`checkmark.icloud`), Readest-only (cover from `cover.png`, `icloud.and.arrow.down`).
-  The last list and the covers are cached for offline use.
-- **Download** = presigned GET, then the normal import pipeline: the bytes are the same file, so the partial MD5
-  and therefore the progress-sync row match exactly. The book is then sent to the watch as usual. Readest-only
-  books are never sent to the watch.
+  A local book with no row of its hash is paired with an unclaimed row of the same `meta_hash`, else with the only
+  unclaimed row of the same title and author (case, accents and punctuation ignored) when no other local book
+  shares them. The last list and the covers are cached for offline use.
+- **Download** = presigned GET, then the normal import pipeline, except that the book takes the row's `book_hash`
+  and `meta_hash` as its ids instead of those computed from the bytes. Readest's `book_hash` is not always the
+  partial MD5 of the file `/storage/download` serves (seen with a real account, issue #103: the downloaded book was
+  listed twice and opened at 0 %), and the Library row and the progress-sync row both go by that id. The book is then
+  sent to the watch as usual. Readest-only books are never sent to the watch.
+- **Relink.** A book downloaded before that (paired with its row only by metadata) takes the row's ids after the
+  next refresh: its kept original EPUB is processed again under them and replaces the old copy, on the watch too.
 - **Upload** (explicit, or the opt-in "Upload Imported Books Automatically") sends the original EPUB, which the
   iPhone keeps next to the converted book since this feature (books imported earlier must be imported again).
 - **Remove Download** deletes the iPhone and watch copies only; nothing is sent to Readest.
