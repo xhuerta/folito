@@ -37,13 +37,22 @@
 </ul>
 </div>
 </section>
-<section class="section" aria-labelledby="more">
+<section class="section" aria-labelledby="start">
 <div class="wrap">
-<h2 class="section-title" id="more">{{ index.more_title }}</h2>
-<ul class="list icons links-group">
-<li><a class="row" href="privacy.html"><span class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.6a4 4 0 0 1 8 0v2.9"/></svg></span><span class="label">{{ nav.privacy_policy }}</span><svg class="chev" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1.5 1.5 6 6-6 6"/></svg></a></li>
-<li><a class="row" href="support.html"><span class="tile t-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/><path d="M12 7.2v6"/><circle cx="12" cy="16.6" r=".9" fill="currentColor" stroke="none"/></svg></span><span class="label">{{ nav.support }}</span><svg class="chev" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1.5 1.5 6 6-6 6"/></svg></a></li>
+<h2 class="section-title" id="start">{{ index.start_title }}</h2>
+<div class="start-grid">
+<div class="card feature" id="books"><div class="tile t-orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 4.5h10.5a3 3 0 0 1 3 3v12H8a3 3 0 0 1-3-3z"/><path d="M5 16.5a3 3 0 0 1 3-3h10.5"/><path d="M9 8.5h6"/></svg></div><h3>{{ index.books_title }}</h3>
+<p>{{ index.books_sources }}</p>
+<p>{{ index.books_drm }}</p>
+<p>{{ index.books_ways }}</p>
+<p class="more"><a href="support.html#start">{{ index.books_link }}<svg class="chev" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1.5 1.5 6 6-6 6"/></svg></a></p></div>
+<div class="card feature" id="requirements"><div class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="7" y="6.5" width="10" height="11" rx="3"/><path d="M9 6.5 9.6 3h4.8l.6 3.5M9 17.5l.6 3.5h4.8l.6-3.5"/></svg></div><h3>{{ index.req_title }}</h3>
+<ul class="req">
+<li>{{ index.req_ios }}</li>
+<li>{{ index.req_watch }}</li>
 </ul>
+<p>{{ index.req_note }}</p></div>
+</div>
 </div>
 </section>
 </main>

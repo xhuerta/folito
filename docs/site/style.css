@@ -278,7 +278,17 @@ a.row:hover { text-decoration: none; background: var(--surface-2); }
 .row .tile svg { width: 18px; height: 18px; }
 .row .label { flex: 1; }
 .chev { width: 9px; height: 15px; color: var(--label-2); opacity: .7; flex: none; }
-.links-group { max-width: 34rem; }
+
+/* ---------- Before you start: where books come from, requirements ---------- */
+.start-grid { display: grid; gap: 14px; grid-template-columns: 1fr; margin-top: 20px; }
+@media (min-width: 860px) { .start-grid { grid-template-columns: 1.5fr 1fr; gap: 18px; align-items: start; } }
+.start-grid .feature p + p, .start-grid .feature ul + p { margin-top: 10px; }
+.start-grid .more a { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; text-decoration: none; }
+.start-grid .more a:hover { text-decoration: underline; text-underline-offset: .18em; }
+.start-grid .more .chev { width: 7px; height: 12px; color: currentColor; opacity: 1; }
+.req { margin: 0; padding: 0 0 0 1.15em; color: var(--label-2); font-size: 16px; line-height: 1.5; }
+.req li + li { margin-top: 8px; }
+.req li::marker { color: var(--accent); }
 
 /* ---------- Document pages (privacy, support) ---------- */
 .doc { max-width: var(--doc); margin: 0 auto; padding: 32px 16px 56px; }
@@ -291,7 +301,7 @@ a.row:hover { text-decoration: none; background: var(--surface-2); }
 .doc .lead-card p { margin: 0; }
 .note { border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
 
-.group { margin-top: 34px; }
+.group { margin-top: 34px; scroll-margin-top: 68px; }
 .group > h2 { font-size: 22px; line-height: 1.25; letter-spacing: -.025em; font-weight: 700; margin: 0 0 10px 4px; }
 .group > .card { padding: 4px 20px; }
 .group > .card > p { margin: 14px 0; }
