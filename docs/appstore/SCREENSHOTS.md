@@ -47,6 +47,17 @@ On a Mac: `xcodegen generate`, then for instance
 `xcodebuild test -project Folito.xcodeproj -scheme FolitoWatch -destination 'platform=watchOS Simulator,name=Apple Watch Ultra 3 (49mm)' -only-testing:FolitoWatchUITests/WatchAppStoreScreenshotTests CODE_SIGNING_ALLOWED=NO`
 and export the attachments of the result bundle (`xcrun xcresulttool export attachments`). Check a directory with `python3 scripts/ci/check_screenshot_sizes.py <root> --require iphone-medium,iphone-large,watch`.
 
+### The website's watch image
+
+The home page hero (`docs/site-src/templates/index.html`) shows `watch/watch-1-reader.png` from this artifact, so the site shows the reader as it is. Only the case around it is drawn in CSS (`.watch` in `docs/site/style.css`). It lives in `docs/site/assets/watch-reader.webp` (lossless WebP, 422 × 514; `scripts/site/build.py` leaves `docs/site/assets/` as it is). To refresh it after the reader changes:
+
+1. Download `app-store-screenshots` from the latest successful *macOS* run on `main` (or a run of a PR labelled `ui`) and look at `watch/watch-1-reader.png`: the title should read from its first letter and the text should be the opening of the chapter.
+2. Convert it without loss and replace the file:
+   `python3 -c "from PIL import Image; Image.open('watch-1-reader.png').convert('RGB').save('docs/site/assets/watch-reader.webp', lossless=True, method=6)"`
+3. If the size changed, update `width` and `height` on the `<img class="screen">` in the template, run `python3 scripts/site/build.py`, and commit `docs/site/`.
+
+The clock in the image is the CI runner's time (see above); the alt text (`index.watch_label` in `docs/site-src/i18n/*.json`) describes the screen, so keep it in step if the capture shows something else.
+
 ### Other languages
 
 The sets are English. A localized set needs: the suites launched in that language (`-AppleLanguages`), element lookups by identifier instead of English labels (`Library`, `Reading`, `Next Word`, `Look Up`), the sample text and sample dictionary entries of that language on the watch (the iPhone app already bundles one sample book per language), and one directory level per language in the artifact. The simulator choice already keeps one watch size for all of them.

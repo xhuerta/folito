@@ -243,8 +243,9 @@ watchOS doesn't allow selecting text in `Text` or showing the system dictionary,
 
 ## Time remaining
 
-The watch's *Reading Options* start with an estimate such as "12 min left in chapter · 3 hr, 20 min in book"
-(*Settings › Show Time Remaining* hides it). It counts the words left (Chinese and Japanese by characters) and
+The watch's *Reading Options* start with how far you are into the book ("38% read", the number the Library
+shows) and an estimate such as "12 min left in chapter · 3 hr, 20 min in book" (*Settings › Show Time Remaining*
+hides the estimate; the percentage stays). It counts the words left (Chinese and Japanese by characters) and
 divides by your reading speed: 200 words or 500 characters per minute at first, then learned from the time you
 spend on each page of about 50 words, with a moving average that ignores pages skimmed in under 2 seconds,
 pauses over 5 minutes and implausible speeds. The speed is stored only on the watch. The iPhone library shows

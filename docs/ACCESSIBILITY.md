@@ -274,6 +274,8 @@ behind a `confirmationDialog`.
 - Word lookup: the word cursor is one *adjustable* element, "Selected word, *truth*, word 4 of 23". Swipe
   up/down moves to the next/previous word, so it works without the Digital Crown. Turning the crown
   still moves it (with the crown's own detent haptics); the buttons and VoiceOver play a click.
+- Progress (top of *Reading Options*, always shown): "38% read", footnote text that VoiceOver reads as it is
+  ("38 percent read"), its own element above the time remaining. Same wording and number as the Library row.
 - Time remaining (top of *Reading Options*, *Settings › Show Time Remaining*): the visible line is
   abbreviated ("12 min left in chapter · 3 hr, 20 min in book"), VoiceOver reads full sentences ("12 minutes
   left in chapter. 3 hours, 20 minutes left in book."). It is footnote text, so it follows Dynamic Type and
