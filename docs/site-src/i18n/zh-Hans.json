@@ -49,6 +49,7 @@
   "index.books_ways": "要添加图书，请在 iPhone 上从“文件”App 或共享表单中打开文件并选择 Folito，或者在资料库中轻点<em>导入 EPUB</em>。登录 Readest 后，资料库还会显示你 <a href=\"support.html#readest\">Readest 资料库</a>中的图书，可随时下载。只想先试试？App 自带一本你所用语言的简短样书。",
   "index.books_link": "在“支持”中查看分步说明",
   "index.req_title": "使用要求",
+  "index.req_price": "免费，包含全部功能。无广告。",
   "index.req_ios": "装有 iOS 17 或更高版本的 iPhone。",
   "index.req_watch": "装有 watchOS 10 或更高版本的 Apple Watch：Apple Watch Series 4 或后续机型，包括 Apple Watch SE 和 Apple Watch Ultra。",
   "index.req_note": "图书在 iPhone 上导入，并发送到已配对的手表；无需帐户。",

@@ -49,6 +49,7 @@
   "index.books_ways": "Para adicionar um livro, abra o arquivo no app Arquivos ou no menu Compartilhar do iPhone e escolha Folito, ou toque em <em>Importar EPUB</em> na Biblioteca. Se você entrar no Readest, a Biblioteca também mostra os livros da sua <a href=\"support.html#readest\">biblioteca do Readest</a>, prontos para baixar. Só quer experimentar? O app inclui um pequeno livro de amostra no seu idioma.",
   "index.books_link": "Passo a passo no Suporte",
   "index.req_title": "O que você precisa",
+  "index.req_price": "Grátis, com todos os recursos. Sem anúncios.",
   "index.req_ios": "Um iPhone com iOS 17 ou posterior.",
   "index.req_watch": "Um Apple Watch com watchOS 10 ou posterior: Apple Watch Series 4 ou posterior, incluindo o Apple Watch SE e o Apple Watch Ultra.",
   "index.req_note": "Os livros são importados no iPhone e enviados ao relógio emparelhado; não é preciso ter conta.",

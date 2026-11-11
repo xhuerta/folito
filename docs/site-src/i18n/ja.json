@@ -49,6 +49,7 @@
   "index.books_ways": "本を追加するには、iPhone の“ファイル”App または共有シートからファイルを開いて Folito を選択するか、ライブラリで <em>EPUBを読み込む</em> をタップします。Readest にサインインすると、ライブラリに <a href=\"support.html#readest\">Readestライブラリ</a> の本も表示され、ダウンロードできます。まず試したい場合は、お使いの言語の短いサンプルブックがアプリに用意されています。",
   "index.books_link": "サポートで手順を見る",
   "index.req_title": "必要なもの",
+  "index.req_price": "無料で、すべての機能を利用できます。広告はありません。",
   "index.req_ios": "iOS 17 以降を搭載した iPhone。",
   "index.req_watch": "watchOS 10 以降を搭載した Apple Watch：Apple Watch Series 4 以降（Apple Watch SE、Apple Watch Ultra を含む）。",
   "index.req_note": "本は iPhone で読み込み、ペアリングした Apple Watch に送信されます。アカウントは必要ありません。",
