@@ -178,8 +178,6 @@ edit uses `max(now, previousStamp + 1)`, so edits within the same second still o
   local copy. That makes the phone's periodic resends idempotent: after the phone adopts a newer watch copy
   it resends the same stamp, which the watch ignores. A "Reset" on either side is a normal edit (default
   look, new stamp) and therefore propagates.
-- The pre-typography watch setting `settings.fontSize` (a bare Double in `UserDefaults`) is migrated into
-  `ReaderTypography.fontSize` on first launch and then removed.
 
 ## Dictionary (watch only, no phone involvement)
 The watch queries the network itself (Wi-Fi, or through the paired iPhone). Nothing about it crosses

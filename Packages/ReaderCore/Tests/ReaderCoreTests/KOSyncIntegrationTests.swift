@@ -124,7 +124,7 @@ final class KOSyncIntegrationTests: XCTestCase {
 
     func testSyncQueueAgainstRealServer() async throws {
         let (c, _) = try await freshClient()
-        let q = SyncQueue(client: c, clock: FakeClock())
+        let q = SyncQueue(connector: KOSyncConnector(client: c), clock: FakeClock())
         let doc = docID()
         await q.enqueue(KOSyncProgress(document: doc, progress: "p1", percentage: 0.1, device_id: "W"))
         await q.enqueue(KOSyncProgress(document: doc, progress: "p2", percentage: 0.2, device_id: "W"))

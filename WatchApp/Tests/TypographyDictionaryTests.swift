@@ -11,14 +11,6 @@ final class TypographyModelTests: XCTestCase {
         return (TypographyModel(store: TypographyStore(defaults: defaults), clock: clock), defaults)
     }
 
-    func testLegacyFontSizeIsMigrated() {
-        let name = "wr-test-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: name)!
-        defaults.set(21.0, forKey: ReaderSettings.fontSizeKey)
-        let model = TypographyModel(store: TypographyStore(defaults: defaults))
-        XCTAssertEqual(model.value.fontSize, 21)
-    }
-
     func testLocalEditIsStampedPersistedAndNotified() {
         var now = 1_000
         let (model, defaults) = makeModel(clock: { now })

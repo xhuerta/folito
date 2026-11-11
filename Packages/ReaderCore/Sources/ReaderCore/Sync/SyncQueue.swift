@@ -43,28 +43,6 @@ public struct PendingProgress: Codable, Sendable, Equatable {
 
     /// KOSync view of the entry (compatibility with code written before connectors).
     public var progress: KOSyncProgress { KOSyncProgress(book: entry.book, position: entry.position) }
-
-    enum CodingKeys: String, CodingKey { case entry, progress, attempts, nextAttempt }
-
-    public init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        attempts = try c.decode(Int.self, forKey: .attempts)
-        nextAttempt = try c.decode(Date.self, forKey: .nextAttempt)
-        if let e = try c.decodeIfPresent(SyncEntry.self, forKey: .entry) {
-            entry = e
-        } else {
-            // Queues persisted before connectors (`sync.queue.v1`) hold bare KOSync records.
-            let p = try c.decode(KOSyncProgress.self, forKey: .progress)
-            entry = SyncEntry(connectorID: KOSyncConnectorFactory.id, book: p.bookIdentity, position: p.readingPosition)
-        }
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encode(entry, forKey: .entry)
-        try c.encode(attempts, forKey: .attempts)
-        try c.encode(nextAttempt, forKey: .nextAttempt)
-    }
 }
 
 public struct SyncFlushResult: Sendable, Equatable {
@@ -118,14 +96,6 @@ public actor SyncQueue {
         if let state, let list = try? JSONDecoder().decode([PendingProgress].self, from: state) {
             for p in list { items[p.entry.book.key] = p }
         }
-    }
-
-    /// KOSync convenience (pre-connector API).
-    public init(client: KOSyncClientProtocol, clock: SyncClock = SystemSyncClock(),
-                config: Config = Config(), restoring state: Data? = nil,
-                onChange: (@Sendable (Data) -> Void)? = nil) {
-        self.init(connector: KOSyncConnector(client: client), clock: clock, config: config,
-                  restoring: state, onChange: onChange)
     }
 
     public var pending: [PendingProgress] { items.values.sorted { $0.entry.book.key < $1.entry.book.key } }

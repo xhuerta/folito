@@ -255,17 +255,6 @@ final class ReadestSyncTests: XCTestCase {
         XCTAssertNil(SyncSettingsWire.decode(["kosync_user": "alice"]))
     }
 
-    func testLegacyQueueStateDecodesAsKOSyncEntries() throws {
-        // `sync.queue.v1` as persisted by builds before connectors.
-        let legacy = #"[{"progress":{"document":"abc","progress":"/body/p","percentage":0.5,"device":"Watch","device_id":"w1","timestamp":1000},"attempts":2,"nextAttempt":0}]"#
-        let list = try JSONDecoder().decode([PendingProgress].self, from: Data(legacy.utf8))
-        XCTAssertEqual(list.first?.entry.connectorID, "kosync")
-        XCTAssertEqual(list.first?.entry.book.partialMD5, "abc")
-        XCTAssertEqual(list.first?.entry.position.timestamp, Date(timeIntervalSince1970: 1000))
-        XCTAssertEqual(list.first?.progress.device_id, "w1")
-        XCTAssertEqual(list.first?.attempts, 2)
-    }
-
     func testRetainOnlyDropsOtherConnectors() async {
         let q = SyncQueue(connector: UnconfiguredConnector())
         await q.enqueue(SyncEntry(connectorID: "kosync", book: BookIdentity(partialMD5: "a"),

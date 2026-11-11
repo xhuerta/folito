@@ -107,21 +107,6 @@ final class TypographyTests: XCTestCase {
         return d
     }
 
-    func testStoreMigratesLegacyFontSize() {
-        let d = makeDefaults()
-        d.set(22.0, forKey: TypographyStore.legacyFontSizeKey)
-        let store = TypographyStore(defaults: d)
-        XCTAssertEqual(store.load().fontSize, 22)
-        XCTAssertNil(d.object(forKey: TypographyStore.legacyFontSizeKey))
-        XCTAssertEqual(store.load().fontSize, 22, "migrated value persisted")
-    }
-
-    func testStoreMigrationClampsLegacyValue() {
-        let d = makeDefaults()
-        d.set(1000.0, forKey: TypographyStore.legacyFontSizeKey)
-        XCTAssertEqual(TypographyStore(defaults: d).load().fontSize, 28)
-    }
-
     func testStoreSaveLoadAndReset() {
         let store = TypographyStore(defaults: makeDefaults())
         XCTAssertEqual(store.load(), .default)

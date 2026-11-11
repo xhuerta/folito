@@ -3,8 +3,6 @@ import ReaderCore
 
 /// User-facing reader preferences. Views bind to the keys via `@AppStorage`.
 enum ReaderSettings {
-    /// Legacy font size key; the value now lives in `ReaderTypography` (migrated by `TypographyStore`).
-    static let fontSizeKey = TypographyStore.legacyFontSizeKey
     static let showSyncInfoKey = "settings.showSyncInfo"
     static let tapToLookUpKey = "settings.tapToLookUp"
     /// Estimated reading time left at the top of Reading Options (on by default).
@@ -22,7 +20,6 @@ enum ReaderSettings {
     }
 
     static func resetPreferences(_ defaults: UserDefaults = .standard) {
-        defaults.removeObject(forKey: fontSizeKey)
         defaults.removeObject(forKey: showSyncInfoKey)
         defaults.removeObject(forKey: tapToLookUpKey)
         defaults.removeObject(forKey: showTimeRemainingKey)
