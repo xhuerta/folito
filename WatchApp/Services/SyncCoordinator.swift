@@ -77,8 +77,6 @@ final class SyncObserver: @unchecked Sendable {
 @MainActor
 final class SyncCoordinator: ObservableObject {
     static let queueKey = "sync.queue.v1"
-    /// Key used by the previous ad-hoc store (`[document: KOSyncProgress]`); migrated once.
-    static let legacyKey = "sync.pendingProgress"
 
     @Published private(set) var status: SyncStatus = .idle
     @Published private(set) var isConfigured: Bool = false
@@ -119,17 +117,14 @@ final class SyncCoordinator: ObservableObject {
             },
             onPending: { [weak self] count in self?.pendingCount = count })
 
-        let legacy = Self.takeLegacyPending(defaults)
         let queue = self.queue
         let activeID = active?.descriptor.id
         Task {
             if let activeID {
-                // The legacy store only ever held KOSync progress.
-                if activeID == KOSyncConnectorFactory.id { for p in legacy { await queue.enqueue(p) } }
                 await queue.retainOnly(connectorID: activeID)
                 await queue.resume()
-            } else if restored != nil || !legacy.isEmpty {
-                // Sync is optional: progress queued by an older build while unconfigured is dropped.
+            } else if restored != nil {
+                // Sync is optional: progress still queued once no service is configured is dropped.
                 await queue.removeAll()
             }
         }
@@ -145,13 +140,6 @@ final class SyncCoordinator: ObservableObject {
                      makeClient: @escaping @Sendable (KOSyncCredentials) -> KOSyncClientProtocol = { KOSyncClient(credentials: $0) }) {
         self.init(device: device, defaults: defaults, policy: policy, config: config, clock: clock,
                   connector: { credentials().map { KOSyncConnector(client: makeClient($0)) as SyncConnector } })
-    }
-
-    private static func takeLegacyPending(_ defaults: UserDefaults) -> [KOSyncProgress] {
-        guard let data = defaults.data(forKey: legacyKey) else { return [] }
-        defaults.removeObject(forKey: legacyKey)
-        let dict = (try? JSONDecoder().decode([String: KOSyncProgress].self, from: data)) ?? [:]
-        return dict.values.sorted { ($0.timestamp ?? 0) < ($1.timestamp ?? 0) }
     }
 
     /// Call when settings changed (new credentials or another service) or the app returns to foreground.

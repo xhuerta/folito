@@ -1,27 +1,18 @@
 import Foundation
 
-/// Persistence + migration + last-writer-wins merge for `ReaderTypography`, backed by `UserDefaults`
+/// Persistence + last-writer-wins merge for `ReaderTypography`, backed by `UserDefaults`
 /// (the watch has no shared container; the phone keeps its own copy).
 public struct TypographyStore {
     public static let key = "settings.typography"
-    /// Pre-typography font size setting (a bare Double), migrated on first load.
-    public static let legacyFontSizeKey = "settings.fontSize"
 
     private let defaults: UserDefaults
 
     public init(defaults: UserDefaults = .standard) { self.defaults = defaults }
 
-    /// Current value. Order: stored JSON -> legacy font size (migrated and persisted) -> defaults.
+    /// Current value: the stored JSON, or the defaults.
     public func load() -> ReaderTypography {
         if let data = defaults.data(forKey: Self.key), let t = ReaderTypography.decode(data) { return t }
-        var t = ReaderTypography.default
-        if let legacy = defaults.object(forKey: Self.legacyFontSizeKey) as? Double {
-            t.fontSize = legacy
-            t = t.clamped()
-            save(t)
-            defaults.removeObject(forKey: Self.legacyFontSizeKey)
-        }
-        return t
+        return .default
     }
 
     public func save(_ t: ReaderTypography) {
@@ -31,7 +22,6 @@ public struct TypographyStore {
     /// Resets to defaults. `now` becomes the stamp so the reset also wins over the other device's copy;
     /// nil removes the stored value entirely.
     public func reset(now: Int?) {
-        defaults.removeObject(forKey: Self.legacyFontSizeKey)
         if let now {
             var t = ReaderTypography.default
             t.stamp = now

@@ -62,7 +62,7 @@ final class StaleProgressTests: XCTestCase {
     func testConcurrentFlushesNeverLetAnOlderPushLandAfterANewerOne() async {
         let client = ScriptedClient()
         client.gatedProgress = "old"
-        let q = SyncQueue(client: client, clock: FakeClock())
+        let q = SyncQueue(connector: KOSyncConnector(client: client), clock: FakeClock())
         await q.enqueue(prog(xp: "old", 0.10))
         let a = Task { await q.flush() }
         var spins = 0
@@ -85,7 +85,7 @@ final class StaleProgressTests: XCTestCase {
     func testDelayedEntryIsDroppedWhenAnotherDeviceReadFurtherSinceThen() async {
         let client = ScriptedClient()
         client.remote = remote(0.60, device: "kobo", at: now - 600)   // newer than our entry (1 h old)
-        let q = SyncQueue(client: client, clock: FakeClock())
+        let q = SyncQueue(connector: KOSyncConnector(client: client), clock: FakeClock())
         await q.enqueue(prog(xp: "mine", 0.30, age: 3600))
         let r = await q.flush()
         XCTAssertEqual(r.superseded, ["doc"])
@@ -98,7 +98,7 @@ final class StaleProgressTests: XCTestCase {
     func testDelayedEntryIsSentWhenRemoteIsOlder() async {
         let client = ScriptedClient()
         client.remote = remote(0.10, device: "kobo", at: now - 7200)
-        let q = SyncQueue(client: client, clock: FakeClock())
+        let q = SyncQueue(connector: KOSyncConnector(client: client), clock: FakeClock())
         await q.enqueue(prog(xp: "mine", 0.30, age: 3600))
         let r = await q.flush()
         XCTAssertEqual(r.sent, ["doc"])
@@ -108,7 +108,7 @@ final class StaleProgressTests: XCTestCase {
     func testDelayedEntryIsSentWhenRemoteIsOurOwnDevice() async {
         let client = ScriptedClient()
         client.remote = remote(0.25, device: "watch", at: now - 100)
-        let q = SyncQueue(client: client, clock: FakeClock())
+        let q = SyncQueue(connector: KOSyncConnector(client: client), clock: FakeClock())
         await q.enqueue(prog(xp: "mine", 0.30, age: 3600))
         let r = await q.flush()
         XCTAssertEqual(r.sent, ["doc"])
@@ -116,7 +116,7 @@ final class StaleProgressTests: XCTestCase {
 
     func testDelayedEntryIsSentWhenServerHasNothing() async {
         let client = ScriptedClient()
-        let q = SyncQueue(client: client, clock: FakeClock())
+        let q = SyncQueue(connector: KOSyncConnector(client: client), clock: FakeClock())
         await q.enqueue(prog(xp: "mine", 0.30, age: 3600))
         let r = await q.flush()
         XCTAssertEqual(r.sent, ["doc"])
@@ -125,7 +125,7 @@ final class StaleProgressTests: XCTestCase {
     func testFreshEntryIsPushedWithoutExtraRoundTrip() async {
         let client = ScriptedClient()
         client.remote = remote(0.90, device: "kobo", at: now + 10)
-        let q = SyncQueue(client: client, clock: FakeClock())
+        let q = SyncQueue(connector: KOSyncConnector(client: client), clock: FakeClock())
         await q.enqueue(prog(xp: "mine", 0.30, age: 5))
         let r = await q.flush()
         XCTAssertEqual(r.sent, ["doc"])
@@ -135,7 +135,7 @@ final class StaleProgressTests: XCTestCase {
     func testStalenessCheckFailingOfflineKeepsTheEntryForRetry() async {
         let client = ScriptedClient()
         client.fetchError = KOSyncError.offline
-        let q = SyncQueue(client: client, clock: FakeClock())
+        let q = SyncQueue(connector: KOSyncConnector(client: client), clock: FakeClock())
         await q.enqueue(prog(xp: "mine", 0.30, age: 3600))
         let r = await q.flush()
         XCTAssertEqual(r.retained, ["doc"])
@@ -147,7 +147,7 @@ final class StaleProgressTests: XCTestCase {
     func testEntryWithoutTimestampIsNotChecked() async {
         let client = ScriptedClient()
         client.remote = remote(0.90, device: "kobo", at: now + 10)
-        let q = SyncQueue(client: client, clock: FakeClock())
+        let q = SyncQueue(connector: KOSyncConnector(client: client), clock: FakeClock())
         var p = prog(xp: "mine", 0.30)
         p.timestamp = nil
         await q.enqueue(p)
@@ -160,7 +160,7 @@ final class StaleProgressTests: XCTestCase {
 
     func testIdenticalPositionIsNotResentAfterASuccessfulPush() async {
         let client = ScriptedClient()
-        let q = SyncQueue(client: client, clock: FakeClock())
+        let q = SyncQueue(connector: KOSyncConnector(client: client), clock: FakeClock())
         await q.enqueue(prog(xp: "same", 0.30))
         _ = await q.flush()
         await q.enqueue(prog(xp: "same", 0.30, age: -5)) // same place, later timestamp
@@ -173,7 +173,7 @@ final class StaleProgressTests: XCTestCase {
 
     func testMovedPositionIsStillSent() async {
         let client = ScriptedClient()
-        let q = SyncQueue(client: client, clock: FakeClock())
+        let q = SyncQueue(connector: KOSyncConnector(client: client), clock: FakeClock())
         await q.enqueue(prog(xp: "a", 0.30))
         _ = await q.flush()
         await q.enqueue(prog(xp: "b", 0.31))
@@ -183,7 +183,7 @@ final class StaleProgressTests: XCTestCase {
 
     func testReturningToAnEarlierPositionIsSent() async {
         let client = ScriptedClient()
-        let q = SyncQueue(client: client, clock: FakeClock())
+        let q = SyncQueue(connector: KOSyncConnector(client: client), clock: FakeClock())
         await q.enqueue(prog(xp: "a", 0.30)); _ = await q.flush()
         await q.enqueue(prog(xp: "b", 0.40)); _ = await q.flush()
         await q.enqueue(prog(xp: "a", 0.30)); _ = await q.flush()

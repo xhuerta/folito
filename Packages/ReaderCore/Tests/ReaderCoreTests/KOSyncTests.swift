@@ -258,7 +258,7 @@ final class SyncQueueTests: XCTestCase {
 
     func testKeepsLatestPerDocument() async {
         let client = FakeClient()
-        let q = SyncQueue(client: client, clock: FakeClock())
+        let q = SyncQueue(connector: KOSyncConnector(client: client), clock: FakeClock())
         await q.enqueue(prog("a", 0.1)); await q.enqueue(prog("a", 0.2)); await q.enqueue(prog("b", 0.3))
         let r = await q.flush()
         XCTAssertEqual(r.sent, ["a", "b"])
@@ -270,7 +270,7 @@ final class SyncQueueTests: XCTestCase {
     func testBackoffAndRetry() async {
         let client = FakeClient(); let clock = FakeClock()
         client.failures = [KOSyncError.offline, KOSyncError.offline]
-        let q = SyncQueue(client: client, clock: clock)
+        let q = SyncQueue(connector: KOSyncConnector(client: client), clock: clock)
         await q.enqueue(prog("a", 0.1))
         var r = await q.flush()
         XCTAssertEqual(r.retained, ["a"])
@@ -288,14 +288,14 @@ final class SyncQueueTests: XCTestCase {
 
     func testBackoffCurve() async {
         var cfg = SyncQueue.Config(); cfg.baseBackoff = 2; cfg.maxBackoff = 10
-        let q = SyncQueue(client: FakeClient(), clock: FakeClock(), config: cfg)
+        let q = SyncQueue(connector: KOSyncConnector(client: FakeClient()), clock: FakeClock(), config: cfg)
         let v = [await q.backoff(forAttempt: 1), await q.backoff(forAttempt: 2), await q.backoff(forAttempt: 3), await q.backoff(forAttempt: 9)]
         XCTAssertEqual(v, [2, 4, 8, 10])
     }
 
     func testUnauthorizedRetainsPermanentDrops() async {
         let client = FakeClient()
-        let q = SyncQueue(client: client, clock: FakeClock())
+        let q = SyncQueue(connector: KOSyncConnector(client: client), clock: FakeClock())
         await q.enqueue(prog("a", 0.1))
         client.failures = [KOSyncError.unauthorized]
         var r = await q.flush(force: true)
@@ -308,11 +308,11 @@ final class SyncQueueTests: XCTestCase {
     }
 
     func testPersistenceRoundTrip() async throws {
-        let q1 = SyncQueue(client: FakeClient(), clock: FakeClock())
+        let q1 = SyncQueue(connector: KOSyncConnector(client: FakeClient()), clock: FakeClock())
         await q1.enqueue(prog("a", 0.4))
         let data = try await q1.snapshot()
         let client = FakeClient()
-        let q2 = SyncQueue(client: client, clock: FakeClock(), restoring: data)
+        let q2 = SyncQueue(connector: KOSyncConnector(client: client), clock: FakeClock(), restoring: data)
         let r = await q2.flush(force: true)
         XCTAssertEqual(r.sent, ["a"]); XCTAssertEqual(client.pushed.first?.percentage, 0.4)
     }
@@ -320,7 +320,7 @@ final class SyncQueueTests: XCTestCase {
     func testScheduleDebouncesAndRetriesInBackground() async throws {
         let client = FakeClient(); let clock = FakeClock()
         client.failures = [KOSyncError.offline]
-        let q = SyncQueue(client: client, clock: clock)
+        let q = SyncQueue(connector: KOSyncConnector(client: client), clock: clock)
         await q.schedule(prog("a", 0.1))
         await q.schedule(prog("a", 0.2))
         for _ in 0..<200 where !(await q.pending.isEmpty) { try await Task.sleep(nanoseconds: 5_000_000) }

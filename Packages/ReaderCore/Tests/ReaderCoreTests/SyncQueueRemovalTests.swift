@@ -9,7 +9,7 @@ final class SyncQueueRemovalTests: XCTestCase {
     func testRemoveDocumentDropsOnlyThatEntryAndPersists() async {
         let client = FakeClient()
         let saved = Box()
-        let q = SyncQueue(client: client, clock: FakeClock(), onChange: { saved.data = $0 })
+        let q = SyncQueue(connector: KOSyncConnector(client: client), clock: FakeClock(), onChange: { saved.data = $0 })
         await q.enqueue(prog("a")); await q.enqueue(prog("b"))
         await q.remove(document: "a")
         let pending = await q.pending
@@ -22,7 +22,7 @@ final class SyncQueueRemovalTests: XCTestCase {
     }
 
     func testRemoveAllClearsQueue() async {
-        let q = SyncQueue(client: FakeClient(), clock: FakeClock())
+        let q = SyncQueue(connector: KOSyncConnector(client: FakeClient()), clock: FakeClock())
         await q.enqueue(prog("a")); await q.enqueue(prog("b"))
         await q.removeAll()
         let pending = await q.pending
