@@ -13,7 +13,9 @@ Each platform has its own section below.
 is an inset-grouped `Form` with *Progress Sync* (pushed screen) and *About* (Privacy Policy, Support,
 Version, Acknowledgements with the full licence texts). Toolbar items use standard placements. Empty
 states use `ContentUnavailableView`: an empty library ("No Books", with an *Import EPUB* button), no
-Apple Watch paired, and Folito not installed on the watch. All icons are SF Symbols. There are no
+Apple Watch paired, and Folito not installed on the watch. Once the library has books, the last two are a
+compact notice above them (`libraryWatchNotice`: icon and title in `.headline`, the explanation in `.footnote`,
+one element, one layout at every size). All icons are SF Symbols. There are no
 custom card styles, fonts or colours in the UI chrome.
 
 **VoiceOver.**
@@ -172,6 +174,17 @@ row's watch state was then flagged at the next mid-list page. Not a layout probl
 Readest audits start their largest-size pass below the local row (`openCloudRowsAtLargestText`), and
 `testLibraryReadestLocalRowAudit` audits that row, Readest icon included, with the library filtered to *On
 This iPhone*, where it is the last row as in the one-book audit.
+
+The compact watch notice (issue #63) is shorter than the card was, which brought the same artifact back to
+the one-book audits: at AX5 the book row was fully on screen on a page in the middle of the list and its watch
+state was flagged "Text clipped". The notice itself was first a `Label` with the texts in its title; in a list a
+label's icon column changes at accessibility sizes, and both its texts were flagged on the first page. It is
+now a plain stack (icon beside the title, the text under both at full width). Not accepted: the largest-size
+pass of `testLibraryWithBookAudit` and `testLibraryReadestLocalRowAudit` audits the top of the list and then
+the end (`openWatchNoticeAtTop`, `scrollToLastRow`), where the book is the last row. At the default size the
+Readest library is only a little taller than the screen, so once scrolled to the Readest rows it cannot
+scroll on and the notice stayed within 16 pt of the navigation bar ("never audited clear of the bars"); the
+default pass of the Readest audits starts back at the top (`openCloudRowsAtTop`).
 
 **Settings › Book Details at AX5** (PR #47) hit the same artifact. The AX5 Settings audit flagged *Look Up
 Missing Details Now* (`onlineBulkStart`): "Dynamic Type font sizes are partially unsupported", on one page
