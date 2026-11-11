@@ -50,6 +50,29 @@ final class KOSyncClientTests: XCTestCase {
 
     func testMD5Key() { XCTAssertEqual(KOSyncClient.authKey(forPassword: "secret"), secretMD5) }
 
+    func testWatchCredentialsCarryTheAuthKeyNotThePassword() async throws {
+        typealias Key = KOSyncConnectorFactory.Key
+        let factory = KOSyncConnectorFactory()
+        let stored = try await factory.signIn(fields: [Key.server: "sync.example.com", Key.user: "alice",
+                                                       Key.password: "secret"], session: .shared)
+        let watch = factory.watchCredentials(from: stored)
+        XCTAssertEqual(watch.values, [Key.server: "https://sync.example.com", Key.user: "alice", Key.authKey: secretMD5])
+        XCTAssertNil(watch[Key.password])
+        XCTAssertFalse(watch.jsonString().contains("\"secret\""))
+        // Idempotent, and the watch's copy builds the same client credentials as the iPhone's.
+        XCTAssertEqual(factory.watchCredentials(from: watch), watch)
+        XCTAssertEqual(KOSyncConnectorFactory.kosyncCredentials(from: watch),
+                       KOSyncConnectorFactory.kosyncCredentials(from: stored))
+        XCTAssertEqual(KOSyncConnectorFactory.kosyncCredentials(from: watch)?.authKey, secretMD5)
+        XCTAssertNil(KOSyncConnectorFactory.kosyncCredentials(from: SyncCredentials([Key.server: "s", Key.user: "alice"])))
+    }
+
+    func testSettingsWireVersion() {
+        XCTAssertTrue(SyncSettingsWire.isSupported([:]))
+        XCTAssertTrue(SyncSettingsWire.isSupported([SyncSettingsWire.versionKey: SyncSettingsWire.version]))
+        XCTAssertFalse(SyncSettingsWire.isSupported([SyncSettingsWire.versionKey: SyncSettingsWire.version + 1]))
+    }
+
     func testAuthorizeRequest() async throws {
         let c = makeClient()
         MockURLProtocol.handler = { _ in (200, self.json(#"{"authorized":"OK"}"#)) }

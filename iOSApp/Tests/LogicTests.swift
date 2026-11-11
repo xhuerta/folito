@@ -97,9 +97,12 @@ final class LogicTests: XCTestCase {
     }
 
     func testSettingsSchemaAndLibraryContext() {
-        let info = WatchSchema.settingsInfo(server: "s", user: "u", password: "p", stamp: 7)
+        let info = WatchSchema.clearedInfo(stamp: 7)
         XCTAssertEqual(info["type"] as? String, "settings")
         XCTAssertEqual(info["settingsStamp"] as? Int, 7)
+        XCTAssertEqual(WatchSchema.librarySettingsStamp(from: ["type": "library", "hashes": [String](), "settingsStamp": 7]), 7)
+        XCTAssertEqual(WatchSchema.librarySettingsStamp(from: ["type": "library", "hashes": [String]()]), 0)
+        XCTAssertNil(WatchSchema.librarySettingsStamp(from: ["type": "settings", "settingsStamp": 7]))
         XCTAssertEqual(WatchSchema.libraryHashes(from: ["type": "library", "hashes": ["a", "b"]]), ["a", "b"])
         XCTAssertNil(WatchSchema.libraryHashes(from: ["type": "settings"]))
         XCTAssertEqual(WatchSchema.libraryTimeRemaining(from: ["type": "library", "hashes": ["a"]]), [:])
@@ -121,38 +124,81 @@ final class LogicTests: XCTestCase {
     func testClearedSettingsSchema() {
         let info = WatchSchema.clearedInfo(stamp: 42)
         XCTAssertEqual(info["type"] as? String, "settings")
-        XCTAssertEqual(info["kosync_cleared"] as? Bool, true)
+        XCTAssertEqual(info["sync_cleared"] as? Bool, true)
         XCTAssertEqual(info["settingsStamp"] as? Int, 42)
-        XCTAssertNil(info["kosync_user"])
-        XCTAssertNil(info["kosync_password"])
-        XCTAssertNil(info["kosync_server"])
-        // Credentials win over a stale cleared stamp; cleared is used only without credentials.
-        let creds = WatchSchema.settingsContext(kosync: ("s", "u", "p", 5), clearedStamp: 4, typography: nil)
-        XCTAssertEqual(creds?["kosync_user"] as? String, "u")
-        XCTAssertNil(creds?["kosync_cleared"])
-        let cleared = WatchSchema.settingsContext(kosync: nil, clearedStamp: 9, typography: nil)
-        XCTAssertEqual(cleared?["kosync_cleared"] as? Bool, true)
-        XCTAssertEqual(cleared?["settingsStamp"] as? Int, 9)
-        XCTAssertEqual(cleared?["sync_cleared"] as? Bool, true)
-        // Never configured: nothing is sent at all.
-        XCTAssertNil(WatchSchema.settingsContext(kosync: nil, clearedStamp: nil, typography: nil))
-        XCTAssertNil(WatchSchema.settingsContext(kosync: nil, clearedStamp: 0, typography: nil))
+        XCTAssertEqual(info["settingsVersion"] as? Int, 1)
+        XCTAssertNil(info["sync_connector"])
+        XCTAssertNil(info["sync_credentials"])
+        let cleared = WatchSchema.settingsContext(clearedStamp: 9, typography: nil)
+        XCTAssertEqual(cleared["sync_cleared"] as? Bool, true)
+        XCTAssertEqual(cleared["settingsStamp"] as? Int, 9)
+        // Never turned off: the context says nothing about sync.
+        for context in [WatchSchema.settingsContext(clearedStamp: nil, typography: nil),
+                        WatchSchema.settingsContext(clearedStamp: 0, typography: nil)] {
+            XCTAssertEqual(context["type"] as? String, "settings")
+            XCTAssertEqual(context["settingsVersion"] as? Int, 1)
+            XCTAssertNil(context["sync_cleared"])
+            XCTAssertNil(context["settingsStamp"])
+        }
     }
 
-    func testGenericConnectorSettingsSchema() {
+    func testCredentialsMessageSchema() {
         let readest = SyncCredentials([ReadestConnectorFactory.Key.email: "a@b.c",
                                        ReadestConnectorFactory.Key.session: "{}"])
-        let info = WatchSchema.settingsContext(sync: (connectorID: "readest", credentials: readest, stamp: 3),
-                                               typography: nil)
-        XCTAssertEqual(info?["sync_connector"] as? String, "readest")
-        XCTAssertEqual(info?["settingsVersion"] as? Int, 2)
-        XCTAssertEqual(info?["settingsStamp"] as? Int, 3)
-        XCTAssertNil(info?["kosync_user"], "KOSync legacy keys only for KOSync")
-        XCTAssertEqual(SyncSettingsWire.decode(info ?? [:])?.1, readest)
-        // KOSync also carries the legacy keys for watch builds from before connectors.
-        let kosync = WatchSchema.settingsContext(kosync: ("s", "u", "p", 5), typography: nil)
-        XCTAssertEqual(kosync?["sync_connector"] as? String, "kosync")
-        XCTAssertEqual(kosync?["kosync_password"] as? String, "p")
+        let info = WatchSchema.credentialsMessage(connectorID: "readest", credentials: readest, stamp: 3)
+        XCTAssertEqual(info["type"] as? String, "credentials")
+        XCTAssertEqual(info["sync_connector"] as? String, "readest")
+        XCTAssertEqual(info["settingsVersion"] as? Int, 1)
+        XCTAssertEqual(info["settingsStamp"] as? Int, 3)
+        XCTAssertEqual(SyncSettingsWire.decode(info)?.1, readest)
+        XCTAssertEqual(WatchSchema.credentialsStamp(from: info), 3)
+        XCTAssertNil(WatchSchema.credentialsStamp(from: WatchSchema.clearedInfo(stamp: 3)))
+        XCTAssertNil(WatchSchema.credentialsStamp(from: WatchSchema.deleteBook(hash: "a")))
+    }
+
+    func testCredentialsAreSentUntilTheWatchReportsTheirStamp() {
+        XCTAssertTrue(WatchSchema.needsCredentials(watchStamp: nil, phoneStamp: 5), "watch has not reported yet")
+        XCTAssertTrue(WatchSchema.needsCredentials(watchStamp: 0, phoneStamp: 5), "new or reinstalled watch app")
+        XCTAssertTrue(WatchSchema.needsCredentials(watchStamp: 4, phoneStamp: 5))
+        XCTAssertFalse(WatchSchema.needsCredentials(watchStamp: 5, phoneStamp: 5))
+        XCTAssertFalse(WatchSchema.needsCredentials(watchStamp: 6, phoneStamp: 5))
+    }
+
+    /// Issue #57: nothing the phone sends to the watch may contain the password the user typed.
+    func testNothingSentToTheWatchContainsThePlaintextPassword() async throws {
+        let password = "Plaintext-Pässword-1234"
+        let factory = KOSyncConnectorFactory()
+        typealias Key = KOSyncConnectorFactory.Key
+        let stored = try await factory.signIn(fields: [Key.server: "https://sync.example.org", Key.user: "alice",
+                                                       Key.password: password], session: .shared)
+        XCTAssertEqual(stored[Key.password], password, "the iPhone Keychain copy keeps it for the form")
+        let settings = SyncSettings.watchSettings(factory: factory, credentials: stored, stamp: 7)
+        XCTAssertNil(settings.credentials[Key.password])
+        XCTAssertEqual(settings.credentials[Key.authKey], KOSyncClient.authKey(forPassword: password))
+        XCTAssertEqual(settings.credentials[Key.user], "alice")
+        var typography = ReaderTypography.default
+        typography.stamp = 3
+        let payloads: [[String: Any]] = [
+            WatchSchema.credentialsMessage(connectorID: settings.connectorID, credentials: settings.credentials,
+                                           stamp: settings.stamp),
+            WatchSchema.settingsContext(clearedStamp: nil, typography: typography),
+            WatchSchema.settingsContext(clearedStamp: 9, typography: typography),
+            WatchSchema.clearedInfo(stamp: 9),
+        ]
+        for payload in payloads {
+            XCTAssertNil(payload[Key.password])
+            for (key, value) in payload {
+                XCTAssertFalse("\(key) \(value)".contains(password), "\(key) carries the plaintext password")
+            }
+            // What WatchConnectivity actually writes: a property list.
+            let data = try PropertyListSerialization.data(fromPropertyList: payload, format: .xml, options: 0)
+            XCTAssertFalse(String(decoding: data, as: UTF8.self).contains(password))
+        }
+        // The settings context (kept on disk by the system) carries no credentials of any connector.
+        for context in payloads.dropFirst() {
+            XCTAssertNil(context["sync_credentials"])
+            XCTAssertNil(context["sync_connector"])
+        }
     }
 }
 
@@ -184,6 +230,8 @@ final class SyncOptionalTests: XCTestCase {
         try XCTSkipUnless(s.isSyncOn, "Keychain unavailable in this test host")
         XCTAssertEqual(s.savedForWatch()?.connectorID, KOSyncConnectorFactory.id)
         XCTAssertEqual(s.savedForWatch()?.credentials[KOSyncConnectorFactory.Key.user], "u")
+        XCTAssertNil(s.savedForWatch()?.credentials[KOSyncConnectorFactory.Key.password], "the watch never gets the password")
+        XCTAssertEqual(s.savedForWatch()?.credentials[KOSyncConnectorFactory.Key.authKey], KOSyncClient.authKey(forPassword: "p"))
         XCTAssertNil(s.clearedStamp)
         var turnedOff = 0
         s.onTurnOff = { turnedOff += 1 }
@@ -204,19 +252,6 @@ final class SyncOptionalTests: XCTestCase {
         await s.save()
         XCTAssertNil(s.clearedStamp)
         XCTAssertGreaterThan(s.savedForWatch()?.stamp ?? 0, cleared ?? Int.max)
-        s.turnOff()
-    }
-
-    func testLegacyKeychainLoginIsMigratedToKOSyncConnector() throws {
-        let kc = KeychainStore(service: "test.folito.\(UUID().uuidString)")
-        let d = UserDefaults(suiteName: "test.\(UUID().uuidString)")!
-        do { try kc.set("https://sync.example.org", account: "server"); try kc.set("bob", account: "username")
-             try kc.set("pw", account: "password") } catch { throw XCTSkip("Keychain unavailable in this test host") }
-        let s = SyncSettings(keychain: kc, defaults: d, clientFactory: { _ in MockKOSyncClient() })
-        XCTAssertEqual(s.activeConnectorID, KOSyncConnectorFactory.id)
-        XCTAssertEqual(s.username, "bob")
-        XCTAssertNil(kc.get(account: "username"))
-        XCTAssertEqual(kc.get(account: KOSyncConnectorFactory.Key.password), "pw")
         s.turnOff()
     }
 

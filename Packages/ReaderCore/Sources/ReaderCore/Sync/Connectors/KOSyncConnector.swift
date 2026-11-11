@@ -53,11 +53,14 @@ public struct KOSyncConnectorFactory: SyncConnectorFactory {
     public static let id = "kosync"
     public static let defaultServer = "https://sync.koreader.rocks"
 
-    /// Storage keys = the Keychain accounts the watch has used since the first release (kept for upgrades).
+    /// Storage keys (Keychain accounts). The iPhone keeps `password` (its form shows and re-uses it); the
+    /// watch only ever receives and keeps `authKey` (see `watchCredentials(from:)`).
     public enum Key {
         public static let server = "kosync_server"
         public static let user = "kosync_user"
         public static let password = "kosync_password"
+        /// Lowercase hex `md5(password)`, the `x-auth-key` of the KOReader sync protocol.
+        public static let authKey = "kosync_key"
     }
 
     static let descriptorValue = SyncConnectorDescriptor(
@@ -72,7 +75,7 @@ public struct KOSyncConnectorFactory: SyncConnectorFactory {
             CredentialField(key: Key.user, kind: .username, label: "Username"),
             CredentialField(key: Key.password, kind: .password, label: "Password"),
         ],
-        storageKeys: [Key.server, Key.user, Key.password],
+        storageKeys: [Key.server, Key.user, Key.password, Key.authKey],
         staleCheckRequiresDeviceID: true,
         hosts: ["sync.koreader.rocks (or the server you enter)"])
 
@@ -92,21 +95,36 @@ public struct KOSyncConnectorFactory: SyncConnectorFactory {
         return KOSyncCredentials(serverURL: url, username: u, password: password)
     }
 
+    /// Credentials from stored values: the auth key when present (watch), else the password (iPhone).
     public static func kosyncCredentials(from c: SyncCredentials) -> KOSyncCredentials? {
-        credentials(server: c[Key.server] ?? "", user: c[Key.user] ?? "", password: c[Key.password] ?? "")
+        if let key = c[Key.authKey], !key.isEmpty {
+            // Any non-empty placeholder passes the form validation; only the key is used.
+            guard var k = credentials(server: c[Key.server] ?? "", user: c[Key.user] ?? "", password: key) else { return nil }
+            k.authKey = key
+            return k
+        }
+        return credentials(server: c[Key.server] ?? "", user: c[Key.user] ?? "", password: c[Key.password] ?? "")
     }
 
-    public static func storedCredentials(_ c: KOSyncCredentials) -> SyncCredentials {
-        SyncCredentials([Key.server: c.serverURL.absoluteString, Key.user: c.username, Key.password: c.password])
+    /// What the watch gets: server, user and `md5(password)`. Never the password.
+    public func watchCredentials(from credentials: SyncCredentials) -> SyncCredentials {
+        var values = [Key.server: credentials[Key.server] ?? "", Key.user: credentials[Key.user] ?? ""]
+        if let key = credentials[Key.authKey], !key.isEmpty {
+            values[Key.authKey] = key
+        } else if let password = credentials[Key.password], !password.isEmpty {
+            values[Key.authKey] = KOSyncClient.authKey(forPassword: password)
+        }
+        return SyncCredentials(values)
     }
 
     /// No network: KOSync has no session, the login is checked by `authorize()` ("Test Connection").
     public func signIn(fields: [String: String], session: URLSession) async throws -> SyncCredentials {
+        let password = fields[Key.password] ?? ""
         guard let c = Self.credentials(server: fields[Key.server] ?? "", user: fields[Key.user] ?? "",
-                                       password: fields[Key.password] ?? "") else {
+                                       password: password) else {
             throw SyncConnectorError.missingFields
         }
-        return Self.storedCredentials(c)
+        return SyncCredentials([Key.server: c.serverURL.absoluteString, Key.user: c.username, Key.password: password])
     }
 
     public func makeConnector(credentials: SyncCredentials, store: SyncCredentialStore,

@@ -12,7 +12,9 @@ final class CoversUITests: XCTestCase {
     @MainActor
     private func launch(_ extra: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments += ["-UITestingSeedCovers"] + extra
+        // Skips the welcome tour explicitly: `-UITestingSeedCovers` alone does not, and on a fresh simulator the
+        // tour would cover the Library (this suite no longer runs after OnboardingUITests in a separate call).
+        app.launchArguments += ["-UITestingSeedCovers", "-UITestingSkipOnboarding"] + extra
         app.launch()
         XCTAssertTrue(app.navigationBars["Library"].waitForExistence(timeout: 15), "Library screen did not appear")
         return app

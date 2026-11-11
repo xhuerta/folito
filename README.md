@@ -316,8 +316,8 @@ CI on GitHub Actions:
 | Workflow | What it runs |
 | --- | --- |
 | [`linux.yml`](.github/workflows/linux.yml) | `ReaderCore` tests in `swift:6.0` |
-| [`macos.yml`](.github/workflows/macos.yml) | iOS and watchOS apps built (XcodeGen, unsigned) and their unit tests run on simulators, as two parallel jobs; skipped for docs-only changes and draft PRs; `.xcresult` bundles are uploaded as artifacts. `ReaderCore` tests run on Linux |
-| [`accessibility.yml`](.github/workflows/accessibility.yml) | Accessibility audit with UI tests (slow): on every push to `main`, manually from Actions, or on PRs labeled `accessibility`; does not block PRs |
+| [`macos.yml`](.github/workflows/macos.yml) | iOS and watchOS apps built (XcodeGen, unsigned) and their unit tests run on simulators, as two parallel jobs; skipped for docs-only changes and draft PRs; `.xcresult` bundles are uploaded as artifacts. `ReaderCore` tests run on Linux. The screenshot UI suites run in the same jobs on pushes to `main` and on PRs labeled `ui` |
+| [`accessibility.yml`](.github/workflows/accessibility.yml) | Accessibility audit with UI tests (slow): nightly on `main`, manually from Actions, or on PRs labeled `accessibility`; does not block PRs |
 
 What runs where: [docs/TESTING.md](docs/TESTING.md). Future plans: [ROADMAP.md](ROADMAP.md).
 

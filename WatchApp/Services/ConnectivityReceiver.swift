@@ -2,22 +2,24 @@ import Foundation
 import WatchConnectivity
 import ReaderCore
 
-/// Receives books (transferFile), settings (applicationContext, or transferUserInfo from older phones)
+/// Receives books (transferFile), settings (applicationContext), sync credentials (transferUserInfo)
 /// and delete requests from the iPhone, and tells the phone which books it holds.
 /// Wire names (see docs/WATCH_CONNECTIVITY.md):
 ///  - file metadata keys: documentHash, title, author, size, cover? (JPEG thumbnail); payload = LZFSE-compressed
 ///    ProcessedBook JSON
 ///  - cover of a book already here: `{ type: "book_cover", documentHash, cover }` (userInfo)
-///  - settings (`type == "settings"`): sync_connector + sync_credentials (any connector; KOSync also as
-///    kosync_server, kosync_user, kosync_password for older watch builds), settingsStamp,
-///    or `sync_cleared` / `kosync_cleared == true` + settingsStamp (sync turned off on the phone),
-///    and (independently, last writer wins) typography + typographyStamp
-///  - delete: `{ type: "delete_book", documentHash: <hash> }` (userInfo or message)
+///  - settings (`type == "settings"`, applicationContext; never credentials): `sync_cleared == true` +
+///    settingsStamp (sync turned off on the phone), and (independently, last writer wins) typography +
+///    typographyStamp
+///  - credentials (`type == "credentials"`, userInfo): sync_connector + sync_credentials + settingsStamp,
+///    moved to the Keychain on receipt
+///  - delete: `{ type: "delete_book", documentHash: <hash> }` (userInfo)
 ///  - dictionary file metadata: `{ type: "dictionary", dictionaryId, sha256, size }`; payload = compact
 ///    dictionary (docs/DICTIONARIES.md), installed only if its size and SHA-256 match
 ///  - delete dictionary: `{ type: "delete_dictionary", dictionaryId: <id> }` (userInfo)
 ///  - watch -> phone (applicationContext): `{ type: "library", hashes: [<documentHash>], dictionaries: [<id>],
-///    typography?, typographyStamp? }`
+///    settingsStamp (last applied; tells the phone whether to send the credentials), typography?,
+///    typographyStamp? }`
 /// WCSessionDelegate callbacks arrive on a background queue; all heavy work is hopped off the main actor.
 final class ConnectivityReceiver: NSObject, WCSessionDelegate {
     static let typeKey = "type"
@@ -25,13 +27,29 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
     static let documentHashKey = "documentHash"
 
     /// Hash of the book to delete, per docs/WATCH_CONNECTIVITY.md (`type == "delete_book"` + `documentHash`).
-    /// Also accepts the legacy shape `{ "delete_book": <hash> }`.
     static func deleteHash(from info: [String: Any]) -> String? {
-        if (info[typeKey] as? String) == deleteType, let hash = info[documentHashKey] as? String, !hash.isEmpty {
-            return hash
-        }
-        if let hash = info[deleteType] as? String, !hash.isEmpty { return hash }
-        return nil
+        guard (info[typeKey] as? String) == deleteType, let hash = info[documentHashKey] as? String,
+              !hash.isEmpty else { return nil }
+        return hash
+    }
+
+    static let settingsType = "settings"
+    static let credentialsType = "credentials"
+    /// Phone -> watch: stamp of the credentials / turn-off. Watch -> phone: the stamp last applied.
+    static let stampKey = "settingsStamp"
+
+    enum SyncSettingsAction: Equatable { case none, store, clear }
+
+    /// What to do with the sync part of a message. Credentials arrive as a `credentials` message, "sync turned
+    /// off" as a marker in the `settings` context; both carry a stamp and are applied only when it is newer
+    /// than the last one applied (the phone resends, and a Reset on the watch must not be undone by a resend).
+    static func syncSettingsAction(for info: [String: Any], lastApplied: Int) -> SyncSettingsAction {
+        guard SyncSettingsWire.isSupported(info),
+              shouldApplySettings(incomingStamp: info[stampKey] as? Int, lastApplied: lastApplied) else { return .none }
+        let type = info[typeKey] as? String
+        if type == credentialsType { return SyncSettingsWire.decode(info) != nil ? .store : .none }
+        if type == settingsType { return CredentialsStore.isClearRequest(info) ? .clear : .none }
+        return .none
     }
 
     static let settingsStampKey = "settings.appliedStamp"
@@ -80,11 +98,10 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
         return id
     }
 
-    /// The phone resends its settings (same stamp) on every activation / state change; apply them only
-    /// when newer than what was applied, so a Reset on the watch is not undone by a stale resend.
-    /// Messages without a stamp (older phone builds) are always applied.
+    /// Sync settings are applied only when strictly newer than what was applied; a message without a stamp
+    /// is ignored.
     static func shouldApplySettings(incomingStamp: Int?, lastApplied: Int) -> Bool {
-        guard let incomingStamp else { return true }
+        guard let incomingStamp else { return false }
         return incomingStamp > lastApplied
     }
 
@@ -92,12 +109,15 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
     /// The watch's typography rides along so the phone can mirror it (last writer wins by stamp).
     /// `timeRemaining` (seconds left per book) is sent only for books in `hashes`, rounded to whole minutes
     /// so an unchanged estimate does not produce a new context.
+    /// `settingsStamp` is the stamp of the sync settings last applied (0 = none): the phone sends its
+    /// credentials until this matches, which is also how a reinstalled watch app gets them again.
     static func libraryContext(hashes: [String], dictionaries: [String] = [],
+                               settingsStamp: Int = 0,
                                typography: ReaderTypography? = nil,
                                timeRemaining: [String: ReadingTimeRemaining] = [:],
                                progress: [String: Double] = [:]) -> [String: Any] {
         var context: [String: Any] = [typeKey: libraryType, hashesKey: hashes.sorted(),
-                                      dictionariesKey: dictionaries.sorted()]
+                                      dictionariesKey: dictionaries.sorted(), stampKey: settingsStamp]
         var times: [String: Double] = [:]
         for hash in hashes {
             if let t = timeRemaining[hash] { times[hash] = Double(ReadingTimeEstimator.displayMinutes(t.bookSeconds) * 60) }
@@ -165,7 +185,9 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
             let session = WCSession.default
             guard WCSession.isSupported(), session.activationState == .activated else { return }
             let hashes = library.entries.map(\.documentHash)
+            let stamp = UserDefaults.standard.integer(forKey: Self.settingsStampKey)
             try? session.updateApplicationContext(Self.libraryContext(hashes: hashes, dictionaries: dictionaryIds,
+                                                                      settingsStamp: stamp,
                                                                       typography: typography(),
                                                                       timeRemaining: library.positions.readingTimes.all(),
                                                                       progress: library.progress))
@@ -216,15 +238,15 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
 
     private func handle(_ info: [String: Any]) {
         var changed = false
-        let isSettings = (info[Self.typeKey] as? String) == "settings" || CredentialsStore.hasSyncSettings(info)
-        if isSettings {
-            let stamp = info["settingsStamp"] as? Int
-            let defaults = UserDefaults.standard
-            let last = defaults.integer(forKey: Self.settingsStampKey)
-            if Self.shouldApplySettings(incomingStamp: stamp, lastApplied: last) {
-                changed = CredentialsStore.apply(userInfo: info)
-                if let stamp { defaults.set(stamp, forKey: Self.settingsStampKey) }
-            }
+        let defaults = UserDefaults.standard
+        switch Self.syncSettingsAction(for: info, lastApplied: defaults.integer(forKey: Self.settingsStampKey)) {
+        case .store: changed = CredentialsStore.apply(credentialsMessage: info)
+        case .clear: CredentialsStore.clear(); changed = true
+        case .none: break
+        }
+        if changed {
+            defaults.set(info[Self.stampKey] as? Int ?? 0, forKey: Self.settingsStampKey)
+            publishLibrary() // reports the applied stamp, so the phone stops sending the credentials
         }
         let deleteHash = Self.deleteHash(from: info)
         let bookCover = Self.bookCover(from: info)

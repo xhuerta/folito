@@ -102,17 +102,18 @@ handling (any future custom animation must check `accessibilityReduceMotion`).
 Progress Sync, Acknowledgements, Reading and the book detail screen (`-UITestingSeedCovers`: a book with a cover,
 a series and a long description), and Settings' *Book Details* section alone (`-UITestingSettingsBookDetailsOnly`).
 
-**When it runs.** The audit drives the simulator screen by screen and takes 10–30 minutes on CI, so it is not
+**When it runs.** The audit drives the simulator screen by screen and its 13 tests take about 25 minutes on CI
+(run as three parallel shards of `AccessibilityAuditTests`: `library`, `book` and `rest`), so it is not
 part of the PR-blocking macOS workflow and not a required check. It has its own workflow,
 `.github/workflows/accessibility.yml` ("Accessibility audit"), which runs:
-- on every push to `main`;
+- every night on `main` (not on every push);
 - manually: GitHub › Actions › *Accessibility audit* › *Run workflow* (choose the branch);
 - on a pull request that has the label `accessibility` (when the label is added, and on every later push
-  while it is set). Add the label to PRs that change UI.
+  while it is set). Add the label to PRs that may affect VoiceOver, contrast or text sizes.
 
 Each test has a time limit (`-test-timeouts-enabled YES`, 180 s by default, 300 s at most) and the audit
-step stops after 55 minutes (the job after 62), so a hung simulator fails the run instead of stalling it. The job always prints the
-findings and uploads `ios-accessibility-xcresult`. The fast, deterministic accessibility checks (for example
+step stops after 35 minutes (the job after 40), so a hung simulator fails the run instead of stalling it. Each shard always prints the
+findings and uploads `ios-accessibility-xcresult-<shard>`. The fast, deterministic accessibility checks (for example
 `SecondaryTextContrastTests` and the reader palette contrast tests in ReaderCore) are unit tests and still run
 on every PR.
 
@@ -388,7 +389,7 @@ builds ignore them):
 - `-UITestingSeedSampleBook`: the same, plus one tiny built-in public-domain sample book, stored exactly as a
   transfer from the iPhone would be (LZFSE-compressed JSON).
 
-CI runs them in `accessibility.yml` (job `watch`, in parallel with the iOS audit; same triggers: push to `main`,
+CI runs them in `accessibility.yml` (job `watch`, in parallel with the iOS audit; same triggers: nightly on `main`,
 manual run from the Actions tab, PRs labelled `accessibility`; see "Automated audit" in the iOS section). They
 are not part of the PR-blocking macOS workflow. Per-test time limits and a 30-minute job timeout stop a hung
 simulator, and the job always prints the findings and uploads `watch-accessibility-xcresult`. Locally:
