@@ -22,6 +22,20 @@ final class AppStoreScreenshotTests: XCTestCase {
         add(attachment)
     }
 
+    /// Waits up to `timeout` seconds for `element`; on a timeout fails the test with `message`, a screenshot
+    /// (attachment "failure screen") and the accessibility tree. The timeouts are generous: on a busy CI runner
+    /// the first launch on a just-booted simulator has taken over a minute.
+    @MainActor
+    private func require(_ element: XCUIElement, _ timeout: TimeInterval, _ message: String,
+                         in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        if element.waitForExistence(timeout: timeout) { return }
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = "failure screen"
+        shot.lifetime = .keepAlways
+        XCTContext.runActivity(named: message) { $0.add(shot) }
+        XCTFail("\(message) (waited \(Int(timeout)) s). Tree:\n\(app.debugDescription)", file: file, line: line)
+    }
+
     @MainActor
     private func row(_ app: XCUIApplication, _ title: String) -> XCUIElement {
         app.descendants(matching: .any)
@@ -38,9 +52,9 @@ final class AppStoreScreenshotTests: XCTestCase {
                                   "AppStoreBooks missing from the UI test bundle")
         app.launchEnvironment["UITESTING_BOOK_TEXTS"] = texts.path
         app.launch()
-        XCTAssertTrue(app.navigationBars["Library"].waitForExistence(timeout: 20), "Library screen did not appear")
+        require(app.navigationBars["Library"], 60, "Library screen did not appear", in: app)
         let mars = row(app, "The Gods of Mars")
-        XCTAssertTrue(mars.waitForExistence(timeout: 20), "seeded books missing")
+        require(mars, 30, "seeded books missing", in: app)
         // Checked at the end, so that a wrong Library still yields all three captures to look at.
         let labels = ["The Gods of Mars", "Emma", "Alice"].map { title in
             let book = row(app, title)
@@ -50,14 +64,16 @@ final class AppStoreScreenshotTests: XCTestCase {
         capture("iphone-1-library")
 
         mars.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["bookDetail"].waitForExistence(timeout: 5)
-                      || app.navigationBars["The Gods of Mars"].waitForExistence(timeout: 5), "book details did not open")
+        if !app.descendants(matching: .any)["bookDetail"].waitForExistence(timeout: 20) {
+            require(app.navigationBars["The Gods of Mars"], 5, "book details did not open", in: app)
+        }
         sleep(2)
         capture("iphone-2-book-details")
 
-        app.tabBars.buttons["Reading"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["typographyPreview"].waitForExistence(timeout: 10),
-                      "Reading tab did not show its preview")
+        let readingTab = app.tabBars.buttons["Reading"]
+        require(readingTab, 20, "Reading tab button missing", in: app)
+        readingTab.tap()
+        require(app.descendants(matching: .any)["typographyPreview"], 30, "Reading tab did not show its preview", in: app)
         sleep(2)
         capture("iphone-3-reading")
 

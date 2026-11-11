@@ -20,7 +20,9 @@ final class WatchAppStoreScreenshotTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments += ["-UITestingSeedAppStore", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
-        XCTAssertTrue(WatchUI.libraryRow(in: app).waitForExistence(timeout: 20), "Library rows did not appear")
+        if !WatchUI.libraryRow(in: app).waitForExistence(timeout: 45) {
+            WatchUI.fail("Library rows did not appear within 45 s of the launch", in: app)
+        }
         return app
     }
 
