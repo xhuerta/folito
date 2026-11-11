@@ -13,7 +13,7 @@ jobs:
   strings:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # Every String Catalog key translated in all supported languages, matching format specifiers, and
       # no UI string in the Swift sources missing from its target's catalog. See docs/LOCALIZATION.md.
@@ -23,7 +23,7 @@ jobs:
   site:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # docs/site/ is generated from docs/site-src/ (templates + one strings file per language). Fails if a
       # strings file is missing keys or has extra ones, or if the committed pages differ from a fresh build.
@@ -37,7 +37,7 @@ jobs:
   ci-scripts:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # The App Store screenshot tooling of macos.yml: which simulator each display class is captured on, and
       # the check of the captured sizes against the sizes App Store Connect accepts. See docs/appstore/SCREENSHOTS.md.
@@ -56,7 +56,7 @@ jobs:
   samples:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # The bundled sample books (iOSApp/Resources/SampleBooks) are built from docs/samples-src; fails if a committed
       # EPUB differs from a fresh build or a source is malformed. See docs/SAMPLE_BOOKS.md.
@@ -67,12 +67,12 @@ jobs:
     runs-on: ubuntu-latest
     container: swift:6.0
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # .build holds absolute paths (module cache, PCH): the key includes the repository name so a rename
       # (wristreader -> folito changed the workspace path) cannot restore an incompatible build.
       - name: Cache SwiftPM
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: Packages/ReaderCore/.build
           key: spm-${{ runner.os }}-${{ github.event.repository.name }}-${{ hashFiles('Packages/ReaderCore/Package.swift', 'Packages/ReaderCore/Package.resolved') }}
@@ -88,11 +88,11 @@ jobs:
     runs-on: ubuntu-latest
     container: swift:6.0
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # Same cache as test-core (key includes the repository name; see the comment there).
       - name: Cache SwiftPM
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: Packages/ReaderCore/.build
           key: spm-${{ runner.os }}-${{ github.event.repository.name }}-${{ hashFiles('Packages/ReaderCore/Package.swift', 'Packages/ReaderCore/Package.resolved') }}
@@ -113,12 +113,12 @@ jobs:
         ports:
           - 17200:17200
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # .build holds absolute paths (module cache, PCH): the key includes the repository name so a rename
       # (wristreader -> folito changed the workspace path) cannot restore an incompatible build.
       - name: Cache SwiftPM
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: Packages/ReaderCore/.build
           key: spm-${{ runner.os }}-${{ github.event.repository.name }}-${{ hashFiles('Packages/ReaderCore/Package.swift', 'Packages/ReaderCore/Package.resolved') }}
@@ -153,12 +153,12 @@ jobs:
       READEST_TEST_EMAIL: ${{ secrets.READEST_TEST_EMAIL }}
       READEST_TEST_PASSWORD: ${{ secrets.READEST_TEST_PASSWORD }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # Same cache as test-core (key includes the repository name; see the comment there).
       - name: Cache SwiftPM
         if: env.READEST_TEST_EMAIL != '' && env.READEST_TEST_PASSWORD != ''
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: Packages/ReaderCore/.build
           key: spm-${{ runner.os }}-${{ github.event.repository.name }}-${{ hashFiles('Packages/ReaderCore/Package.swift', 'Packages/ReaderCore/Package.resolved') }}
