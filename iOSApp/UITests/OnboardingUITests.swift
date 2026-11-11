@@ -140,10 +140,14 @@ final class OnboardingUITests: XCTestCase {
         app.launch()
         let button = app.buttons["libraryAddSample"]
         XCTAssertTrue(button.waitForExistence(timeout: 15))
+        // No books: the watch status is the full card. With a book it is a short notice above the list.
+        XCTAssertFalse(app.descendants(matching: .any)["libraryWatchNotice"].exists)
+        screenshot(app, "library-empty")
         button.tap()
         let row = app.descendants(matching: .any)["libraryRow"]
         XCTAssertTrue(row.waitForExistence(timeout: 30), "Sample book not added from the Library")
         XCTAssertTrue(row.label.contains("Sample"), "Row: \(row.label)")
+        screenshot(app, "library-one-book")
     }
 
     /// "Other Languages…" in the empty Library lists every sample; picking Spanish adds Don Quijote.
