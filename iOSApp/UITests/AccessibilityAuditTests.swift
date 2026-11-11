@@ -407,6 +407,8 @@ final class AccessibilityAuditTests: XCTestCase {
     /// `openCloudRows`, then back to the top if it had to scroll. At the default size the Readest library is only a
     /// little taller than the screen: once scrolled, the list cannot scroll on, and the compact watch notice stays
     /// within 16 pt of the navigation bar on every page, where its contrast is never audited clear of the bars.
+    /// At the top of the list the notice is the first row, right below the large title, as in the one-book audit:
+    /// the check is that it is back there, wholly below the navigation bar (16 pt clear is not reachable at the top).
     /// A tap on the status bar scrolls the list to its top without pulling it past the top (it is refreshable).
     /// Fallback: slow drags by the distance the notice still needs, held before release so the list does not fling.
     @MainActor
@@ -414,16 +416,18 @@ final class AccessibilityAuditTests: XCTestCase {
         openCloudRows(app)
         let notice = app.descendants(matching: .any)["libraryWatchNotice"]
         let window = app.windows.firstMatch
+        let navigationBar = app.navigationBars.firstMatch
+        func barBottom() -> CGFloat { navigationBar.exists ? navigationBar.frame.maxY : window.frame.minY }
+        func atTop() -> Bool { notice.exists && !notice.frame.isEmpty && notice.frame.minY >= barBottom() - 0.5 }
         window.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: window.frame.width * 0.2, dy: 20)).tap()
-        for _ in 0..<12 where !(notice.waitForExistence(timeout: 2) && clearOfBars(notice.frame, in: app)) {
-            let distance = notice.exists ? min(max(clearArea(in: app).top - notice.frame.minY + 24, 40), 300) : 150
+        for _ in 0..<12 where !(notice.waitForExistence(timeout: 2) && atTop()) {
+            let distance = notice.exists ? min(max(barBottom() - notice.frame.minY + 8, 30), 300) : 150
             let start = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35))
             start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: distance)),
                         withVelocity: .slow, thenHoldForDuration: 0.3)
         }
-        XCTAssertTrue(notice.exists && clearOfBars(notice.frame, in: app),
-                      "Watch notice not back clear of the bars: \(notice.exists ? "\(notice.frame)" : "missing"), "
-                      + "clear area \(clearArea(in: app))")
+        XCTAssertTrue(atTop(), "Watch notice not back at the top of the list: "
+                      + "\(notice.exists ? "\(notice.frame)" : "missing"), navigation bar bottom \(barBottom())")
     }
 
     /// Largest-size pass of the libraries whose book is the last row: the first page is the top of the list (the
