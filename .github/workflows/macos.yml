@@ -1,9 +1,14 @@
 name: macOS
 
-# PR-blocking: builds the iPhone and watch apps and runs their unit tests on simulators, as two parallel jobs.
+# Builds the iPhone and watch apps and runs their tests on simulators, as two parallel jobs, in two tiers:
+#  * fast tier (every push of a non-draft PR): build + unit tests. A PR that only touches iOSApp/ skips the watch
+#    job and one that only touches WatchApp/ or WatchWidgets/ skips the iOS job (scripts/ci/pick_platforms.py).
+#  * UI tier (pushes to main, manual runs, and PRs labelled `ui`): the same jobs go on, after the unit tests, to
+#    the screenshot UI suites (iPhone: welcome tour, Readest library, covers, online metadata; watch: covers) and
+#    export the complication screenshots. Adding the `ui` label starts a run; no new push is needed.
 # ReaderCore's own `swift test` runs on Linux (linux.yml); the package has no Apple-only code paths and is
 # compiled here as part of both apps. The slow accessibility UI audits run in accessibility.yml.
-# See docs/TESTING.md ("What runs where").
+# See docs/TESTING.md ("CI: which workflow runs when").
 
 on:
   push:
@@ -23,7 +28,8 @@ on:
       - ".github/workflows/cla.yml"
   pull_request:
     # ready_for_review: draft PRs skip the macOS jobs; they run when the PR is marked ready.
-    types: [opened, synchronize, reopened, ready_for_review]
+    # labeled: adding the `ui` label runs the UI tier at once (any other label is a no-op, see `scope`).
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
     paths-ignore:
       - "docs/**"
       - "**/*.md"
@@ -43,14 +49,42 @@ on:
         type: string
         required: false
 
+# A new push cancels the run of the previous one. A label other than `ui` starts a run that does nothing; it gets
+# a group of its own so that it does not cancel the real run of the same PR.
 concurrency:
-  group: macos-${{ github.ref }}
+  group: macos-${{ github.ref }}${{ github.event.action == 'labeled' && github.event.label.name != 'ui' && '-other-label' || '' }}
   cancel-in-progress: true
 
 jobs:
+  # Which of the two macOS jobs this change needs (a few seconds on Linux).
+  scope:
+    name: scope
+    if: >-
+      github.event.pull_request.draft != true &&
+      (github.event.action != 'labeled' || github.event.label.name == 'ui')
+    runs-on: ubuntu-latest
+    outputs:
+      platforms: ${{ steps.pick.outputs.platforms }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pick platforms from the changed paths
+        id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          # Pushes to main and manual runs build both; so does a PR whose file list cannot be read.
+          : > changed.txt
+          if [ -n "$PR" ]; then
+            gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" \
+              --jq '.[] | .filename, (.previous_filename // empty)' > changed.txt || : > changed.txt
+          fi
+          python3 scripts/ci/pick_platforms.py < changed.txt | tee -a "$GITHUB_OUTPUT"
+
   test:
     name: ${{ matrix.platform }}
-    if: github.event.pull_request.draft != true
+    needs: scope
     # Default: arm64 `macos-15` (free for public repos and ~2x faster than Intel; see docs/TESTING.md for
     # the measurements). If the arm64 pool is capacity-constrained again (jobs queued for a long time or
     # "not acquired by Runner"), set the repository variable MACOS_RUNNER to `macos-15-intel`.
@@ -59,18 +93,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - platform: ios
-            scheme: Folito
-            sdk: iOS Simulator
-            # Unit tests only; the accessibility-audit UI tests run in accessibility.yml (not PR-blocking).
-            test_args: -skip-testing:FolitoUITests
-          - platform: watch
-            scheme: FolitoWatch
-            sdk: watchOS Simulator
-            # Unit tests only; the watch accessibility UI tests run in accessibility.yml (not PR-blocking).
-            test_args: -skip-testing:FolitoWatchUITests
+        platform: ${{ fromJSON(needs.scope.outputs.platforms) }}
     env:
+      SCHEME: ${{ matrix.platform == 'ios' && 'Folito' || 'FolitoWatch' }}
+      SDK: ${{ matrix.platform == 'ios' && 'iOS Simulator' || 'watchOS Simulator' }}
+      # The unit-test step skips the UI test bundle; its suites run in the UI tier and in accessibility.yml.
+      UI_BUNDLE: ${{ matrix.platform == 'ios' && 'FolitoUITests' || 'FolitoWatchUITests' }}
+      # UI tier: everything except a pull request without the `ui` label.
+      UI_TIER: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ui') }}
       # Shared build settings: no indexing, no dSYMs, no signing, only the runner's architecture.
       XCB_FLAGS: >-
         -project Folito.xcodeproj
@@ -120,8 +150,8 @@ jobs:
       - name: Build for testing
         run: |
           xcodebuild build-for-testing $XCB_FLAGS \
-            -scheme ${{ matrix.scheme }} \
-            -destination "generic/platform=${{ matrix.sdk }}" \
+            -scheme "$SCHEME" \
+            -destination "generic/platform=$SDK" \
             ARCHS="$ARCH" ONLY_ACTIVE_ARCH=YES \
             -showBuildTimingSummary > build.log 2>&1 || { grep -E "error:" build.log; tail -80 build.log; exit 1; }
           grep -E "^Resolved source packages|warning:" build.log | sort -u | head -40 || true
@@ -144,187 +174,111 @@ jobs:
           set -o pipefail
           rm -rf ${{ matrix.platform }}-tests.xcresult
           xcodebuild test-without-building $XCB_FLAGS \
-            -scheme ${{ matrix.scheme }} \
+            -scheme "$SCHEME" \
             -destination "id=$UDID" \
-            ${{ matrix.test_args }} \
+            -skip-testing:"$UI_BUNDLE" \
             -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
             -resultBundlePath ${{ matrix.platform }}-tests.xcresult 2>&1 | tee ${{ matrix.platform }}-tests.log
 
-      # Welcome tour UI tests (iOSApp/UITests/OnboardingUITests.swift: walk through the tour, add the sample book,
-      # find it in the Library). Quick, unlike the accessibility audits in the same bundle (accessibility.yml).
-      # Every page is attached as a screenshot; the next steps export them as the onboarding-screenshots artifact.
-      - name: Welcome tour UI tests
-        if: matrix.platform == 'ios'
+      # UI tier, iPhone: the four screenshot suites of iOSApp/UITests in one xcodebuild call and one result bundle.
+      #  * OnboardingUITests: the welcome tour, the sample book, Skip, reopening from Settings.
+      #  * ReadestLibraryUITests (mocked Readest account): cloud-only rows, downloads, menus, filter, offline.
+      #  * CoversUITests (`-UITestingSeedCovers`): Library with covers, placeholder, book detail, largest text.
+      #  * OnlineMetadataUITests (`-UITestingMockOnlineMetadata`, no network): Settings > Book Details, Find
+      #    Details Online, the confirmation sheet, Remove Online Details.
+      # The accessibility audits in the same bundle run in accessibility.yml.
+      - name: UI tests (welcome tour, Readest library, covers, online metadata)
+        if: env.UI_TIER == 'true' && matrix.platform == 'ios'
         run: |
           set -o pipefail
-          rm -rf onboarding-uitests.xcresult
+          rm -rf ios-ui-tests.xcresult
           xcodebuild test-without-building $XCB_FLAGS \
-            -scheme ${{ matrix.scheme }} \
+            -scheme "$SCHEME" \
             -destination "id=$UDID" \
             -only-testing:FolitoUITests/OnboardingUITests \
+            -only-testing:FolitoUITests/ReadestLibraryUITests \
+            -only-testing:FolitoUITests/CoversUITests \
+            -only-testing:FolitoUITests/OnlineMetadataUITests \
             -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
-            -resultBundlePath onboarding-uitests.xcresult 2>&1 | tee onboarding-uitests.log
+            -resultBundlePath ios-ui-tests.xcresult 2>&1 | tee ios-ui-tests.log
 
-      - name: Export welcome tour screenshots
-        if: always() && matrix.platform == 'ios'
+      # Every screen the suites visit is attached as a screenshot; one artifact per suite, PNGs named after the
+      # attachments (default-1-welcome.png, ...).
+      - name: Export UI test screenshots
+        if: always() && env.UI_TIER == 'true' && matrix.platform == 'ios'
         run: |
-          [ -d onboarding-uitests.xcresult ] || exit 0
-          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:" onboarding-uitests.log || true
-          mkdir -p onboarding-screenshots
-          xcrun xcresulttool export attachments --path onboarding-uitests.xcresult --output-path onboarding-screenshots || true
-          # Name the PNGs after the attachment names (default-1-welcome.png, ...) using the exported manifest.
-          python3 - <<'PY' || true
-          import json, pathlib
-          out = pathlib.Path("onboarding-screenshots")
-          for test in json.loads((out / "manifest.json").read_text()):
-              for a in test.get("attachments", []):
-                  src, name = out / a["exportedFileName"], a.get("suggestedHumanReadableName", "")
-                  if src.exists() and name:
-                      stem = name.rsplit(".", 1)[0].split("_")[0] if name.count("_") >= 2 else name.rsplit(".", 1)[0]
-                      src.rename(out / (stem + src.suffix))
-          PY
-          ls onboarding-screenshots
+          [ -d ios-ui-tests.xcresult ] || exit 0
+          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:" ios-ui-tests.log || true
+          xcrun xcresulttool export attachments --path ios-ui-tests.xcresult --output-path ui-attachments || true
+          python3 scripts/ci/split_ui_attachments.py ui-attachments \
+            OnboardingUITests=onboarding-screenshots \
+            ReadestLibraryUITests=readest-library-screenshots \
+            CoversUITests=covers-iphone \
+            OnlineMetadataUITests=online-metadata-screenshots || true
+          ls onboarding-screenshots readest-library-screenshots covers-iphone online-metadata-screenshots || true
 
       - name: Upload welcome tour screenshots
-        if: always() && matrix.platform == 'ios'
+        if: always() && env.UI_TIER == 'true' && matrix.platform == 'ios'
         uses: actions/upload-artifact@v4
         with:
           name: onboarding-screenshots
           path: |
             onboarding-screenshots
-            onboarding-uitests.log
+            ios-ui-tests.log
           if-no-files-found: ignore
 
-      # Readest library UI tests (iOSApp/UITests/ReadestLibraryUITests.swift, mocked Readest account): cloud-only rows,
-      # download in progress, context menus, filter, offline, settings. Exported as the readest-library-screenshots artifact.
-      - name: Readest library UI tests
-        if: matrix.platform == 'ios'
-        run: |
-          set -o pipefail
-          rm -rf readest-uitests.xcresult
-          xcodebuild test-without-building $XCB_FLAGS \
-            -scheme ${{ matrix.scheme }} \
-            -destination "id=$UDID" \
-            -only-testing:FolitoUITests/ReadestLibraryUITests \
-            -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
-            -resultBundlePath readest-uitests.xcresult 2>&1 | tee readest-uitests.log
-
-      - name: Export Readest library screenshots
-        if: always() && matrix.platform == 'ios'
-        run: |
-          [ -d readest-uitests.xcresult ] || exit 0
-          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:" readest-uitests.log || true
-          mkdir -p readest-library-screenshots
-          xcrun xcresulttool export attachments --path readest-uitests.xcresult --output-path readest-library-screenshots || true
-          python3 - <<'PY' || true
-          import json, pathlib
-          out = pathlib.Path("readest-library-screenshots")
-          for test in json.loads((out / "manifest.json").read_text()):
-              for a in test.get("attachments", []):
-                  src, name = out / a["exportedFileName"], a.get("suggestedHumanReadableName", "")
-                  if src.exists() and name:
-                      stem = name.rsplit(".", 1)[0].split("_")[0] if name.count("_") >= 2 else name.rsplit(".", 1)[0]
-                      src.rename(out / (stem + src.suffix))
-          PY
-          ls readest-library-screenshots
-
       - name: Upload Readest library screenshots
-        if: always() && matrix.platform == 'ios'
+        if: always() && env.UI_TIER == 'true' && matrix.platform == 'ios'
         uses: actions/upload-artifact@v4
         with:
           name: readest-library-screenshots
           path: |
             readest-library-screenshots
-            readest-uitests.log
+            ios-ui-tests.log
           if-no-files-found: ignore
 
-      # Covers UI tests (iOSApp/UITests/CoversUITests.swift, `-UITestingSeedCovers`): the Library with covers, a
-      # cover-less book's placeholder, the book detail screen, and both at the largest text size. Exported as the
-      # covers-iphone artifact.
-      - name: Covers UI tests
-        if: matrix.platform == 'ios'
-        run: |
-          set -o pipefail
-          rm -rf covers-uitests.xcresult
-          xcodebuild test-without-building $XCB_FLAGS \
-            -scheme ${{ matrix.scheme }} \
-            -destination "id=$UDID" \
-            -only-testing:FolitoUITests/CoversUITests \
-            -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
-            -resultBundlePath covers-uitests.xcresult 2>&1 | tee covers-uitests.log
-
-      - name: Export covers screenshots (iPhone)
-        if: always() && matrix.platform == 'ios'
-        run: |
-          [ -d covers-uitests.xcresult ] || exit 0
-          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:" covers-uitests.log || true
-          mkdir -p covers-iphone
-          xcrun xcresulttool export attachments --path covers-uitests.xcresult --output-path covers-iphone || true
-          python3 scripts/ci/name_attachments.py covers-iphone || true
-          ls covers-iphone
-
       - name: Upload covers screenshots (iPhone)
-        if: always() && matrix.platform == 'ios'
+        if: always() && env.UI_TIER == 'true' && matrix.platform == 'ios'
         uses: actions/upload-artifact@v4
         with:
           name: covers-iphone
           path: |
             covers-iphone
-            covers-uitests.log
+            ios-ui-tests.log
           if-no-files-found: ignore
 
-      # Online book details with a mocked Open Library (iOSApp/UITests/OnlineMetadataUITests.swift,
-      # `-UITestingMockOnlineMetadata`, no network): Settings > Book Details, Find Details Online, the confirmation
-      # sheet (one match, several, none, offline), Remove Online Details. Exported as online-metadata-screenshots.
-      - name: Online metadata UI tests
-        if: matrix.platform == 'ios'
-        run: |
-          set -o pipefail
-          rm -rf online-uitests.xcresult
-          xcodebuild test-without-building $XCB_FLAGS \
-            -scheme ${{ matrix.scheme }} \
-            -destination "id=$UDID" \
-            -only-testing:FolitoUITests/OnlineMetadataUITests \
-            -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
-            -resultBundlePath online-uitests.xcresult 2>&1 | tee online-uitests.log
-
-      - name: Export online metadata screenshots
-        if: always() && matrix.platform == 'ios'
-        run: |
-          [ -d online-uitests.xcresult ] || exit 0
-          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:" online-uitests.log || true
-          mkdir -p online-metadata-screenshots
-          xcrun xcresulttool export attachments --path online-uitests.xcresult --output-path online-metadata-screenshots || true
-          python3 scripts/ci/name_attachments.py online-metadata-screenshots || true
-          ls online-metadata-screenshots
-
       - name: Upload online metadata screenshots
-        if: always() && matrix.platform == 'ios'
+        if: always() && env.UI_TIER == 'true' && matrix.platform == 'ios'
         uses: actions/upload-artifact@v4
         with:
           name: online-metadata-screenshots
           path: |
             online-metadata-screenshots
-            online-uitests.log
+            ios-ui-tests.log
           if-no-files-found: ignore
 
       # Watch Library with Settings > Show Covers on and off, at the default and the largest accessibility text size
-      # (WatchApp/UITests/WatchCoversScreenshotTests.swift), on the smallest and the largest watch simulator the
-      # runner has. Exported as the covers-watch artifact.
+      # (WatchApp/UITests/WatchCoversScreenshotTests.swift). UI tier: on main on the smallest and the largest watch
+      # simulator the runner has, on a PR labelled `ui` only on the simulator the unit tests ran on. Exported as
+      # the covers-watch artifact.
       - name: Watch covers screenshots
-        if: matrix.platform == 'watch'
+        if: env.UI_TIER == 'true' && matrix.platform == 'watch'
         timeout-minutes: 15
         run: |
           set -o pipefail
-          PICK=$(xcrun simctl list devices available -j | python3 scripts/ci/pick_watch_sizes.py)
-          echo "watch simulators (smallest, largest): $PICK"
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            PICK=$UDID
+          else
+            PICK=$(xcrun simctl list devices available -j | python3 scripts/ci/pick_watch_sizes.py)
+          fi
+          echo "watch simulators: $PICK"
           mkdir -p covers-watch
           status=0
           for U in $PICK; do
             [ "$U" = "$UDID" ] || xcrun simctl bootstatus "$U" -b > /dev/null
             rm -rf "covers-watch-$U.xcresult"
             xcodebuild test-without-building $XCB_FLAGS \
-              -scheme ${{ matrix.scheme }} \
+              -scheme "$SCHEME" \
               -destination "id=$U" \
               -only-testing:FolitoWatchUITests/WatchCoversScreenshotTests \
               -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
@@ -341,7 +295,7 @@ jobs:
           exit $status
 
       - name: Upload covers screenshots (watch)
-        if: always() && matrix.platform == 'watch'
+        if: always() && env.UI_TIER == 'true' && matrix.platform == 'watch'
         uses: actions/upload-artifact@v4
         with:
           name: covers-watch
@@ -354,7 +308,7 @@ jobs:
       # default, tinted, redacted, Always On, placeholder, plus a contact sheet), exported from the watch test
       # results as the complication-screenshots artifact for design review.
       - name: Export complication screenshots
-        if: always() && matrix.platform == 'watch'
+        if: always() && env.UI_TIER == 'true' && matrix.platform == 'watch'
         run: |
           [ -d watch-tests.xcresult ] || exit 0
           mkdir -p complication-screenshots
@@ -380,7 +334,7 @@ jobs:
           ls complication-screenshots/*.png >/dev/null 2>&1 || echo "::warning::no complication screenshots were exported"
 
       - name: Upload complication screenshots
-        if: always() && matrix.platform == 'watch'
+        if: always() && env.UI_TIER == 'true' && matrix.platform == 'watch'
         uses: actions/upload-artifact@v4
         with:
           name: complication-screenshots
@@ -405,20 +359,23 @@ jobs:
 
       # The catalogs are hand-checked on Linux by scripts/check_strings.py; here they are compared with the keys
       # the Swift compiler actually extracted while building both apps (SWIFT_EMIT_LOC_STRINGS). The iOS job
-      # builds the embedded watch app too, so it covers both targets. If the build rewrote a catalog, the
-      # rewritten files are uploaded so they can be committed as Xcode writes them.
+      # builds the embedded watch app too, so it covers all targets; when a watch-only PR skips the iOS job, the
+      # watch job compares the watch targets instead. If the build rewrote a catalog, the rewritten files are
+      # uploaded so they can be committed as Xcode writes them.
       - name: Compare String Catalogs with Xcode's extraction
-        if: always() && matrix.platform == 'ios'
+        if: always() && (matrix.platform == 'ios' || !contains(needs.scope.outputs.platforms, 'ios'))
         run: |
-          python3 scripts/compare_extracted_strings.py DerivedData
+          python3 scripts/compare_extracted_strings.py $STRING_TARGETS DerivedData
           if git status --porcelain -- '*.xcstrings' | grep -q .; then
             echo "::warning::The build rewrote String Catalogs:"; git diff --stat -- '*.xcstrings'
           else
             echo "The build left the String Catalogs unchanged."
           fi
+        env:
+          STRING_TARGETS: ${{ matrix.platform == 'watch' && '--targets FolitoWatch,FolitoWatchWidgets' || '' }}
 
       - name: Upload String Catalogs as written by the build
-        if: always() && matrix.platform == 'ios'
+        if: always() && (matrix.platform == 'ios' || !contains(needs.scope.outputs.platforms, 'ios'))
         uses: actions/upload-artifact@v4
         with:
           name: xcstrings-after-build

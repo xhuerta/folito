@@ -13,7 +13,10 @@ Fails (exit 1) when a key extracted for an app target's `Localizable` table is m
 `Localizable.xcstrings`. Catalog keys the compiler did not extract are listed as warnings (stale, or used
 through a `String`/`LocalizedStringResource` variable).
 
-Usage: scripts/compare_extracted_strings.py <DerivedData dir> [...]
+`--targets A,B` limits the comparison to those targets, for a build that did not include all of them (the watch
+scheme builds FolitoWatch and FolitoWatchWidgets but not Folito).
+
+Usage: scripts/compare_extracted_strings.py [--targets A,B] <DerivedData dir> [...]
 """
 from __future__ import annotations
 
@@ -63,7 +66,15 @@ def extracted_keys(roots: list[Path]) -> tuple[dict[str, dict[str, str]], int]:
 
 
 def main() -> int:
-    roots = [Path(a).expanduser() for a in sys.argv[1:]]
+    args = sys.argv[1:]
+    targets = dict(TARGETS)
+    if args and args[0] == "--targets":
+        if len(args) < 2 or not set(args[1].split(",")) <= set(TARGETS):
+            print(__doc__)
+            return 2
+        targets = {t: TARGETS[t] for t in args[1].split(",")}
+        args = args[2:]
+    roots = [Path(a).expanduser() for a in args]
     if not roots:
         print(__doc__)
         return 2
@@ -73,7 +84,7 @@ def main() -> int:
               f"build done?) under: {', '.join(map(str, roots))}")
         return 1
     errors = 0
-    for target, catalog in TARGETS.items():
+    for target, catalog in targets.items():
         keys = set(json.loads((ROOT / catalog).read_text(encoding="utf-8"))["strings"])
         found = extracted[target]
         if not found:
