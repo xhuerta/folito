@@ -165,6 +165,29 @@ final class ReadestSyncTests: XCTestCase {
         XCTAssertEqual(p?.deviceID, "")
     }
 
+    /// Issue #103: a book downloaded from Readest gets the Readest position. The download keeps the row's
+    /// `book_hash` as the book's id (the served file can hash differently), so the pull finds the exact row.
+    func testDownloadedBookPullsTheReadestPositionByTheRowsHash() async throws {
+        let server = FakeReadestServer()
+        // A row as the Readest app writes it (52 % through "The Hunger Games").
+        server.seed(row: ["user_id": server.userID, "book_hash": "9b1c4f0e2d7a6b3c8e5f1a2d4c6b8e0f",
+                          "meta_hash": "c2a7d05b8e9f41a3b6d2e4f8a1c3e5d7", "location": "epubcfi(/6/28!/4/2/72/1:0)",
+                          "xpointer": "/body/DocFragment[14]/body/div/p[36]/text().0", "progress": "[131,250]",
+                          "rsvp_position": NSNull(), "search_config": NSNull(), "view_settings": NSNull(),
+                          "created_at": "2026-03-14T19:02:11.481Z", "updated_at": "2026-11-10T21:40:05.112Z",
+                          "deleted_at": NSNull()])
+        let (c, _) = try await signedIn(server)
+        let downloaded = BookIdentity(partialMD5: "9b1c4f0e2d7a6b3c8e5f1a2d4c6b8e0f",
+                                      metaHash: "c2a7d05b8e9f41a3b6d2e4f8a1c3e5d7")
+        let p = try await c.fetchProgress(for: downloaded)
+        XCTAssertEqual(p?.xpointer, "/body/DocFragment[14]/body/div/p[36]/text().0")
+        XCTAssertEqual(p?.percentage ?? 0, 0.524, accuracy: 1e-9)
+        // With the id of the served bytes (the bug), nothing matched: the book opened at 0 %.
+        let byFileHash = try await c.fetchProgress(for: BookIdentity(partialMD5: "e3b0c44298fc1c149afbf4c8996fb924",
+                                                                     metaHash: "0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f"))
+        XCTAssertNil(byFileHash)
+    }
+
     func testPostgresTimestampFormats() {
         XCTAssertEqual(ReadestHTTP.date("2026-10-29 13:53:43.877123+00")?.timeIntervalSince1970 ?? 0,
                        ReadestHTTP.date("2026-10-29T13:53:43.877+00:00")?.timeIntervalSince1970 ?? 1, accuracy: 0.001)

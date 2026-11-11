@@ -59,6 +59,8 @@ struct FolitoApp: App {
                                       comment: "VoiceOver announcement after an import; the placeholder is the book title"))
         }
         library.onDeleted = { connectivity.sendDelete(hash: $0.documentHash) }
+        // A book that took its Readest row's id replaces its old copy on the watch (deleted just before).
+        library.onRelinked = { entry, wasOnWatch in if wasOnWatch { sendToWatch(entry) } }
         // Covers: sent with each book; a book that gained one later (lazy fill) gets just the cover.
         connectivity.coverProvider = { library.watchCover(for: $0) }
         library.onCoverAdded = { entry in

@@ -1,5 +1,6 @@
 import XCTest
 @testable import Folito
+import ReaderCore
 
 final class OnboardingTests: XCTestCase {
     private var defaults: UserDefaults!
@@ -146,6 +147,52 @@ final class SampleBookSelectionTests: XCTestCase {
             XCTAssertEqual(store.sampleEntry(language: sample.language), entry)
         }
         XCTAssertEqual(store.entries.count, SampleBooks.all.count)
+    }
+
+    /// Issue #103: a book downloaded from Readest takes the row's ids (not the partial MD5 of the bytes served),
+    /// in the library and in the payload the watch syncs its position with; a copy downloaded before that takes
+    /// them when relinked, and replaces itself (on the watch too).
+    @MainActor
+    func testReadestDownloadAndRelinkTakeTheRowsIds() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("readest-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let epub = try XCTUnwrap(SampleBooks.url(for: "en", in: Bundle(for: LibraryStore.self)))
+        let row = ReadestCloudBook(hash: "9b1c4f0e2d7a6b3c8e5f1a2d4c6b8e0f", metaHash: "c2a7d05b8e9f41a3b6d2e4f8a1c3e5d7",
+                                   title: "The Hunger Games", author: "Suzanne Collins", uploadedAt: Date())
+        let store = LibraryStore(rootDirectory: dir)
+
+        let imported = await store.importDownloaded(from: epub, fileName: "The Hunger Games.epub",
+                                                    identity: BookIdentityOverride(row))
+        let downloaded = try XCTUnwrap(imported)
+        XCTAssertEqual(downloaded.documentHash, row.hash)
+        XCTAssertEqual(downloaded.metaHash, row.metaHash)
+        let payload = try BookCodec.decode(Data(contentsOf: store.fileURL(for: downloaded)))
+        XCTAssertEqual(payload.documentHash, row.hash, "the watch pulls the position by this id")
+        XCTAssertEqual(payload.metaHash, row.metaHash)
+        XCTAssertNotNil(store.originalFileURL(for: downloaded))
+        store.delete(downloaded)
+
+        // Downloaded before the fix: the id of the bytes. Relinking gives it the row's ids.
+        let importedBeforeFix = await store.importDownloaded(from: epub, fileName: "The Hunger Games.epub")
+        let old = try XCTUnwrap(importedBeforeFix)
+        XCTAssertNotEqual(old.documentHash, row.hash)
+        store.markSent(hash: old.documentHash)
+        var deleted: [String] = []
+        var resent: [String] = []
+        store.onDeleted = { deleted.append($0.documentHash) }
+        store.onRelinked = { entry, wasOnWatch in if wasOnWatch { resent.append(entry.documentHash) } }
+        let current = try XCTUnwrap(store.entries.first)
+        let result = await store.relink(current, to: BookIdentityOverride(row))
+        let relinked = try XCTUnwrap(result)
+        XCTAssertEqual(store.entries.map(\.documentHash), [row.hash])
+        XCTAssertEqual(relinked.importedAt, old.importedAt)
+        XCTAssertEqual(try BookCodec.decode(Data(contentsOf: store.fileURL(for: relinked))).documentHash, row.hash)
+        XCTAssertNotNil(store.originalFileURL(for: relinked))
+        XCTAssertNil(store.originalFileURL(for: old))
+        XCTAssertEqual(deleted, [old.documentHash])
+        XCTAssertEqual(resent, [row.hash])
+        let again = await store.relink(relinked, to: BookIdentityOverride(row))
+        XCTAssertNil(again, "already linked")
     }
 
     func testLegacyLibraryEntryDecodesWithoutSampleField() throws {

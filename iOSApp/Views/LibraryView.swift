@@ -20,8 +20,7 @@ struct LibraryView: View {
     }
 
     private var items: [MergedLibraryItem<LibraryEntry>] {
-        let cloud = readest?.isAvailable == true ? readest?.cloudBooks ?? [] : []
-        return LibraryMerge.merge(local: library.entries, hash: \.documentHash, cloud: cloud)
+        readest?.merged(library.entries) ?? LibraryMerge.merge(local: library.entries, hash: \.documentHash, cloud: [])
     }
 
     var body: some View {
@@ -32,8 +31,12 @@ struct LibraryView: View {
             .refreshable {
                 connectivity.syncWatchState()
                 await readest?.refresh()
+                await readest?.relinkDownloadedBooks(in: library)
             }
-            .task { await readest?.refreshIfStale() }
+            .task {
+                await readest?.refreshIfStale()
+                await readest?.relinkDownloadedBooks(in: library)
+            }
             .toolbar { toolbarContent }
             .navigationDestination(for: BookDetailRoute.self) { route in
                 BookDetailView(hash: route.hash, library: library, connectivity: connectivity, sendToWatch: sendToWatch)

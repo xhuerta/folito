@@ -108,6 +108,7 @@ final class ReadestLibraryModel {
     @ObservationIgnored private var monitor: NWPathMonitor?
     @ObservationIgnored private var lastRefresh: Date?
     private let isFixed: Bool
+    @ObservationIgnored private var isRelinking = false
 
     var isAvailable: Bool { service != nil }
 
@@ -152,6 +153,29 @@ final class ReadestLibraryModel {
 
     func cloudBook(hash: String) -> ReadestCloudBook? {
         cloudBooks.first { $0.hash == hash && $0.isAvailable }
+    }
+
+    /// The unified Library: the local books paired with their Readest rows (by hash, else by metadata; see
+    /// `LibraryMerge`), then the books only in Readest. Just the local books when Readest is not connected.
+    func merged(_ entries: [LibraryEntry]) -> [MergedLibraryItem<LibraryEntry>] {
+        LibraryMerge.merge(local: entries, keys: \.readestMatchKeys, cloud: isAvailable ? cloudBooks : [])
+    }
+
+    /// The Readest row of a local book, the same one the Library pairs it with.
+    func cloudBook(for entry: LibraryEntry, in entries: [LibraryEntry]) -> ReadestCloudBook? {
+        merged(entries).first { $0.local?.documentHash == entry.documentHash }?.cloud
+    }
+
+    /// Books the Library could pair with their Readest row only by metadata (downloaded before downloads kept the
+    /// row's id) take the row's id, so their reading position syncs with Readest. Runs after each refresh.
+    func relinkDownloadedBooks(in library: LibraryStore) async {
+        guard isAvailable, !isRelinking else { return }
+        isRelinking = true
+        defer { isRelinking = false }
+        for item in merged(library.entries) where item.isLinkedByMetadata {
+            guard let entry = item.local, let row = item.cloud else { continue }
+            await library.relink(entry, to: BookIdentityOverride(row))
+        }
     }
 
     // MARK: Refresh
@@ -213,7 +237,8 @@ final class ReadestLibraryModel {
             }
             defer { try? FileManager.default.removeItem(at: file) }
             let name = book.title.isEmpty ? "\(book.hash).epub" : "\(book.title).epub"
-            if await library.importDownloaded(from: file, fileName: name) != nil {
+            // The book keeps the row's id, whatever the partial MD5 of the bytes Readest served.
+            if await library.importDownloaded(from: file, fileName: name, identity: BookIdentityOverride(book)) != nil {
                 Announcer.announce(String(localized: "Downloaded “\(book.title)”.",
                                           comment: "VoiceOver announcement after a book was downloaded from Readest; the placeholder is the title"))
             }
@@ -245,7 +270,7 @@ final class ReadestLibraryModel {
 
     /// The opt-in automatic upload after an import: only the user's own books, only when not already in Readest.
     func autoUploadIfNeeded(_ entry: LibraryEntry, from library: LibraryStore) {
-        guard autoUpload, isAvailable, !entry.isSample, cloudBook(hash: entry.documentHash) == nil,
+        guard autoUpload, isAvailable, !entry.isSample, cloudBook(for: entry, in: library.entries) == nil,
               library.originalFileURL(for: entry) != nil else { return }
         Task { await upload(entry, from: library) }
     }
@@ -361,5 +386,12 @@ extension UserFacingError {
         UserFacingError(title: String(localized: "Couldn’t Upload “\(title)”", comment: "Alert title; the placeholder is a book title"),
                         message: String(localized: "This book was imported before Folito kept the original EPUB file. Import the file again, then upload it.",
                                         comment: "Upload error: the original EPUB is not on this iPhone"))
+    }
+}
+
+extension LibraryEntry {
+    /// What `LibraryMerge` pairs this book with its Readest row by.
+    var readestMatchKeys: LibraryMatchKeys {
+        LibraryMatchKeys(hash: documentHash, metaHash: metaHash, title: title, author: author)
     }
 }

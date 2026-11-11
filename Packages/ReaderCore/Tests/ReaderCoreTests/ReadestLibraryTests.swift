@@ -257,6 +257,70 @@ final class ReadestLibraryTests: XCTestCase {
         XCTAssertEqual(items.filter { LibraryFilter.all.includes($0.availability) }.count, 5)
     }
 
+    // MARK: Issue #103: a book downloaded from Readest listed twice
+
+    /// The Readest app's row for "The Hunger Games", as `GET /api/sync?type=books` returns it.
+    static let hungerGamesRow: [String: Any] = [
+        "user_id": userID, "book_hash": "9b1c4f0e2d7a6b3c8e5f1a2d4c6b8e0f", "meta_hash": "c2a7d05b8e9f41a3b6d2e4f8a1c3e5d7",
+        "format": "EPUB", "title": "The Hunger Games", "author": "Suzanne Collins",
+        "source_title": "The Hunger Games - Suzanne Collins", "group_id": NSNull(), "group_name": NSNull(),
+        "tags": [String](), "progress": [131, 250], "reading_status": "reading", "cover_hash": "4e2f0a9c1b3d5e7f",
+        "metadata": "{\"title\":\"The Hunger Games\",\"author\":\"Suzanne Collins\",\"language\":\"en\"}",
+        "page_count": 250, "created_at": "2026-03-14T19:02:11.481+00:00", "updated_at": "2026-11-10T21:40:05.112+00:00",
+        "deleted_at": NSNull(), "uploaded_at": "2026-03-14T19:02:15.903+00:00", "synced_at": "2026-11-10T21:40:06+00:00",
+    ]
+
+    func testDownloadedBookKeepsReadestsIdAndIsOneRow() throws {
+        let row = try XCTUnwrap(ReadestCloudBook.parse(Self.hungerGamesRow))
+        // Downloads now take the row's id: matched by hash, one row, in Readest.
+        let downloaded = LibraryMatchKeys(hash: row.hash, metaHash: row.metaHash, title: "The Hunger Games",
+                                          author: "Suzanne Collins")
+        let items = LibraryMerge.merge(local: [downloaded], keys: { $0 }, cloud: [row])
+        XCTAssertEqual(items.count, 1)
+        XCTAssertEqual(items[0].availability, .localAndReadest)
+        XCTAssertFalse(items[0].isLinkedByMetadata)
+    }
+
+    func testBookDownloadedWithAnotherFileHashIsLinkedByMetaHash() throws {
+        let row = try XCTUnwrap(ReadestCloudBook.parse(Self.hungerGamesRow))
+        // A copy downloaded before the fix: its id is the partial MD5 of the served bytes, not `book_hash`.
+        let local = LibraryMatchKeys(hash: "e3b0c44298fc1c149afbf4c8996fb924", metaHash: row.metaHash,
+                                     title: "The Hunger Games", author: "Suzanne Collins")
+        let items = LibraryMerge.merge(local: [local], keys: { $0 }, cloud: [row])
+        XCTAssertEqual(items.map(\.hash), [local.hash], "one row, not the local book and a cloud row")
+        XCTAssertEqual(items[0].availability, .localAndReadest)
+        XCTAssertEqual(items[0].cloud?.hash, row.hash)
+        XCTAssertTrue(items[0].isLinkedByMetadata)
+    }
+
+    func testBookDownloadedWithAnotherFileAndMetaHashIsLinkedByTitleAndAuthor() throws {
+        let row = try XCTUnwrap(ReadestCloudBook.parse(Self.hungerGamesRow))
+        let local = LibraryMatchKeys(hash: "e3b0c44298fc1c149afbf4c8996fb924", metaHash: "0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f",
+                                     title: "the hunger games ", author: "SUZANNE  COLLINS")
+        let items = LibraryMerge.merge(local: [local], keys: { $0 }, cloud: [row])
+        XCTAssertEqual(items.count, 1)
+        XCTAssertEqual(items[0].cloud?.hash, row.hash)
+        XCTAssertTrue(items[0].isLinkedByMetadata)
+    }
+
+    func testMetadataFallbackNeverStealsARowOrGuesses() throws {
+        let row = try XCTUnwrap(ReadestCloudBook.parse(Self.hungerGamesRow))
+        // A row matched by hash is not paired again with a second copy.
+        let exact = LibraryMatchKeys(hash: row.hash, metaHash: row.metaHash, title: "The Hunger Games", author: "Suzanne Collins")
+        let other = LibraryMatchKeys(hash: "1111", metaHash: row.metaHash, title: "The Hunger Games", author: "Suzanne Collins")
+        var items = LibraryMerge.merge(local: [other, exact], keys: { $0 }, cloud: [row])
+        XCTAssertEqual(items.map(\.availability), [.localOnly, .localAndReadest])
+        // Two local copies with the same title (no meta hash): ambiguous, nothing is paired.
+        let a = LibraryMatchKeys(hash: "a", title: "The Hunger Games", author: "Suzanne Collins")
+        let b = LibraryMatchKeys(hash: "b", title: "The Hunger Games", author: "Suzanne Collins")
+        items = LibraryMerge.merge(local: [a, b], keys: { $0 }, cloud: [row])
+        XCTAssertEqual(items.map(\.availability), [.localOnly, .localOnly, .readestOnly])
+        // Another book by the same author is not paired.
+        let c = LibraryMatchKeys(hash: "c", title: "Catching Fire", author: "Suzanne Collins")
+        items = LibraryMerge.merge(local: [c], keys: { $0 }, cloud: [row])
+        XCTAssertEqual(items.map(\.availability), [.localOnly, .readestOnly])
+    }
+
     func testMergeWithoutReadestIsTheLocalLibrary() {
         let items = LibraryMerge.merge(local: ["a", "b"], hash: { $0 }, cloud: [])
         XCTAssertEqual(items.map(\.availability), [.localOnly, .localOnly])

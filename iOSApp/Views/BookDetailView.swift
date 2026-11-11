@@ -244,7 +244,7 @@ struct BookDetailView: View {
     private func actions(_ entry: LibraryEntry) -> some View {
         let state = watchState(entry)
         let readestOn = readest?.isAvailable == true
-        let inReadest = readestOn && readest?.cloudBook(hash: entry.documentHash) != nil
+        let inReadest = readestOn && readest?.cloudBook(for: entry, in: library.entries) != nil
         let isUploading = readest?.uploading.contains(entry.documentHash) == true
         if connectivity.status.canSend && state != .sending {
             Button { sendToWatch(entry) } label: {
@@ -348,7 +348,7 @@ struct BookDeletionDialogs: ViewModifier {
                             titleVisibility: .visible, presenting: deletion.choice) { entry in
             Button("Delete from This iPhone Only") { library.delete(entry) }
             Button("Delete from Readest Too", role: .destructive) {
-                let book = readest?.cloudBook(hash: entry.documentHash)
+                let book = readest?.cloudBook(for: entry, in: library.entries)
                 // Present the explicit confirmation once this dialog has gone.
                 Task {
                     try? await Task.sleep(nanoseconds: 400_000_000)
