@@ -24,6 +24,16 @@ final class ReaderViewModel: ObservableObject {
     /// While true (initial restore / programmatic jumps) scroll callbacks do not overwrite the saved position.
     private var isRestoring = true
     private var restoreTask: Task<Void, Never>?
+    /// Block the current restore / jump must bring to the top, and how many times it was re-issued.
+    private var restoreTarget: Int?
+    private var restoreAttempts = 0
+    /// Latest frames reported by the view, kept while restoring to verify where the jump landed.
+    private var lastFrames: [Int: BlockFrame] = [:]
+    /// Top of the visible area in the scroll view's coordinate space (the inset under the navigation
+    /// bar when the scroll view extends beneath it). Set by the view.
+    var viewportTop: CGFloat = 0
+    /// Pause before checking where a programmatic jump landed (injectable for tests).
+    var settleDelay: UInt64 = 700_000_000
     private var lastReportedIndex: Int?
 
     private let positions: PositionStore
@@ -119,7 +129,7 @@ final class ReaderViewModel: ObservableObject {
         guard !flat.isEmpty else { return }
         // Time in the menu or a lookup is not reading time.
         pageTimer.reset(at: now())
-        beginRestore()
+        beginRestore(target: currentIndex)
         jumpRequest = JumpRequest(index: currentIndex)
     }
 
@@ -127,7 +137,8 @@ final class ReaderViewModel: ObservableObject {
 
     /// Receives the frames of the currently instantiated blocks (scroll-view coordinate space).
     func blockFramesChanged(_ frames: [Int: BlockFrame]) {
-        guard !isRestoring, let top = VisibleBlockResolver.topIndex(frames: frames),
+        lastFrames = frames
+        guard !isRestoring, let top = VisibleBlockResolver.topIndex(frames: frames, viewportTop: viewportTop),
               top != currentIndex, top < flat.count else { return }
         learnSpeed(from: currentIndex, to: top)
         currentIndex = top
@@ -199,20 +210,46 @@ final class ReaderViewModel: ObservableObject {
         complications?.publish(complicationSnapshot, force: force)
     }
 
-    /// Suppresses position updates while the scroll view settles after a programmatic scroll.
-    private func beginRestore() {
+    /// Suppresses position updates while the scroll view settles after a programmatic scroll to `target`.
+    ///
+    /// A `LazyVStack` lays out far-away rows with estimated heights, and the first jump after the reader
+    /// appears can run before the scroll view has its size, so `scrollTo` may land a few blocks off (or
+    /// not move at all). Once the view settles the landing block is checked and the jump re-issued, so
+    /// reopening a book shows the exact block it was closed at (#105). Scroll callbacks never overwrite
+    /// the saved position meanwhile.
+    private func beginRestore(target: Int) {
         isRestoring = true
+        restoreTarget = target
+        restoreAttempts = 0
+        scheduleRestoreCheck()
+    }
+
+    private func scheduleRestoreCheck() {
         restoreTask?.cancel()
+        let delay = settleDelay
         restoreTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 700_000_000)
+            try? await Task.sleep(nanoseconds: delay)
             guard !Task.isCancelled else { return }
-            self?.isRestoring = false
+            self?.restoreSettled()
         }
+    }
+
+    private func restoreSettled() {
+        if let target = restoreTarget,
+           RestoreCheck.needsRetry(top: VisibleBlockResolver.topIndex(frames: lastFrames, viewportTop: viewportTop),
+                                   target: target, attempts: restoreAttempts) {
+            restoreAttempts += 1
+            jumpRequest = JumpRequest(index: target)
+            scheduleRestoreCheck()
+            return
+        }
+        restoreTarget = nil
+        isRestoring = false
     }
 
     /// Called by the view once it appeared: scroll to the saved block.
     func restoreInitialPosition() {
-        beginRestore()
+        beginRestore(target: startIndex)
         jumpRequest = JumpRequest(index: startIndex)
         // The opened book becomes the one the complications show.
         publishComplication(force: false)
@@ -220,7 +257,7 @@ final class ReaderViewModel: ObservableObject {
 
     func jump(to index: Int) {
         let i = flat.clamped(index)
-        beginRestore()
+        beginRestore(target: i)
         pageTimer.reset(at: now())
         currentIndex = i
         persistCurrent()
@@ -231,6 +268,13 @@ final class ReaderViewModel: ObservableObject {
 
     var localPercentage: Double { flat.percentage(at: currentIndex) }
 
+    /// The current position in the same form `reportProgress` pushes it.
+    var localPosition: ReadingPosition {
+        guard !flat.isEmpty else { return ReadingPosition(xpointer: "", percentage: 0) }
+        return ReadingPosition(xpointer: flat.blocks[currentIndex].xpointer, percentage: localPercentage,
+                               page: currentIndex + 1, pageCount: flat.count)
+    }
+
     /// "43% read" for the reader menu: the position saved for the Library, so the menu and the book's
     /// Library row show the same number.
     func progressText(locale: Locale = .current) -> String {
@@ -238,7 +282,7 @@ final class ReaderViewModel: ObservableObject {
     }
 
     func syncOnOpen() async {
-        let decision = await sync.decisionOnOpen(book: bookIdentity, localPercentage: localPercentage)
+        let decision = await sync.decisionOnOpen(book: bookIdentity, local: localPosition)
         if case .offerRemote(let remote) = decision {
             remoteOffer = remote
             showRemoteOffer = true

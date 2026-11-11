@@ -49,7 +49,12 @@ Library: with KOSync every local book syncs its position, and the cloud symbols 
 - Connectors should also keep the server from going backwards when the service allows it. Readest does:
   Folito pushes `updatedAt` = when the position was reached, and the server keeps the newer row.
 - On opening a book the watch fetches the remote position and offers it when another device is ahead
-  (`DefaultSyncConflictPolicy`, neutral `decide(localPercentage:remote: ReadingPosition?, ownDeviceID:)`).
+  (`DefaultSyncConflictPolicy`, neutral `decide(local:remote:ownDeviceID:lastPushed:)`). It is never offered
+  when it is the spot the reader is already at (same XPointer, or same page / page count without one) or the
+  last position this device pushed for the book (`OwnProgressLog`, recorded by the watch after every accepted
+  push, per connector and book). That is how the watch recognises its own write on a service without device
+  ids (Readest), whose percentage (`page / pageCount`) also differs from Folito's character percentage
+  (issue #105: the first block read back as "1% read on another device").
 
 ### Apps
 

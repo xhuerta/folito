@@ -391,3 +391,130 @@ final class MiscLogicTests: XCTestCase {
         XCTAssertEqual(try BookStorage.decode(compressed: compressed), book)
     }
 }
+
+/// Issue #105: reopening a book restores the exact block and never offers this watch's own progress.
+final class ReopenPositionTests: XCTestCase {
+    private func f(_ minY: CGFloat, _ maxY: CGFloat) -> BlockFrame { BlockFrame(minY: minY, maxY: maxY) }
+
+    private func suite() -> (UserDefaults, String) {
+        let name = "ReopenPositionTests.\(UUID().uuidString)"
+        return (UserDefaults(suiteName: name)!, name)
+    }
+
+    private func book(_ hash: String = "h") -> ProcessedBook {
+        let blocks = (0..<100).map { Block(text: String(repeating: "x", count: 10), xpointer: "/body/p[\($0 + 1)]",
+                                           globalOffset: $0 * 10) }
+        return ProcessedBook(metadata: BookMetadata(title: "T", authors: []), documentHash: hash, metaHash: "",
+                             chapters: [Chapter(spineIndex: 1, title: nil, blocks: blocks)], totalCharacters: 1_000)
+    }
+
+    func testViewportTopSkipsBlocksUnderTheNavigationBar() {
+        // Block 4 is still partly on screen, but only under a 30 pt navigation bar.
+        let frames = [4: f(-20, 25), 5: f(30, 90)]
+        XCTAssertEqual(VisibleBlockResolver.topIndex(frames: frames), 4)
+        XCTAssertEqual(VisibleBlockResolver.topIndex(frames: frames, viewportTop: 30), 5)
+    }
+
+    func testRestoreCheck() {
+        XCTAssertTrue(RestoreCheck.needsRetry(top: nil, target: 3, attempts: 0))
+        XCTAssertTrue(RestoreCheck.needsRetry(top: 1, target: 3, attempts: 0))
+        XCTAssertFalse(RestoreCheck.needsRetry(top: 3, target: 3, attempts: 0))
+        XCTAssertFalse(RestoreCheck.needsRetry(top: 1, target: 3, attempts: RestoreCheck.maxRetries))
+    }
+
+    /// The first jump lands a few blocks off (lazy layout): it is re-issued, and the wrong landing block
+    /// never replaces the saved position.
+    @MainActor
+    func testReopenRestoresTheSavedBlockEvenWhenTheFirstJumpLandsOff() async throws {
+        let (defaults, name) = suite()
+        defer { defaults.removePersistentDomain(forName: name) }
+        let positions = PositionStore(defaults: defaults)
+        let sync = SyncCoordinator(defaults: defaults, credentials: { nil })
+        let first = ReaderViewModel(book: book(), positions: positions, sync: sync)
+        first.settleDelay = 10_000_000
+        first.restoreInitialPosition()
+        try await Task.sleep(nanoseconds: 300_000_000)
+        first.blockFramesChanged([41: f(-10, 3), 42: f(3, 60)])
+        XCTAssertEqual(first.currentIndex, 42)
+        first.leave()
+
+        let reopened = ReaderViewModel(book: book(), positions: positions, sync: sync)
+        reopened.settleDelay = 30_000_000
+        XCTAssertEqual(reopened.startIndex, 42)
+        reopened.restoreInitialPosition()
+        let firstJump = try XCTUnwrap(reopened.jumpRequest)
+        reopened.blockFramesChanged([38: f(0, 60), 39: f(60, 120)])
+        try await Task.sleep(nanoseconds: 60_000_000)
+        let retry = try XCTUnwrap(reopened.jumpRequest)
+        XCTAssertNotEqual(retry, firstJump, "the jump is re-issued")
+        XCTAssertEqual(retry.index, 42)
+        XCTAssertEqual(reopened.currentIndex, 42)
+        reopened.blockFramesChanged([42: f(0, 60), 43: f(60, 120)])
+        try await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertEqual(ReaderViewModel(book: book(), positions: positions, sync: sync).startIndex, 42)
+        // Restoring is over: scrolling moves the position again.
+        reopened.blockFramesChanged([43: f(0, 60)])
+        XCTAssertEqual(reopened.currentIndex, 43)
+    }
+
+    /// A Readest-like service: stores what is pushed, returns it without a device id and with the
+    /// percentage rebuilt from `page / pageCount`.
+    private final class EchoService: SyncConnector, @unchecked Sendable {
+        let lock = NSLock()
+        var stored: ReadingPosition?
+        var descriptor: SyncConnectorDescriptor { ReadestConnectorFactory().descriptor }
+        func authorize() async throws {}
+        func fetchProgress(for book: BookIdentity) async throws -> ReadingPosition? {
+            lock.lock(); defer { lock.unlock() }
+            guard var p = stored else { return nil }
+            p.deviceID = ""; p.deviceName = ""
+            if let page = p.page, let count = p.pageCount { p.percentage = Double(page) / Double(count) }
+            return p
+        }
+        func pushProgress(_ position: ReadingPosition, for book: BookIdentity) async throws {
+            lock.lock(); stored = position; lock.unlock()
+        }
+    }
+
+    @MainActor
+    func testOwnProgressRoundTripsWithoutAPrompt() async throws {
+        let (defaults, name) = suite()
+        defer { defaults.removePersistentDomain(forName: name) }
+        let service = EchoService()
+        let sync = SyncCoordinator(defaults: defaults, connector: { service })
+        let book = BookIdentity(partialMD5: "h")
+        let local = ReadingPosition(xpointer: "/body/p[1]", percentage: 0, page: 1, pageCount: 100)
+        sync.report(book: book, xpointer: local.xpointer, percentage: 0, page: 1, pageCount: 100, immediately: true)
+        try await Task.sleep(nanoseconds: 500_000_000)
+        XCTAssertEqual(sync.ownProgress.lastPushed(connectorID: "readest", bookKey: "h")?.xpointer, "/body/p[1]")
+        let own = await sync.decisionOnOpen(book: book, local: local)
+        XCTAssertEqual(own, .keepLocal)
+        // Moved back afterwards without pushing: the old own position is still not offered.
+        let back = ReadingPosition(xpointer: "/body/p[1]", percentage: 0, page: 1, pageCount: 100)
+        service.lock.withLock { service.stored = ReadingPosition(xpointer: "/body/p[50]", percentage: 0.49,
+                                                                 page: 50, pageCount: 100) }
+        sync.ownProgress.record(ReadingPosition(xpointer: "/body/p[50]", percentage: 0.49, page: 50, pageCount: 100),
+                                connectorID: "readest", bookKey: "h")
+        let afterMovingBack = await sync.decisionOnOpen(book: book, local: back)
+        XCTAssertEqual(afterMovingBack, .keepLocal)
+    }
+
+    @MainActor
+    func testADifferentDevicesPositionStillPrompts() async throws {
+        let (defaults, name) = suite()
+        defer { defaults.removePersistentDomain(forName: name) }
+        let service = EchoService()
+        let sync = SyncCoordinator(defaults: defaults, connector: { service })
+        let book = BookIdentity(partialMD5: "h")
+        sync.report(book: book, xpointer: "/body/p[1]", percentage: 0, page: 1, pageCount: 100, immediately: true)
+        try await Task.sleep(nanoseconds: 500_000_000)
+        service.lock.withLock { service.stored = ReadingPosition(xpointer: "/body/DocFragment[3]/body/p[7]",
+                                                                 percentage: 0.4, page: 120, pageCount: 300) }
+        let local = ReadingPosition(xpointer: "/body/p[1]", percentage: 0, page: 1, pageCount: 100)
+        let decision = await sync.decisionOnOpen(book: book, local: local)
+        guard case .offerRemote(let remote) = decision else {
+            return XCTFail("another device's position must be offered")
+        }
+        XCTAssertEqual(remote.page, 120)
+    }
+}

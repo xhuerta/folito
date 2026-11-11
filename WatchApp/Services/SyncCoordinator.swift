@@ -20,6 +20,8 @@ struct ActiveSyncConnector: SyncConnector {
     let resolve: @Sendable () -> SyncConnector?
     /// Reports the outcome of each push (nil = success) so the UI status can follow the queue's worker.
     let observer: SyncObserver
+    /// Remembers each accepted push, so this device's own position is not offered back on open (#105).
+    let ownProgress: OwnProgressLog
 
     var descriptor: SyncConnectorDescriptor { resolve()?.descriptor ?? UnconfiguredConnector.descriptorValue }
 
@@ -38,6 +40,7 @@ struct ActiveSyncConnector: SyncConnector {
         let c = try connector()
         do {
             try await c.pushProgress(position, for: book)
+            ownProgress.record(position, connectorID: c.descriptor.id, bookKey: book.key)
             observer.pushed(nil)
         } catch {
             observer.pushed(error)
@@ -84,6 +87,8 @@ final class SyncCoordinator: ObservableObject {
 
     let device: DeviceIdentity
     let queue: SyncQueue
+    /// Last position this device pushed per connector and book (services without device ids, #105).
+    let ownProgress: OwnProgressLog
     private let policy: SyncConflictPolicy
     private let connector: @Sendable () -> SyncConnector?
     private var chain: Task<Void, Never>?
@@ -98,9 +103,11 @@ final class SyncCoordinator: ObservableObject {
         self.policy = policy
         self.connector = connector
         let observer = SyncObserver()
+        let ownProgress = OwnProgressLog(defaults: defaults)
+        self.ownProgress = ownProgress
         let restored = defaults.data(forKey: Self.queueKey)
         self.queue = SyncQueue(
-            connector: ActiveSyncConnector(resolve: connector, observer: observer),
+            connector: ActiveSyncConnector(resolve: connector, observer: observer, ownProgress: ownProgress),
             clock: clock, config: config, restoring: restored,
             onChange: { data in
                 defaults.set(data, forKey: Self.queueKey)
@@ -173,17 +180,25 @@ final class SyncCoordinator: ObservableObject {
     // MARK: Open-book check
 
     /// Fetches the remote position and applies the conflict policy. Failures degrade to `.keepLocal`.
-    func decisionOnOpen(book: BookIdentity, localPercentage: Double) async -> ProgressDecision {
+    /// The remote position is never offered when it is the spot `local` is at or the last position this
+    /// device pushed: Readest keeps no device id, so that is how the watch recognises its own write (#105).
+    func decisionOnOpen(book: BookIdentity, local: ReadingPosition) async -> ProgressDecision {
         guard let connector = connector() else { return .keepLocal }
         status = .syncing
         do {
             let remote = try await connector.fetchProgress(for: book)
             status = .idle
-            return policy.decide(localPercentage: localPercentage, remote: remote, ownDeviceID: device.id)
+            let lastPushed = ownProgress.lastPushed(connectorID: connector.descriptor.id, bookKey: book.key)
+            return policy.decide(local: local, remote: remote, ownDeviceID: device.id, lastPushed: lastPushed)
         } catch {
             status = SyncErrorClassifier.status(for: error)
             return .keepLocal
         }
+    }
+
+    /// Percentage-only form (tests written before positions carried an XPointer).
+    func decisionOnOpen(book: BookIdentity, localPercentage: Double) async -> ProgressDecision {
+        await decisionOnOpen(book: book, local: ReadingPosition(xpointer: "", percentage: localPercentage))
     }
 
     func decisionOnOpen(document: String, localPercentage: Double) async -> ProgressDecision {
@@ -233,6 +248,7 @@ final class SyncCoordinator: ObservableObject {
             await previous?.value
             await queue.remove(document: document)
         }
+        ownProgress.remove(bookKey: document)
     }
 
     var hasPending: Bool { pendingCount > 0 }

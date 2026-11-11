@@ -59,6 +59,11 @@ struct ReaderView: View {
                 .padding(.horizontal, style.typography.horizontalMargin)
             }
             .coordinateSpace(name: Self.scrollSpace)
+            // The scroll view runs under the navigation bar: its top inset is where reading starts.
+            .background(GeometryReader { geo in
+                Color.clear.preference(key: ViewportTopKey.self, value: geo.safeAreaInsets.top)
+            })
+            .onPreferenceChange(ViewportTopKey.self) { model.viewportTop = $0 }
             .onPreferenceChange(BlockFramesKey.self) { model.blockFramesChanged($0) }
             .onChange(of: model.jumpRequest) { request in
                 guard let request else { return }
@@ -148,6 +153,12 @@ struct BlockFramesKey: PreferenceKey {
     static func reduce(value: inout [Int: BlockFrame], nextValue: () -> [Int: BlockFrame]) {
         value.merge(nextValue()) { _, new in new }
     }
+}
+
+/// Top safe-area inset of the reader's scroll view (navigation bar height when content runs under it).
+struct ViewportTopKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }
 
 /// Discreet status glyph; nothing is shown while idle. Each glyph has a VoiceOver label
