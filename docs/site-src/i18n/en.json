@@ -49,6 +49,7 @@
   "index.books_ways": "To add a book, open the file from the Files app or the share sheet on your iPhone and choose Folito, or tap <em>Import EPUB</em> in the Library. If you sign in to Readest, the Library also lists the books in your <a href=\"support.html#readest\">Readest library</a>, ready to download. Just want to try it? The app includes a short sample book in your language.",
   "index.books_link": "Step-by-step guide in Support",
   "index.req_title": "What you need",
+  "index.req_price": "Free, with every feature included. No ads.",
   "index.req_ios": "An iPhone with iOS 17 or later.",
   "index.req_watch": "An Apple Watch with watchOS 10 or later: Apple Watch Series 4 or later, including Apple Watch SE and Apple Watch Ultra.",
   "index.req_note": "Books are imported on the iPhone and sent to the paired watch; no account is needed.",
