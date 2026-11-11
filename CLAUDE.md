@@ -4,6 +4,7 @@
 
 - Delegate substantial work (features, investigations, CI fixes) to subagents to keep the main session's context small.
 - The main session coordinates, verifies results and merges; it does not do the bulk of the implementation itself.
+- PRs that change views or layout must carry the `ui` label (it runs the screenshot UI suites; see docs/TESTING.md).
 - Talk to the owner in Spanish. Code, code comments and commit messages are in English. The README is in English.
 
 ## Private material

@@ -248,7 +248,7 @@ final class ReadestSyncTests: XCTestCase {
         XCTAssertTrue(reg.allStorageKeys.contains("readest_session"))
         let creds = SyncCredentials(["readest_email": "a@b.c", "readest_session": "{\"x\":1}"])
         let info = SyncSettingsWire.encode(connectorID: "readest", credentials: creds)
-        XCTAssertEqual(info[SyncSettingsWire.versionKey] as? Int, 2)
+        XCTAssertEqual(info[SyncSettingsWire.versionKey] as? Int, 1)
         let decoded = SyncSettingsWire.decode(info)
         XCTAssertEqual(decoded?.0, "readest")
         XCTAssertEqual(decoded?.1, creds)

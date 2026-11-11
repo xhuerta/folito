@@ -110,9 +110,12 @@ Library handles the request under the Internet Archive's policy (<https://archiv
 - iPhone to Apple Watch (WatchConnectivity, local to the user's paired devices, handled by Apple's frameworks):
   processed books, converted dictionaries, reading typography settings, and the active sync connector's
   credentials so the watch can sync on its own (see `docs/WATCH_CONNECTIVITY.md`): for KOSync the server URL,
-  username and password (the real password; the watch computes the MD5 itself), for Readest the account email
+  username and the MD5 auth key of the password (never the password itself), for Readest the account email
   and the session (access + refresh token, never the password). They travel only between the user's own
-  paired devices. Books carry a small JPEG of their cover (taken from the EPUB, or the Open Library cover the
+  paired devices, as a one-off queued message (`transferUserInfo`) that the watch moves into its Keychain on
+  receipt; they are never put in the application context, which the system keeps on disk outside the Keychain.
+  Until the watch has received that message, the system holds it in its WatchConnectivity transfer queue on the
+  iPhone. Books carry a small JPEG of their cover (taken from the EPUB, or the Open Library cover the
   user accepted for a book whose EPUB has none) when they have one.
 - Apple Watch to iPhone (same channel, the `library` report): the hashes of the books and dictionaries on the
   watch, the watch's typography, the estimated reading time left per book (seconds, rounded to whole
@@ -124,7 +127,8 @@ Library handles the request under the Internet Archive's policy (<https://archiv
 | Data | Where | Notes |
 |---|---|---|
 | Active sync service id | iPhone: UserDefaults (`sync.connector`); watch: Keychain (`sync_connector`) | |
-| KOSync server URL, username, password | Keychain (iPhone and watch each have their own item; no access groups) | Never leaves the device except as described in 1a/1c. |
+| KOSync server URL, username, password | iPhone Keychain (no access groups) | The password never leaves the iPhone; only its MD5 auth key does (1a/1c). |
+| KOSync server URL, username, MD5 auth key | Watch Keychain (no access groups) | The watch never receives or stores the password. |
 | Readest email and session (access + refresh token) | Keychain (iPhone and watch; the watch updates its copy when the session is refreshed) | No password. Removed on Sign Out. |
 | Readest library session (access + refresh token) | iPhone Keychain only (`readest_library_session`) | Never sent to the watch. Removed and revoked on Sign Out. |
 | Library (processed books and, on the iPhone, the original EPUB) | `Application Support/Folito/Books` (iPhone), watch app's Application Support (processed books only) | Files the user imports or downloads from Readest. Uploaded only as described in 1a-bis. |

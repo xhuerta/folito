@@ -19,23 +19,30 @@ struct OnboardingView: View {
     var body: some View {
         NavigationStack {
             ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 32) {
-                        // At accessibility sizes the page counter and Skip scroll with the page: in the navigation
-                        // bar they stop growing at AX5 (the audit flagged both "Dynamic Type partially unsupported").
-                        if dynamicTypeSize.isAccessibilitySize { inlineHeader }
-                        content(proxy)
-                        // At accessibility sizes the buttons follow the content instead of covering half the screen.
-                        if dynamicTypeSize.isAccessibilitySize { navigationButtons }
+                ZStack {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 32) {
+                            // At accessibility sizes the page counter and Skip scroll with the page: in the
+                            // navigation bar they stop growing at AX5 (the audit flagged both "Dynamic Type
+                            // partially unsupported").
+                            if dynamicTypeSize.isAccessibilitySize { inlineHeader }
+                            content(proxy)
+                            // At accessibility sizes the buttons follow the content instead of covering half
+                            // the screen.
+                            if dynamicTypeSize.isAccessibilitySize { navigationButtons }
+                        }
+                        .frame(maxWidth: 560, alignment: .leading)
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 24)
                     }
-                    .frame(maxWidth: 560, alignment: .leading)
-                    .frame(maxWidth: .infinity)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 24)
+                    .scrollBounceBehavior(.basedOnSize)
+                    // A scroll view per page, so every page opens at its top: a shared one kept the previous
+                    // page's offset and opened the next page part-way down, its title already under the bar.
                     .id(page)
                     .transition(pageTransition)
                 }
-                .scrollBounceBehavior(.basedOnSize)
+                .safeAreaInset(edge: .top, spacing: 0) { barBacking }
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     if !dynamicTypeSize.isAccessibilitySize { pinnedBar }
                 }
@@ -51,6 +58,15 @@ struct OnboardingView: View {
             .navigationBarTitleDisplayMode(.inline)
         }
         .interactiveDismissDisabled()
+    }
+
+    /// An opaque backing for the status bar and the navigation bar, with a dividing line like the one above the
+    /// pinned buttons. The page scrolls under a clear bar otherwise: the large title showed through behind the
+    /// page counter (as a blurred ghost with the system's scroll edge effect on iOS 26, hard style included), and
+    /// at accessibility sizes the text ran under the status bar.
+    private var barBacking: some View {
+        Divider()
+            .background(Color(uiColor: .systemBackground), ignoresSafeAreaEdges: .top)
     }
 
     private var pageCounter: some View {

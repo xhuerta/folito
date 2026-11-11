@@ -44,7 +44,14 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
     private var deliveredDictionaries: [String: Date] = [:]
     static let installGracePeriod: TimeInterval = 10 * 60
 
-    /// Active sync connector and its stored credentials (see `SyncSettingsWire`).
+    /// Stamp of the sync settings the watch reported as applied (nil until it has reported).
+    private var watchSettingsStamp: Int?
+    /// Stamp and time of the last credentials message delivered: the watch applies it and only then reports
+    /// its stamp, so a delivered message is not resent while that happens.
+    private var deliveredCredentials: (stamp: Int, at: Date)?
+    static let credentialsGracePeriod: TimeInterval = 60
+
+    /// Active sync connector and the credentials the watch needs (the connector's `watchCredentials(from:)`).
     struct WatchSettings: Equatable {
         var connectorID: String
         var credentials: SyncCredentials
@@ -129,15 +136,41 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
         refreshOutstanding()
     }
 
-    /// Mirrors the settings with `updateApplicationContext`: latest-state semantics, so only the newest
-    /// settings are delivered (also to a watch app installed later), unlike a queue of userInfo transfers.
+    /// Mirrors the non-secret settings (typography, "sync turned off") with `updateApplicationContext`:
+    /// latest-state semantics, so only the newest settings are delivered (also to a watch app installed later).
+    /// Credentials never go into the context, which the system keeps on disk on both devices outside the
+    /// Keychain: see `sendCredentials`.
     func sendSettings(_ settings: WatchSettings?, typography: ReaderTypography?) {
         guard canSend, let session else { return }
-        let sync = settings.map { (connectorID: $0.connectorID, credentials: $0.credentials, stamp: $0.stamp) }
         let cleared = settings == nil ? clearedStampProvider?() : nil
-        guard let info = WatchSchema.settingsContext(sync: sync, clearedStamp: cleared, typography: typography) else { return }
-        do { try session.updateApplicationContext(info) }
+        do { try session.updateApplicationContext(WatchSchema.settingsContext(clearedStamp: cleared, typography: typography)) }
         catch { lastError = "Could not send settings: \(error.localizedDescription)" } // i18n-ignore
+        sendCredentials(settings)
+    }
+
+    /// Sends the credentials with `transferUserInfo` until the watch reports their stamp in its `library`
+    /// context. The system queues the message while the watch is unreachable and drops it from the queue once
+    /// delivered; a reinstalled watch app reports stamp 0, so it gets the credentials again. At most one
+    /// credentials message is queued: older ones (and all of them once sync is off) are cancelled.
+    private func sendCredentials(_ settings: WatchSettings?) {
+        guard canSend, let session else { return }
+        let queued = session.outstandingUserInfoTransfers.filter { WatchSchema.credentialsStamp(from: $0.userInfo) != nil }
+        guard let settings,
+              WatchSchema.needsCredentials(watchStamp: watchSettingsStamp, phoneStamp: settings.stamp) else {
+            queued.forEach { $0.cancel() }
+            return
+        }
+        var alreadyQueued = false
+        for transfer in queued {
+            if WatchSchema.credentialsStamp(from: transfer.userInfo) == settings.stamp { alreadyQueued = true }
+            else { transfer.cancel() }
+        }
+        if alreadyQueued { return }
+        if let delivered = deliveredCredentials, delivered.stamp == settings.stamp,
+           Date().timeIntervalSince(delivered.at) < Self.credentialsGracePeriod { return }
+        session.transferUserInfo(WatchSchema.credentialsMessage(connectorID: settings.connectorID,
+                                                                credentials: settings.credentials,
+                                                                stamp: settings.stamp))
     }
 
     /// Brings the watch up to date: current settings and every book it has not confirmed. Idempotent;
@@ -182,6 +215,7 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
                     self.onWatchLibrary?(hashes)
                 }
                 self.watchDictionaries = WatchSchema.libraryDictionaries(from: session.receivedApplicationContext)
+                self.watchSettingsStamp = WatchSchema.librarySettingsStamp(from: session.receivedApplicationContext)
                 if let times = WatchSchema.libraryTimeRemaining(from: session.receivedApplicationContext) {
                     self.watchTimeRemaining = times
                 }
@@ -220,6 +254,7 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
         let typography = TypographySync.decode(from: applicationContext)
         let times = WatchSchema.libraryTimeRemaining(from: applicationContext)
         let progress = WatchSchema.libraryProgress(from: applicationContext)
+        let settingsStamp = WatchSchema.librarySettingsStamp(from: applicationContext)
         guard hashes != nil || typography != nil || dictionaries != nil else { return }
         DispatchQueue.main.async {
             if let typography { self.onWatchTypography?(typography) }
@@ -227,8 +262,14 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
             if let progress { self.watchProgress = progress }
             if let hashes { self.onWatchLibrary?(hashes) }
             if let dictionaries { self.watchDictionaries = dictionaries }
+            if let settingsStamp { self.watchSettingsStamp = settingsStamp }
             self.syncWatchState()
         }
+    }
+
+    func session(_ session: WCSession, didFinish userInfoTransfer: WCSessionUserInfoTransfer, error: Error?) {
+        guard error == nil, let stamp = WatchSchema.credentialsStamp(from: userInfoTransfer.userInfo) else { return }
+        DispatchQueue.main.async { self.deliveredCredentials = (stamp, Date()) }
     }
 
     func session(_ session: WCSession, didFinish fileTransfer: WCSessionFileTransfer, error: Error?) {

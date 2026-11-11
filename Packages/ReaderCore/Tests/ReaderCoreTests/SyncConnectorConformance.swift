@@ -66,6 +66,19 @@ enum SyncConnectorConformance {
             XCTAssertNotNil(h.factory.formValues(from: creds)[field.key], file: file, line: line)
         }
         try await c.authorize()
+        // What crosses WatchConnectivity: declared keys only, never a secret the user typed, and enough to sync.
+        let watch = h.factory.watchCredentials(from: creds)
+        XCTAssertTrue(Set(watch.values.keys).isSubset(of: Set(h.factory.descriptor.storageKeys)),
+                      "watchCredentials returns only declared storage keys", file: file, line: line)
+        let wire = SyncSettingsWire.encode(connectorID: h.factory.descriptor.id, credentials: watch)
+        for field in h.factory.descriptor.credentialFields where field.isSecret {
+            guard let secret = h.form[field.key], !secret.isEmpty else { continue }
+            XCTAssertFalse(watch.values.values.contains { $0.contains(secret) },
+                           "the watch must not receive the \(field.key) the user typed", file: file, line: line)
+            XCTAssertFalse("\(wire)".contains(secret), file: file, line: line)
+        }
+        try await h.factory.makeConnector(credentials: watch, store: InMemoryCredentialStore(watch),
+                                          session: h.session).authorize()
     }
 
     static func checkRoundTrip(_ h: ConnectorHarness, file: StaticString, line: UInt) async throws {
