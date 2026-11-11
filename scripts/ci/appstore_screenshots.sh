@@ -21,10 +21,10 @@ case "$CLASS" in
       --cellularMode active --cellularBars 4 --batteryState charged --batteryLevel 100 --operatorName ""
     ;;
   watch)
-    # The watch shows only the clock. Not every Xcode supports the override on watchOS: the capture then
-    # shows the runner's clock.
-    xcrun simctl status_bar "$U" override --time 10:09 \
-      || echo "::notice::simctl status_bar is not supported on this watch simulator; the screenshots show the runner's clock"
+    # The watch shows only the clock. Xcode 26.3 refuses the override on watchOS ("Status bar overrides not
+    # supported on this platform"): the capture then shows the runner's clock (docs/appstore/SCREENSHOTS.md).
+    xcrun simctl status_bar "$U" override --time 10:09 2>/dev/null \
+      || echo "::notice::simctl status_bar does not support watchOS simulators; the watch screenshots show the runner's clock"
     ;;
 esac
 

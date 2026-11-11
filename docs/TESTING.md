@@ -32,7 +32,7 @@ CI runs in tiers, so that an ordinary PR gets its feedback from the fast tier on
 | Tier | What runs | When |
 |---|---|---|
 | Fast | `linux.yml`; `macos.yml` build + unit tests for iOS and watch | every push of a non-draft PR, every push to `main` |
-| UI | The screenshot UI suites, in the same `macos.yml` jobs after the unit tests: iPhone welcome tour, Readest library, covers and online metadata (one `xcodebuild` call); watch covers screenshots (one simulator size on PRs, smallest and largest on `main`); complication screenshots export; App Store screenshots (two iPhone sizes, one watch size) and the job `app-store-screenshots` that checks and merges them | every push to `main`; PRs with the label **`ui`** (when the label is added and on every later push); manual runs |
+| UI | The screenshot UI suites, in the same `macos.yml` jobs after the unit tests: iPhone welcome tour, Readest library, covers and online metadata (one `xcodebuild` call); watch covers screenshots (one simulator size on PRs, smallest and largest on `main`); complication screenshots export; App Store screenshots (one watch size in the `watch` job; two iPhone sizes in the parallel job `app-store-iphone`) and the job `app-store-screenshots` that checks and merges them | every push to `main`; PRs with the label **`ui`** (when the label is added and on every later push); manual runs |
 | Accessibility audit | `accessibility.yml`: iPhone audit in three parallel shards, watch accessibility UI tests | nightly on `main`; PRs with the label **`accessibility`**; manual runs |
 
 Labels: add `ui` to a PR that changes views or layout, and `accessibility` to one that may affect VoiceOver,

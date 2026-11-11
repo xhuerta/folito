@@ -221,6 +221,12 @@ targets:
     platform: iOS
     sources:
       - path: iOSApp/UITests
+        excludes:
+          - AppStoreBooks/**
+      # Full public-domain texts for the App Store screenshots (scripts/make_appstore_books.py), copied as one
+      # folder into the test bundle only: the app reads them in Debug builds through UITESTING_BOOK_TEXTS.
+      - path: iOSApp/UITests/AppStoreBooks
+        type: folder
     dependencies:
       - target: Folito
     settings:

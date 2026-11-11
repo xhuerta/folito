@@ -5,7 +5,9 @@ name: macOS
 #    job and one that only touches WatchApp/ or WatchWidgets/ skips the iOS job (scripts/ci/pick_platforms.py).
 #  * UI tier (pushes to main, manual runs, and PRs labelled `ui`): the same jobs go on, after the unit tests, to
 #    the screenshot UI suites (iPhone: welcome tour, Readest library, covers, online metadata; watch: covers),
-#    export the complication screenshots and capture the App Store screenshots (job `app-store-screenshots`).
+#    export the complication screenshots and capture the watch App Store screenshots. The iPhone App Store
+#    screenshots (two simulators, ~10 min each) run in a job of their own, `app-store-iphone`, in parallel with
+#    the `ios` job so that it does not grow; `app-store-screenshots` then checks and merges both sets.
 #    Adding the `ui` label starts a run; no new push is needed.
 # ReaderCore's own `swift test` runs on Linux (linux.yml); the package has no Apple-only code paths and is
 # compiled here as part of both apps. The slow accessibility UI audits run in accessibility.yml.
@@ -258,28 +260,6 @@ jobs:
             ios-ui-tests.log
           if-no-files-found: ignore
 
-      # App Store screenshots (docs/appstore/SCREENSHOTS.md): AppStoreScreenshotTests once per iPhone display size
-      # App Store Connect needs, each on a simulator of an accepted size with the status bar overridden; the
-      # sizes of the captures are then checked against Apple's list (scripts/ci/check_screenshot_sizes.py).
-      - name: App Store screenshots (iPhone)
-        if: (!cancelled()) && env.UI_TIER == 'true' && matrix.platform == 'ios' && env.UDID != ''
-        timeout-minutes: 20
-        run: |
-          status=0
-          for CLASS in iphone-medium iphone-large; do
-            scripts/ci/appstore_screenshots.sh "$CLASS" FolitoUITests/AppStoreScreenshotTests || status=1
-          done
-          python3 scripts/ci/check_screenshot_sizes.py app-store-screenshots --require iphone-medium,iphone-large || status=1
-          exit $status
-
-      - name: Upload App Store screenshots (iPhone)
-        if: always() && env.UI_TIER == 'true' && matrix.platform == 'ios'
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-store-screenshots-iphone
-          path: app-store-screenshots
-          if-no-files-found: ignore
-
       # Watch Library with Settings > Show Covers on and off, at the default and the largest accessibility text size
       # (WatchApp/UITests/WatchCoversScreenshotTests.swift). UI tier: on main on the smallest and the largest watch
       # simulator the runner has, on a PR labelled `ui` only on the simulator the unit tests ran on. Exported as
@@ -426,14 +406,97 @@ jobs:
             iOSApp/Resources/*.xcstrings
             WatchApp/Resources/*.xcstrings
 
-  # UI tier: the iPhone and watch App Store screenshots of the two jobs above as one artifact,
+  # UI tier: the iPhone App Store screenshots (docs/appstore/SCREENSHOTS.md), AppStoreScreenshotTests once per
+  # iPhone display size App Store Connect needs, each on a simulator of an accepted size with the status bar
+  # overridden. A job of its own, in parallel with `ios`: the two simulators boot while the app compiles. Not in the
+  # fast tier: a PR without the `ui` label skips it.
+  app-store-iphone:
+    name: app-store-iphone
+    needs: scope
+    if: >-
+      contains(needs.scope.outputs.platforms, 'ios') &&
+      (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ui'))
+    runs-on: ${{ inputs.runner || vars.MACOS_RUNNER || 'macos-15' }}
+    timeout-minutes: 45
+    env:
+      SCHEME: Folito
+      XCB_FLAGS: >-
+        -project Folito.xcodeproj
+        -derivedDataPath DerivedData
+        -clonedSourcePackagesDirPath SourcePackages
+        -skipPackagePluginValidation -skipMacroValidation
+        CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO DEBUG_INFORMATION_FORMAT=dwarf
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      # The first boot of a simulator that was never booted takes minutes; done one after the other in the
+      # background while the app compiles. appstore_screenshots.sh picks the same simulators again.
+      - name: Boot App Store simulators (background)
+        run: |
+          nohup bash -c 'for C in iphone-medium iphone-large; do
+              U=$(python3 scripts/ci/appstore_simulator.py "$C") && xcrun simctl bootstatus "$U" -b > /dev/null && echo "$C booted $U"
+            done' > "$RUNNER_TEMP/boot.log" 2>&1 &
+          echo "ARCH=$(uname -m)" >> "$GITHUB_ENV"
+
+      - name: Install XcodeGen
+        run: |
+          if curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" https://github.com/yonaskolb/XcodeGen/releases/download/2.44.1/xcodegen.zip; then
+            unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xg"
+            echo "$RUNNER_TEMP/xg/xcodegen/bin" >> "$GITHUB_PATH"
+          else
+            brew install xcodegen
+          fi
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Cache SwiftPM checkouts
+        uses: actions/cache@v4
+        with:
+          path: SourcePackages
+          key: spm-src-${{ hashFiles('Packages/ReaderCore/Package.resolved') }}
+          restore-keys: spm-src-
+
+      - name: Build for testing
+        run: |
+          xcodebuild build-for-testing $XCB_FLAGS \
+            -scheme "$SCHEME" \
+            -destination "generic/platform=iOS Simulator" \
+            ARCHS="$ARCH" ONLY_ACTIVE_ARCH=YES > build.log 2>&1 || { grep -E "error:" build.log; tail -80 build.log; exit 1; }
+
+      - name: App Store screenshots (iPhone)
+        timeout-minutes: 30
+        run: |
+          cat "$RUNNER_TEMP/boot.log" || true
+          status=0
+          for CLASS in iphone-medium iphone-large; do
+            scripts/ci/appstore_screenshots.sh "$CLASS" FolitoUITests/AppStoreScreenshotTests || status=1
+          done
+          python3 scripts/ci/check_screenshot_sizes.py app-store-screenshots --require iphone-medium,iphone-large || status=1
+          exit $status
+
+      - name: Upload App Store screenshots (iPhone)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-store-screenshots-iphone
+          path: app-store-screenshots
+          if-no-files-found: ignore
+
+  # UI tier: the iPhone and watch App Store screenshots of the jobs above as one artifact,
   # app-store-screenshots/{iphone-medium,iphone-large,watch}/, after checking that every display class the run
   # covers is there in an accepted size. See docs/appstore/SCREENSHOTS.md.
   app-store-screenshots:
     name: app-store-screenshots
-    needs: [scope, test]
+    needs: [scope, test, app-store-iphone]
     if: >-
       always() && needs.scope.result == 'success' && needs.test.result != 'cancelled' &&
+      needs.app-store-iphone.result != 'cancelled' &&
       (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ui'))
     runs-on: ubuntu-latest
     steps:

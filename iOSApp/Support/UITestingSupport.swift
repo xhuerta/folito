@@ -12,6 +12,12 @@ import UIKit
 /// - `-UITestingMockReadest` (with `-UITesting...`): Readest is signed in (in-memory Keychain and throw-away defaults)
 ///   and the Library shows a fixed, mocked Readest library (`MockReadestLibraryService`); no network.
 ///   `-UITestingReadestOffline` also shows the offline state.
+/// - `-UITestingSimulateWatch` (App Store screenshots only): the Library behaves as if a paired, reachable
+///   Apple Watch with Folito installed were there (`PhoneConnectivity`); nothing is sent anywhere. With
+///   `-UITestingSeedCovers` the seeded books are then shown as already on the watch.
+/// - `UITESTING_BOOK_TEXTS` (environment, with `-UITestingSeedCovers`): a folder of full public-domain texts
+///   (`AppStoreBooks` in the UI test bundle) that the seeded books are built from, so the Library shows the
+///   sizes of real books.
 /// - `-UITestingShowOnboarding` (implies `-UITesting`): opens the welcome tour on launch. Every other UI-testing
 ///   launch skips it (`-UITestingSkipOnboarding` says so explicitly); see `OnboardingPolicy`.
 enum UITesting {
@@ -29,6 +35,8 @@ enum UITesting {
     /// `-UITestingSettingsBookDetailsOnly`: Settings shows only its *Book Details* section, so the accessibility
     /// audit sees those rows at the top of the screen at every text size (docs/ACCESSIBILITY.md).
     static let settingsBookDetailsOnlyArgument = "-UITestingSettingsBookDetailsOnly"
+    static let simulateWatchArgument = "-UITestingSimulateWatch"
+    static let bookTextsEnvironment = "UITESTING_BOOK_TEXTS"
 
     #if DEBUG
     static var isActive: Bool {
@@ -56,23 +64,42 @@ enum UITesting {
         return store
     }
 
-    /// Public-domain books with generated covers (no cover art ships in the app).
+    /// True when the iPhone should act as if a paired, reachable watch with the app installed were there.
+    static var simulatesWatch: Bool { ProcessInfo.processInfo.arguments.contains(simulateWatchArgument) }
+
+    /// Public-domain books with generated covers (no cover art ships in the app). With `UITESTING_BOOK_TEXTS`
+    /// each book holds its full text (so its size is a real book's); otherwise one short paragraph.
     @MainActor
     private static func seedCovers(into store: LibraryStore) {
-        try? store.addForUITesting(sampleBook, fileName: "sample.epub")
-        func book(_ hash: String, _ title: String, _ author: String) -> ProcessedBook {
+        let texts = ProcessInfo.processInfo.environment[bookTextsEnvironment].map { URL(fileURLWithPath: $0, isDirectory: true) }
+        let onWatch = simulatesWatch
+        func fullText(_ name: String) -> String? {
+            guard let url = texts?.appendingPathComponent(name + ".deflate"),
+                  let data = try? (Data(contentsOf: url) as NSData).decompressed(using: .zlib) as Data else { return nil }
+            return String(data: data, encoding: .utf8)
+        }
+        func book(_ hash: String, _ title: String, _ author: String, text name: String) -> ProcessedBook {
+            let metadata = BookMetadata(title: title, authors: [author])
+            if let text = fullText(name) {
+                return bookFromText(text, metadata: metadata, hash: hash)
+            }
             let text = "Chapter one." // i18n-ignore: UI-test fixture (Debug only)
-            return ProcessedBook(metadata: BookMetadata(title: title, authors: [author]), documentHash: hash, metaHash: hash + "m",
+            return ProcessedBook(metadata: metadata, documentHash: hash, metaHash: hash + "m",
                                  chapters: [Chapter(spineIndex: 1, title: nil, blocks: [
                                      Block(text: text, xpointer: "/body/DocFragment[1]/body/p", globalOffset: 0)])],
                                  totalCharacters: text.count)
         }
-        let emma = book("00000000000000000000000000e00a01", "Emma", "Jane Austen") // i18n-ignore: UI-test fixture
+        var alice = sampleBook
+        if let text = fullText("alice") {
+            alice = bookFromText(text, metadata: sampleBook.metadata, hash: sampleBook.documentHash)
+        }
+        try? store.addForUITesting(alice, fileName: "sample.epub", sentToWatch: onWatch)
+        let emma = book("00000000000000000000000000e00a01", "Emma", "Jane Austen", text: "emma") // i18n-ignore: UI-test fixture
         try? store.addForUITesting(emma, fileName: "emma.epub", coverPNG: generatedCover(.systemTeal),
                                    details: EPUBDetails(title: "Emma", creators: [BookCreator(name: "Jane Austen", role: "aut")], // i18n-ignore: UI-test fixture
                                                         publisher: "John Murray", year: 1815, language: "en"), // i18n-ignore: UI-test fixture
                                    sentToWatch: true)
-        let mars = book("00000000000000000000000000e00a02", "The Gods of Mars", "Edgar Rice Burroughs") // i18n-ignore: UI-test fixture
+        let mars = book("00000000000000000000000000e00a02", "The Gods of Mars", "Edgar Rice Burroughs", text: "mars") // i18n-ignore: UI-test fixture
         let blurb = "John Carter returns to Barsoom after ten years on Earth, only to find himself in the Valley Dor, the paradise every Martian hopes to reach at the end of life. It is a trap: the valley is ruled by plant men and great white apes, and the holy therns who guard it prey on the pilgrims who come there.\n\nWith Tars Tarkas at his side, Carter fights his way out and sets out to expose the false religion of Mars." // i18n-ignore: UI-test fixture
         try? store.addForUITesting(mars, fileName: "mars.epub", coverPNG: generatedCover(.systemOrange),
                                    details: EPUBDetails(title: "The Gods of Mars", // i18n-ignore: UI-test fixture
@@ -81,6 +108,37 @@ enum UITesting {
                                                         language: "en", subjects: ["Science fiction"], // i18n-ignore: UI-test fixture
                                                         series: BookSeries(name: "Barsoom", index: 2)), // i18n-ignore: UI-test fixture
                                    sentToWatch: true)
+    }
+
+    /// A book from a plain text: one paragraph per line, `# ` lines are headings, and every `# CHAPTER` heading
+    /// starts a new chapter (a `# VOLUME` heading stays at the top of the chapter that follows it).
+    static func bookFromText(_ text: String, metadata: BookMetadata, hash: String) -> ProcessedBook {
+        var chapters: [Chapter] = []
+        var blocks: [Block] = []
+        var offset = 0
+        func flush() {
+            guard blocks.contains(where: { $0.style == .paragraph }) else { return }
+            let title = blocks.last(where: { $0.style != .paragraph })?.text
+            chapters.append(Chapter(spineIndex: chapters.count + 1, title: title, blocks: blocks))
+            blocks = []
+        }
+        for line in text.split(separator: "\n", omittingEmptySubsequences: true) {
+            var paragraph = String(line)
+            var style = BlockStyle.paragraph
+            if paragraph.hasPrefix("# ") {
+                paragraph.removeFirst(2)
+                style = .heading1
+                if paragraph.hasPrefix("CHAPTER") || paragraph.hasPrefix("VOLUME") { flush() } // i18n-ignore: fixture markup
+            }
+            let tag = style == .paragraph ? "p" : "h1"
+            blocks.append(Block(text: paragraph, style: style,
+                                xpointer: "/body/DocFragment[\(chapters.count + 1)]/body/\(tag)[\(blocks.count + 1)]",
+                                globalOffset: offset))
+            offset += paragraph.count
+        }
+        flush()
+        return ProcessedBook(metadata: metadata, documentHash: hash, metaHash: hash + "m",
+                             chapters: chapters, totalCharacters: offset)
     }
 
     /// A simple, recognisable cover: a colour field with two "title" bars and a disc.
