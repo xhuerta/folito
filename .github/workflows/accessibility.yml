@@ -47,7 +47,7 @@ jobs:
       BOOK: >-
         testLibraryWithBookAudit testBookDetailAudit testOnlineMatchSheetAudit testSettingsBookDetailsAudit
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
@@ -55,7 +55,7 @@ jobs:
           xcode-version: latest-stable
 
       - name: Cache SwiftPM
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/Library/Caches/org.swift.swift-package-manager
@@ -121,7 +121,7 @@ jobs:
 
       - name: Upload xcresult
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ios-accessibility-xcresult-${{ matrix.shard }}
           path: ios-uitests.xcresult
@@ -135,7 +135,7 @@ jobs:
     runs-on: ${{ vars.MACOS_RUNNER || 'macos-15' }}
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
@@ -143,7 +143,7 @@ jobs:
           xcode-version: latest-stable
 
       - name: Cache SwiftPM
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/Library/Caches/org.swift.swift-package-manager
@@ -201,7 +201,7 @@ jobs:
 
       - name: Upload xcresult
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: watch-accessibility-xcresult
           path: watch-uitests.xcresult
