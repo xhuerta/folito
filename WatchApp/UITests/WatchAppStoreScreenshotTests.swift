@@ -1,8 +1,10 @@
+import UIKit
 import XCTest
 
 /// The Apple Watch screenshots of the App Store listing (docs/appstore/SCREENSHOTS.md): the reader, the word
 /// lookup with a definition, and the Library. Launched with `-UITestingSeedAppStore` (Debug builds only): the
-/// opening of the English sample book, three more public-domain titles and a small sample dictionary.
+/// opening of the English sample book, three more public-domain titles (with title covers, part-read) and a
+/// small sample dictionary.
 /// macos.yml runs this on one watch simulator whose screen is a size App Store Connect accepts and exports
 /// the attachments as the `app-store-screenshots` artifact.
 final class WatchAppStoreScreenshotTests: XCTestCase {
@@ -30,6 +32,47 @@ final class WatchAppStoreScreenshotTests: XCTestCase {
         add(attachment)
     }
 
+    /// Captures once two consecutive screenshots are identical, that is when nothing on screen is moving.
+    /// The reader's navigation title is longer than the space beside the clock, so watchOS scrolls it as a
+    /// marquee: a capture taken at a fixed delay can catch it mid-scroll ("and Prejudi"). The marquee rests
+    /// only at its start, so a still screen shows the title from its first letter. After `timeout` seconds
+    /// the last screenshot is taken as it is.
+    @MainActor
+    private func captureWhenStill(_ name: String, timeout: TimeInterval = 20) {
+        let deadline = Date().addingTimeInterval(timeout)
+        var shot = XCUIScreen.main.screenshot()
+        var previous = Self.pixels(of: shot.image)
+        var still = false
+        while Date() < deadline {
+            usleep(300_000)
+            shot = XCUIScreen.main.screenshot()
+            let current = Self.pixels(of: shot.image)
+            still = current != nil && current == previous
+            previous = current
+            if still { break }
+        }
+        if !still { print("::warning::\(name): the screen did not stop moving within \(Int(timeout)) s") }
+        let attachment = XCTAttachment(screenshot: shot)
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    /// The RGBA bytes of an image, for comparing two screenshots.
+    private static func pixels(of image: UIImage) -> Data? {
+        guard let cg = image.cgImage else { return nil }
+        let w = cg.width, h = cg.height
+        var data = Data(count: w * h * 4)
+        let drawn = data.withUnsafeMutableBytes { buffer -> Bool in
+            guard let ctx = CGContext(data: buffer.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                                      space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+            ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+            return true
+        }
+        return drawn ? data : nil
+    }
+
     @MainActor
     private func labelled(_ label: String, in app: XCUIApplication) -> XCUIElement {
         let button = app.buttons[label].firstMatch
@@ -40,8 +83,7 @@ final class WatchAppStoreScreenshotTests: XCTestCase {
     @MainActor
     func testLibrary() {
         let app = launch()
-        sleep(2)
-        capture("watch-3-library")
+        captureWhenStill("watch-3-library")
         app.terminate()
     }
 
@@ -49,8 +91,7 @@ final class WatchAppStoreScreenshotTests: XCTestCase {
     func testReaderAndWordLookup() {
         let app = launch()
         WatchUI.openReader(app)
-        sleep(2)
-        capture("watch-1-reader")
+        captureWhenStill("watch-1-reader")
 
         // The first paragraph (the chapter heading is block 0): tapping it opens the word picker.
         let paragraph = app.descendants(matching: .any).matching(identifier: "readerBlock").element(boundBy: 1)

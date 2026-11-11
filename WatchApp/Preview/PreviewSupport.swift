@@ -20,9 +20,9 @@ enum PreviewSupport {
         }
         let blocks = [
             block("Chapter One", .heading1, n: 1),
-            block("It was a bright cold day in April, and the clocks were striking thirteen.",
-                  spans: [StyleSpan(location: 9, length: 6, bold: true, italic: false),
-                          StyleSpan(location: 16, length: 4, bold: false, italic: true)], n: 2),
+            block("It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife.",
+                  spans: [StyleSpan(location: 8, length: 5, bold: true, italic: false),
+                          StyleSpan(location: 82, length: 7, bold: false, italic: true)], n: 2),
             block("Second paragraph with more text to scroll through.", n: 3),
         ]
         return ProcessedBook(metadata: BookMetadata(title: "Sample", authors: ["A. Author"]),

@@ -271,7 +271,7 @@ behind a `confirmationDialog`.
   Every block also has the action *Look Up a Word*, even with *Tap Paragraph to Look Up* turned off.
 - The sync status glyph has a label ("Syncing reading progress", "Offline. Progress will sync when you're
   connected.", "Sync failed. Check the server in Settings."); nothing is shown while idle.
-- Word lookup: the word cursor is one *adjustable* element, "Selected word, *bright*, word 4 of 12". Swipe
+- Word lookup: the word cursor is one *adjustable* element, "Selected word, *truth*, word 4 of 23". Swipe
   up/down moves to the next/previous word, so it works without the Digital Crown. Turning the crown
   still moves it (with the crown's own detent haptics); the buttons and VoiceOver play a click.
 - Time remaining (top of *Reading Options*, *Settings › Show Time Remaining*): the visible line is

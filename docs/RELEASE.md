@@ -4,8 +4,8 @@
 
 Placeholders still in the repository (search for the bracketed text):
 
-* [x] `[CONTACT_EMAIL]`: `docs/site/{privacy,support}.html`, `docs/site/es/{privacy,support}.html`, `docs/appstore/REVIEW_NOTES.md`, `docs/appstore/metadata-en.md` (Support URL note). Filled: xlahuerta@protonmail.com.
-* [x] `[DEVELOPER_NAME]`: `docs/site/privacy.html`, `docs/site/es/privacy.html` (responsible party), `docs/appstore/metadata-en.md` (copyright). Filled: Xabier Lahuerta.
+* [x] `[CONTACT_EMAIL]`: `docs/site/{privacy,support}.html`, `docs/site/es/{privacy,support}.html`, `docs/appstore/REVIEW_NOTES.md`, `docs/appstore/LISTING.md` (support URLs). Filled: xlahuerta@protonmail.com.
+* [x] `[DEVELOPER_NAME]`: `docs/site/privacy.html`, `docs/site/es/privacy.html` (responsible party), `docs/appstore/LISTING.md` (copyright). Filled: Xabier Lahuerta.
 * [x] `[DATE]`: "Last updated" in `docs/site/privacy.html` and `docs/site/es/privacy.html` set to 28 October 2026; update it whenever the policy changes.
 * [x] In-app links: `iOSApp/Support/AppLinks.swift` (PR #20) points to the GitHub Pages site (Spanish pages for Spanish speakers).
 * [ ] Apple Developer: register the App Group `group.com.xlahuerta.folito` and the third bundle id `com.xlahuerta.folito.watchkitapp.widgets` (complications), and enable the App Group on the watch app and the widgets ids ([step 2](#2-register-the-bundle-ids-and-the-app-group)).
@@ -100,7 +100,7 @@ Apple requires uploads to be built with the current major Xcode/SDK (since 28 Ap
 ## 8. Submit for App Store review
 
 1. Pages must be live (step 9) so you can fill in the **Privacy Policy URL** and **Support URL**.
-2. App Store Connect → your app → the version page. Paste metadata from `docs/appstore/metadata-en.md` and `metadata-es.md`. Upload screenshots (checklist in `docs/appstore/SCREENSHOTS.md`).
+2. App Store Connect → your app → the version page. Paste the listing from `docs/appstore/LISTING.md` (one section per language). Upload screenshots (checklist in `docs/appstore/SCREENSHOTS.md`).
 3. **App Privacy**, **Accessibility**, **Age Rating**, **Export compliance** and **App Review information** answers: `docs/appstore/APP_PRIVACY.md`, `ACCESSIBILITY_LABELS.md`, `AGE_RATING.md`, `EXPORT_COMPLIANCE.md`, `REVIEW_NOTES.md`. Read `docs/appstore/REVIEW_RISKS.md` first. In *App Review Information* leave **Sign-in required** unticked: the app needs no account; sync is optional and uses a service the user chooses (a KOReader Sync server or their own Readest account).
    URLs: Support `https://folito.app/support.html`, Privacy Policy `https://folito.app/privacy.html`, Marketing (optional) `https://folito.app/` (Spanish localisation: same paths under `es/`).
 4. Select the processed build, set pricing/availability, choose release method, **Add for Review** → **Submit**.
@@ -123,7 +123,7 @@ The support, privacy policy and landing pages are static HTML in `docs/site/` (E
 
 ## What only the owner can decide
 
-* Final **app name** and whether it is available (the name must be unique in the App Store; 30 characters max). "Folito" is a working title; see candidates in `docs/appstore/metadata-*.md`.
+* Final **app name** and whether it is available (the name must be unique in the App Store; 30 characters max). The listing in `docs/appstore/LISTING.md` uses "Folito" followed by a short description in each language.
 * **Bundle id** (permanent once the app is created) and the SKU.
 * **Contact e-mail and developer name** (`[CONTACT_EMAIL]`, `[DEVELOPER_NAME]`). The site URLs are fixed at `https://folito.app/`.
 * **Price and availability** (free vs paid, territories), and the seller/developer name shown (individual name vs organisation).
