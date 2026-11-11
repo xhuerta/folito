@@ -407,17 +407,23 @@ final class AccessibilityAuditTests: XCTestCase {
     /// `openCloudRows`, then back to the top if it had to scroll. At the default size the Readest library is only a
     /// little taller than the screen: once scrolled, the list cannot scroll on, and the compact watch notice stays
     /// within 16 pt of the navigation bar on every page, where its contrast is never audited clear of the bars.
-    /// Short drags, so that the list is not pulled past its top (it is refreshable).
+    /// A tap on the status bar scrolls the list to its top without pulling it past the top (it is refreshable).
+    /// Fallback: slow drags by the distance the notice still needs, held before release so the list does not fling.
     @MainActor
     private static func openCloudRowsAtTop(_ app: XCUIApplication) {
         openCloudRows(app)
         let notice = app.descendants(matching: .any)["libraryWatchNotice"]
         let window = app.windows.firstMatch
-        for _ in 0..<12 where !(notice.exists && clearOfBars(notice.frame, in: app)) {
-            window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))
-                .press(forDuration: 0.1, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.48)))
+        window.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: window.frame.width * 0.2, dy: 20)).tap()
+        for _ in 0..<12 where !(notice.waitForExistence(timeout: 2) && clearOfBars(notice.frame, in: app)) {
+            let distance = notice.exists ? min(max(clearArea(in: app).top - notice.frame.minY + 24, 40), 300) : 150
+            let start = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35))
+            start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: distance)),
+                        withVelocity: .slow, thenHoldForDuration: 0.3)
         }
-        XCTAssertTrue(notice.exists && clearOfBars(notice.frame, in: app), "Watch notice not back clear of the bars")
+        XCTAssertTrue(notice.exists && clearOfBars(notice.frame, in: app),
+                      "Watch notice not back clear of the bars: \(notice.exists ? "\(notice.frame)" : "missing"), "
+                      + "clear area \(clearArea(in: app))")
     }
 
     /// Largest-size pass of the libraries whose book is the last row: the first page is the top of the list (the

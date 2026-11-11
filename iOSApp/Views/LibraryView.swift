@@ -502,8 +502,15 @@ private struct BookRow: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondaryText)
             WrappingHStack(spacing: 12, lineSpacing: 4) {
-                TintedLabel(verbatim: state.text, systemImage: state.systemImage,
-                            tint: state == .onWatch ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondaryText))
+                // Not a `Label`: in a list, a label's icon column changes at accessibility sizes, and the Text
+                // clipped audit, which re-renders the screen at other sizes, flagged the state (docs/ACCESSIBILITY.md).
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Image(systemName: state.systemImage)
+                        .foregroundStyle(state == .onWatch ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondaryText))
+                        .accessibilityHidden(true)
+                    Text(verbatim: state.text)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 if let timeLeft {
                     Text(DisplayFormat.timeLeft(timeLeft))
                         .accessibilityLabel(Text(DisplayFormat.timeLeft(timeLeft, style: .full)))
@@ -544,8 +551,9 @@ private struct WrappingHStack: Layout {
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         let arrangement = arrange(width: bounds.width, subviews: subviews)
         for (subview, frame) in zip(subviews, arrangement.frames) {
+            // Only the width is fixed: a wrapped text takes the height it needs at any size, never a measured one.
             subview.place(at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY),
-                          proposal: ProposedViewSize(frame.size))
+                          proposal: ProposedViewSize(width: frame.width, height: nil))
         }
     }
 
