@@ -19,10 +19,10 @@ CI takes them: nobody needs a Mac or a device. The UI tier of `macos.yml` (every
 | `watch/watch-1-reader.png` | The reader: the opening of *Pride and Prejudice*, the English sample book |
 | `watch/watch-2-word-lookup.png` | Word lookup: the definition of the selected word |
 | `watch/watch-2a-word-picker.png` | Word lookup: choosing the word in its paragraph |
-| `watch/watch-3-library.png` | The Library |
+| `watch/watch-3-library.png` | The Library, with covers and reading progress |
 | `iphone-*/iphone-1-library.png` | The Library with covers and each book's Apple Watch state |
 | `iphone-*/iphone-2-book-details.png` | A book's details |
-| `iphone-*/iphone-3-reading.png` | The Reading tab with its live preview |
+| `iphone-*/iphone-3-reading.png` | The Reading tab with its live preview (the opening line of *Pride and Prejudice*, in every language: `TypographyPreview` in `Shared/TypographyRendering.swift`) |
 
 How it works:
 
@@ -31,6 +31,8 @@ How it works:
 * **The watch clock is not overridden.** `simctl status_bar` does not support watchOS simulators: with Xcode 26.3 (watchOS 26 runtime) it fails with "Status bar overrides not supported on this platform" (POSIX error 45). The watch captures therefore show the time at which CI ran them (the runner's clock, UTC). The script still tries, and prints a `::notice::` when the override is refused, so a later Xcode that supports it is used without a change. Nothing is drawn over the capture to fake a time; if a fixed time matters for the listing, retake the watch set on a Mac at the wanted time.
 * `scripts/ci/check_screenshot_sizes.py` then fails the job if a capture is not an accepted size for its class, if a class mixes sizes (so the watch size is the same in every set), if a required class is missing, or if an image has an alpha channel. The job `app-store-screenshots` repeats the check on the merged artifact. The script's own test and the simulator choice run on Linux (`linux.yml`, job `ci-scripts`).
 * The content is seeded by launch arguments that exist in Debug builds only (`-UITestingSeedCovers` on the iPhone, `-UITestingSeedAppStore` on the watch): public-domain titles, generated covers, and on the watch the opening of the English sample book. No book file, cover art or dictionary is added to the shipped apps.
+* Watch Library: every book has a cover drawn in code with its title and author (`UITesting.titleCover`, 72 × 108 px like the thumbnails the iPhone sends), and three of them a stored reading position (43 %, 78 %, 12 %), so the rows show the progress of a library in use. *Pride and Prejudice*, the book of the reader screenshot, is at its opening (0 %).
+* Watch reader: the book title is longer than the space beside the clock, so watchOS scrolls it as a marquee (a real user sees it scroll; it is not cut for good). A capture at a fixed delay could catch it mid-scroll, so the suite captures the reader and the Library only once two consecutive screenshots are identical: the marquee rests only at its start, so the title then reads from its first letter.
 * iPhone Library: the seeded books hold the full public-domain texts of *The Gods of Mars*, *Emma* and *Alice's Adventures in Wonderland* (Project Gutenberg #64, #158, #11, without the Gutenberg header and licence; built by `scripts/make_appstore_books.py`). They live in the UI test bundle only (`iOSApp/UITests/AppStoreBooks`), and the test passes their folder to the app in `UITESTING_BOOK_TEXTS`, so the sizes in the Library are those of real books.
 * iPhone Library: a simulator has no paired Apple Watch, so the Library would open with a "No Apple Watch" card and every book "Waiting for Apple Watch". `-UITestingSimulateWatch` (Debug builds only, `PhoneConnectivity.activate()`) makes the Library show what a user with a paired, reachable watch sees: "Apple Watch connected" and the books on the watch. The real WatchConnectivity session is not activated, so nothing is sent; Release builds have no such code.
 * The definitions in the word-lookup capture come from a four-word sample dictionary written for the screenshots, so its source line reads "Sample dictionary". The real dictionaries are Wiktionary data that each user downloads (see [DICTIONARIES.md](../DICTIONARIES.md)); they are not bundled or downloaded in CI.

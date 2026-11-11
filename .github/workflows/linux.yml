@@ -46,6 +46,13 @@ jobs:
           python3 scripts/ci/appstore_simulator.py --self-test
           python3 scripts/ci/check_screenshot_sizes.py --self-test
 
+      # The App Store listing text (docs/appstore/LISTING.md): every field of every language within App Store
+      # Connect's limits, third-party names only in the description, no pricing.
+      - name: Check the App Store listing
+        run: |
+          python3 scripts/ci/check_listing.py --self-test
+          python3 scripts/ci/check_listing.py
+
   samples:
     runs-on: ubuntu-latest
     steps:

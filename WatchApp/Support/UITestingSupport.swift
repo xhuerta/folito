@@ -1,3 +1,4 @@
+import CoreText
 import Foundation
 import ReaderCore
 import UIKit
@@ -21,7 +22,8 @@ enum UITesting {
     static let coversOffArgument = "-UITestingCoversOff"
     /// `-UITestingSeedAppStore` (implies `-UITesting`): the library, the reader and the word lookup as the App
     /// Store screenshots show them (docs/appstore/SCREENSHOTS.md): the opening of the iPhone app's English
-    /// sample book, three more public-domain titles with generated covers, and a small sample dictionary.
+    /// sample book and three more public-domain titles, each with a title-and-author cover drawn in code and
+    /// three of them part-read, and a small sample dictionary.
     static let seedAppStoreArgument = "-UITestingSeedAppStore"
 
     #if DEBUG
@@ -55,42 +57,137 @@ enum UITesting {
             UserDefaults.standard.removeObject(forKey: ReaderSettings.showCoversKey)
         }
         if ProcessInfo.processInfo.arguments.contains(seedAppStoreArgument) {
-            seedCovers(into: storage, scratch: root, first: appStoreBook, firstIsNewest: true)
+            seedAppStore(into: storage, scratch: root)
         } else if ProcessInfo.processInfo.arguments.contains(seedCoversArgument) {
             seedCovers(into: storage, scratch: root)
         }
         return storage
     }
 
-    /// Public-domain books; covers are generated (no cover art ships in the app). `first` has no cover; it is
-    /// the oldest book of the library unless `firstIsNewest`.
-    private static func seedCovers(into storage: BookStorage, scratch: URL, first: ProcessedBook = sampleBook,
-                                   firstIsNewest: Bool = false) {
-        let books: [(String, String, String, UInt32?)] = [
-            ("00000000000000000000000000e00a02", "The Gods of Mars", "Edgar Rice Burroughs", 0xE8833A), // i18n-ignore: UI-test fixture
-            ("00000000000000000000000000e00a01", "Emma", "Jane Austen", 0x30B0C7), // i18n-ignore: UI-test fixture
-            ("00000000000000000000000000e00a03", "Twenty Thousand Leagues Under the Seas", "Jules Verne", 0x5856D6), // i18n-ignore: UI-test fixture
-        ]
+    /// The three public-domain titles of the covers and App Store libraries, with their cover colours.
+    private static let coverBooks: [(hash: String, title: String, author: String, color: UInt32)] = [
+        ("00000000000000000000000000e00a02", "The Gods of Mars", "Edgar Rice Burroughs", 0xE8833A), // i18n-ignore: UI-test fixture
+        ("00000000000000000000000000e00a01", "Emma", "Jane Austen", 0x30B0C7), // i18n-ignore: UI-test fixture
+        ("00000000000000000000000000e00a03", "Twenty Thousand Leagues Under the Seas", "Jules Verne", 0x5856D6), // i18n-ignore: UI-test fixture
+    ]
+
+    /// A one-paragraph book with the given title and author.
+    private static func placeholderBook(hash: String, title: String, author: String) -> ProcessedBook {
+        let text = "Chapter one." // i18n-ignore: UI-test fixture (Debug only)
+        return ProcessedBook(metadata: BookMetadata(title: title, authors: [author]), documentHash: hash,
+                             metaHash: hash + "m",
+                             chapters: [Chapter(spineIndex: 1, title: nil, blocks: [
+                                 Block(text: text, xpointer: "/body/DocFragment[1]/body/p", globalOffset: 0)])],
+                             totalCharacters: text.count)
+    }
+
+    /// Public-domain books; covers are generated (no cover art ships in the app). The sample book has no cover
+    /// and is the oldest book of the library.
+    private static func seedCovers(into storage: BookStorage, scratch: URL) {
         var entries: [LibraryEntry] = []
-        if var lead = seedEntry(first, into: storage, scratch: scratch) {
-            lead.addedAt = Date(timeIntervalSince1970: firstIsNewest ? 1_000 : 0)
+        if var lead = seedEntry(sampleBook, into: storage, scratch: scratch) {
+            lead.addedAt = Date(timeIntervalSince1970: 0)
             entries.append(lead)
         }
-        for (i, (hash, title, author, color)) in books.enumerated() {
-            let text = "Chapter one." // i18n-ignore: UI-test fixture (Debug only)
-            let book = ProcessedBook(metadata: BookMetadata(title: title, authors: [author]), documentHash: hash,
-                                     metaHash: hash + "m",
-                                     chapters: [Chapter(spineIndex: 1, title: nil, blocks: [
-                                         Block(text: text, xpointer: "/body/DocFragment[1]/body/p", globalOffset: 0)])],
-                                     totalCharacters: text.count)
-            guard var entry = seedEntry(book, into: storage, scratch: scratch) else { continue }
+        for (i, b) in coverBooks.enumerated() {
+            guard var entry = seedEntry(placeholderBook(hash: b.hash, title: b.title, author: b.author),
+                                        into: storage, scratch: scratch) else { continue }
             entry.addedAt = Date(timeIntervalSince1970: TimeInterval(100 - i))
-            if let color, let jpeg = generatedCover(color) {
-                entry.hasCover = storage.saveCover(jpeg, documentHash: hash)
+            if let jpeg = generatedCover(b.color) {
+                entry.hasCover = storage.saveCover(jpeg, documentHash: b.hash)
             }
             entries.append(entry)
         }
         storage.saveIndex(entries)
+    }
+
+    /// The App Store Library: *Pride and Prejudice* (the reader screenshot's book, newest, at its opening) and
+    /// the three other titles, every one with a cover showing its title and author (drawn here: no cover art
+    /// ships in the app) and the others part-read, as a library in use looks.
+    private static func seedAppStore(into storage: BookStorage, scratch: URL) {
+        let positions = PositionStore(defaults: defaults)
+        let read: [Double] = [0.43, 0.78, 0.12]
+        var books: [(book: ProcessedBook, color: UInt32, read: Double)] = [(appStoreBook, 0x7A2E3A, 0)]
+        for (i, b) in coverBooks.enumerated() {
+            books.append((placeholderBook(hash: b.hash, title: b.title, author: b.author), b.color, read[i]))
+        }
+        var entries: [LibraryEntry] = []
+        for (i, b) in books.enumerated() {
+            guard var entry = seedEntry(b.book, into: storage, scratch: scratch) else { continue }
+            entry.addedAt = Date(timeIntervalSince1970: TimeInterval(1_000 - i))
+            if let jpeg = titleCover(title: b.book.metadata.title, author: b.book.metadata.authors.first ?? "",
+                                     rgb: b.color) {
+                entry.hasCover = storage.saveCover(jpeg, documentHash: b.book.documentHash)
+            }
+            if b.read > 0 {
+                positions.save(StoredPosition(position: BookPosition(chapterIndex: 0, blockIndex: 0), percentage: b.read),
+                               for: b.book.documentHash)
+            }
+            entries.append(entry)
+        }
+        storage.saveIndex(entries)
+    }
+
+    /// A 72 × 108 px JPEG (the size the iPhone sends) laid out like a printed cover: a colour field, a thin
+    /// frame, the title in a bold serif at the top and the author at the bottom.
+    static func titleCover(title: String, author: String, rgb: UInt32) -> Data? {
+        let w = 72, h = 108
+        guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: CGColorSpaceCreateDeviceRGB(),
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        let r = CGFloat((rgb >> 16) & 0xFF) / 255, g = CGFloat((rgb >> 8) & 0xFF) / 255, b = CGFloat(rgb & 0xFF) / 255
+        ctx.setFillColor(red: r, green: g, blue: b, alpha: 1)
+        ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
+        let isLight = 0.299 * r + 0.587 * g + 0.114 * b > 0.6
+        let ink = isLight ? CGColor(gray: 0.1, alpha: 1) : CGColor(gray: 1, alpha: 1)
+        ctx.setStrokeColor(ink.copy(alpha: 0.55) ?? ink)
+        ctx.setLineWidth(1)
+        ctx.stroke(CGRect(x: 3.5, y: 3.5, width: CGFloat(w) - 7, height: CGFloat(h) - 7))
+        ctx.textMatrix = .identity
+        // CoreText's origin is the bottom left, as the context's: the title box is the upper part.
+        drawCentered(title, maxSize: 12, minSize: 7, weight: .bold, color: ink, in: CGRect(x: 7, y: 34, width: 58, height: 66), ctx)
+        drawCentered(author, maxSize: 7, minSize: 5, weight: .regular, color: ink, in: CGRect(x: 7, y: 8, width: 58, height: 20), ctx)
+        guard let image = ctx.makeImage() else { return nil }
+        return UIImage(cgImage: image).jpegData(compressionQuality: 0.8)
+    }
+
+    /// Draws `text` centred in `rect`, top-aligned, at the largest size from `maxSize` down at which it fits
+    /// without breaking a word.
+    private static func drawCentered(_ text: String, maxSize: CGFloat, minSize: CGFloat, weight: UIFont.Weight,
+                                     color: CGColor, in rect: CGRect, _ ctx: CGContext) {
+        var alignment = CTTextAlignment.center
+        let paragraph: CTParagraphStyle = withUnsafePointer(to: &alignment) { pointer in
+            var settings = [CTParagraphStyleSetting(spec: .alignment, valueSize: MemoryLayout<CTTextAlignment>.size,
+                                                    value: pointer)]
+            return CTParagraphStyleCreate(&settings, settings.count)
+        }
+        let fontKey = NSAttributedString.Key(kCTFontAttributeName as String)
+        func font(_ size: CGFloat) -> UIFont {
+            let system = UIFont.systemFont(ofSize: size, weight: weight)
+            return system.fontDescriptor.withDesign(.serif).map { UIFont(descriptor: $0, size: size) } ?? system
+        }
+        func setter(_ size: CGFloat) -> CTFramesetter {
+            CTFramesetterCreateWithAttributedString(NSAttributedString(string: text, attributes: [
+                fontKey: font(size),
+                NSAttributedString.Key(kCTForegroundColorAttributeName as String): color,
+                NSAttributedString.Key(kCTParagraphStyleAttributeName as String): paragraph,
+            ]))
+        }
+        func fits(_ size: CGFloat) -> Bool {
+            let needed = CTFramesetterSuggestFrameSizeWithConstraints(setter(size), CFRange(location: 0, length: 0), nil,
+                                                                      CGSize(width: rect.width, height: .greatestFiniteMagnitude), nil)
+            guard needed.height <= rect.height else { return false }
+            let wordFont = font(size)
+            return text.split(separator: " ").allSatisfy { word in
+                let line = CTLineCreateWithAttributedString(NSAttributedString(string: String(word),
+                                                                               attributes: [fontKey: wordFont]))
+                return CGFloat(CTLineGetTypographicBounds(line, nil, nil, nil)) <= rect.width
+            }
+        }
+        var size = maxSize
+        while size > minSize && !fits(size) { size -= 0.5 }
+        let frame = CTFramesetterCreateFrame(setter(size), CFRange(location: 0, length: 0), CGPath(rect: rect, transform: nil), nil)
+        CTFrameDraw(frame, ctx)
     }
 
     /// A 72 × 108 px JPEG (the size the iPhone sends): a colour field, two "title" bars and a disc.

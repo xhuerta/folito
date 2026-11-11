@@ -131,7 +131,7 @@ final class RenderStyleTests: XCTestCase {
 
 @MainActor
 final class WordLookupModelTests: XCTestCase {
-    private let text = "It was a bright cold day, and the clocks were striking thirteen."
+    private let text = "It is a truth universally acknowledged, that a single man must be in want of a wife."
 
     func testCursorClampsAndStepsOverWords() {
         let model = WordLookupModel(text: text, language: "en", provider: MockDictionaryProvider.sample)
@@ -139,12 +139,12 @@ final class WordLookupModelTests: XCTestCase {
         model.step(-1)
         XCTAssertEqual(model.index, 0)
         model.cursor = 3.4
-        XCTAssertEqual(model.currentWord, "bright")
+        XCTAssertEqual(model.currentWord, "truth")
         model.cursor = 500
-        XCTAssertEqual(model.currentWord, "thirteen")
+        XCTAssertEqual(model.currentWord, "wife")
         model.step(1)
-        XCTAssertEqual(model.currentWord, "thirteen")
-        XCTAssertEqual(model.context?.word, "thirteen")
+        XCTAssertEqual(model.currentWord, "wife")
+        XCTAssertEqual(model.context?.word, "wife")
     }
 
     func testNoWords() {

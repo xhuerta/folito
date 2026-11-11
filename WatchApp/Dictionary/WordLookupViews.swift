@@ -191,7 +191,7 @@ struct EntryList: View {
 }
 
 #Preview("Picker") {
-    WordLookupSheet(text: "It was a bright cold day in April, and the clocks were striking thirteen.",
+    WordLookupSheet(text: "It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife.",
                     language: "en", provider: MockDictionaryProvider.sample)
 }
 

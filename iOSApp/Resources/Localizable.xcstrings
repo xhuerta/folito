@@ -1958,49 +1958,49 @@
         }
       }
     },
-    "It was a bright cold day in April, and the clocks were striking thirteen." : {
-      "comment" : "Typography preview: sample paragraph (opening line of Orwell's 1984; use the published translation if there is one). Must contain the words translated for 'bright' and 'cold' exactly as written there.",
+    "It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife." : {
+      "comment" : "Typography preview: sample paragraph (the opening line of Jane Austen's Pride and Prejudice, 1813, public domain; use a public-domain translation or translate it yourself, never a modern published translation). Must contain the words translated for 'truth' and 'fortune' exactly as written there.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Es war ein strahlend kalter Apriltag, und die Uhren schlugen dreizehn."
+            "value" : "Es ist eine allgemein anerkannte Wahrheit, dass ein alleinstehender Mann, der ein ansehnliches Vermögen besitzt, eine Frau braucht."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Era un día luminoso y frío de abril y los relojes daban las trece."
+            "value" : "Es una verdad universalmente reconocida que un hombre soltero, poseedor de una gran fortuna, necesita una esposa."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "C’était une journée d’avril froide et claire, et les horloges sonnaient treize heures."
+            "value" : "C’est une vérité universellement reconnue qu’un célibataire pourvu d’une belle fortune doit être en quête d’une épouse."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Era una luminosa e fredda giornata d’aprile, e gli orologi battevano tredici colpi."
+            "value" : "È una verità universalmente riconosciuta che uno scapolo in possesso di un buon patrimonio debba essere in cerca di una moglie."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "四月の晴れた寒い日で、時計が十三時を打っていた。"
+            "value" : "独身の男性で、相当の財産を持っている者なら、妻を必要としているにちがいない。これは世間一般に認められた真理である。"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Era um dia luminoso e frio de abril, e os relógios davam treze horas."
+            "value" : "É uma verdade universalmente reconhecida que um homem solteiro, possuidor de uma boa fortuna, deve estar à procura de uma esposa."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "四月间，天气寒冷晴朗，钟敲了十三下。"
+            "value" : "有一条举世公认的真理：一个拥有大笔财产的单身男子，必定需要一位妻子。"
           }
         }
       }
@@ -6283,96 +6283,96 @@
         }
       }
     },
-    "bright" : {
+    "truth" : {
       "comment" : "Typography preview: the word of the sample paragraph shown in bold. Must appear exactly like this in the translated sample paragraph.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "strahlend"
+            "value" : "Wahrheit"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "luminoso"
+            "value" : "verdad"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "claire"
+            "value" : "vérité"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "luminosa"
+            "value" : "verità"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "晴れた"
+            "value" : "真理"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "luminoso"
+            "value" : "verdade"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "晴朗"
+            "value" : "真理"
           }
         }
       }
     },
-    "cold" : {
+    "fortune" : {
       "comment" : "Typography preview: the word of the sample paragraph shown in italics. Must appear exactly like this in the translated sample paragraph.",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "kalter"
+            "value" : "Vermögen"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "frío"
+            "value" : "fortuna"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "froide"
+            "value" : "fortune"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "fredda"
+            "value" : "patrimonio"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "寒い"
+            "value" : "財産"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "frio"
+            "value" : "fortuna"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "寒冷"
+            "value" : "财产"
           }
         }
       }

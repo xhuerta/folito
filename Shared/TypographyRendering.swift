@@ -198,11 +198,11 @@ struct TypographyPreview: View {
     private static let sample: [Block] = {
         let heading = String(localized: "Chapter One",
                              comment: "Typography preview: sample chapter heading")
-        let sentence = String(localized: "It was a bright cold day in April, and the clocks were striking thirteen.",
-                              comment: "Typography preview: sample paragraph (opening line of Orwell's 1984; use the published translation if there is one). Must contain the words translated for 'bright' and 'cold' exactly as written there.")
-        let boldWord = String(localized: "bright",
+        let sentence = String(localized: "It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife.",
+                              comment: "Typography preview: sample paragraph (the opening line of Jane Austen's Pride and Prejudice, 1813, public domain; use a public-domain translation or translate it yourself, never a modern published translation). Must contain the words translated for 'truth' and 'fortune' exactly as written there.")
+        let boldWord = String(localized: "truth",
                               comment: "Typography preview: the word of the sample paragraph shown in bold. Must appear exactly like this in the translated sample paragraph.")
-        let italicWord = String(localized: "cold",
+        let italicWord = String(localized: "fortune",
                                 comment: "Typography preview: the word of the sample paragraph shown in italics. Must appear exactly like this in the translated sample paragraph.")
         let quote = String(localized: "\u{201C}Words on the wrist,\u{201D} he said.",
                            comment: "Typography preview: sample quotation; use the quotation marks of your language")
