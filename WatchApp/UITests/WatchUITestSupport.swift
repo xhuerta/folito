@@ -46,11 +46,48 @@ enum WatchUI {
                       "Settings did not open (no text size stepper)", file: file, line: line)
     }
 
-    /// Library (seeded) -> reader of the sample book.
-    static func openReader(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
-        libraryRow(in: app).tap()
-        XCTAssertTrue(element("readerBlock", in: app).waitForExistence(timeout: 15),
-                      "Reader did not show the book text", file: file, line: line)
+    /// Library (seeded) -> reader of the first book.
+    ///
+    /// The row exists as soon as the Library is in the accessibility tree, which on a freshly launched app can be
+    /// before the list takes taps (launch transition, covers and progress loading into the rows): such a tap is
+    /// dropped and the Library stays on screen. So the row is tapped again (up to three times) while it is still
+    /// showing and hittable, and once the reader is on screen ("Opening…" while the book loads) the wait goes on
+    /// without tapping, up to `timeout` seconds in all. On a timeout the failure says which screen was showing
+    /// and attaches a screenshot.
+    static func openReader(_ app: XCUIApplication, timeout: TimeInterval = 60,
+                           file: StaticString = #filePath, line: UInt = #line) {
+        let row = libraryRow(in: app)
+        let text = element("readerBlock", in: app)
+        let deadline = Date().addingTimeInterval(timeout)
+        var taps = 0
+        while Date() < deadline {
+            if text.exists { return }
+            if taps < 3, row.exists, row.isHittable {
+                row.tap()
+                taps += 1
+                if text.waitForExistence(timeout: 8) { return }
+            } else {
+                _ = text.waitForExistence(timeout: 2)
+            }
+        }
+        if text.exists { return }
+        let opening = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label BEGINSWITH %@", "Opening")).element(boundBy: 0)
+        let state = row.exists && row.isHittable ? "the Library is still showing"
+            : opening.exists ? "the reader still shows \u{201C}Opening\u{2026}\u{201D}"
+            : "neither the Library nor the book text is showing"
+        fail("Reader did not show the book text within \(Int(timeout)) s after \(taps) tap(s): \(state)",
+             in: app, file: file, line: line)
+    }
+
+    /// Fails the test with `message`, a screenshot of the screen (attachment "failure screen") and the
+    /// accessibility tree.
+    static func fail(_ message: String, in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = "failure screen"
+        shot.lifetime = .keepAlways
+        XCTContext.runActivity(named: message) { $0.add(shot) }
+        XCTFail("\(message). Tree:\n\(app.debugDescription)", file: file, line: line)
     }
 
     /// Reader -> Reading Options sheet (text size, dictionary, chapters).

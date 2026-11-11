@@ -6,8 +6,8 @@ name: macOS
 #  * UI tier (pushes to main, manual runs, and PRs labelled `ui`): the same jobs go on, after the unit tests, to
 #    the screenshot UI suites (iPhone: welcome tour, Readest library, covers, online metadata; watch: covers),
 #    export the complication screenshots and capture the watch App Store screenshots. The iPhone App Store
-#    screenshots (two simulators, ~10 min each) run in a job of their own, `app-store-iphone`, in parallel with
-#    the `ios` job so that it does not grow; `app-store-screenshots` then checks and merges both sets.
+#    screenshots run in a job of their own, `app-store-iphone`, one runner per display size, in parallel with
+#    the `ios` job so that it does not grow; `app-store-screenshots` then checks and merges the sets.
 #    Adding the `ui` label starts a run; no new push is needed.
 # ReaderCore's own `swift test` runs on Linux (linux.yml); the package has no Apple-only code paths and is
 # compiled here as part of both apps. The slow accessibility UI audits run in accessibility.yml.
@@ -312,7 +312,9 @@ jobs:
       # unit tests ran on; the sizes of the captures are then checked against Apple's list.
       - name: App Store screenshots (watch)
         if: (!cancelled()) && env.UI_TIER == 'true' && matrix.platform == 'watch' && env.UDID != ''
-        timeout-minutes: 15
+        timeout-minutes: 17
+        env:
+          ATTEMPT_MINUTES: 7
         run: |
           status=0
           scripts/ci/appstore_screenshots.sh watch FolitoWatchUITests/WatchAppStoreScreenshotTests || status=1
@@ -325,6 +327,20 @@ jobs:
         with:
           name: app-store-screenshots-watch
           path: app-store-screenshots
+          if-no-files-found: ignore
+
+      # The log, the result bundle (failure screenshots, accessibility tree, screen recording) and, after a hang,
+      # the simulator screen, of a failed App Store screenshot run.
+      - name: Upload App Store screenshot diagnostics (watch)
+        if: failure() && env.UI_TIER == 'true' && matrix.platform == 'watch'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: appstore-diagnostics-watch
+          path: |
+            appstore-watch.log
+            appstore-watch.xcresult
+            appstore-watch-hang-*.png
+          retention-days: 14
           if-no-files-found: ignore
 
       # Complication / Smart Stack images rendered by WatchApp/Tests/ComplicationSnapshotTests.swift (every family:
@@ -408,17 +424,24 @@ jobs:
 
   # UI tier: the iPhone App Store screenshots (docs/appstore/SCREENSHOTS.md), AppStoreScreenshotTests once per
   # iPhone display size App Store Connect needs, each on a simulator of an accepted size with the status bar
-  # overridden. A job of its own, in parallel with `ios`: the two simulators boot while the app compiles. Not in the
-  # fast tier: a PR without the `ui` label skips it.
+  # overridden. A job of its own, in parallel with `ios`, and one runner per size: the simulator boots while the
+  # app compiles. Both sizes on one runner (two simulators booted on 3 vCPUs) took 16 to over 30 minutes and
+  # slowed the build; one size per runner takes the build plus a few minutes. Not in the fast tier: a PR without
+  # the `ui` label skips it.
   app-store-iphone:
-    name: app-store-iphone
+    name: app-store-${{ matrix.class }}
     needs: scope
     if: >-
       contains(needs.scope.outputs.platforms, 'ios') &&
       (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ui'))
     runs-on: ${{ inputs.runner || vars.MACOS_RUNNER || 'macos-15' }}
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        class: [iphone-medium, iphone-large]
     env:
+      CLASS: ${{ matrix.class }}
       SCHEME: Folito
       XCB_FLAGS: >-
         -project Folito.xcodeproj
@@ -434,13 +457,12 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      # The first boot of a simulator that was never booted takes minutes; done one after the other in the
-      # background while the app compiles. appstore_screenshots.sh picks the same simulators again.
-      - name: Boot App Store simulators (background)
+      # The first boot of a simulator that was never booted takes minutes; done in the background while the app
+      # compiles. appstore_screenshots.sh picks the same simulator again.
+      - name: Boot App Store simulator (background)
         run: |
-          nohup bash -c 'for C in iphone-medium iphone-large; do
-              U=$(python3 scripts/ci/appstore_simulator.py "$C") && xcrun simctl bootstatus "$U" -b > /dev/null && echo "$C booted $U"
-            done' > "$RUNNER_TEMP/boot.log" 2>&1 &
+          nohup bash -c 'U=$(python3 scripts/ci/appstore_simulator.py "$CLASS") && xcrun simctl bootstatus "$U" -b > /dev/null && echo "$CLASS booted $U"' \
+            > "$RUNNER_TEMP/boot.log" 2>&1 &
           echo "ARCH=$(uname -m)" >> "$GITHUB_ENV"
 
       - name: Install XcodeGen
@@ -471,21 +493,33 @@ jobs:
 
       - name: App Store screenshots (iPhone)
         timeout-minutes: 30
+        env:
+          ATTEMPT_MINUTES: 13
         run: |
           cat "$RUNNER_TEMP/boot.log" || true
           status=0
-          for CLASS in iphone-medium iphone-large; do
-            scripts/ci/appstore_screenshots.sh "$CLASS" FolitoUITests/AppStoreScreenshotTests || status=1
-          done
-          python3 scripts/ci/check_screenshot_sizes.py app-store-screenshots --require iphone-medium,iphone-large || status=1
+          scripts/ci/appstore_screenshots.sh "$CLASS" FolitoUITests/AppStoreScreenshotTests || status=1
+          python3 scripts/ci/check_screenshot_sizes.py app-store-screenshots --require "$CLASS" || status=1
           exit $status
 
       - name: Upload App Store screenshots (iPhone)
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: app-store-screenshots-iphone
+          name: app-store-screenshots-${{ matrix.class }}
           path: app-store-screenshots
+          if-no-files-found: ignore
+
+      - name: Upload App Store screenshot diagnostics (iPhone)
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: appstore-diagnostics-${{ matrix.class }}
+          path: |
+            appstore-${{ matrix.class }}.log
+            appstore-${{ matrix.class }}.xcresult
+            appstore-${{ matrix.class }}-hang-*.png
+          retention-days: 14
           if-no-files-found: ignore
 
   # UI tier: the iPhone and watch App Store screenshots of the jobs above as one artifact,
