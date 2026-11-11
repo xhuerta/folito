@@ -61,6 +61,17 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
     private var session: WCSession? { WCSession.isSupported() ? WCSession.default : nil }
 
     func activate() {
+        #if DEBUG
+        // App Store screenshots (`-UITestingSimulateWatch`, Debug builds only): show the Library as with a paired,
+        // reachable watch that has the app. The real session is left inactive, so nothing is ever sent.
+        if UITesting.simulatesWatch {
+            activationState = .activated
+            isPaired = true
+            isWatchAppInstalled = true
+            isReachable = true
+            return
+        }
+        #endif
         guard let session else { return }
         session.delegate = self
         session.activate()

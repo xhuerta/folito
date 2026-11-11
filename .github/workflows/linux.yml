@@ -34,6 +34,18 @@ jobs:
       - name: Test the site generator
         run: python3 -B -m unittest discover -s scripts/site -v
 
+  ci-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The App Store screenshot tooling of macos.yml: which simulator each display class is captured on, and
+      # the check of the captured sizes against the sizes App Store Connect accepts. See docs/appstore/SCREENSHOTS.md.
+      - name: Test the App Store screenshot scripts
+        run: |
+          python3 scripts/ci/appstore_simulator.py --self-test
+          python3 scripts/ci/check_screenshot_sizes.py --self-test
+
   samples:
     runs-on: ubuntu-latest
     steps:
