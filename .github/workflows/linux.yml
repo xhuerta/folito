@@ -124,11 +124,15 @@ jobs:
           key: spm-${{ runner.os }}-${{ github.event.repository.name }}-${{ hashFiles('Packages/ReaderCore/Package.swift', 'Packages/ReaderCore/Package.resolved') }}
           restore-keys: spm-${{ runner.os }}-${{ github.event.repository.name }}-
 
+      # Plain bash (/dev/tcp), no apt: the container's package mirrors are sometimes unreachable, and a
+      # failed `apt-get install curl` used to fail this job before any test ran.
       - name: Wait for KOSync server
+        shell: bash
         run: |
-          apt-get update -qq && apt-get install -y -qq curl >/dev/null
           for i in $(seq 1 60); do
-            curl -fs -H 'Accept: application/vnd.koreader.v1+json' http://kosync:17200/healthcheck | grep -q OK && exit 0
+            if (exec 3<>/dev/tcp/kosync/17200 &&
+                printf 'GET /healthcheck HTTP/1.0\r\nHost: kosync\r\nAccept: application/vnd.koreader.v1+json\r\n\r\n' >&3 &&
+                timeout 5 cat <&3) 2>/dev/null | grep -q OK; then exit 0; fi
             sleep 2
           done
           echo "server did not become healthy"; exit 1
