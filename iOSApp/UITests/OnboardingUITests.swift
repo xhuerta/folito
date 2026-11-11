@@ -140,12 +140,27 @@ final class OnboardingUITests: XCTestCase {
         app.launch()
         let button = app.buttons["libraryAddSample"]
         XCTAssertTrue(button.waitForExistence(timeout: 15))
+        // No books: the watch status is the full card. With a book it is a short notice above the list.
+        XCTAssertFalse(app.descendants(matching: .any)["libraryWatchNotice"].exists)
         screenshot(app, "library-empty")
         button.tap()
         let row = app.descendants(matching: .any)["libraryRow"]
         XCTAssertTrue(row.waitForExistence(timeout: 30), "Sample book not added from the Library")
         XCTAssertTrue(row.label.contains("Sample"), "Row: \(row.label)")
+        XCTAssertTrue(app.descendants(matching: .any)["libraryWatchNotice"].exists, "Compact watch notice missing")
         screenshot(app, "library-one-book")
+    }
+
+    /// The one-book Library at the largest text size, at the top: the compact watch notice above the book.
+    @MainActor
+    func testLibraryWithBookAtLargestTextSize() throws {
+        let app = XCUIApplication()
+        app.launchArguments += ["-UITestingSeedSampleBook", "-UIPreferredContentSizeCategoryName",
+                                "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch()
+        XCTAssertTrue(app.descendants(matching: .any)["libraryWatchNotice"].waitForExistence(timeout: 15),
+                      "Compact watch notice missing")
+        screenshot(app, "library-one-book-ax5")
     }
 
     /// "Other Languages…" in the empty Library lists every sample; picking Spanish adds Don Quijote.

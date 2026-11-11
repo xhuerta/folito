@@ -47,7 +47,7 @@ struct LibraryView: View {
         let all = items
         let shown = all.filter { filter.includes($0.availability) }
         return List {
-            WatchStatusSection(status: connectivity.status)
+            WatchStatusSection(status: connectivity.status, compact: !all.isEmpty)
             if all.isEmpty {
                 emptyLibrarySection
             } else if shown.isEmpty {
@@ -583,6 +583,9 @@ private struct WrappingHStack: Layout {
 /// Top of the Library: what the user needs to know about the Apple Watch.
 private struct WatchStatusSection: View {
     let status: WatchStatus
+    /// The library has books: "No Apple Watch" and "Folito Isn’t on Your Apple Watch" are a short notice above
+    /// them. An empty library has room for the full card.
+    var compact = false
 
     var body: some View {
         switch status {
@@ -590,19 +593,15 @@ private struct WatchStatusSection: View {
             EmptyView()
         case .notPaired:
             Section {
-                ContentUnavailableView {
-                    Label("No Apple Watch", systemImage: "applewatch.slash")
-                } description: {
-                    Text("Pair an Apple Watch with this iPhone to read on your wrist. Books you import stay here and are sent once a watch is paired.").foregroundStyle(.secondaryText)
-                }
+                WatchNotice(title: Text("No Apple Watch"), systemImage: "applewatch.slash",
+                            message: Text("Pair an Apple Watch with this iPhone to read on your wrist. Books you import stay here and are sent once a watch is paired."),
+                            compact: compact)
             }
         case .appNotInstalled:
             Section {
-                ContentUnavailableView {
-                    Label("Folito Isn’t on Your Apple Watch", systemImage: "applewatch")
-                } description: {
-                    Text("Open the Watch app on this iPhone, find Folito under Available Apps and tap Install. Your books are sent automatically once it’s installed.").foregroundStyle(.secondaryText)
-                }
+                WatchNotice(title: Text("Folito Isn’t on Your Apple Watch"), systemImage: "applewatch",
+                            message: Text("Open the Watch app on this iPhone, find Folito under Available Apps and tap Install. Your books are sent automatically once it’s installed."),
+                            compact: compact)
             }
         case .ready(let reachable):
             Section {
@@ -614,6 +613,44 @@ private struct WatchStatusSection: View {
             }
             .font(.footnote)
             .foregroundStyle(.secondaryText)
+        }
+    }
+}
+
+/// Why books are not reaching a watch: the system's empty-state card, or (`compact`) a short notice with the same
+/// title and text that leaves the screen to the books. The notice is one layout at every text size: the icon sits
+/// beside the title and the text wraps under both at full width. It is not a `Label`: in a list, a label's icon
+/// column changes at accessibility sizes, and the Dynamic Type and Text clipped audits, which re-render the screen
+/// at other sizes, flagged both texts (docs/ACCESSIBILITY.md).
+private struct WatchNotice: View {
+    let title: Text
+    let systemImage: String
+    let message: Text
+    let compact: Bool
+
+    var body: some View {
+        if compact {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Image(systemName: systemImage)
+                        .foregroundStyle(.secondaryText)
+                        .accessibilityHidden(true)
+                    title
+                }
+                .font(.headline)
+                message
+                    .font(.footnote)
+                    .foregroundStyle(.secondaryText)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("libraryWatchNotice")
+        } else {
+            ContentUnavailableView {
+                Label { title } icon: { Image(systemName: systemImage) }
+            } description: {
+                message.foregroundStyle(.secondaryText)
+            }
         }
     }
 }

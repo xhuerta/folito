@@ -132,6 +132,16 @@ final class AccessibilityAuditTests: XCTestCase {
         start.press(forDuration: 0.1, thenDragTo: end)
     }
 
+    /// Scrolls down until the content stops moving.
+    @MainActor
+    private static func scrollToEnd(_ app: XCUIApplication) {
+        for _ in 0..<8 {
+            let before = layoutSignature(app)
+            scrollDown(app)
+            if layoutSignature(app) == before { break }
+        }
+    }
+
     /// Labels and positions of the texts on screen: unchanged after a scroll means the end was reached.
     @MainActor
     private static func layoutSignature(_ app: XCUIApplication) -> [String] {
@@ -342,7 +352,9 @@ final class AccessibilityAuditTests: XCTestCase {
 
     @MainActor
     func testLibraryWithBookAudit() throws {
-        try auditScreen("Library (one book)", seedSampleBook: true) { app in
+        try auditScreen("Library (one book)", seedSampleBook: true,
+                        afterScrollAtLargestText: Self.scrollToLastRow,
+                        openAtLargestText: Self.openWatchNoticeAtTop) { app in
             let row = app.descendants(matching: .any)["libraryRow"]
             // At the largest text size the watch status above the book can fill the screen: scroll to the row.
             for _ in 0..<6 where !row.waitForExistence(timeout: 2) { Self.scrollDown(app) }
@@ -357,7 +369,7 @@ final class AccessibilityAuditTests: XCTestCase {
     @MainActor
     func testLibraryWithReadestAudit() throws {
         try auditScreen("Library (Readest)", seedSampleBook: true, extraArguments: ["-UITestingMockReadest"],
-                        openAtLargestText: Self.openCloudRowsAtLargestText, open: Self.openCloudRows)
+                        openAtLargestText: Self.openCloudRowsAtLargestText, open: Self.openCloudRowsAtTop)
     }
 
     /// The same library offline: cloud-only rows are dimmed and say they need a connection.
@@ -365,7 +377,7 @@ final class AccessibilityAuditTests: XCTestCase {
     func testLibraryReadestOfflineAudit() throws {
         try auditScreen("Library (Readest, offline)", seedSampleBook: true,
                         extraArguments: ["-UITestingMockReadest", "-UITestingReadestOffline"],
-                        openAtLargestText: Self.openCloudRowsAtLargestText, open: Self.openCloudRows)
+                        openAtLargestText: Self.openCloudRowsAtLargestText, open: Self.openCloudRowsAtTop)
     }
 
     /// The Readest library filtered to *On This iPhone*: the local book that is also in Readest (with its
@@ -373,7 +385,9 @@ final class AccessibilityAuditTests: XCTestCase {
     @MainActor
     func testLibraryReadestLocalRowAudit() throws {
         try auditScreen("Library (Readest, on this iPhone)", seedSampleBook: true,
-                        extraArguments: ["-UITestingMockReadest", "-library.filter", "onThisDevice"]) { app in
+                        extraArguments: ["-UITestingMockReadest", "-library.filter", "onThisDevice"],
+                        afterScrollAtLargestText: Self.scrollToLastRow,
+                        openAtLargestText: Self.openWatchNoticeAtTop) { app in
             let row = app.descendants(matching: .any)["libraryRow"]
             for _ in 0..<6 where !row.waitForExistence(timeout: 2) { Self.scrollDown(app) }
             XCTAssertTrue(row.exists, "Local book not shown")
@@ -384,8 +398,45 @@ final class AccessibilityAuditTests: XCTestCase {
     @MainActor
     private static func openCloudRows(_ app: XCUIApplication) {
         let row = app.descendants(matching: .any)["libraryCloudRow"]
+        // The Readest rows load after the Library appears: give them time before scrolling to them.
+        _ = row.waitForExistence(timeout: 10)
         for _ in 0..<6 where !row.waitForExistence(timeout: 2) { scrollDown(app) }
         XCTAssertTrue(row.exists, "Readest-only books not shown")
+    }
+
+    /// `openCloudRows`, then back to the top if it had to scroll. At the default size the Readest library is only a
+    /// little taller than the screen: once scrolled, the list cannot scroll on, and the compact watch notice stays
+    /// within 16 pt of the navigation bar on every page, where its contrast is never audited clear of the bars.
+    /// Short drags, so that the list is not pulled past its top (it is refreshable).
+    @MainActor
+    private static func openCloudRowsAtTop(_ app: XCUIApplication) {
+        openCloudRows(app)
+        let notice = app.descendants(matching: .any)["libraryWatchNotice"]
+        let window = app.windows.firstMatch
+        for _ in 0..<12 where !(notice.exists && clearOfBars(notice.frame, in: app)) {
+            window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))
+                .press(forDuration: 0.1, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.48)))
+        }
+        XCTAssertTrue(notice.exists && clearOfBars(notice.frame, in: app), "Watch notice not back clear of the bars")
+    }
+
+    /// Largest-size pass of the libraries whose book is the last row: the first page is the top of the list (the
+    /// compact watch notice), not scrolled to the row first.
+    @MainActor
+    private static func openWatchNoticeAtTop(_ app: XCUIApplication) {
+        XCTAssertTrue(app.descendants(matching: .any)["libraryWatchNotice"].waitForExistence(timeout: 10),
+                      "Compact watch notice not shown")
+    }
+
+    /// After the first page of the largest-size pass, go straight to the end of the list. At AX5 the compact watch
+    /// notice is shorter than the old card, so on a page in between the book row was fully on screen in the middle
+    /// of the list, the case described above `openCloudRowsAtLargestText`: the audits re-render the screen at
+    /// smaller sizes at that offset, the row moves off the screen and its texts are flagged. At the end it is the
+    /// last row of a list that cannot stay scrolled, where it passes.
+    @MainActor
+    private static func scrollToLastRow(_ app: XCUIApplication) {
+        scrollToEnd(app)
+        XCTAssertTrue(app.descendants(matching: .any)["libraryRow"].exists, "Book row not shown at the end of the list")
     }
 
     /// At the largest size the "No Apple Watch" card fills the first screen, so the local row is fully on screen
