@@ -231,6 +231,12 @@ final class ReaderViewModel: ObservableObject {
 
     var localPercentage: Double { flat.percentage(at: currentIndex) }
 
+    /// "43% read" for the reader menu: the position saved for the Library, so the menu and the book's
+    /// Library row show the same number.
+    func progressText(locale: Locale = .current) -> String {
+        ReadingProgressFormat.read(localPercentage, locale: locale)
+    }
+
     func syncOnOpen() async {
         let decision = await sync.decisionOnOpen(book: bookIdentity, localPercentage: localPercentage)
         if case .offerRemote(let remote) = decision {

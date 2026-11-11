@@ -14,10 +14,15 @@ struct ReaderMenuView: View {
         NavigationStack {
             List {
                 // Top of the menu, not over the page: the reading view keeps every point for the text.
-                if showTimeRemaining, let remaining = model.timeRemaining {
-                    Section {
-                        TimeRemainingLine(value: remaining)
+                // The percentage always shows; the time left joins it when it is on and known.
+                Section {
+                    VStack(alignment: .leading, spacing: 2) {
+                        ReadingProgressLine(text: model.progressText())
+                        if showTimeRemaining, let remaining = model.timeRemaining {
+                            TimeRemainingLine(value: remaining)
+                        }
                     }
+                    .listRowBackground(Color.clear)
                 }
                 Section("Text") {
                     TextSizeStepper()
@@ -58,6 +63,20 @@ struct ReaderMenuView: View {
             .navigationTitle("Contents")
             .navigationDestination(for: SettingsRoute.self) { $0.destination }
         }
+    }
+}
+
+/// "43% read": how far into the book the reader is, worded as in the book's Library row. VoiceOver reads it
+/// as it is ("43 percent read"), as its own element above the time left.
+struct ReadingProgressLine: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(.tint)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityIdentifier("readingProgress")
     }
 }
 

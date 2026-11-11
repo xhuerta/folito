@@ -290,4 +290,27 @@ final class TimeRemainingFormatTests: XCTestCase {
         positions.remove("h")
         XCTAssertNil(positions.readingTimes.latest())
     }
+
+    /// The reader menu's progress line: the same wording and number as the book's Library row.
+    @MainActor
+    func testReaderMenuShowsPercentRead() throws {
+        let name = "ReaderMenuProgressTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let positions = PositionStore(defaults: defaults)
+        let book = ProcessedBook(metadata: BookMetadata(title: "T", authors: []), documentHash: "p", metaHash: "",
+                                 chapters: [Chapter(spineIndex: 1, title: nil,
+                                                    blocks: [Block(text: "a", xpointer: "/a", globalOffset: 0),
+                                                             Block(text: "b", xpointer: "/b", globalOffset: 500),
+                                                             Block(text: "c", xpointer: "/c", globalOffset: 990)])],
+                                 totalCharacters: 1_000)
+        let model = ReaderViewModel(book: book, positions: positions, sync: SyncCoordinator(defaults: defaults, credentials: { nil }))
+        XCTAssertEqual(model.progressText(locale: en), "0% read")
+        model.jump(to: 1)
+        XCTAssertEqual(model.progressText(locale: en), "50% read")
+        XCTAssertEqual(model.progressText(locale: en), ReadingProgressFormat.read(model.localPercentage, locale: en))
+        model.jump(to: 2)
+        XCTAssertEqual(model.progressText(locale: en), "99% read", "an unfinished book never shows 100%")
+        positions.remove("p")
+    }
 }
