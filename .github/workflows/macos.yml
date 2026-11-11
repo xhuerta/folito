@@ -69,7 +69,7 @@ jobs:
     outputs:
       platforms: ${{ steps.pick.outputs.platforms }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Pick platforms from the changed paths
         id: pick
@@ -112,7 +112,7 @@ jobs:
         -skipPackagePluginValidation -skipMacroValidation
         CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO DEBUG_INFORMATION_FORMAT=dwarf
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
@@ -144,7 +144,7 @@ jobs:
       # sources are recompiled on every checkout anyway, and restoring/saving ~160 MB cost as much as the few
       # third-party package compiles it saved.
       - name: Cache SwiftPM checkouts
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: SourcePackages
           key: spm-src-${{ hashFiles('Packages/ReaderCore/Package.resolved') }}
@@ -222,7 +222,7 @@ jobs:
 
       - name: Upload welcome tour screenshots
         if: always() && env.UI_TIER == 'true' && matrix.platform == 'ios'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: onboarding-screenshots
           path: |
@@ -232,7 +232,7 @@ jobs:
 
       - name: Upload Readest library screenshots
         if: always() && env.UI_TIER == 'true' && matrix.platform == 'ios'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: readest-library-screenshots
           path: |
@@ -242,7 +242,7 @@ jobs:
 
       - name: Upload covers screenshots (iPhone)
         if: always() && env.UI_TIER == 'true' && matrix.platform == 'ios'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: covers-iphone
           path: |
@@ -252,7 +252,7 @@ jobs:
 
       - name: Upload online metadata screenshots
         if: always() && env.UI_TIER == 'true' && matrix.platform == 'ios'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: online-metadata-screenshots
           path: |
@@ -299,7 +299,7 @@ jobs:
 
       - name: Upload covers screenshots (watch)
         if: always() && env.UI_TIER == 'true' && matrix.platform == 'watch'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: covers-watch
           path: |
@@ -323,7 +323,7 @@ jobs:
 
       - name: Upload App Store screenshots (watch)
         if: always() && env.UI_TIER == 'true' && matrix.platform == 'watch'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: app-store-screenshots-watch
           path: app-store-screenshots
@@ -333,7 +333,7 @@ jobs:
       # the simulator screen, of a failed App Store screenshot run.
       - name: Upload App Store screenshot diagnostics (watch)
         if: failure() && env.UI_TIER == 'true' && matrix.platform == 'watch'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: appstore-diagnostics-watch
           path: |
@@ -374,7 +374,7 @@ jobs:
 
       - name: Upload complication screenshots
         if: always() && env.UI_TIER == 'true' && matrix.platform == 'watch'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: complication-screenshots
           path: complication-screenshots
@@ -388,7 +388,7 @@ jobs:
 
       - name: Upload xcresult
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ matrix.platform }}-tests-xcresult
           path: |
@@ -415,7 +415,7 @@ jobs:
 
       - name: Upload String Catalogs as written by the build
         if: always() && (matrix.platform == 'ios' || !contains(needs.scope.outputs.platforms, 'ios'))
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: xcstrings-after-build
           path: |
@@ -450,7 +450,7 @@ jobs:
         -skipPackagePluginValidation -skipMacroValidation
         CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO DEBUG_INFORMATION_FORMAT=dwarf
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
@@ -478,7 +478,7 @@ jobs:
         run: xcodegen generate
 
       - name: Cache SwiftPM checkouts
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: SourcePackages
           key: spm-src-${{ hashFiles('Packages/ReaderCore/Package.resolved') }}
@@ -504,7 +504,7 @@ jobs:
 
       - name: Upload App Store screenshots (iPhone)
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: app-store-screenshots-${{ matrix.class }}
           path: app-store-screenshots
@@ -512,7 +512,7 @@ jobs:
 
       - name: Upload App Store screenshot diagnostics (iPhone)
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: appstore-diagnostics-${{ matrix.class }}
           path: |
@@ -534,9 +534,9 @@ jobs:
       (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ui'))
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: app-store-screenshots-*
           path: app-store-screenshots
@@ -553,7 +553,7 @@ jobs:
 
       - name: Upload App Store screenshots
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: app-store-screenshots
           path: app-store-screenshots
