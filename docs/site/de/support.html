@@ -71,7 +71,7 @@
 <h1>Support</h1>
 <div class="card lead-card"><span class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7.5 8 5.6 8-5.6"/></svg></span><p>Fragen, Fehlerberichte oder Funktionswünsche: <a href="mailto:xlahuerta@protonmail.com">xlahuerta@protonmail.com</a>. Bitte gib deine iOS- und watchOS-Version an und, falls es um die Synchronisierung geht, welche Serversoftware du verwendest. Sende niemals dein Passwort.</p></div>
 
-<section class="group">
+<section class="group" id="start">
 <h2>Erste Schritte (ohne Account)</h2>
 <div class="card">
 <ol>
@@ -81,29 +81,29 @@
 </ol>
 </div>
 </section>
-<section class="group">
+<section class="group" id="kosync">
 <h2>Optional: mit einem KOReader-Sync-Server synchronisieren</h2>
 <div class="card">
 <p>Die Synchronisierung ist standardmäßig deaktiviert und nur nötig, um dasselbe Buch in KOReader oder einer anderen App weiterzulesen, die das KOReader-Sync-Protokoll verwendet. Öffne auf dem iPhone <em>Einstellungen › Fortschritt-Sync</em>, wähle unter <em>Synchronisierungsdienst</em> die Option <em>KOReader Sync</em>, gib die Server-URL sowie Benutzernamen und Passwort eines Accounts ein, den du auf diesem Server bereits hast (erstelle ihn auf dem Server selbst, zum Beispiel in KOReader unter <em>Tools › Progress sync › Register</em>; Folito erstellt keine Accounts), tippe auf <em>Sichern und Sync aktivieren</em> und dann auf <em>Verbindung testen</em>. Die Anmeldedaten werden an deine Uhr gesendet, damit sie eigenständig synchronisieren kann.</p>
 <p>Um die Synchronisierung zu beenden, tippe auf <em>Sync deaktivieren und Anmeldedaten entfernen</em>: Die Anmeldedaten werden vom iPhone und von der Uhr entfernt; deine Bücher und Lesepositionen bleiben erhalten.</p>
 </div>
 </section>
-<section class="group">
+<section class="group" id="readest">
 <h2>Optional: mit Readest synchronisieren</h2>
 <div class="card">
 <p>Damit liest du dasselbe Buch in den Readest-Apps weiter oder in KOReader mit dem Readest-Plug-in. Öffne auf dem iPhone <em>Einstellungen › Fortschritt-Sync</em>, wähle unter <em>Synchronisierungsdienst</em> die Option <em>Readest</em>, gib E-Mail-Adresse und Passwort deines bestehenden Readest-Accounts ein und tippe auf <em>Anmelden und Synchronisierung aktivieren</em>. Das Passwort wird nicht gespeichert; die Uhr erhält die Sitzung und synchronisiert eigenständig.</p>
 <p>Verwende auf jedem Gerät dieselbe EPUB-Datei: Positionen werden über die Datei zugeordnet. Positionen werden pro Absatz gespeichert, du liest also am Anfang des Absatzes weiter, bei dem du warst. Zum Beenden tippe auf <em>Abmelden</em>.</p>
-<p>Solange du bei Readest angemeldet bist, zeigt die Bibliothek auch die Bücher deiner Readest-Bibliothek mit dem Download-Symbol von iCloud. Tippe auf eines, um es auf dein iPhone und deine Apple Watch zu laden; seine Leseposition wird dann genau synchronisiert, da es dieselbe Datei ist. Halte ein Buch gedrückt (oder streiche darüber), um es <em>In Readest hochzuladen</em>, den <em>Download zu entfernen</em> (es bleibt in Readest) oder es zu <em>Löschen</em>. Mit der Filtertaste zeigst du alle Bücher, nur die auf diesem iPhone oder nur die in Readest. Wenn du dich vor dieser Funktion angemeldet hast, melde dich einmal ab und wieder an.</p>
+<p>Solange du bei Readest angemeldet bist, zeigt die Bibliothek auch die Bücher deiner Readest-Bibliothek mit dem Wolkensymbol für den Download. Tippe auf eines, um es auf dein iPhone und deine Apple Watch zu laden; seine Leseposition wird dann genau synchronisiert, da es dieselbe Datei ist. Halte ein Buch gedrückt (oder streiche darüber), um es <em>In Readest hochzuladen</em>, den <em>Download zu entfernen</em> (es bleibt in Readest) oder es zu <em>Löschen</em>. Mit der Filtertaste zeigst du alle Bücher, nur die auf diesem iPhone oder nur die in Readest.</p>
 </div>
 </section>
-<section class="group">
+<section class="group" id="dictionaries">
 <h2>Wörterbücher</h2>
 <div class="card">
 <p>Öffne auf dem iPhone <em>Einstellungen › Wörterbücher</em> und tippe neben einer Sprache auf <em>Laden</em>. Das Wörterbuch wird an deine Uhr gesendet, wo das Nachschlagen dann offline funktioniert. Tippe auf <em>Aktualisieren</em>, wenn eine neuere Version verfügbar ist.</p>
 <p>Die Wörterbücher erstellt <a href="https://www.reader-dict.com">reader.dict</a> aus Wiktionary; die Inhalte von Wiktionary stehen unter <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>. Die Quellenangaben findest du auch unter <em>Einstellungen › Danksagungen</em>.</p>
 </div>
 </section>
-<section class="group">
+<section class="group" id="faq">
 <h2>Häufige Fragen</h2>
 <div class="card faq">
 <details><summary><span>Brauche ich einen Account?</span><svg class="chev" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1.5 1.5 6 6-6 6"/></svg></summary><div class="answer"><p>Nein. Zum Importieren und Lesen brauchst du keinerlei Account. Die Synchronisierung ist optional und verwendet einen Dienst deiner Wahl (einen KOReader-Sync-Server oder deinen Readest-Account); der Entwickler betreibt keinen Server.</p></div></details>

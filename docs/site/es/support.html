@@ -71,7 +71,7 @@
 <h1>Soporte</h1>
 <div class="card lead-card"><span class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7.5 8 5.6 8-5.6"/></svg></span><p>Preguntas, errores o sugerencias: <a href="mailto:xlahuerta@protonmail.com">xlahuerta@protonmail.com</a>. Indica la versión de iOS y watchOS y, si el problema es de sincronización, qué software de servidor usas. No envíes nunca tu contraseña.</p></div>
 
-<section class="group">
+<section class="group" id="start">
 <h2>Primeros pasos (sin cuenta)</h2>
 <div class="card">
 <ol>
@@ -81,29 +81,29 @@
 </ol>
 </div>
 </section>
-<section class="group">
+<section class="group" id="kosync">
 <h2>Opcional: sincroniza con un servidor KOReader Sync</h2>
 <div class="card">
 <p>La sincronización está desactivada por defecto y solo sirve para continuar el mismo libro en KOReader u otra app que use el protocolo KOReader Sync. En el iPhone abre <em>Ajustes › Sincronización del progreso</em>, elige <em>KOReader Sync</em> en <em>Servicio de sincronización</em>, introduce la URL del servidor y el usuario y la contraseña de una cuenta que ya tengas en ese servidor (créala en el propio servidor, por ejemplo en KOReader en <em>Tools › Progress sync › Register</em>; Folito no crea cuentas), pulsa <em>Guardar y activar la sincronización</em> y después <em>Probar conexión</em>. El inicio de sesión se envía al reloj para que sincronice por sí mismo.</p>
 <p>Para dejar de sincronizar, pulsa <em>Desactivar sincronización y eliminar inicio de sesión</em>: se borra el inicio de sesión del iPhone y del reloj; tus libros y posiciones se conservan.</p>
 </div>
 </section>
-<section class="group">
+<section class="group" id="readest">
 <h2>Opcional: sincroniza con Readest</h2>
 <div class="card">
 <p>Sirve para continuar el mismo libro en las apps de Readest, o en KOReader con el plugin de Readest. En el iPhone abre <em>Ajustes › Sincronización del progreso</em>, elige <em>Readest</em> en <em>Servicio de sincronización</em>, introduce el correo y la contraseña de la cuenta de Readest que ya tienes y pulsa <em>Iniciar sesión y activar la sincronización</em>. La contraseña no se guarda; el reloj recibe la sesión y sincroniza por sí mismo.</p>
 <p>Usa el mismo archivo EPUB en todos los dispositivos: las posiciones se asocian por archivo. Las posiciones se guardan por párrafo, así que continúas al principio del párrafo que estabas leyendo. Para dejar de sincronizar, pulsa <em>Cerrar sesión</em>.</p>
-<p>Mientras tienes la sesión iniciada en Readest, la Biblioteca también muestra los libros de tu biblioteca de Readest, con el símbolo de descarga de iCloud. Toca uno para descargarlo en el iPhone y el Apple Watch; su posición de lectura se sincroniza entonces con exactitud, porque es el mismo archivo. Mantén pulsado un libro (o deslízalo) para <em>Subir a Readest</em>, <em>Eliminar descarga</em> (se queda en Readest) o <em>Eliminar</em>. Usa el botón de filtro para ver todos los libros, solo los de este iPhone o solo los de Readest. Si iniciaste sesión antes de que existiera esta función, cierra sesión y vuelve a iniciarla una vez.</p>
+<p>Mientras tienes la sesión iniciada en Readest, la Biblioteca también muestra los libros de tu biblioteca de Readest, con el símbolo de descarga de la nube. Toca uno para descargarlo en el iPhone y el Apple Watch; su posición de lectura se sincroniza entonces con exactitud, porque es el mismo archivo. Mantén pulsado un libro (o deslízalo) para <em>Subir a Readest</em>, <em>Eliminar descarga</em> (se queda en Readest) o <em>Eliminar</em>. Usa el botón de filtro para ver todos los libros, solo los de este iPhone o solo los de Readest.</p>
 </div>
 </section>
-<section class="group">
+<section class="group" id="dictionaries">
 <h2>Diccionarios</h2>
 <div class="card">
 <p>En el iPhone abre <em>Ajustes › Diccionarios</em> y pulsa <em>Descargar</em> junto a un idioma. El diccionario se envía al reloj, donde la consulta de palabras funciona sin conexión. Pulsa <em>Actualizar</em> cuando haya una versión más reciente.</p>
 <p>Los diccionarios los compila <a href="https://www.reader-dict.com">reader.dict</a> a partir de Wiktionary; el contenido de Wiktionary está disponible bajo <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>. Los créditos también están en <em>Ajustes › Agradecimientos</em>.</p>
 </div>
 </section>
-<section class="group">
+<section class="group" id="faq">
 <h2>Preguntas frecuentes</h2>
 <div class="card faq">
 <details><summary><span>¿Necesito una cuenta?</span><svg class="chev" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m1.5 1.5 6 6-6 6"/></svg></summary><div class="answer"><p>No. Importar y leer no requiere ninguna cuenta. La sincronización es opcional y usa un servicio que eliges tú (un servidor KOReader Sync o tu cuenta de Readest); el desarrollador no opera ningún servidor.</p></div></details>
