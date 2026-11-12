@@ -109,14 +109,18 @@ final class WatchAppStoreScreenshotTests: XCTestCase {
         return drawn ? data : nil
     }
 
-    /// Fails when a navigation title on screen is cut: its text, measured in a font no larger than the title's,
+    /// Fails when the navigation title on screen is cut: its text, measured in a font no larger than the title's,
     /// is wider than its element, or the element reaches past the screen (a marquee mid-scroll).
+    /// Only the frontmost navigation bar is on screen: a sheet (the reader menu, the word lookup) covers the
+    /// whole watch screen, but the reader's bar under it, with the book title, stays in the accessibility tree.
+    /// Presented content comes after it in the tree, so the frontmost bar is the last one.
     @MainActor
     private func assertTitlesFit(_ screen: String, in app: XCUIApplication) {
         let window = app.windows.firstMatch.frame
         let font = UIFont.systemFont(ofSize: 13, weight: .regular)
         let key = NSAttributedString.Key(kCTFontAttributeName as String)
-        for title in app.navigationBars.staticTexts.allElementsBoundByIndex where title.exists && !title.label.isEmpty {
+        guard let front = app.navigationBars.allElementsBoundByIndex.last(where: { $0.exists }) else { return }
+        for title in front.staticTexts.allElementsBoundByIndex where title.exists && !title.label.isEmpty {
             let frame = title.frame
             guard frame.width > 0 else { continue }
             let line = CTLineCreateWithAttributedString(NSAttributedString(string: title.label, attributes: [key: font]))
@@ -185,11 +189,17 @@ final class WatchAppStoreScreenshotTests: XCTestCase {
         let options = WatchUI.element("readerOptionsButton", in: app)
         XCTAssertTrue(waitFor(options, hittable: true, timeout: 10), "Reading Options button missing")
         options.tap()
+        guard WatchUI.element("textSizeStepper", in: app).waitForExistence(timeout: 10) else {
+            return WatchUI.fail("Reading Options did not open (no text size stepper)", in: app)
+        }
+        // The Sync section is below the fold of the menu's lazy List: its button only enters the accessibility
+        // tree once scrolled into view, so scroll to it instead of waiting for it.
         let synced = WatchUI.element("goToSyncedPositionButton", in: app)
-        guard synced.waitForExistence(timeout: 10) else {
+        guard WatchUI.scrollToHittable(synced, in: app) else {
             return WatchUI.fail("The reader menu did not offer Go to Synced Position", in: app)
         }
-        XCTAssertTrue(WatchUI.scrollToHittable(synced, in: app), "Go to Synced Position not reachable")
+        // Hittable can still mean cut by the bottom edge: bring the whole row into the shot.
+        if synced.frame.maxY > app.windows.firstMatch.frame.maxY - 16 { WatchUI.nudgeUp(app) }
         captureWhenStill("watch-5-menu")
         assertTitlesFit("watch-5-menu", in: app)
         app.terminate()
