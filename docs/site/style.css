@@ -171,22 +171,41 @@ strong { font-weight: 600; }
 .lang-suggest button:hover { background: var(--surface-2); }
 
 /* ---------- Hero ---------- */
-.hero {
-  position: relative; overflow: hidden;
+/* The glow is faded out towards the bottom so it never ends in a hard edge where the hero ends. */
+.hero { position: relative; overflow: hidden; }
+.hero::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
   background:
     radial-gradient(56rem 34rem at 78% 0%, var(--hero-glow), transparent 68%),
     radial-gradient(36rem 24rem at 8% 18%, var(--hero-glow), transparent 70%);
+  -webkit-mask: linear-gradient(to bottom, #000 45%, transparent);
+  mask: linear-gradient(to bottom, #000 45%, transparent);
 }
-.hero .wrap { display: grid; gap: 40px; align-items: center; padding-top: 56px; padding-bottom: 64px; }
-@media (min-width: 860px) { .hero .wrap { grid-template-columns: 1.15fr .85fr; padding-top: 88px; padding-bottom: 96px; } }
+/* Narrow screens: text, then the watch, then the chips, so the product shows above the fold.
+   Wide screens: text and chips on the left, the watch on the right. */
+.hero .wrap {
+  position: relative; display: grid; gap: 28px; align-items: center; padding-top: 32px; padding-bottom: 40px;
+  grid-template-areas: "text" "watch" "chips";
+}
+.hero-text { grid-area: text; }
+.watch-stage { grid-area: watch; }
+.hero .chips { grid-area: chips; margin: 0; }
+@media (min-width: 860px) {
+  .hero .wrap {
+    grid-template-columns: 1.15fr .85fr; grid-template-areas: "text watch" "chips watch";
+    row-gap: 22px; column-gap: 40px; padding-top: 72px; padding-bottom: 48px;
+  }
+  .hero-text { align-self: end; }
+  .hero .chips { align-self: start; }
+}
 .hero-text { text-align: center; }
 @media (min-width: 860px) { .hero-text { text-align: left; } }
 .app-icon {
-  width: 112px; height: 112px; border-radius: 22.5%;
-  margin: 0 auto 22px;
+  width: 72px; height: 72px; border-radius: 22.5%;
+  margin: 0 auto 14px;
   box-shadow: 0 0 0 .5px rgba(0, 0, 0, .08), 0 10px 30px rgba(6, 60, 140, .28);
 }
-@media (min-width: 860px) { .app-icon { margin-left: 0; } }
+@media (min-width: 860px) { .app-icon { width: 112px; height: 112px; margin: 0 0 22px; } }
 .hero h1 { font-size: clamp(40px, 8vw, 64px); line-height: 1.04; letter-spacing: -.035em; font-weight: 700; margin: 0 0 12px; }
 .tagline { font-size: clamp(19px, 2.6vw, 23px); line-height: 1.4; color: var(--label-2); margin: 0 auto 26px; max-width: 30em; letter-spacing: -.015em; }
 @media (min-width: 860px) { .tagline { margin-left: 0; } }
@@ -198,15 +217,26 @@ strong { font-weight: 600; }
   box-shadow: var(--shadow);
 }
 .pill svg { width: 18px; height: 18px; flex: none; }
-.chips { list-style: none; padding: 0; margin: 22px 0 0; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+/* A flat list of facts (not buttons): no border or fill, a check mark in front of each. */
+.chips { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 18px; justify-content: center; }
 @media (min-width: 860px) { .chips { justify-content: flex-start; } }
-.chips li { font-size: 14px; color: var(--label-2); background: color-mix(in srgb, var(--surface) 70%, transparent); border: .5px solid var(--separator); padding: 5px 12px; border-radius: 999px; }
+.chips li { font-size: 15px; color: var(--label-2); display: inline-flex; align-items: baseline; gap: 6px; }
+.chips li::before { content: "\2713"; color: var(--accent); font-weight: 700; }
+/* The App Store button, shown once scripts/site/build.py has an APP_STORE_ID. */
+.cta {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 22px 12px 18px; border-radius: 999px;
+  background: #0A6CD8; color: #fff; font-weight: 600; font-size: 16px; text-decoration: none; /* 5:1 with white in both themes */
+  box-shadow: var(--shadow);
+}
+.cta:hover { text-decoration: none; filter: brightness(1.08); }
+.cta svg { width: 20px; height: 20px; flex: none; }
 
 /* ---------- Watch: a CSS case around the real reader screenshot ---------- */
 /* The screen is docs/site/assets/watch-reader.webp, the App Store capture of the watch reader
    (docs/appstore/SCREENSHOTS.md, "The website's watch image"). Only the case is drawn. */
 .watch-stage { display: flex; justify-content: center; }
-.watch { position: relative; width: 220px; }
+.watch { position: relative; width: 190px; }
 @media (min-width: 860px) { .watch { width: 260px; } }
 .strap {
   height: 64px; margin: 0 auto; width: 70%;
@@ -237,6 +267,7 @@ strong { font-weight: 600; }
 /* ---------- Sections ---------- */
 .section { padding: 56px 0; }
 .section + .section { padding-top: 0; }
+.hero + .section { padding-top: 24px; }
 .section-title { font-size: clamp(28px, 4.4vw, 40px); line-height: 1.12; letter-spacing: -.03em; font-weight: 700; margin: 0 0 8px; }
 .section-lede { color: var(--label-2); font-size: 19px; margin: 0 0 28px; max-width: 34em; }
 
@@ -254,6 +285,9 @@ strong { font-weight: 600; }
 .t-orange { background: linear-gradient(180deg, #FFA43A, #F07D00); }
 .t-teal { background: linear-gradient(180deg, #2CB5D6, #0B8BB0); }
 .t-green { background: linear-gradient(180deg, #3DD06A, #22A84A); }
+.t-red { background: linear-gradient(180deg, #FF5F57, #E0362C); }
+.t-purple { background: linear-gradient(180deg, #C17BEF, #9B4FD6); }
+.t-pink { background: linear-gradient(180deg, #FF6A8E, #E6406A); }
 .t-gray { background: linear-gradient(180deg, #8E8E93, #636366); }
 
 /* ---------- Grouped inset list (iOS Settings style) ---------- */

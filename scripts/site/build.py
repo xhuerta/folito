@@ -58,10 +58,18 @@ SITE_URL = "https://folito.app/"
 DEVELOPER = "Xabier Lahuerta"
 SHARE_IMAGE = SITE_URL + "assets/icon-512.png"
 
-# App Store Smart App Banner (<meta name="apple-itunes-app">) on every page. Empty until the app is on the
-# App Store: set it to the numeric Apple ID from App Store Connect (App Information > Apple ID), e.g.
-# "6400000000", rebuild and commit docs/site/. See docs/RELEASE.md.
+# The app's numeric Apple ID from App Store Connect (App Information > Apple ID), e.g. "6400000000". Empty
+# until the app is on the App Store. Setting it, rebuilding and committing docs/site/ switches on, at once:
+#   - the Smart App Banner (<meta name="apple-itunes-app">) on every page;
+#   - the home page call to action: the "coming soon" label becomes a filled "Download on the App Store"
+#     button linking to app_store_url();
+#   - downloadUrl/installUrl in the landing pages' JSON-LD.
+# See docs/RELEASE.md, section 9.
 APP_STORE_ID = ""
+
+# Folito is free: every feature, no in-app purchases. Published as a schema.org Offer in the JSON-LD.
+PRICE = "0"
+PRICE_CURRENCY = "USD"
 
 SITEMAP_NS = "http://www.sitemaps.org/schemas/sitemap/0.9"
 XHTML_NS = "http://www.w3.org/1999/xhtml"
@@ -79,6 +87,14 @@ GLOBE = ('<svg class="globe" viewBox="0 0 24 24" fill="none" stroke="currentColo
 DISCLOSURE = ('<svg class="disclosure" viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="1.8" '
               'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'
               '<path d="m1.5 1.75 4.5 4.5 4.5-4.5"/></svg>')
+CLOCK = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
+         'stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/>'
+         '<path d="M12 7v5.2l3.4 2"/></svg>')
+# A plain download arrow, not the Apple logo (Apple's marketing guidelines reserve the logo for the official
+# badge artwork).
+DOWNLOAD = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" '
+            'stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 4v11"/><path d="m7 10.5 5 5 5-5"/>'
+            '<path d="M5 19.5h14"/></svg>')
 CHECK = ('<svg class="check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" '
          'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'
          '<path d="m2.5 8.6 3.6 3.6 7.4-8.4"/></svg>')
@@ -225,9 +241,23 @@ def render(template: str, values: dict[str, str], where: str) -> str:
     return PLACEHOLDER.sub(sub, template)
 
 
+def app_store_url() -> str:
+    """The app's App Store page, or "" while APP_STORE_ID is empty. Without a country code the App Store
+    opens the visitor's own storefront."""
+    return f"https://apps.apple.com/app/id{APP_STORE_ID}" if APP_STORE_ID else ""
+
+
+def call_to_action(s: dict[str, str]) -> str:
+    """The hero's call to action: a filled App Store button once APP_STORE_ID is set, else a "coming soon"
+    label that is plainly not a link."""
+    if APP_STORE_ID:
+        return f'<a class="cta" href="{app_store_url()}">{DOWNLOAD}{s["index.cta_download"]}</a>'
+    return f'<p class="pill">{CLOCK}{s["index.pill"]}</p>'
+
+
 def json_ld(lang: str, strings: dict[str, dict[str, str]]) -> str:
-    """schema.org data for a landing page: the app and its developer, in the page's language. No price
-    (none is announced yet) and no ratings."""
+    """schema.org data for a landing page: the app (free: an Offer with price 0) and its developer, in the
+    page's language. No ratings."""
     s = strings[lang]
     developer = {"@type": "Person", "@id": SITE_URL + "#developer", "name": DEVELOPER, "url": SITE_URL}
     app = {
@@ -241,7 +271,10 @@ def json_ld(lang: str, strings: dict[str, dict[str, str]]) -> str:
         "applicationCategory": "BookApplication",
         "inLanguage": lang,
         "author": {"@id": developer["@id"]},
+        "offers": {"@type": "Offer", "price": PRICE, "priceCurrency": PRICE_CURRENCY},
     }
+    if APP_STORE_ID:
+        app["downloadUrl"] = app["installUrl"] = app_store_url()
     data = {"@context": "https://schema.org", "@graph": [app, developer]}
     text = json.dumps(data, ensure_ascii=False, indent=1).replace("</", "<\\/")
     return f'<script type="application/ld+json">\n{text}\n</script>'
@@ -290,6 +323,7 @@ def build_page(lang: str, page: str, strings: dict[str, dict[str, str]], templat
         "picker.footer": picker(lang, page, strings, "in-footer"),
         "privacy.note": f'<p class="translation-note">{note}</p>\n' if note else "",
         "scripts": "\n".join(scripts),
+        "cta": call_to_action(s),
     })
     values["content"] = render(templates[page].rstrip("\n"), values, f"{page}.html ({lang})")
     return render(templates["_layout"], values, f"_layout.html ({lang}, {page})")
