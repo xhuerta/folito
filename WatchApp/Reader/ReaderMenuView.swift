@@ -74,7 +74,9 @@ struct ReaderMenuView: View {
                     }
                 }
             }
-            .navigationTitle("Contents")
+            // "Options", not "Contents": the sheet holds the text size, typography and the dictionary as well as the
+            // chapters, and it is opened from the Reading Options button.
+            .navigationTitle(Text("Options", comment: "Title of the reading options sheet opened from the reader"))
             .navigationDestination(for: SettingsRoute.self) { $0.destination }
         }
     }
@@ -111,22 +113,58 @@ struct TimeRemainingLine: View {
     }
 }
 
-/// Reader body size stepper used in the reader menu and in Settings. VoiceOver reads it as
+/// Reader body size stepper used in the reader menu, in Settings and in Typography. VoiceOver reads it as
 /// "Text Size, 16 points" and adjusts it with swipe up / down (Stepper is adjustable).
 struct TextSizeStepper: View {
     @EnvironmentObject private var typography: TypographyModel
 
     var body: some View {
         let size = Int(typography.value.fontSize)
-        Stepper(value: typography.binding(\.fontSize), in: ReaderTypography.fontSizeRange, step: 1) {
-            VStack(alignment: .leading, spacing: 0) {
-                Text("Text Size")
-                Text("\(size) pt", comment: "Reader text size in typographic points, e.g. '16 pt'")
-                    .font(.footnote).foregroundStyle(.secondary)
+        SettingStepperRow(title: Text("Text Size")) {
+            Stepper(value: typography.binding(\.fontSize), in: ReaderTypography.fontSizeRange, step: 1) {
+                SettingStepperValue(Text("\(size) pt", comment: "Reader text size in typographic points, e.g. '16 pt'"))
             }
+            .accessibilityLabel(Text("Text Size"))
+            .accessibilityValue(Text("\(size) points", comment: "VoiceOver value of the reader text size"))
+            .accessibilityIdentifier("textSizeStepper")
         }
-        .accessibilityLabel(Text("Text Size"))
-        .accessibilityValue(Text("\(size) points", comment: "VoiceOver value of the reader text size"))
-        .accessibilityIdentifier("textSizeStepper")
+    }
+}
+
+/// A watch Stepper row that stays legible at every Dynamic Type size. The watch Stepper lays its label out in
+/// the narrow column between the − and + buttons, so a title there ("Tamaño del texto" at a large text size)
+/// broke letter by letter. The title goes on its own full-width line above the control instead, and the
+/// Stepper only carries the short value. The title is hidden from VoiceOver: the Stepper's own label says it.
+struct SettingStepperRow<Control: View>: View {
+    let title: Text
+    @ViewBuilder var control: Control
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            title
+                .lineLimit(2)
+                .minimumScaleFactor(0.5)
+                .allowsTightening(true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityHidden(true)
+            control
+        }
+    }
+}
+
+/// The value shown between the − and + buttons of a `SettingStepperRow`: one line, shrunk rather than
+/// wrapped when it does not fit, so it is never broken mid-word.
+struct SettingStepperValue: View {
+    let text: Text
+
+    init(_ text: Text) { self.text = text }
+
+    var body: some View {
+        text
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.5)
+            .frame(maxWidth: .infinity)
     }
 }
