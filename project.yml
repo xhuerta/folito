@@ -77,6 +77,9 @@ targets:
         #       NSExceptionAllowsInsecureHTTPLoads: true
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
+        # Imports copy the EPUB into the app's sandbox (LibraryStore), so files are not opened in place.
+        # App Store Connect requires this key whenever CFBundleDocumentTypes is declared (ITMS-90737).
+        LSSupportsOpeningDocumentsInPlace: false
         CFBundleDocumentTypes:
           - CFBundleTypeName: EPUB Document
             CFBundleTypeRole: Viewer
