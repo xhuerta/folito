@@ -72,6 +72,16 @@ twice: one session goes to the watch for sync, the other stays in the iPhone Key
 `docs/READEST_SYNC.md`, "The iPhone's own session"). Signing out on the iPhone removes both sessions from both
 devices and asks Supabase to revoke them.
 
+### 1a-ter. When the watch asks the sync service for a position
+
+Both connectors (1a, 1a-bis) read a book's position with the same single GET (`GET /syncs/progress/{document}`
+or `GET /api/sync?type=configs&book=…&meta_hash=…`), carrying only what is listed above. The watch asks:
+when a book is opened (the "Continue where you left off?" check), on *Go to Synced Position*, and, for the one
+book the complications show, at app launch, when the app comes to the foreground and in watchOS background
+refresh (at most a few times per hour, as the system allows; one request each). Nothing is asked while sync
+is off. The answer is kept on the watch only (section 2) so the complications and the Library can show a
+newer position read on another device; the position is never forwarded anywhere.
+
 ### 1b. Dictionary downloads (iPhone only, on user action only)
 
 Code: `iOSApp/Dictionaries/DictionaryManager.swift` (`FileDownload`, ephemeral `URLSession`: no cookies, no
@@ -139,6 +149,7 @@ Library handles the request under the Internet Archive's policy (<https://archiv
 | "Upload Imported Books Automatically", Library filter | UserDefaults | Off / All by default. |
 | Reading position, typography, device UUID, pending sync queue | UserDefaults | |
 | Complication snapshot (book id, title, chapter title, percentage, minutes left in the chapter when *Show Time Remaining* is on) | watch: App Group UserDefaults (`group.<bundle id>`, key `complication.snapshot`), shared only with the watch app's own widget extension | Written by the watch app, read by the complications. Never leaves the watch. Cleared when the book is deleted or on Settings › Reset. |
+| Newer synced position, declined offer and sync identity per book (#132) | Watch: UserDefaults (`sync.synced.v1`: the remote position found ahead of the local one; `sync.declined.v1`: the XPointer, CFI, percentage and time of a remote position the user chose *Stay Here* for; `sync.identity.v1`: the book's hashes, title and authors used to ask the service; `complication.localSnapshot`: the reader's own complication snapshot) | Never leaves the watch. The synced positions are cleared when sync is turned off; all of it per book when the book is deleted, and on *Settings › Reset*. |
 | Learned reading speed and estimated time left per book | Watch: UserDefaults (`reading.speed`, `reading.timeRemaining`) | Computed on the watch from the time spent per page; used only to show "time left" (in the reader, the iPhone library and the complications). Cleared by *Settings › Reset* (and per book when the book is deleted). |
 | Offline dictionaries | `Application Support/Folito/Dictionaries` (iPhone and watch) | Downloaded/converted files; deleted from *Settings › Dictionaries* on the iPhone (removes them from the watch too). Download validators (ETag) and checksums in UserDefaults. |
 
