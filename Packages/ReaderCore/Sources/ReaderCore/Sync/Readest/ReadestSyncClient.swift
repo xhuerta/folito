@@ -10,13 +10,16 @@ public struct ReadestBookConfig: Sendable, Equatable {
     public var metaHash: String?
     /// KOReader XPointer (written by the koplugin, and by the Readest apps converted from their CFI).
     public var xpointer: String?
+    /// EPUB CFI (`epubcfi(...)`, often a range) written only by the Readest apps. Read, never pushed.
+    public var location: String?
     /// `[current page, total pages]` in the writer's own pagination.
     public var progress: [Int]?
     public var updatedAt: Date?
     public var deletedAt: Date?
 
     public init(bookHash: String, metaHash: String? = nil, xpointer: String? = nil, progress: [Int]? = nil,
-                updatedAt: Date? = nil, deletedAt: Date? = nil) {
+                updatedAt: Date? = nil, deletedAt: Date? = nil, location: String? = nil) {
+        self.location = location
         self.bookHash = bookHash
         self.metaHash = metaHash
         self.xpointer = xpointer
@@ -34,11 +37,13 @@ public struct ReadestBookConfig: Sendable, Equatable {
     static func parse(_ row: [String: Any]) -> ReadestBookConfig? {
         guard let hash = row["book_hash"] as? String, !hash.isEmpty else { return nil }
         let xp = row["xpointer"] as? String
+        let loc = (row["location"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
         return ReadestBookConfig(bookHash: hash, metaHash: row["meta_hash"] as? String,
                                  xpointer: (xp?.isEmpty ?? true) ? nil : xp,
                                  progress: parseProgress(row["progress"]),
                                  updatedAt: ReadestHTTP.date(row["updated_at"]),
-                                 deletedAt: ReadestHTTP.date(row["deleted_at"]))
+                                 deletedAt: ReadestHTTP.date(row["deleted_at"]),
+                                 location: (loc?.isEmpty ?? true) ? nil : loc)
     }
 
     /// `progress` is a JSON string in `book_configs` and an array in `books`; accept both.

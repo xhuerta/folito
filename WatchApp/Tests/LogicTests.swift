@@ -594,6 +594,102 @@ final class ReopenPositionTests: XCTestCase {
         XCTAssertEqual(model.jumpRequest?.index, 20)
     }
 
+    // MARK: Readest mixed rows (CFI ahead of the XPointer)
+
+    /// Returns `stored` as is (Readest-like: no device id) and records every push.
+    private final class RowService: SyncConnector, @unchecked Sendable {
+        let lock = NSLock()
+        var stored: ReadingPosition?
+        var pushes: [ReadingPosition] = []
+        var descriptor: SyncConnectorDescriptor { ReadestConnectorFactory().descriptor }
+        func authorize() async throws {}
+        func fetchProgress(for book: BookIdentity) async throws -> ReadingPosition? { lock.withLock { stored } }
+        func pushProgress(_ position: ReadingPosition, for book: BookIdentity) async throws {
+            lock.withLock { pushes.append(position) }
+        }
+    }
+
+    /// The watch pushed p[30] (29 %); the Readest apps' CFI (`location`) says element 58 = p[58] (57 %).
+    private let ownXP = "/body/DocFragment[1]/body/p[30]"
+    private let readestCFI = "epubcfi(/6/2!/4/116,/1:0,/1:9)"
+
+    @MainActor
+    private func mixedRowModel(cfi: String?, xpointer: String? = nil, at index: Int)
+        -> (ReaderViewModel, RowService, () -> Void) {
+        let (defaults, name) = suite()
+        let service = RowService()
+        let sync = SyncCoordinator(defaults: defaults, connector: { service })
+        let own = ReadingPosition(xpointer: ownXP, percentage: 0.29, page: 30, pageCount: 100)
+        sync.ownProgress.record(own, connectorID: "readest", bookKey: "h")
+        var row = own
+        row.xpointer = xpointer ?? ownXP
+        row.cfi = cfi
+        service.stored = row
+        let model = ReaderViewModel(book: book(crengine: true), positions: PositionStore(defaults: defaults), sync: sync)
+        model.jump(to: index)
+        return (model, service, { defaults.removePersistentDomain(forName: name) })
+    }
+
+    @MainActor
+    func testMixedReadestRowOffersTheCFIPositionAndHoldsPushesUntilAnswered() async throws {
+        let (model, service, cleanup) = mixedRowModel(cfi: readestCFI, at: 29)
+        defer { cleanup() }
+        await model.syncOnOpen()
+        XCTAssertTrue(model.showRemoteOffer)
+        XCTAssertEqual(model.remoteOffer?.xpointer, "/body/DocFragment[1]/body/p[58]")
+        XCTAssertEqual(model.remoteOffer?.percentage ?? 0, 0.57, accuracy: 1e-9)
+        // Unanswered offer: the older local position must not overwrite the row (background / periodic push).
+        XCTAssertTrue(model.isHoldingPushes)
+        model.reportProgress(immediately: true)
+        model.reportProgress(immediately: false)
+        try await Task.sleep(nanoseconds: 300_000_000)
+        XCTAssertTrue(service.lock.withLock { service.pushes.isEmpty })
+        model.acceptRemote()
+        XCTAssertEqual(model.currentIndex, 57)
+        XCTAssertFalse(model.isHoldingPushes)
+        model.jump(to: 60)
+        model.reportProgress(immediately: true)
+        try await Task.sleep(nanoseconds: 500_000_000)
+        XCTAssertEqual(service.lock.withLock { service.pushes.last?.xpointer }, "/body/DocFragment[1]/body/p[61]")
+    }
+
+    @MainActor
+    func testReadingPastTheOfferedPositionReleasesPushes() async {
+        let (model, _, cleanup) = mixedRowModel(cfi: readestCFI, at: 29)
+        defer { cleanup() }
+        await model.syncOnOpen()
+        XCTAssertTrue(model.isHoldingPushes)
+        model.jump(to: 70)
+        XCTAssertFalse(model.isHoldingPushes)
+    }
+
+    @MainActor
+    func testAgreeingOrBehindCFIOffersNothing() async {
+        // The row's XPointer and CFI agree, and the watch is there.
+        let (agreeing, _, c1) = mixedRowModel(cfi: readestCFI, xpointer: "/body/DocFragment[1]/body/p[58]", at: 57)
+        defer { c1() }
+        await agreeing.syncOnOpen()
+        XCTAssertFalse(agreeing.showRemoteOffer)
+        // The CFI (element 10) is behind the watch's own XPointer: the watch's own write, nothing to offer.
+        let (behind, _, c2) = mixedRowModel(cfi: "epubcfi(/6/2!/4/20/1:0)", at: 29)
+        defer { c2() }
+        await behind.syncOnOpen()
+        XCTAssertFalse(behind.showRemoteOffer)
+        XCTAssertFalse(behind.isHoldingPushes)
+    }
+
+    @MainActor
+    func testGoToSyncedPositionUsesTheCFIAndSaysWhenAlreadyThere() async {
+        let (model, _, cleanup) = mixedRowModel(cfi: readestCFI, at: 29)
+        defer { cleanup() }
+        let first = await model.goToSyncedPosition()
+        XCTAssertEqual(first, .jumped)
+        XCTAssertEqual(model.currentIndex, 57)
+        let again = await model.goToSyncedPosition()
+        XCTAssertEqual(again, .alreadyThere)
+        XCTAssertEqual(model.currentIndex, 57)
+    }
+
     @MainActor
     func testGoToSyncedPositionIsHiddenWhenSyncIsOff() async {
         let (defaults, name) = suite()
