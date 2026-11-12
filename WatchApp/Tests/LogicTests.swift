@@ -649,6 +649,7 @@ final class InBlockReaderTests: XCTestCase {
     private func f(_ minY: CGFloat, _ maxY: CGFloat) -> BlockFrame { BlockFrame(minY: minY, maxY: maxY) }
 
     /// Where a book opens (#125): computed once, before the first render, from the saved position.
+    @MainActor
     func testOpenPosition() {
         let flat = FlatBook(book())
         func open(_ block: Int, _ offset: Int, chapter: Int = 0) -> (index: Int, offset: Int) {
