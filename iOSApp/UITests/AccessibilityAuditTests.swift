@@ -130,6 +130,21 @@ final class AccessibilityAuditTests: XCTestCase {
         let start = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
         let end = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
         start.press(forDuration: 0.1, thenDragTo: end)
+        waitForScrollToSettle(app)
+    }
+
+    /// Waits until the content stops moving after a drag. The list keeps decelerating after XCTest's idle wait
+    /// returns: in the AX5 Settings pass (CI on 240711f) `skipBookDetailsRows` read the button's frame while it
+    /// was still moving, saw it not yet fully on screen, and the audit a moment later found it fully on screen.
+    @MainActor
+    private static func waitForScrollToSettle(_ app: XCUIApplication) {
+        var previous = layoutSignature(app)
+        for _ in 0..<12 {
+            Thread.sleep(forTimeInterval: 0.25)
+            let current = layoutSignature(app)
+            if current == previous { return }
+            previous = current
+        }
     }
 
     /// Scrolls down until the content stops moving.
@@ -192,6 +207,10 @@ final class AccessibilityAuditTests: XCTestCase {
         return (top, bottom)
     }
 
+    /// A navigation bar at least this tall shows its expanded large title (106 pt at the default size on CI's
+    /// iPhone; the collapsed, inline bar is 54 pt).
+    private static let largeTitleBarMinHeight: CGFloat = 80
+
     @MainActor
     private static func clearOfBars(_ frame: CGRect, in app: XCUIApplication) -> Bool {
         let area = clearArea(in: app)
@@ -210,10 +229,21 @@ final class AccessibilityAuditTests: XCTestCase {
     }
 
     /// Keys of the texts and buttons that are entirely in the clear area right now.
+    ///
+    /// While the navigation bar shows its expanded large title, the content is at rest at the top of the list:
+    /// nothing is scrolled under the bar, so there is no scroll edge effect below it and the 16 pt margin of
+    /// `clearArea` does not apply at the top. Without this, the first row of a list that is too short to scroll
+    /// it clear of the collapsed bar (the compact "No Apple Watch" notice in the Readest offline library, CI on
+    /// 240711f: 168 pt bar bottom, notice right below it at the top, under the collapsed bar once scrolled) could
+    /// never count as audited clear of the bars, although its contrast was audited, and passed, at the top.
     @MainActor
     private static func textsClearOfBars(in app: XCUIApplication) -> Set<String> {
         guard let snapshot = try? app.snapshot() else { return [] }
-        let area = clearArea(in: app)
+        var area = clearArea(in: app)
+        let navigationBar = app.navigationBars.firstMatch
+        if navigationBar.exists, navigationBar.frame.height >= largeTitleBarMinHeight {
+            area.top = navigationBar.frame.maxY
+        }
         let width = app.windows.firstMatch.frame.width
         return Set(snapshotElements(snapshot, of: [.staticText, .button]).filter {
             !$0.frame.isEmpty && $0.frame.minY >= area.top && $0.frame.maxY <= area.bottom && $0.frame.minX >= 0
@@ -408,7 +438,8 @@ final class AccessibilityAuditTests: XCTestCase {
     /// little taller than the screen: once scrolled, the list cannot scroll on, and the compact watch notice stays
     /// within 16 pt of the navigation bar on every page, where its contrast is never audited clear of the bars.
     /// At the top of the list the notice is the first row, right below the large title, as in the one-book audit:
-    /// the check is that it is back there, wholly below the navigation bar (16 pt clear is not reachable at the top).
+    /// the check is that it is back there, wholly below the navigation bar. 16 pt clear is not reachable at the top,
+    /// and not needed there: with the large title expanded nothing is under the bar (`textsClearOfBars`).
     /// A tap on the status bar scrolls the list to its top without pulling it past the top (it is refreshable).
     /// Fallback: slow drags by the distance the notice still needs, held before release so the list does not fling.
     @MainActor
@@ -544,7 +575,10 @@ final class AccessibilityAuditTests: XCTestCase {
     @MainActor
     private static func skipBookDetailsRows(_ app: XCUIApplication) {
         let start = app.buttons["onlineBulkStart"]
-        guard start.exists, clearOfBars(start.frame, in: app) else { return }
+        // Fully on screen, bars included: the artifact is about the whole button being on screen mid-list.
+        let screen = app.windows.firstMatch.frame
+        guard start.exists, !start.frame.isEmpty, start.frame.minY >= screen.minY, start.frame.maxY <= screen.maxY
+        else { return }
         for _ in 0..<6 where start.exists && start.frame.maxY > clearArea(in: app).top { scrollDown(app) }
         XCTAssertFalse(start.exists && start.frame.maxY > clearArea(in: app).top, "Book Details rows still on screen")
     }
