@@ -386,8 +386,8 @@ checks the audit does not make:
   *Reading Options*, Settings and Typography. Like on iOS it runs the types `.all` covers one at a time
   (a timed-out type is retried once) and prints every finding with its element in the CI log.
 - `WatchReaderTopBarTests`: the reader's top bar hides after scrolling down, a tap on the text shows it
-  again without opening the word picker, and the left-edge swipe returns to the Library (the hidden-bar
-  screenshot is attached to the result).
+  again without opening the word picker (the hidden-bar screenshot is attached to the result). The
+  left-edge swipe back does not work in the reader yet and is tracked in #118.
 - `WatchAccessibilityChecksTests`, on the same screens:
   - every button, switch, stepper, slider and link has a non-empty label that does not look like a raw
     identifier: SF Symbol names (`list.bullet`, `gearshape`), file names (`sample.epub`), camelCase or
@@ -476,7 +476,7 @@ values and traits of the elements above and run *Audit* on each screen.
 - The reader is a `LazyVStack`: VoiceOver can only reach headings that are laid out (near the current
   position); use *Reading Options › Chapters* to jump further.
 - The reader puts nothing in the leading / `.cancellationAction` toolbar slot: on watchOS an item there
-  replaces the back button and, with it, the left-edge swipe back (#106). `WatchReaderTopBarTests` checks the
-  auto-hiding bar and the edge swipe on the simulator; on a real watch both still need a manual check.
+  replaces the back button (#106). `WatchReaderTopBarTests` checks the auto-hiding bar on the simulator; on a
+  real watch it still needs a manual check. The left-edge swipe back is tracked in #118.
 - *Match System Text Size* is synced with the iPhone like the rest of the typography; the iPhone preview
   does not apply the watch's text size.
