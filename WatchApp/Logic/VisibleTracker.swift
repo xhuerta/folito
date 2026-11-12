@@ -15,7 +15,21 @@ struct BlockFrame: Equatable {
 /// bottom edge is still below the top of the viewport.
 enum VisibleBlockResolver {
     /// Blocks whose bottom edge is within `threshold` points of the viewport top count as scrolled off.
-    static func topIndex(frames: [Int: BlockFrame], threshold: CGFloat = 4) -> Int? {
-        frames.filter { $0.value.maxY > threshold }.keys.min()
+    /// `viewportTop` is where the visible area starts in that space: non-zero when the scroll view
+    /// extends under the navigation bar, whose height is then a top safe-area inset of the scroll view.
+    /// A block hidden under the bar is not the one being read.
+    static func topIndex(frames: [Int: BlockFrame], viewportTop: CGFloat = 0, threshold: CGFloat = 4) -> Int? {
+        frames.filter { $0.value.maxY > viewportTop + threshold }.keys.min()
+    }
+}
+
+/// When a programmatic jump (restore, chapter, remote position) has to be re-issued.
+enum RestoreCheck {
+    static let maxRetries = 3
+
+    /// The block at the top is not the target (or nothing is laid out yet) and retries remain. Near the
+    /// end of a book the target may be unable to reach the top; the retries then run out harmlessly.
+    static func needsRetry(top: Int?, target: Int, attempts: Int) -> Bool {
+        attempts < maxRetries && top != target
     }
 }

@@ -251,6 +251,10 @@ Folito positions are already KOReader XPointers (the same strings Folito sends t
   only its fraction, and only when it is further than the exact row by more than 0.002, exactly like
   Readest's `applyRemoteProgress` (a sibling's XPointer belongs to a different file). Rows with `deleted_at`
   are ignored. The open-book offer then uses Folito's normal XPointer resolver with the percentage fallback.
+- **Own progress**: rows carry no device id, so the watch remembers the last position it pushed per book
+  (`OwnProgressLog`) and never offers a row that matches it or the current spot (XPointer, else page / page
+  count). Percentages are not compared for this: Readest's `progress[0] / progress[1]` is not Folito's
+  character fraction (block 1 of 100 is 0 % locally and 1 % in Readest).
 
 The koplugin converts nothing: KOReader's `ui.rolling:getLastProgress()` *is* the XPointer, and
 `applyBookConfig` trims it backwards until it resolves. The Readest apps convert XPointer ↔ CFI in
