@@ -30,7 +30,9 @@ struct TypographyEditorView: View {
                 }
                 TextSizeStepper()
                 Toggle("Match System Text Size", isOn: typography.binding(\.matchSystemTextSize))
+                    .accessibilityLabel(Text("Match System Text Size"))
                 Toggle("Bold Text", isOn: typography.binding(\.boldText))
+                    .accessibilityLabel(Text("Bold Text"))
                 row(Text("Headings")) {
                     Stepper(value: typography.binding(\.headingScale), in: ReaderTypography.headingScaleRange, step: 0.25) {
                         SettingStepperValue(Text(verbatim: t.headingScale.formatted(.percent.precision(.fractionLength(0)))))

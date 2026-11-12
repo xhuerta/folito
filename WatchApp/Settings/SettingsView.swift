@@ -44,14 +44,24 @@ struct SettingsView: View {
                 TextSizeStepper()
                 NavigationLink("Typography", value: SettingsRoute.typography)
                     .accessibilityIdentifier("typographyLink")
+                // Explicit labels: a watch Toggle whose row is only partly on screen exposes its switch to the
+                // accessibility tree with an empty label, so the label is set on the control itself.
                 Toggle("Show Time Remaining", isOn: $showTimeRemaining)
+                    .accessibilityLabel(Text("Show Time Remaining"))
                     .accessibilityIdentifier("showTimeRemainingToggle")
                 Toggle("Show Covers", isOn: $showCovers)
+                    .accessibilityLabel(Text("Show Covers"))
                     .accessibilityIdentifier("showCoversToggle")
-                if sync.isConfigured { Toggle("Show Sync Status", isOn: $showSyncInfo) }
+                if sync.isConfigured {
+                    Toggle("Show Sync Status", isOn: $showSyncInfo)
+                        .accessibilityLabel(Text("Show Sync Status"))
+                        .accessibilityIdentifier("showSyncStatusToggle")
+                }
             }
             Section {
                 Toggle("Tap Paragraph to Look Up", isOn: $tapToLookUp)
+                    .accessibilityLabel(Text("Tap Paragraph to Look Up"))
+                    .accessibilityIdentifier("tapToLookUpToggle")
                 if env.dictionaryInfos.isEmpty {
                     Text("No dictionaries yet.")
                         .font(.footnote).foregroundStyle(.secondary)
