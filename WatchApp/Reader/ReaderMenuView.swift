@@ -12,6 +12,10 @@ struct ReaderMenuView: View {
     /// Asks the reader to open the word lookup for the block at the top of the screen once this sheet is gone.
     var onLookup: () -> Void = {}
     @AppStorage(ReaderSettings.showTimeRemainingKey) private var showTimeRemaining = true
+    /// True while "Go to Synced Position" is fetching the remote position.
+    @State private var fetchingSyncedPosition = false
+    /// Why "Go to Synced Position" did not jump (no position on the service, or it could not be reached).
+    @State private var syncedPositionNote: Text?
 
     var body: some View {
         NavigationStack {
@@ -51,6 +55,29 @@ struct ReaderMenuView: View {
                         Label("Look Up a Word", systemImage: "character.book.closed")
                     }
                 }
+                // Sync is forward only, like Readest and KOReader (#112): the open-time prompt only offers a
+                // position that is ahead. This is the way back to one that is behind. Hidden while sync is off.
+                if model.canGoToSyncedPosition {
+                    Section("Sync") {
+                        Button {
+                            goToSyncedPosition()
+                        } label: {
+                            Label("Go to Synced Position", systemImage: "arrow.triangle.2.circlepath")
+                        }
+                        .disabled(fetchingSyncedPosition)
+                        .accessibilityLabel(Text("Go to Synced Position"))
+                        .accessibilityHint(Text("Jumps to the position saved on the sync service, even if it is earlier in the book.",
+                                                comment: "VoiceOver hint of 'Go to Synced Position' in the reader menu"))
+                        .accessibilityIdentifier("goToSyncedPositionButton")
+                        if let syncedPositionNote {
+                            syncedPositionNote
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityIdentifier("syncedPositionNote")
+                        }
+                    }
+                }
                 Section("Chapters") {
                     let current = model.flat.chapterRefIndex(containing: model.currentIndex)
                     ForEach(Array(model.flat.chapterRefs.enumerated()), id: \.offset) { offset, ref in
@@ -78,6 +105,25 @@ struct ReaderMenuView: View {
             // chapters, and it is opened from the Reading Options button.
             .navigationTitle(Text("Options", comment: "Title of the reading options sheet opened from the reader"))
             .navigationDestination(for: SettingsRoute.self) { $0.destination }
+        }
+    }
+
+    private func goToSyncedPosition() {
+        fetchingSyncedPosition = true
+        syncedPositionNote = nil
+        Task {
+            let result = await model.goToSyncedPosition()
+            fetchingSyncedPosition = false
+            switch result {
+            case .jumped:
+                dismiss()
+            case .noPosition:
+                syncedPositionNote = Text("No synced position for this book yet.",
+                                          comment: "Shown under 'Go to Synced Position' when the sync service has no position for the book")
+            case .failed:
+                syncedPositionNote = Text("Couldn't reach the sync service. Try again later.",
+                                          comment: "Shown under 'Go to Synced Position' when fetching the position failed")
+            }
         }
     }
 }

@@ -420,8 +420,12 @@ final class ReopenPositionTests: XCTestCase {
         return (UserDefaults(suiteName: name)!, name)
     }
 
-    private func book(_ hash: String = "h") -> ProcessedBook {
-        let blocks = (0..<100).map { Block(text: String(repeating: "x", count: 10), xpointer: "/body/p[\($0 + 1)]",
+    /// `crengine: true` gives the blocks real KOReader/crengine XPointers (`/body/DocFragment[1]/body/p[n]`)
+    /// that `XPointerResolver` can resolve; the short `/body/p[n]` form does not parse, so a remote position
+    /// in that form only ever resolves through its percentage.
+    private func book(_ hash: String = "h", crengine: Bool = false) -> ProcessedBook {
+        let base = crengine ? "/body/DocFragment[1]/body" : "/body"
+        let blocks = (0..<100).map { Block(text: String(repeating: "x", count: 10), xpointer: "\(base)/p[\($0 + 1)]",
                                            globalOffset: $0 * 10) }
         return ProcessedBook(metadata: BookMetadata(title: "T", authors: []), documentHash: hash, metaHash: "",
                              chapters: [Chapter(spineIndex: 1, title: nil, blocks: blocks)], totalCharacters: 1_000)
@@ -535,6 +539,69 @@ final class ReopenPositionTests: XCTestCase {
             return XCTFail("another device's position must be offered")
         }
         XCTAssertEqual(remote.page, 120)
+    }
+
+    // MARK: Forward-only sync (#112)
+
+    @MainActor
+    func testRemoteAheadPromptsAndRemoteBehindStaysSilent() async throws {
+        let (defaults, name) = suite()
+        defer { defaults.removePersistentDomain(forName: name) }
+        let service = EchoService()
+        let sync = SyncCoordinator(defaults: defaults, connector: { service })
+        let book = BookIdentity(partialMD5: "h")
+        let local = ReadingPosition(xpointer: "/body/p[50]", percentage: 0.49, page: 50, pageCount: 100)
+        // Another device is further on: "Continue where you left off?".
+        service.lock.withLock { service.stored = ReadingPosition(xpointer: "/body/p[80]", percentage: 0.79,
+                                                                 page: 80, pageCount: 100) }
+        guard case .offerRemote(let ahead) = await sync.decisionOnOpen(book: book, local: local) else {
+            return XCTFail("a remote position ahead must be offered")
+        }
+        XCTAssertEqual(ahead.page, 80)
+        // Another device is behind: no prompt, the local position stays.
+        service.lock.withLock { service.stored = ReadingPosition(xpointer: "/body/p[20]", percentage: 0.19,
+                                                                 page: 20, pageCount: 100) }
+        let behind = await sync.decisionOnOpen(book: book, local: local)
+        XCTAssertEqual(behind, .keepLocal)
+    }
+
+    @MainActor
+    func testGoToSyncedPositionJumpsEvenWhenBehind() async throws {
+        let (defaults, name) = suite()
+        defer { defaults.removePersistentDomain(forName: name) }
+        let service = EchoService()
+        let sync = SyncCoordinator(defaults: defaults, connector: { service })
+        let model = ReaderViewModel(book: book(crengine: true), positions: PositionStore(defaults: defaults), sync: sync)
+        XCTAssertTrue(model.canGoToSyncedPosition)
+        model.jump(to: 60)
+        // Nothing on the service yet: no jump.
+        let nothing = await model.goToSyncedPosition()
+        XCTAssertEqual(nothing, .noPosition)
+        XCTAssertEqual(model.currentIndex, 60)
+        // A position behind the local one: not offered on open, but the menu item still goes there.
+        // `p[21]` is block 20 (XPath is 1-based, and `page` is `index + 1` as ReaderViewModel reports it).
+        // The XPointer must resolve: the Readest-like service rebuilds the percentage as page / pageCount
+        // (0.21, the end of block 20), so a percentage-only fallback would land on the start of block 21.
+        service.lock.withLock { service.stored = ReadingPosition(xpointer: "/body/DocFragment[1]/body/p[21]",
+                                                                 percentage: 0.2, page: 21, pageCount: 100) }
+        let open = await sync.decisionOnOpen(book: BookIdentity(partialMD5: "h"), local: model.localPosition)
+        XCTAssertEqual(open, .keepLocal)
+        let jumped = await model.goToSyncedPosition()
+        XCTAssertEqual(jumped, .jumped)
+        XCTAssertEqual(model.currentIndex, 20)
+        XCTAssertEqual(model.jumpRequest?.index, 20)
+    }
+
+    @MainActor
+    func testGoToSyncedPositionIsHiddenWhenSyncIsOff() async {
+        let (defaults, name) = suite()
+        defer { defaults.removePersistentDomain(forName: name) }
+        let sync = SyncCoordinator(defaults: defaults, credentials: { nil })
+        let model = ReaderViewModel(book: book(), positions: PositionStore(defaults: defaults), sync: sync)
+        XCTAssertFalse(model.canGoToSyncedPosition)
+        let result = await model.goToSyncedPosition()
+        XCTAssertEqual(result, .noPosition)
+        XCTAssertEqual(model.currentIndex, 0)
     }
 }
 
