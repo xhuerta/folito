@@ -23,9 +23,11 @@ on:
       - ".github/workflows/release-check.yml"
   workflow_dispatch:
 
+# Pull requests: one group per PR, and a new push cancels the run still going. Pushes to main and manual runs
+# get a group of their own (the run id), so they are never cancelled.
 concurrency:
-  group: release-check-${{ github.ref }}
-  cancel-in-progress: true
+  group: release-check-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   archive:
