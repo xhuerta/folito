@@ -142,14 +142,19 @@ final class ReaderViewModel: ObservableObject {
 
     struct LookupTarget: Identifiable, Equatable {
         let index: Int
+        /// Character offset in the block's text where the word picker starts (nil: the first word).
+        var characterOffset: Int? = nil
         var id: Int { index }
     }
 
-    func beginLookup(at index: Int) {
+    func beginLookup(at index: Int, characterOffset: Int? = nil) {
         guard !flat.isEmpty else { return }
         pageTimer.reset(at: now())
-        lookupBlockIndex = LookupTarget(index: flat.clamped(index))
+        lookupBlockIndex = LookupTarget(index: flat.clamped(index), characterOffset: characterOffset)
     }
+
+    /// Last measured frame of a block, if it is laid out.
+    func frame(ofBlock index: Int) -> BlockFrame? { lastFrames[index] }
 
     /// Re-aligns the scroll view with the block we were reading after the layout changed (typography).
     /// Does not change the saved position.

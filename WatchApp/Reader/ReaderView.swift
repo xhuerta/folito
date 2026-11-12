@@ -53,7 +53,7 @@ struct ReaderView: View {
                         BlockStyledText(block: model.flat.blocks[index], style: style)
                             .equatable()
                             .contentShape(Rectangle())
-                            .onTapGesture { tapped(block: index) }
+                            .onTapGesture { location in tapped(block: index, at: location, style: style) }
                             // Available from the VoiceOver actions rotor even with tap-to-look-up off.
                             .accessibilityAction(named: Text("Look Up a Word")) { model.beginLookup(at: index) }
                             .accessibilityIdentifier("readerBlock")
@@ -62,7 +62,7 @@ struct ReaderView: View {
                                 GeometryReader { geo in
                                     let f = geo.frame(in: .named(Self.scrollSpace))
                                     Color.clear.preference(key: BlockFramesKey.self,
-                                                           value: [index: BlockFrame(minY: f.minY, maxY: f.maxY)])
+                                                           value: [index: BlockFrame(minY: f.minY, maxY: f.maxY, width: f.width)])
                                 })
                     }
                     if model.flat.isEmpty {
@@ -156,7 +156,8 @@ struct ReaderView: View {
         .sheet(isPresented: $showMenu, onDismiss: {
             if lookupAfterMenu {
                 lookupAfterMenu = false
-                model.beginLookup(at: model.currentIndex)
+                // From the menu: start on the word at the reading line.
+                model.beginLookup(at: model.currentIndex, characterOffset: model.currentOffset)
             }
             model.reanchor()
         }) {
@@ -167,7 +168,8 @@ struct ReaderView: View {
         }
         .sheet(item: $model.lookupBlockIndex) { target in
             WordLookupSheet(text: model.flat.blocks[target.index].text,
-                            language: model.bookLanguage, provider: model.dictionary)
+                            language: model.bookLanguage, provider: model.dictionary,
+                            initialCharacterOffset: target.characterOffset)
         }
         .alert(Text("Continue Where You Left Off?", comment: "Title of the offer to jump to the position saved by another device"),
                isPresented: $model.showRemoteOffer) {
@@ -208,8 +210,8 @@ extension ReaderView {
     }
 
     /// A tap on the text shows the hidden bar (then hides it again after a few seconds); with the bar
-    /// visible it opens the word lookup as before.
-    fileprivate func tapped(block index: Int) {
+    /// visible it opens the word lookup on the word under the finger (estimated, see `TapPosition`).
+    fileprivate func tapped(block index: Int, at location: CGPoint, style: ReaderRenderStyle) {
         var revealed = false
         updateBar { revealed = $0.tapped(at: Date(), voiceOver: voiceOver) }
         if revealed {
@@ -218,7 +220,23 @@ extension ReaderView {
             }
             return
         }
-        if tapToLookUp { model.beginLookup(at: index) }
+        guard tapToLookUp else { return }
+        model.beginLookup(at: index, characterOffset: tappedCharacterOffset(block: index, at: location, style: style))
+    }
+
+    /// Character offset of the text under `location` (in the block's own coordinates), or nil when the
+    /// block's size is not known yet.
+    fileprivate func tappedCharacterOffset(block index: Int, at location: CGPoint, style: ReaderRenderStyle) -> Int? {
+        guard index < model.flat.count, let frame = model.frame(ofBlock: index), frame.width > 0 else { return nil }
+        let block = model.flat.blocks[index]
+        let spec = style.spec(for: block.style)
+        let layout = TapPosition.Layout(width: Double(frame.width) - spec.indent,
+                                        height: Double(frame.maxY - frame.minY) - spec.topPadding,
+                                        pointSize: spec.pointSize,
+                                        lineSpacing: style.typography.lineSpacing,
+                                        tracking: style.typography.tracking)
+        return TapPosition.characterOffset(x: Double(location.x) - spec.indent, y: Double(location.y) - spec.topPadding,
+                                           layout: layout, characterCount: block.text.count)
     }
 
     fileprivate func updateBar(_ change: (inout BarAutoHide) -> Void) {
