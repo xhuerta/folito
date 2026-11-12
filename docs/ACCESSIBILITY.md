@@ -209,6 +209,14 @@ at 351–568 pt. The button itself was unchanged (`ActionLabel`: `.body`, wraps,
 44 pt minimum). Each scroll of the audit pages now waits until the texts on screen stop moving
 (`waitForScrollToSettle`), and the skip checks the button against the whole screen, not only the area clear
 of the bars.
+That did not help (CI on PR #124): the log shows the list had settled and `skipBookDetailsRows` read the
+button's frame, found its top on screen but its bottom below the screen, and returned without scrolling; the
+Dynamic Type audit four seconds later reported it fully on screen at 349–567 pt. Nothing moved in between: the
+audit re-renders the screen at smaller sizes at the same scroll offset, the rows above the button get shorter
+and the button moves up into full view (the same effect as the fixed-size layout switches above). The button
+is unchanged and passes at scroll offset 0 in `testSettingsBookDetailsAudit`, so this is not an app bug and
+not accepted: the skip now starts as soon as any part of the button is on screen at AX5, and scrolls on until
+it is above the area clear of the bars. Each skip is logged with the button's frame.
 
 **The book detail screen** (PR #46) was first a `List`: an inset-grouped section per part, `LabeledContent`
 rows for the publication details, action rows and a separate *More* row under the description. At AX5 the

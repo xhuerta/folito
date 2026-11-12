@@ -572,13 +572,19 @@ final class AccessibilityAuditTests: XCTestCase {
     /// screen, passed, and on no other page (CI on c849128). The same artifact as the
     /// Library's mid-list row (`openCloudRowsAtLargestText`). So on those pages the pass scrolls on until the
     /// button is above the screen.
+    ///
+    /// The skip starts as soon as any part of the button is on screen, not only when all of it is: the audit
+    /// re-renders the screen at smaller sizes at the same scroll offset, where the rows above the button are
+    /// shorter and it moves up. On CI (PR #124) the button was partly below the screen at AX5 when this ran, so
+    /// a "fully on screen" check did not skip, and the audit then reported it fully on screen at 349–567 pt.
     @MainActor
     private static func skipBookDetailsRows(_ app: XCUIApplication) {
         let start = app.buttons["onlineBulkStart"]
-        // Fully on screen, bars included: the artifact is about the whole button being on screen mid-list.
         let screen = app.windows.firstMatch.frame
-        guard start.exists, !start.frame.isEmpty, start.frame.minY >= screen.minY, start.frame.maxY <= screen.maxY
-        else { return }
+        guard start.exists else { return }
+        let frame = start.frame
+        guard !frame.isEmpty, frame.intersects(screen) else { return }
+        output("Skipping the Book Details rows at the largest size (button at \(frame))")
         for _ in 0..<6 where start.exists && start.frame.maxY > clearArea(in: app).top { scrollDown(app) }
         XCTAssertFalse(start.exists && start.frame.maxY > clearArea(in: app).top, "Book Details rows still on screen")
     }
