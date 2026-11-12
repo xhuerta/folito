@@ -141,8 +141,11 @@ final class ReaderChromeTests: XCTestCase {
     /// fraction of the screen when watchOS reports no inset, and never a large part of the screen.
     func testClockBandHeight() {
         let screen: CGFloat = 224 // 44 mm
-        XCTAssertEqual(ClockBand.height(barHidden: false, topInset: 31, screenHeight: screen), 0)
-        XCTAssertEqual(ClockBand.height(barHidden: true, topInset: 31, screenHeight: screen), 31)
+        XCTAssertEqual(ClockBand.height(barHidden: false, topInset: 40, screenHeight: screen), 0)
+        XCTAssertEqual(ClockBand.height(barHidden: true, topInset: 40, screenHeight: screen), 40)
+        // An inset smaller than the floor (15% of the screen) is raised to it.
+        XCTAssertEqual(ClockBand.height(barHidden: true, topInset: 31, screenHeight: screen),
+                       screen * ClockBand.minimumFraction, accuracy: 1e-9)
         let fallback = ClockBand.height(barHidden: true, topInset: 0, screenHeight: screen)
         XCTAssertGreaterThanOrEqual(fallback, 28)
         XCTAssertLessThan(fallback, screen * 0.25)
