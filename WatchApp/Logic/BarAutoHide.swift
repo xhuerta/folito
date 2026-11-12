@@ -27,9 +27,6 @@ struct BarAutoHide: Equatable {
     static let jumpDistance: CGFloat = 400
     static let settleDuration: TimeInterval = 0.6
     static let tapRevealDuration: TimeInterval = 3
-    /// Height of the band kept above the text while the bar is hidden, so the system time (drawn by watchOS
-    /// at the top, also with the bar hidden) never covers the first line (#125).
-    static let clockBandHeight: CGFloat = 28
 
     private(set) var isHidden = false
     /// Where the current run of scrolling in one direction started (furthest point reached).
@@ -122,5 +119,26 @@ struct BarAutoHide: Equatable {
 enum ReadingLine {
     static func updated(current: CGFloat, measured: CGFloat, barShown: Bool) -> CGFloat {
         barShown ? max(current, measured) : current
+    }
+}
+
+/// The band in the page colour that covers the system time while the navigation bar is hidden, so the text
+/// scrolling up disappears behind it instead of running under the time (#125). It is an overlay pinned to
+/// the top of the screen, not an inset, so showing or hiding it never moves the text.
+enum ClockBand {
+    /// Lower bound as a fraction of the full screen height, for when watchOS reports no top safe area with the
+    /// bar hidden (the time is still drawn): about 30 pt on a 44 mm watch (197 pt simulator, 224 pt device
+    /// scale); the status bar is 28 pt there.
+    static let minimumFraction: CGFloat = 0.15
+    /// Upper bound, so a large inset (the bar's own, mid-animation) never covers the reading area.
+    static let maximumFraction: CGFloat = 0.2
+
+    /// `topInset`: the top safe-area inset measured at the reader's root; `screenHeight`: the full height,
+    /// top safe area included. 0 while the bar is shown (the bar itself covers the time area then).
+    static func height(barHidden: Bool, topInset: CGFloat, screenHeight: CGFloat) -> CGFloat {
+        guard barHidden, screenHeight > 0 else { return 0 }
+        let lower = screenHeight * minimumFraction
+        let upper = screenHeight * maximumFraction
+        return min(max(topInset, lower), upper)
     }
 }

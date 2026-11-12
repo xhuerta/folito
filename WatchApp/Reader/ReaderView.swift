@@ -20,8 +20,10 @@ import ReaderCore
 /// replaces the back button and with it the left-edge swipe back), so leaving the book always works from the
 /// visible bar. The time in the corner is drawn by the system: watchOS documents no API for an app to hide
 /// it, so it is not requested. With the bar hidden the scroll view's top inset drops to 0 and the text would
-/// scroll under the time, so a band in the page colour (`BarAutoHide.clockBandHeight`) is inset at the top
-/// while the bar is hidden: the text stays below the time (#125). What remains on screen with the bar hidden
+/// scroll under the time, so while the bar is hidden an overlay in the page colour (`ClockBand`) covers the
+/// time area at the top of the screen: text scrolling up disappears behind it (#125). It is pinned to the
+/// root, outside the scroll content, and is not an inset, so the text never shifts when the bar toggles.
+/// What remains on screen with the bar hidden
 /// is captured by `WatchReaderTopBarTests` (attachment "watch-reader-bar-hidden").
 ///
 /// Opening (#125): the text stays transparent until the view model has scrolled to the saved block and the
@@ -96,12 +98,6 @@ struct ReaderView: View {
                     .preference(key: ViewportTopKey.self, value: geo.safeAreaInsets.top)
                     .preference(key: ViewportHeightKey.self, value: geo.size.height)
             })
-            // Keeps the text below the system time while the bar is hidden (the bar's own inset is gone).
-            .safeAreaInset(edge: .top, spacing: 0) {
-                style.background
-                    .frame(height: barHidden ? BarAutoHide.clockBandHeight : 0)
-                    .accessibilityHidden(true)
-            }
             .onPreferenceChange(ViewportTopKey.self) { top in
                 // The reading line stays where it is while the bar is hidden (see `ReadingLine`).
                 model.viewportTop = ReadingLine.updated(current: model.viewportTop, measured: top, barShown: !barHidden)
@@ -132,6 +128,10 @@ struct ReaderView: View {
             }
         }
         .background(style.background)
+        // Covers the system time while the bar is hidden (#125). On the root, outside the scroll view.
+        .overlay(alignment: .top) {
+            ClockBandOverlay(barHidden: barHidden, color: style.background)
+        }
         .tint(style.accentColor)
         .preferredColorScheme(style.isLightPage ? .light : .dark)
         // Layout metrics changed: keep reading the same block. Colour-only changes (Always On,
@@ -303,6 +303,38 @@ struct ScrollDistanceReader: ViewModifier {
 struct ContentTopKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+}
+
+/// The page-coloured band over the system time while the navigation bar is hidden (`ClockBand`). It reads
+/// the top safe-area inset at the reader's root and spans the screen from its very top edge. Decorative:
+/// hidden from VoiceOver and transparent to taps. Under the UI tests it stays in the accessibility tree
+/// as "clockBand" so its frame can be asserted (the bar never hides with VoiceOver on, so VoiceOver never
+/// meets it).
+private struct ClockBandOverlay: View {
+    let barHidden: Bool
+    let color: Color
+
+    var body: some View {
+        GeometryReader { geo in
+            let height = ClockBand.height(barHidden: barHidden, topInset: geo.safeAreaInsets.top,
+                                          screenHeight: geo.size.height)
+            VStack(spacing: 0) {
+                if height > 0 {
+                    color
+                        .frame(height: height)
+                        .accessibilityElement()
+                        .accessibilityIdentifier("clockBand")
+                        .accessibilityHidden(!UITesting.isActive)
+                        .transition(.opacity)
+                }
+                Spacer(minLength: 0)
+            }
+        }
+        // The GeometryReader covers the whole screen, so the band starts at the top edge, spans the full width
+        // (the side safe areas are 2 pt on 44 mm) and its height is a fraction of the real screen height.
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+    }
 }
 
 /// Collects the frames of the blocks the `LazyVStack` currently has instantiated. Views that are
