@@ -22,11 +22,19 @@ final class WatchAccessibilityChecksTests: XCTestCase {
     @MainActor
     private func interactiveElements(in app: XCUIApplication) throws -> [XCUIElementSnapshot] {
         var found: [XCUIElementSnapshot] = []
-        func walk(_ node: XCUIElementSnapshot) {
-            if Self.interactiveTypes.contains(node.elementType), !node.frame.isEmpty { found.append(node) }
-            node.children.forEach(walk)
+        // On watchOS 26 a SwiftUI Toggle shows up twice: the labelled Switch row, and its knob as an unlabelled
+        // Switch child. VoiceOver focuses only the labelled parent, so a control nested in a labelled control of
+        // the same type is part of it, not a separate element to label.
+        func walk(_ node: XCUIElementSnapshot, labelledAncestorTypes: Set<XCUIElement.ElementType>) {
+            let isInteractive = Self.interactiveTypes.contains(node.elementType)
+            if isInteractive, !node.frame.isEmpty, !labelledAncestorTypes.contains(node.elementType) { found.append(node) }
+            var types = labelledAncestorTypes
+            if isInteractive, !node.label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                types.insert(node.elementType)
+            }
+            node.children.forEach { walk($0, labelledAncestorTypes: types) }
         }
-        walk(try app.snapshot())
+        walk(try app.snapshot(), labelledAncestorTypes: [])
         return found
     }
 
