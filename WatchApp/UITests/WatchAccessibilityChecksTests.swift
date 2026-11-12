@@ -38,14 +38,16 @@ final class WatchAccessibilityChecksTests: XCTestCase {
         var problems: [String] = []
         for element in elements where !Self.isSystemBackButton(element) {
             let label = element.label.trimmingCharacters(in: .whitespacesAndNewlines)
-            let what = "\(element.elementType.rawValue) id='\(element.identifier)' label='\(element.label)'"
+            let what = "\(element.elementType.rawValue) id='\(element.identifier)' label='\(element.label)' "
+                + "value='\(element.value.map { "\($0)" } ?? "")' frame=\(element.frame)"
             if label.isEmpty {
                 problems.append("empty label: \(what)")
             } else if Self.looksLikeIdentifier(label) {
                 problems.append("identifier-like label: \(what)")
             }
         }
-        XCTAssertTrue(problems.isEmpty, "\(screen):\n" + problems.joined(separator: "\n"), file: file, line: line)
+        XCTAssertTrue(problems.isEmpty, "\(screen):\n" + problems.joined(separator: "\n")
+                      + (problems.isEmpty ? "" : "\nTree:\n\(app.debugDescription)"), file: file, line: line)
     }
 
     /// The navigation bar's back chevron is drawn by watchOS (`NavigationStack`), not by the app: it has the
