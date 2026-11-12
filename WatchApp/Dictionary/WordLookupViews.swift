@@ -4,13 +4,15 @@ import ReaderCore
 /// Sheet: pick a word of a paragraph with the Digital Crown, then look it up.
 ///
 /// watchOS cannot select text in SwiftUI `Text` nor show the system dictionary, so the crown moves a
-/// cursor over the paragraph's words instead. The previous / next buttons and the VoiceOver adjustable
-/// action (swipe up / down) do the same without the crown.
+/// cursor over the paragraph's words instead. The cursor starts on the tapped word (estimated from the
+/// tap position, see `TapPosition`). The small previous / next buttons and the VoiceOver adjustable
+/// action (swipe up / down) move it without the crown.
 struct WordLookupSheet: View {
     @StateObject private var model: WordLookupModel
 
-    init(text: String, language: String?, provider: DictionaryProviding) {
-        _model = StateObject(wrappedValue: WordLookupModel(text: text, language: language, provider: provider))
+    init(text: String, language: String?, provider: DictionaryProviding, initialCharacterOffset: Int? = nil) {
+        _model = StateObject(wrappedValue: WordLookupModel(text: text, language: language, provider: provider,
+                                                           initialCharacterOffset: initialCharacterOffset))
     }
 
     var body: some View {
@@ -27,44 +29,71 @@ struct WordLookupSheet: View {
 
 struct WordPickerView: View {
     @ObservedObject var model: WordLookupModel
+    /// Side of the round previous / next buttons: the watchOS minimum tap target, scaled with Dynamic Type.
+    @ScaledMetric(relativeTo: .body) private var arrowSize: CGFloat = 40
 
     var body: some View {
         // Scrolls at large text sizes; the crown stays on the word cursor (focused view) while the page
         // can still be scrolled by touch.
         ScrollView {
-            VStack(spacing: 8) {
+            VStack(spacing: 6) {
                 cursor
-                HStack {
-                    Button { model.step(-1) } label: {
-                        Label("Previous Word", systemImage: "chevron.backward")
-                            .labelStyle(.iconOnly)
-                            .frame(maxWidth: .infinity)
+                // One compact row (previous, Look Up, next) so the word and its context keep the screen
+                // on a 40-45 mm watch. At large text sizes the row does not fit and the buttons stack.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 4) {
+                        arrow(-1)
+                        lookUpButton.layoutPriority(1)
+                        arrow(1)
                     }
-                    .disabled(!model.canStepBack)
-                    Button { model.step(1) } label: {
-                        Label("Next Word", systemImage: "chevron.forward")
-                            .labelStyle(.iconOnly)
-                            .frame(maxWidth: .infinity)
+                    VStack(spacing: 4) {
+                        HStack(spacing: 4) {
+                            arrow(-1)
+                            Spacer(minLength: 0)
+                            arrow(1)
+                        }
+                        lookUpButton
                     }
-                    .disabled(!model.canStepForward)
                 }
-                NavigationLink {
-                    DefinitionView(model: model)
-                } label: {
-                    Label("Look Up", systemImage: "character.book.closed")
-                }
-                .buttonStyle(.borderedProminent)
-                .accessibilityHint(Text("Shows the definition of \(model.currentWord)."))
             }
         }
         .navigationTitle("Word")
         .navigationBarTitleDisplayMode(.inline)
     }
 
+    private func arrow(_ delta: Int) -> some View {
+        Button { model.step(delta) } label: {
+            Label(delta < 0 ? "Previous Word" : "Next Word",
+                  systemImage: delta < 0 ? "chevron.backward" : "chevron.forward")
+                .labelStyle(.iconOnly)
+                .font(.footnote.weight(.semibold))
+        }
+        .buttonStyle(.bordered)
+        .buttonBorderShape(.circle)
+        .frame(width: arrowSize, height: arrowSize)
+        .disabled(delta < 0 ? !model.canStepBack : !model.canStepForward)
+    }
+
+    private var lookUpButton: some View {
+        NavigationLink {
+            DefinitionView(model: model)
+        } label: {
+            Text("Look Up")
+                .font(.footnote.weight(.semibold))
+                .lineLimit(1)
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.borderedProminent)
+        .buttonBorderShape(.capsule)
+        .frame(minHeight: arrowSize)
+        .fixedSize(horizontal: false, vertical: true)
+        .accessibilityHint(Text("Shows the definition of \(model.currentWord)."))
+    }
+
     /// The selected word in its context. One adjustable VoiceOver element: it announces the word and its
     /// position, and swiping up / down moves to the next / previous word.
     private var cursor: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 2) {
             Text(model.currentWord)
                 .font(.title3.weight(.semibold))
                 .lineLimit(1)
@@ -73,7 +102,8 @@ struct WordPickerView: View {
                 Text(Self.highlighted(context))
                     .font(.footnote)
                     .multilineTextAlignment(.center)
-                    .lineLimit(4)
+                    .lineLimit(6)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Text(model.positionText)
                 .font(.caption2).foregroundStyle(.secondary)

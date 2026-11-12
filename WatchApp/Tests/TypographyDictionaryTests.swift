@@ -139,6 +139,19 @@ final class WordLookupModelTests: XCTestCase {
         XCTAssertEqual(model.context?.word, "wife")
     }
 
+    func testStartsOnTheWordAtTheInitialOffset() {
+        // Offset 9 is inside "truth" (the tapped word).
+        let tapped = WordLookupModel(text: text, language: "en", provider: MockDictionaryProvider.sample,
+                                     initialCharacterOffset: 9)
+        XCTAssertEqual(tapped.currentWord, "truth")
+        XCTAssertEqual(tapped.index, 3)
+        let pastEnd = WordLookupModel(text: text, language: "en", provider: MockDictionaryProvider.sample,
+                                      initialCharacterOffset: 10_000)
+        XCTAssertEqual(pastEnd.currentWord, "wife")
+        let none = WordLookupModel(text: text, language: "en", provider: MockDictionaryProvider.sample)
+        XCTAssertEqual(none.currentWord, "It")
+    }
+
     func testNoWords() {
         let model = WordLookupModel(text: "123 ... 😀", language: nil, provider: MockDictionaryProvider.sample)
         XCTAssertFalse(model.hasWords)

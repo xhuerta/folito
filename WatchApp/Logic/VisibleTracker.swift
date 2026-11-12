@@ -6,6 +6,8 @@ import ReaderCore
 struct BlockFrame: Equatable {
     var minY: CGFloat
     var maxY: CGFloat
+    /// Width of the block (used to place a tap within a line for the word lookup).
+    var width: CGFloat = 0
 }
 
 /// Decides the reading position from block frames measured with a named coordinate space.

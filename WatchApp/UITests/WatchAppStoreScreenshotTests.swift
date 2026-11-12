@@ -95,10 +95,11 @@ final class WatchAppStoreScreenshotTests: XCTestCase {
         WatchUI.openReader(app)
         captureWhenStill("watch-1-reader")
 
-        // The first paragraph (the chapter heading is block 0): tapping it opens the word picker.
+        // The first paragraph (the chapter heading is block 0): tapping it opens the word picker on the
+        // tapped word, so tap its first word (top leading corner) to start at the beginning.
         let paragraph = app.descendants(matching: .any).matching(identifier: "readerBlock").element(boundBy: 1)
         XCTAssertTrue(paragraph.waitForExistence(timeout: 5), "first paragraph missing")
-        paragraph.tap()
+        paragraph.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.04)).tap()
         let next = labelled("Next Word", in: app)
         XCTAssertTrue(next.waitForExistence(timeout: 10), "word picker did not open. Tree:\n\(app.debugDescription)")
 

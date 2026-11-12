@@ -23,12 +23,19 @@ final class WordLookupModel: ObservableObject {
     @Published var cursor: Double = 0
     @Published private(set) var state: State = .idle
 
-    init(text: String, language: String?, provider: DictionaryProviding, haptics: HapticPlaying = WatchHaptics()) {
+    /// - Parameter initialCharacterOffset: character offset in `text` of the word to start on (the tapped
+    ///   word, or the reading line); nil starts on the first word.
+    init(text: String, language: String?, provider: DictionaryProviding, haptics: HapticPlaying = WatchHaptics(),
+         initialCharacterOffset: Int? = nil) {
         self.text = text
         self.language = language
         self.provider = provider
         self.haptics = haptics
-        self.tokens = WordTokenizer.tokens(in: text)
+        let tokens = WordTokenizer.tokens(in: text)
+        self.tokens = tokens
+        if let offset = initialCharacterOffset {
+            cursor = Double(TapPosition.tokenIndex(forCharacterOffset: offset, in: text, tokens: tokens))
+        }
     }
 
     var hasWords: Bool { !tokens.isEmpty }

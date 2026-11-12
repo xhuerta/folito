@@ -339,7 +339,11 @@ position) scroll without animation, so Reduce Motion needs nothing extra.
 
 **Digital Crown.** The reader is a plain `ScrollView`, so the crown scrolls it with the system's
 momentum and detents, like other system apps. In the word picker the crown moves the word cursor
-(`digitalCrownRotation`, detent haptics); the page can still be scrolled by touch.
+(`digitalCrownRotation`, detent haptics); the page can still be scrolled by touch. A tap on the text
+opens the picker on the word under the finger (estimated from the tap position, usually exact or one word
+off); the VoiceOver *Look Up a Word* action starts at the first word. The picker's previous / next
+buttons are 40 pt circles (scaled with Dynamic Type) on one row with *Look Up*; at large text sizes the
+row stacks.
 
 **Haptics.** `WKInterfaceDevice.play`: `.click` when the word cursor moves by a button or VoiceOver,
 `.success` / `.failure` when a lookup succeeds or fails.
