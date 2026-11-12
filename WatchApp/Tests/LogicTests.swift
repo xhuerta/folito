@@ -455,6 +455,7 @@ final class ReopenPositionTests: XCTestCase {
         let sync = SyncCoordinator(defaults: defaults, credentials: { nil })
         let first = ReaderViewModel(book: book(), positions: positions, sync: sync)
         first.settleDelay = 10_000_000
+        first.openSettleDelay = 10_000_000
         first.restoreInitialPosition()
         try await Task.sleep(nanoseconds: 300_000_000)
         first.blockFramesChanged([41: f(-10, 3), 42: f(3, 60)])
@@ -463,6 +464,7 @@ final class ReopenPositionTests: XCTestCase {
 
         let reopened = ReaderViewModel(book: book(), positions: positions, sync: sync)
         reopened.settleDelay = 30_000_000
+        reopened.openSettleDelay = 30_000_000
         XCTAssertEqual(reopened.startIndex, 42)
         reopened.restoreInitialPosition()
         let firstJump = try XCTUnwrap(reopened.jumpRequest)
@@ -642,6 +644,83 @@ final class InBlockReaderTests: XCTestCase {
         let reopened = ReaderViewModel(book: book(), positions: positions, sync: sync, settings: defaults)
         XCTAssertEqual(reopened.startIndex, 1)
         XCTAssertEqual(reopened.startOffset, 50)
+    }
+
+    private func f(_ minY: CGFloat, _ maxY: CGFloat) -> BlockFrame { BlockFrame(minY: minY, maxY: maxY) }
+
+    /// Where a book opens (#125): computed once, before the first render, from the saved position.
+    func testOpenPosition() {
+        let flat = FlatBook(book())
+        func open(_ block: Int, _ offset: Int, chapter: Int = 0) -> (index: Int, offset: Int) {
+            ReaderViewModel.openPosition(saved: StoredPosition(position: BookPosition(chapterIndex: chapter, blockIndex: block,
+                                                                                      characterOffset: offset),
+                                                               percentage: 0.5), in: flat)
+        }
+        let none = ReaderViewModel.openPosition(saved: nil, in: flat)
+        XCTAssertEqual(none.index, 0)
+        XCTAssertEqual(none.offset, 0)
+        XCTAssertEqual(open(1, 50).index, 1)
+        XCTAssertEqual(open(1, 50).offset, 50)
+        XCTAssertEqual(open(1, 999).offset, 200, "the offset is clamped to the block's text")
+        // A block past the end of the chapter is clamped to its last block, at that block's top.
+        XCTAssertEqual(open(7, 50).index, 1)
+        XCTAssertEqual(open(7, 50).offset, 0)
+        XCTAssertEqual(open(0, 0, chapter: 5).index, 0, "an out-of-range chapter is clamped")
+    }
+
+    /// Reopening at a line inside a block (#125): the text stays transparent while the reader scrolls to
+    /// the block and then to the line, and appears once the line is at the top edge, so nothing moves on
+    /// screen after the first visible frame. The saved position is the line, not the block's top.
+    @MainActor
+    func testOpeningKeepsTheTextHiddenUntilTheSavedLineIsAtTheTop() async throws {
+        let defaults = UserDefaults(suiteName: "InBlockReaderTests.\(UUID().uuidString)")!
+        let positions = PositionStore(defaults: defaults)
+        let sync = SyncCoordinator(defaults: defaults, credentials: { nil })
+        ReaderViewModel(book: book(), positions: positions, sync: sync, settings: defaults).jump(to: 1, characterOffset: 100)
+
+        let model = ReaderViewModel(book: book(), positions: positions, sync: sync, settings: defaults)
+        model.openSettleDelay = 30_000_000
+        model.viewportHeight = 200
+        XCTAssertFalse(model.isPositioned)
+        model.restoreInitialPosition()
+        XCTAssertTrue(model.isRestoring, "the opening scroll is programmatic: the bar must not hide")
+        let first = try XCTUnwrap(model.jumpRequest)
+        XCTAssertEqual(first.index, 1)
+        model.blockFramesChanged([1: f(0, 400)]) // the block's top at the top edge, the line not yet
+        try await Task.sleep(nanoseconds: 90_000_000)
+        let inBlock = try XCTUnwrap(model.jumpRequest)
+        XCTAssertNotEqual(inBlock, first)
+        XCTAssertNotNil(inBlock.anchorY, "the second scroll brings the saved line to the top edge")
+        XCTAssertFalse(model.isPositioned, "the text is still hidden between the two scrolls")
+
+        let wanted = InBlockPosition.wantedMinY(fraction: InBlockPosition.fraction(forCharacterOffset: 100,
+                                                                                    in: model.flat.blocks[1].text),
+                                                blockHeight: 400, viewportTop: 0)
+        model.blockFramesChanged([1: f(CGFloat(wanted), CGFloat(wanted) + 400)])
+        try await Task.sleep(nanoseconds: 90_000_000)
+        XCTAssertTrue(model.isPositioned, "the text appears once the saved line is at the top")
+        XCTAssertFalse(model.isRestoring)
+        XCTAssertEqual(model.currentIndex, 1)
+        XCTAssertEqual(model.currentOffset, 100, "the saved line, not the block's top, is the position")
+    }
+
+    /// A jump to a block that is laid out already carries the in-block anchor (#125): one scroll, no
+    /// second correction that moves the text again a moment later.
+    @MainActor
+    func testJumpToALaidOutBlockScrollsOnce() throws {
+        let defaults = UserDefaults(suiteName: "InBlockReaderTests.\(UUID().uuidString)")!
+        let model = ReaderViewModel(book: book(), positions: PositionStore(defaults: defaults),
+                                    sync: SyncCoordinator(defaults: defaults, credentials: { nil }), settings: defaults)
+        model.viewportHeight = 200
+        model.blockFramesChanged([0: f(0, 400), 1: f(410, 810)])
+        model.jump(to: 1, characterOffset: 100)
+        let anchor = try XCTUnwrap(model.jumpRequest?.anchorY)
+        let expected = try XCTUnwrap(InBlockPosition.anchorY(fraction: 0.5, blockHeight: 400, viewportHeight: 200,
+                                                             viewportTop: 0))
+        XCTAssertEqual(anchor, expected, accuracy: 1e-9)
+        // Without an offset (or a block that is not laid out) the jump goes to the block's top.
+        model.jump(to: 1)
+        XCTAssertNil(model.jumpRequest?.anchorY)
     }
 
     @MainActor

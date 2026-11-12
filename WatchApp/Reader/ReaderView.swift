@@ -19,8 +19,14 @@ import ReaderCore
 /// back button is the system's own (nothing is placed in the leading / cancellation slot, which on watchOS
 /// replaces the back button and with it the left-edge swipe back), so leaving the book always works from the
 /// visible bar. The time in the corner is drawn by the system: watchOS documents no API for an app to hide
-/// it, so it is not requested; what remains on screen with the bar hidden is captured by
-/// `WatchReaderTopBarTests` (attachment "watch-reader-bar-hidden").
+/// it, so it is not requested. With the bar hidden the scroll view's top inset drops to 0 and the text would
+/// scroll under the time, so a band in the page colour (`BarAutoHide.clockBandHeight`) is inset at the top
+/// while the bar is hidden: the text stays below the time (#125). What remains on screen with the bar hidden
+/// is captured by `WatchReaderTopBarTests` (attachment "watch-reader-bar-hidden").
+///
+/// Opening (#125): the text stays transparent until the view model has scrolled to the saved block and the
+/// saved line inside it (`ReaderViewModel.isPositioned`), so the book appears at that line without a
+/// visible move, and every programmatic scroll is announced to `BarAutoHide`, which then cannot hide the bar.
 struct ReaderView: View {
     @StateObject private var model: ReaderViewModel
     @EnvironmentObject private var sync: SyncCoordinator
@@ -73,6 +79,9 @@ struct ReaderView: View {
                 .background(GeometryReader { geo in
                     Color.clear.preference(key: ContentTopKey.self, value: geo.frame(in: .named(Self.scrollSpace)).minY)
                 })
+                // Laid out and scrolled as usual, but not shown until the saved line is at the top edge.
+                .opacity(model.isPositioned ? 1 : 0)
+                .accessibilityHidden(!model.isPositioned)
             }
             .coordinateSpace(name: Self.scrollSpace)
             // How far the text is scrolled, for the bar auto-hide. Read from the scroll view itself where
@@ -87,6 +96,12 @@ struct ReaderView: View {
                     .preference(key: ViewportTopKey.self, value: geo.safeAreaInsets.top)
                     .preference(key: ViewportHeightKey.self, value: geo.size.height)
             })
+            // Keeps the text below the system time while the bar is hidden (the bar's own inset is gone).
+            .safeAreaInset(edge: .top, spacing: 0) {
+                style.background
+                    .frame(height: barHidden ? BarAutoHide.clockBandHeight : 0)
+                    .accessibilityHidden(true)
+            }
             .onPreferenceChange(ViewportTopKey.self) { top in
                 // The reading line stays where it is while the bar is hidden (see `ReadingLine`).
                 model.viewportTop = ReadingLine.updated(current: model.viewportTop, measured: top, barShown: !barHidden)
@@ -99,6 +114,10 @@ struct ReaderView: View {
             }
             .onPreferenceChange(ViewportHeightKey.self) { model.viewportHeight = $0 }
             .onPreferenceChange(BlockFramesKey.self) { model.blockFramesChanged($0) }
+            // Restores and jumps are not reading: they must not hide the bar.
+            .onChange(of: model.isRestoring) { restoring in
+                updateBar { $0.programmaticScroll(restoring) }
+            }
             .onChange(of: model.jumpRequest) { request in
                 guard let request else { return }
                 DispatchQueue.main.async {
@@ -185,7 +204,10 @@ struct ReaderView: View {
                         : remote.deviceName))
             }
         }
-        .onAppear { model.restoreInitialPosition() }
+        .onAppear {
+            updateBar { $0.programmaticScroll(true) }
+            model.restoreInitialPosition()
+        }
         .onDisappear { model.leave() }
         .onChange(of: scenePhase) { phase in
             if phase != .active { model.reportProgress(immediately: true) }
