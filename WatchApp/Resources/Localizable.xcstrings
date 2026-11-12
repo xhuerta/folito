@@ -3996,6 +3996,100 @@
         }
       }
     },
+    "Sync failed: the server did not accept your account. Sign in again in Settings." : {
+      "comment" : "Shown in the reader's options when syncing reading progress was rejected (wrong credentials or expired session)",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync fehlgeschlagen: Der Server hat dein Konto nicht akzeptiert. Melde dich in den Einstellungen erneut an."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Error de sincronización: el servidor no aceptó tu cuenta. Vuelve a iniciar sesión en Ajustes."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Échec de la synchronisation : le serveur n’a pas accepté votre compte. Reconnectez-vous dans Réglages."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sincronizzazione non riuscita: il server non ha accettato il tuo account. Accedi di nuovo in Impostazioni."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同期に失敗しました。サーバがアカウントを受け付けませんでした。設定で再度サインインしてください。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Falha na sincronização: o servidor não aceitou sua conta. Entre novamente em Ajustes."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步失败：服务器未接受你的账户。请在“设置”中重新登录。"
+          }
+        }
+      }
+    },
+    "Sync failed: the server returned an error. Check the server in Settings." : {
+      "comment" : "Shown in the reader's options when the sync server answered with an error",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync fehlgeschlagen: Der Server hat einen Fehler gemeldet. Prüfe den Server in den Einstellungen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Error de sincronización: el servidor devolvió un error. Comprueba el servidor en Ajustes."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Échec de la synchronisation : le serveur a renvoyé une erreur. Vérifiez le serveur dans Réglages."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sincronizzazione non riuscita: il server ha restituito un errore. Controlla il server in Impostazioni."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同期に失敗しました。サーバがエラーを返しました。設定でサーバを確認してください。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Falha na sincronização: o servidor retornou um erro. Verifique o servidor em Ajustes."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步失败：服务器返回了错误。请在“设置”中检查服务器。"
+          }
+        }
+      }
+    },
     "Sync isn't set up. Set it up in Folito on your iPhone." : {
       "comment" : "Sync server status: no credentials",
       "localizations" : {

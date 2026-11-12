@@ -91,6 +91,24 @@ enum WatchMessages {
 
     // MARK: Sync status glyph
 
+    /// What the reader's Options menu says about a sync glyph (nil while idle or syncing: nothing to explain).
+    /// Offline is not a failure; an `.error` says whether the account was rejected or the server failed.
+    static func syncExplanation(_ status: SyncStatus, failure: SyncFailure?) -> String? {
+        switch status {
+        case .idle, .syncing: return nil
+        case .offline: return syncStatus(.offline)
+        case .error:
+            switch failure {
+            case .unauthorized:
+                return String(localized: "Sync failed: the server did not accept your account. Sign in again in Settings.",
+                              comment: "Shown in the reader's options when syncing reading progress was rejected (wrong credentials or expired session)")
+            case .server, nil:
+                return String(localized: "Sync failed: the server returned an error. Check the server in Settings.",
+                              comment: "Shown in the reader's options when the sync server answered with an error")
+            }
+        }
+    }
+
     /// VoiceOver label of the reader's sync glyph (nil while idle: nothing is shown).
     static func syncStatus(_ status: SyncStatus) -> String? {
         switch status {

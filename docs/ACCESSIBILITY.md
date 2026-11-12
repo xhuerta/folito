@@ -282,8 +282,14 @@ behind a `confirmationDialog`.
 - Reader: every block (paragraph, heading, quote, list item) is one element; headings carry `.isHeader`
   and their level (`accessibilityHeading(.h1…)`), so the rotor's *Headings* jumps between chapter titles.
   Every block also has the action *Look Up a Word*, even with *Tap Paragraph to Look Up* turned off.
-- The sync status glyph has a label ("Syncing reading progress", "Offline. Progress will sync when you're
-  connected.", "Sync failed. Check the server in Settings."); nothing is shown while idle.
+- The sync status glyph sits on the *Reading Options* button (never in the back button's slot); the button's
+  VoiceOver value is the status ("Syncing reading progress", "Offline. Progress will sync when you're
+  connected.", "Sync failed. Check the server in Settings."), and *Reading Options* opens with a note that
+  says what failed (offline, account not accepted, server error). Nothing is shown while idle.
+- The reader's top bar hides while scrolling down through the text and returns when scrolling up a little or
+  on a tap on the text (that tap does not open the word lookup). With VoiceOver on it never hides. The time
+  is drawn by watchOS, which documents no API for an app to hide it; the hidden-bar screenshot of
+  `WatchReaderTopBarTests` shows what stays on screen.
 - Word lookup: the word cursor is one *adjustable* element, "Selected word, *truth*, word 4 of 23". Swipe
   up/down moves to the next/previous word, so it works without the Digital Crown. Turning the crown
   still moves it (with the crown's own detent haptics); the buttons and VoiceOver play a click.
@@ -379,6 +385,9 @@ checks the audit does not make:
 - `WatchAccessibilityAuditTests`: the audit on the empty library, the library with one book, the reader,
   *Reading Options*, Settings and Typography. Like on iOS it runs the types `.all` covers one at a time
   (a timed-out type is retried once) and prints every finding with its element in the CI log.
+- `WatchReaderTopBarTests`: the reader's top bar hides after scrolling down, a tap on the text shows it
+  again without opening the word picker (the hidden-bar screenshot is attached to the result). The
+  left-edge swipe back does not work in the reader yet and is tracked in #118.
 - `WatchAccessibilityChecksTests`, on the same screens:
   - every button, switch, stepper, slider and link has a non-empty label that does not look like a raw
     identifier: SF Symbol names (`list.bullet`, `gearshape`), file names (`sample.epub`), camelCase or
@@ -466,7 +475,8 @@ values and traits of the elements above and run *Audit* on each screen.
   only see elements that are in the accessibility tree (on-screen rows of lazy lists).
 - The reader is a `LazyVStack`: VoiceOver can only reach headings that are laid out (near the current
   position); use *Reading Options › Chapters* to jump further.
-- The sync glyph keeps the `.cancellationAction` placement (top leading); its position next to the back
-  button needs checking on watchOS 10 and 11.
+- The reader puts nothing in the leading / `.cancellationAction` toolbar slot: on watchOS an item there
+  replaces the back button (#106). `WatchReaderTopBarTests` checks the auto-hiding bar on the simulator; on a
+  real watch it still needs a manual check. The left-edge swipe back is tracked in #118.
 - *Match System Text Size* is synced with the iPhone like the rest of the typography; the iPhone preview
   does not apply the watch's text size.

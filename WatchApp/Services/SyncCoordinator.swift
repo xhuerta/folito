@@ -6,10 +6,25 @@ enum SyncStatus: Equatable {
     case idle, syncing, offline, error
 }
 
+/// What went wrong when the status is `.error` (anything that is not "offline"), so the reader can explain
+/// the glyph when it is tapped.
+enum SyncFailure: Equatable {
+    /// The server rejected the account (wrong credentials, expired session).
+    case unauthorized
+    /// Any other failure: the server answered with an error or something unexpected.
+    case server
+}
+
 /// Maps errors to the user-visible status. Pure, unit-tested.
 enum SyncErrorClassifier {
     static func status(for error: Error) -> SyncStatus {
         SyncErrors.isOffline(error) ? .offline : .error
+    }
+
+    /// The failure behind an `.error` status; nil when the error only means "offline".
+    static func failure(for error: Error) -> SyncFailure? {
+        if SyncErrors.isOffline(error) { return nil }
+        return SyncErrors.isUnauthorized(error) ? .unauthorized : .server
     }
 }
 
@@ -82,6 +97,8 @@ final class SyncCoordinator: ObservableObject {
     static let queueKey = "sync.queue.v1"
 
     @Published private(set) var status: SyncStatus = .idle
+    /// Why the last sync failed; meaningful while `status == .error`.
+    @Published private(set) var failure: SyncFailure?
     @Published private(set) var isConfigured: Bool = false
     @Published private(set) var pendingCount: Int = 0
 
@@ -120,7 +137,7 @@ final class SyncCoordinator: ObservableObject {
         observer.install(
             onPush: { [weak self] error in
                 guard let self else { return }
-                self.status = error.map(SyncErrorClassifier.status(for:)) ?? .idle
+                self.record(error)
             },
             onPending: { [weak self] count in self?.pendingCount = count })
 
@@ -191,7 +208,7 @@ final class SyncCoordinator: ObservableObject {
             let lastPushed = ownProgress.lastPushed(connectorID: connector.descriptor.id, bookKey: book.key)
             return policy.decide(local: local, remote: remote, ownDeviceID: device.id, lastPushed: lastPushed)
         } catch {
-            status = SyncErrorClassifier.status(for: error)
+            record(error)
             return .keepLocal
         }
     }
@@ -261,6 +278,13 @@ final class SyncCoordinator: ObservableObject {
         case signInAgain
     }
 
+    /// Sets the status (and the failure behind it) from the outcome of a sync call; nil means success.
+    private func record(_ error: Error?) {
+        guard let error else { status = .idle; failure = nil; return }
+        status = SyncErrorClassifier.status(for: error)
+        failure = SyncErrorClassifier.failure(for: error)
+    }
+
     func testConnection() async -> ConnectionResult {
         guard let connector = connector() else { return .notConfigured }
         status = .syncing
@@ -269,7 +293,7 @@ final class SyncCoordinator: ObservableObject {
             status = .idle
             return .ok
         } catch {
-            status = SyncErrorClassifier.status(for: error)
+            record(error)
             if SyncErrors.isUnauthorized(error) {
                 return connector.descriptor.usesSession ? .signInAgain : .unauthorized
             }

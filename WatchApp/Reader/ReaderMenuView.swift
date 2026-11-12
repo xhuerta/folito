@@ -6,6 +6,9 @@ struct ReaderMenuView: View {
     @ObservedObject var model: ReaderViewModel
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var typography: TypographyModel
+    /// Why the sync glyph on the options button is showing (offline, account rejected, server error), shown
+    /// at the top of the menu; nil when there is nothing to explain.
+    var syncNote: String? = nil
     /// Asks the reader to open the word lookup for the block at the top of the screen once this sheet is gone.
     var onLookup: () -> Void = {}
     @AppStorage(ReaderSettings.showTimeRemainingKey) private var showTimeRemaining = true
@@ -23,6 +26,17 @@ struct ReaderMenuView: View {
                         }
                     }
                     .listRowBackground(Color.clear)
+                }
+                if let syncNote {
+                    Section {
+                        Label {
+                            Text(syncNote).font(.footnote)
+                        } icon: {
+                            Image(systemName: "exclamationmark.arrow.triangle.2.circlepath").foregroundStyle(.tint)
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("syncNote")
+                    }
                 }
                 Section("Text") {
                     TextSizeStepper()
