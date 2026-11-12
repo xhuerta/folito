@@ -122,6 +122,8 @@
   "support.a6": "iPhone 和手表 App 支持 VoiceOver 和更大字号（动态字体），遵循深色模式、“增强对比度”和“粗体文本”设置，并且不使用自定义动画。在手表上，阅读主题符合 WCAG 对比度要求，<em>排版 › 匹配系统文字大小</em>可让图书文字跟随手表的文字大小。",
   "support.q7": "App 支持受 DRM 保护的图书吗？",
   "support.a7": "不支持。",
+  "support.q8": "我在手表上往回翻了，但 KOReader 或 Readest 仍打开在更靠后的位置。",
+  "support.a8": "同步只向前，与 Readest 和 KOReader 相同。打开图书时，只有其他设备的位置<em>更靠后</em>时，手表才会询问是否继续阅读；更靠前的同步位置会被忽略，你停留在当前位置。若仍想回到同步位置，请在阅读器中打开<em>选项</em>并轻点<em>前往同步位置</em>。反过来，Readest 和 KOReader 会保留它们最靠后的位置，不会跟随在手表上往回翻的操作；这是这些应用的行为，Folito 无法更改。",
   "privacy.readest_library": "<strong>iPhone 上的 Readest 资料库。</strong>登录 Readest 后，iPhone 上的资料库会读取你 Readest 账户中的图书列表（标题、作者、文件哈希值），显示封面，并在你轻点某本书时下载其文件。只有当你在图书上选择<em>上传到 Readest</em>，或开启<em>自动上传导入的图书</em>（默认关闭）时，图书文件才会上传到你的 Readest 账户；此时该文件及其标题、作者和哈希值会占用你的 Readest 存储空间。<em>从 Readest 删除</em>会在你确认后从 Readest 账户中移除该文件和图书。",
   "support.readest_3": "登录 Readest 后，资料库还会显示你 Readest 资料库中的图书，并带有云朵下载符号。轻点一本即可下载到 iPhone 和 Apple Watch；由于是同一个文件，阅读位置会精确同步。按住一本书（或轻扫）可选择<em>上传到 Readest</em>、<em>移除下载</em>（仍保留在 Readest 中）或<em>删除</em>。使用过滤按钮可显示全部图书、仅此 iPhone 上的图书或仅 Readest 中的图书。"
 }

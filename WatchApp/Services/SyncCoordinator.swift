@@ -197,6 +197,8 @@ final class SyncCoordinator: ObservableObject {
     // MARK: Open-book check
 
     /// Fetches the remote position and applies the conflict policy. Failures degrade to `.keepLocal`.
+    /// Forward only, like Readest and KOReader (#112): a remote position is offered only when it is ahead of
+    /// `local` by more than the policy's threshold; one that is behind is ignored silently.
     /// The remote position is never offered when it is the spot `local` is at or the last position this
     /// device pushed: Readest keeps no device id, so that is how the watch recognises its own write (#105).
     func decisionOnOpen(book: BookIdentity, local: ReadingPosition) async -> ProgressDecision {
@@ -210,6 +212,33 @@ final class SyncCoordinator: ObservableObject {
         } catch {
             record(error)
             return .keepLocal
+        }
+    }
+
+    /// What "Go to Synced Position" in the reader menu found on the service.
+    enum SyncedPosition: Equatable {
+        case position(ReadingPosition)
+        /// The service has no position for this book.
+        case missing
+        /// Sync is off (no service set up).
+        case notConfigured
+        /// The service could not be reached or answered with an error (the status explains it).
+        case failed
+    }
+
+    /// The remote position for `book`, fetched on demand and returned whatever its direction (#112).
+    /// The open-time check only offers a position that is ahead, like Readest and KOReader; this is the
+    /// manual way back to a position that is behind the local one.
+    func syncedPosition(book: BookIdentity) async -> SyncedPosition {
+        guard let connector = connector() else { isConfigured = false; return .notConfigured }
+        status = .syncing
+        do {
+            let remote = try await connector.fetchProgress(for: book)
+            status = .idle
+            return remote.map { SyncedPosition.position($0) } ?? .missing
+        } catch {
+            record(error)
+            return .failed
         }
     }
 

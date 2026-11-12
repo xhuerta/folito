@@ -55,6 +55,15 @@ Library: with KOSync every local book syncs its position, and the cloud symbols 
   push, per connector and book). That is how the watch recognises its own write on a service without device
   ids (Readest), whose percentage (`page / pageCount`) also differs from Folito's character percentage
   (issue #105: the first block read back as "1% read on another device").
+- Sync is **forward only**, like Readest and KOReader (issue #112): the open-time prompt appears only when the
+  remote position is ahead of the local one by more than the policy's threshold (0.5 %). A remote position
+  that is behind is ignored silently, since the local one is most likely the newer. To go back to it anyway,
+  the watch reader menu (*Options*) has **Go to Synced Position** (`SyncCoordinator.syncedPosition(book:)`,
+  `ReaderViewModel.goToSyncedPosition()`): it fetches the remote position and jumps there whatever its
+  direction. The item is hidden while sync is off and says so when the service has no position for the book.
+- The other side is not Folito's to change: the Readest apps apply the furthest of their own and the remote
+  position, and KOReader does the same by default, so a backward move made on the watch is not followed
+  there ("The Readest Sync Server currently does not support backward syncing", Readest wiki).
 
 ### Apps
 

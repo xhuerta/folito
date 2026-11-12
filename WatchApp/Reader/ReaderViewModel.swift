@@ -389,6 +389,38 @@ final class ReaderViewModel: ObservableObject {
     func acceptRemote() {
         guard let remote = remoteOffer else { return }
         remoteOffer = nil
+        go(to: remote)
+    }
+
+    /// Whether the reader menu offers "Go to Synced Position": only while a sync service is set up.
+    var canGoToSyncedPosition: Bool { sync.isConfigured }
+
+    /// What "Go to Synced Position" did.
+    enum SyncedJump: Equatable {
+        case jumped
+        /// The service has no position for this book (or sync is off).
+        case noPosition
+        /// The service could not be reached.
+        case failed
+    }
+
+    /// Fetches the remote position and jumps to it even when it is behind the local one (#112): the
+    /// open-time check only offers positions that are ahead.
+    func goToSyncedPosition() async -> SyncedJump {
+        switch await sync.syncedPosition(book: bookIdentity) {
+        case .position(let remote):
+            remoteOffer = nil
+            showRemoteOffer = false
+            go(to: remote)
+            return .jumped
+        case .missing, .notConfigured:
+            return .noPosition
+        case .failed:
+            return .failed
+        }
+    }
+
+    private func go(to remote: ReadingPosition) {
         let target: Int
         var offset = 0
         switch resolver.resolve(remote.xpointer, percentage: remote.percentage, in: book) {

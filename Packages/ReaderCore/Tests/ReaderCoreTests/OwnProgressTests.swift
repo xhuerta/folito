@@ -66,6 +66,25 @@ final class OwnProgressTests: XCTestCase {
         XCTAssertEqual(policy.decide(local: local(block: 70, pct: 0.7), remote: mine, ownDeviceID: me), .keepLocal)
     }
 
+    /// Issue #112: forward only, like Readest and KOReader. Ahead prompts; behind (or within the
+    /// tolerance) stays silent, from another device as from a Readest row without a device id.
+    func testOnlyARemotePositionAheadIsOffered() throws {
+        let here = local(block: 50, pct: 0.5)
+        var ahead = local(block: 80, pct: 0.8); ahead.deviceID = ""
+        var behind = local(block: 20, pct: 0.2); behind.deviceID = ""
+        var close = local(block: 51, pct: 0.503); close.deviceID = "kobo"
+        XCTAssertEqual(policy.decide(local: here, remote: ahead, ownDeviceID: me), .offerRemote(ahead))
+        XCTAssertEqual(policy.decide(local: here, remote: behind, ownDeviceID: me), .keepLocal)
+        XCTAssertEqual(policy.decide(local: here, remote: close, ownDeviceID: me), .keepLocal)
+        behind.deviceID = "kobo"
+        XCTAssertEqual(policy.decide(local: here, remote: behind, ownDeviceID: me), .keepLocal)
+        // Through a Readest round trip (percentage rebuilt from page / pageCount) the direction holds.
+        let readestAhead = try XCTUnwrap(roundTrip(local(block: 80, pct: 0.8)))
+        let readestBehind = roundTrip(local(block: 20, pct: 0.2))
+        XCTAssertEqual(policy.decide(local: here, remote: readestAhead, ownDeviceID: me), .offerRemote(readestAhead))
+        XCTAssertEqual(policy.decide(local: here, remote: readestBehind, ownDeviceID: me), .keepLocal)
+    }
+
     func testSameSpot() {
         XCTAssertTrue(local(block: 3).isSameSpot(as: local(block: 3, pct: 0.5)))
         XCTAssertFalse(local(block: 3).isSameSpot(as: local(block: 4)))
