@@ -43,6 +43,8 @@ struct ReaderView: View {
     /// its `isHidden` and changes only when the bar actually hides or shows.
     @State private var autoHide = BarAutoHideBox()
     @State private var barHidden = false
+    /// The scroll view's origin in global coordinates: the origin of `scrollSpace`, for taps in the edge strip.
+    @State private var scrollOrigin: CGPoint = .zero
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
     @Environment(\.isLuminanceReduced) private var isLuminanceReduced
     private var readerAccessibility = ReaderAccessibilityReader()
@@ -100,7 +102,9 @@ struct ReaderView: View {
                 Color.clear
                     .preference(key: ViewportTopKey.self, value: geo.safeAreaInsets.top)
                     .preference(key: ViewportHeightKey.self, value: geo.size.height)
+                    .preference(key: ViewportOriginKey.self, value: geo.frame(in: .global).origin)
             })
+            .onPreferenceChange(ViewportOriginKey.self) { scrollOrigin = $0 }
             .onPreferenceChange(ViewportTopKey.self) { top in
                 // The reading line stays where it is while the bar is hidden (see `ReadingLine`).
                 model.viewportTop = ReadingLine.updated(current: model.viewportTop, measured: top, barShown: !barHidden)
@@ -135,19 +139,12 @@ struct ReaderView: View {
         .overlay(alignment: .top) {
             ClockBandOverlay(barHidden: barHidden, color: style.background)
         }
-        // The left-edge swipe back (#118), with the bar shown or hidden. watchOS disables the navigation
-        // stack's own edge pan while the bar is hidden, and the scroll view and the text's tap gestures claim
-        // edge touches when it is shown, so the reader recognises the swipe itself. A simultaneous gesture, not
-        // an overlay: taps (word lookup) and scrolling still reach the text everywhere, including at the margin.
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 8, coordinateSpace: .global)
-                .onEnded { value in
-                    if EdgeSwipeBack.isBackSwipe(startX: value.startLocation.x, translation: value.translation,
-                                                 predictedEndTranslation: value.predictedEndTranslation) {
-                        dismiss()
-                    }
-                }
-        )
+        // The left-edge swipe back (#118), with the bar shown or hidden. Above the scroll view so the edge
+        // touch reaches it first; a thin strip along the text margin that forwards taps to the text. Never a
+        // drag gesture on the scroll view or an ancestor: even a simultaneous one stops the scroll view panning.
+        .overlay(alignment: .leading) {
+            EdgeSwipeBackStrip(onBack: { dismiss() }, onTap: { edgeTapped(at: $0, style: style) })
+        }
         .tint(style.accentColor)
         .preferredColorScheme(style.isLightPage ? .light : .dark)
         // Layout metrics changed: keep reading the same block. Colour-only changes (Always On,
@@ -250,16 +247,31 @@ extension ReaderView {
     /// A tap on the text shows the hidden bar (then hides it again after a few seconds); with the bar
     /// visible it opens the word lookup on the word under the finger (estimated, see `TapPosition`).
     fileprivate func tapped(block index: Int, at location: CGPoint, style: ReaderRenderStyle) {
-        var revealed = false
-        updateBar { revealed = $0.tapped(at: Date(), voiceOver: voiceOver) }
-        if revealed {
-            DispatchQueue.main.asyncAfter(deadline: .now() + BarAutoHide.tapRevealDuration + 0.05) {
-                updateBar { $0.tick(at: Date(), voiceOver: voiceOver) }
-            }
+        guard !revealBarOnTap(), tapToLookUp else { return }
+        model.beginLookup(at: index, characterOffset: tappedCharacterOffset(block: index, at: location, style: style))
+    }
+
+    /// A tap in the left-edge strip (#118), in global coordinates: handled as a tap on the block under it (in
+    /// that block's own coordinates), or, over no block, like a tap on empty reader space (shows a hidden bar).
+    fileprivate func edgeTapped(at point: CGPoint, style: ReaderRenderStyle) {
+        guard let target = EdgeSwipeBack.tapTarget(at: point, scrollOrigin: scrollOrigin,
+                                                   contentMinX: CGFloat(style.typography.horizontalMargin),
+                                                   frames: model.blockFrames) else {
+            _ = revealBarOnTap()
             return
         }
-        guard tapToLookUp else { return }
-        model.beginLookup(at: index, characterOffset: tappedCharacterOffset(block: index, at: location, style: style))
+        tapped(block: target.index, at: target.location, style: style)
+    }
+
+    /// Shows the hidden bar for a tap (then hides it again after a few seconds). Returns whether it did.
+    fileprivate func revealBarOnTap() -> Bool {
+        var revealed = false
+        updateBar { revealed = $0.tapped(at: Date(), voiceOver: voiceOver) }
+        guard revealed else { return false }
+        DispatchQueue.main.asyncAfter(deadline: .now() + BarAutoHide.tapRevealDuration + 0.05) {
+            updateBar { $0.tick(at: Date(), voiceOver: voiceOver) }
+        }
+        return true
     }
 
     /// Character offset of the text under `location` (in the block's own coordinates), or nil when the
@@ -353,6 +365,39 @@ private struct ClockBandOverlay: View {
     }
 }
 
+/// A transparent strip `EdgeSwipeBack.edgeWidth` wide along the left edge of the screen that leaves the book on
+/// a clear rightward drag starting there (#118). watchOS disables the navigation stack's own edge pan while the
+/// bar is hidden, and the scroll view and the text's tap gestures claim edge touches when it is shown, so the
+/// reader recognises the swipe itself. A tap in the strip is forwarded to the text under it (`onTap`, global
+/// coordinates; see `EdgeSwipeBack.tapTarget`), so the first word of a line can still be looked up. A vertical
+/// drag that starts in the strip does not scroll: the strip is mostly the text margin (4 pt by default, at most
+/// 16), the crown and touches anywhere else scroll as usual. Hidden from VoiceOver, which leaves with the
+/// escape scrub instead.
+private struct EdgeSwipeBackStrip: View {
+    let onBack: () -> Void
+    let onTap: (CGPoint) -> Void
+
+    var body: some View {
+        Color.clear
+            .frame(width: EdgeSwipeBack.edgeWidth)
+            .frame(maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .onTapGesture(coordinateSpace: .global) { onTap($0) }
+            .gesture(
+                DragGesture(minimumDistance: 8, coordinateSpace: .global)
+                    .onEnded { value in
+                        if EdgeSwipeBack.isBackSwipe(startX: value.startLocation.x, translation: value.translation,
+                                                     predictedEndTranslation: value.predictedEndTranslation) {
+                            onBack()
+                        }
+                    }
+            )
+            // From the physical left edge (the side safe area is 2 pt on 44 mm), below the bar.
+            .ignoresSafeArea(.container, edges: .leading)
+            .accessibilityHidden(true)
+    }
+}
+
 /// Collects the frames of the blocks the `LazyVStack` currently has instantiated. Views that are
 /// discarded stop contributing, so the dictionary only holds on-screen blocks plus a small buffer.
 struct BlockFramesKey: PreferenceKey {
@@ -366,6 +411,12 @@ struct BlockFramesKey: PreferenceKey {
 struct ViewportTopKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+/// Origin of the reader's scroll view in global coordinates, to map edge-strip taps into the scroll view's space.
+struct ViewportOriginKey: PreferenceKey {
+    static var defaultValue: CGPoint = .zero
+    static func reduce(value: inout CGPoint, nextValue: () -> CGPoint) { value = nextValue() }
 }
 
 /// Height of the reader's scroll view, for the in-block restore anchor.

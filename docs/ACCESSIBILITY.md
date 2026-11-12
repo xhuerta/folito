@@ -486,8 +486,9 @@ the watch; triple-click the crown if the shortcut is on):
    returns.
 2. Scroll down until the bar hides and swipe right from the left edge again: the Library returns.
 3. Drag up or down starting at the left edge, and drag right starting in the middle of the text: the book
-   stays open (the first scrolls; the second does nothing).
-4. Tap words at the very left margin with the bar shown and hidden: the word picker opens on the tapped word.
+   stays open (the first scrolls only if it starts outside the 12 pt edge strip; the second does nothing).
+4. Tap the first word of a line at the very left edge (inside the 12 pt edge strip) with the bar shown: the
+   word picker opens on that word. With the bar hidden, the same tap shows the bar.
 
 **Text size** (watch Settings › Display & Brightness › Text Size, and Accessibility › Bold Text): at the
 largest size check that the library, Settings, menus and the word picker scroll without clipped text. Turn on
@@ -518,11 +519,14 @@ values and traits of the elements above and run *Audit* on each screen.
 - The reader puts nothing in the leading / `.cancellationAction` toolbar slot: on watchOS an item there
   replaces the back button (#106). `WatchReaderTopBarTests` checks the auto-hiding bar on the simulator; on a
   real watch it still needs a manual check.
-- The left-edge swipe back (#118) is the reader's own recogniser (`EdgeSwipeBack`: a simultaneous drag gesture
-  that must start within 12 pt of the left edge), because watchOS turns off the navigation stack's edge pan while the bar is hidden and the scroll view
+- The left-edge swipe back (#118) is the reader's own recogniser (`EdgeSwipeBack`, a 12 pt strip along the left
+  edge), because watchOS turns off the navigation stack's edge pan while the bar is hidden and the scroll view
   and text taps took edge touches while it was shown. `EdgeSwipeBackTests` checks the thresholds and
   `WatchReaderTopBarTests` the swipe on the simulator; the feel on a real watch (and that it does not fight the
-  system's own edge pan when the bar is shown) needs the manual check above. It is not an overlay, so taps and
-  scrolling still reach the text at the margin (a 12 pt overlay strip swallowed taps on the first word of a line).
+  system's own edge pan when the bar is shown) needs the manual check above. The strip forwards taps to the
+  text under it (`EdgeSwipeBack.tapTarget`, also in `EdgeSwipeBackTests`), so the first word of a line can
+  still be looked up there; a vertical drag that starts in the strip does not scroll (the crown and the rest
+  of the screen do). It is an overlay on purpose: a drag gesture on the scroll view or any ancestor, even a
+  simultaneous one, stops the watchOS scroll view from panning.
 - *Match System Text Size* is synced with the iPhone like the rest of the typography; the iPhone preview
   does not apply the watch's text size.

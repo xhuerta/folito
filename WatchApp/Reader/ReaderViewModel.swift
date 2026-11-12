@@ -170,6 +170,9 @@ final class ReaderViewModel: ObservableObject {
     /// Last measured frame of a block, if it is laid out.
     func frame(ofBlock index: Int) -> BlockFrame? { lastFrames[index] }
 
+    /// Last measured frames of the instantiated blocks (scroll-view coordinate space).
+    var blockFrames: [Int: BlockFrame] { lastFrames }
+
     /// Re-aligns the scroll view with the block we were reading after the layout changed (typography).
     /// Does not change the saved position.
     func reanchor() {
