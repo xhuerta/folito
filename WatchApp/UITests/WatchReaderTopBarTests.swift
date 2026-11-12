@@ -86,6 +86,11 @@ final class WatchReaderTopBarTests: XCTestCase {
         // The time is drawn in roughly the top 12% of the screen (about 27 pt on 44 mm).
         XCTAssertGreaterThanOrEqual(frame.height, screen.height * 0.12, "The band must cover the time: \(frame)")
         XCTAssertLessThan(frame.height, screen.height * 0.25, "The band must not cover the text: \(frame)")
+        let statusBar = app.statusBars.firstMatch
+        if statusBar.exists, statusBar.frame.height > 0 {
+            XCTAssertGreaterThanOrEqual(frame.maxY, statusBar.frame.maxY - 0.5,
+                                        "The band must cover the status bar \(statusBar.frame): \(frame)")
+        }
 
         // Text still scrolls; the first block below the band is readable (its top is not under the band).
         let blocks = app.descendants(matching: .any).matching(identifier: "readerBlock").allElementsBoundByIndex

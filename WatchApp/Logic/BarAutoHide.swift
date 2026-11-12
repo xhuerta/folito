@@ -126,9 +126,10 @@ enum ReadingLine {
 /// scrolling up disappears behind it instead of running under the time (#125). It is an overlay pinned to
 /// the top of the screen, not an inset, so showing or hiding it never moves the text.
 enum ClockBand {
-    /// Lower bound as a fraction of the screen height, for when watchOS reports no top safe area with the
-    /// bar hidden (the time is still drawn): about 29 pt on a 44 mm watch.
-    static let minimumFraction: CGFloat = 0.13
+    /// Lower bound as a fraction of the full screen height, for when watchOS reports no top safe area with the
+    /// bar hidden (the time is still drawn): about 30 pt on a 44 mm watch (197 pt simulator, 224 pt device
+    /// scale); the status bar is 28 pt there.
+    static let minimumFraction: CGFloat = 0.15
     /// Upper bound, so a large inset (the bar's own, mid-animation) never covers the reading area.
     static let maximumFraction: CGFloat = 0.2
 

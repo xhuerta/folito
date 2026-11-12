@@ -330,8 +330,9 @@ private struct ClockBandOverlay: View {
                 Spacer(minLength: 0)
             }
         }
-        // The GeometryReader starts at the top edge of the screen, so the band covers the time area itself.
-        .ignoresSafeArea(edges: .top)
+        // The GeometryReader covers the whole screen, so the band starts at the top edge, spans the full width
+        // (the side safe areas are 2 pt on 44 mm) and its height is a fraction of the real screen height.
+        .ignoresSafeArea()
         .allowsHitTesting(false)
     }
 }
