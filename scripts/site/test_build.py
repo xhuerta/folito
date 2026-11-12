@@ -73,6 +73,8 @@ class SiteBuildTests(unittest.TestCase):
             self.assertEqual(app["inLanguage"], lang)
             self.assertEqual(app["url"], build.page_url(lang, "index"))
             self.assertNotIn("aggregateRating", app)
+            self.assertEqual(app["offers"], {"@type": "Offer", "price": "0", "priceCurrency": "USD"})
+            self.assertNotIn("downloadUrl", app)
             self.assertTrue(any(item["@type"] == "Person" and item["name"] == "Xabier Lahuerta" for item in graph))
         self.assertNotIn("application/ld+json", self.outputs[OUT / "support.html"])
 
@@ -85,6 +87,22 @@ class SiteBuildTests(unittest.TestCase):
         finally:
             build.APP_STORE_ID = original
         self.assertIn('<meta name="apple-itunes-app" content="app-id=123456789">', outputs[OUT / "es" / "support.html"])
+
+    def test_call_to_action_switches_with_app_store_id(self) -> None:
+        index = self.outputs[OUT / "index.html"]
+        self.assertIn('<p class="pill">', index)
+        self.assertNotIn('class="cta"', index)
+        original = build.APP_STORE_ID
+        try:
+            build.APP_STORE_ID = "123456789"
+            outputs = build.build()
+        finally:
+            build.APP_STORE_ID = original
+        for lang in build.LANGUAGES:
+            text = outputs[OUT / build.folder(lang) / "index.html"]
+            self.assertIn('<a class="cta" href="https://apps.apple.com/app/id123456789">', text, lang)
+            self.assertNotIn('<p class="pill">', text, lang)
+        self.assertIn('"downloadUrl": "https://apps.apple.com/app/id123456789"', outputs[OUT / "index.html"])
 
     def test_titles_and_descriptions(self) -> None:
         strings = build.load_strings()
