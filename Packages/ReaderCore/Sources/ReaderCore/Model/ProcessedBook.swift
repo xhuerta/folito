@@ -116,4 +116,14 @@ public struct BookPosition: Codable, Sendable, Equatable {
         self.blockIndex = blockIndex
         self.characterOffset = characterOffset
     }
+
+    enum CodingKeys: String, CodingKey { case chapterIndex, blockIndex, characterOffset }
+
+    /// Positions saved before the in-block offset was kept may lack `characterOffset`: read it as 0.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        chapterIndex = try c.decode(Int.self, forKey: .chapterIndex)
+        blockIndex = try c.decode(Int.self, forKey: .blockIndex)
+        characterOffset = max(0, try c.decodeIfPresent(Int.self, forKey: .characterOffset) ?? 0)
+    }
 }

@@ -518,3 +518,55 @@ final class ReopenPositionTests: XCTestCase {
         XCTAssertEqual(remote.page, 120)
     }
 }
+
+/// Position inside a block (#108).
+final class InBlockReaderTests: XCTestCase {
+    private func book() -> ProcessedBook {
+        let long = String(repeating: "word ", count: 40)   // 200 characters
+        let chapters = [Chapter(spineIndex: 1, title: "One",
+                                blocks: [Block(text: long, xpointer: "/body/DocFragment[1]/body/p", globalOffset: 0),
+                                         Block(text: long, xpointer: "/body/DocFragment[1]/body/p[2]", globalOffset: 200)])]
+        return ProcessedBook(metadata: BookMetadata(title: "Book", authors: []), documentHash: "inblock",
+                             metaHash: "", chapters: chapters, totalCharacters: 400)
+    }
+
+    func testFlatPositionCarriesAClampedOffset() {
+        let flat = FlatBook(book())
+        XCTAssertEqual(flat.position(at: 1, characterOffset: 55), BookPosition(chapterIndex: 0, blockIndex: 1, characterOffset: 55))
+        XCTAssertEqual(flat.position(at: 1, characterOffset: 999)?.characterOffset, 200)
+        XCTAssertEqual(flat.position(at: 1, characterOffset: -3)?.characterOffset, 0)
+    }
+
+    func testInBlockRetryOnlyWhenOffByMoreThanTheTolerance() {
+        XCTAssertFalse(RestoreCheck.needsInBlockRetry(landedMinY: -100, wantedMinY: -104, attempts: 0))
+        XCTAssertTrue(RestoreCheck.needsInBlockRetry(landedMinY: -100, wantedMinY: -130, attempts: 0))
+        XCTAssertFalse(RestoreCheck.needsInBlockRetry(landedMinY: -100, wantedMinY: -130, attempts: RestoreCheck.maxRetries))
+    }
+
+    @MainActor
+    func testOffsetIsSavedRestoredAndSynced() {
+        let defaults = UserDefaults(suiteName: "InBlockReaderTests.\(UUID().uuidString)")!
+        let positions = PositionStore(defaults: defaults)
+        let sync = SyncCoordinator(defaults: defaults, credentials: { nil })
+        let model = ReaderViewModel(book: book(), positions: positions, sync: sync, settings: defaults)
+        model.jump(to: 1, characterOffset: 50)
+        XCTAssertEqual(positions.load("inblock")?.position, BookPosition(chapterIndex: 0, blockIndex: 1, characterOffset: 50))
+        XCTAssertEqual(model.localPercentage, 250.0 / 400, accuracy: 1e-9)
+        XCTAssertEqual(model.localPosition.xpointer, "/body/DocFragment[1]/body/p[2]/text().50")
+        let reopened = ReaderViewModel(book: book(), positions: positions, sync: sync, settings: defaults)
+        XCTAssertEqual(reopened.startIndex, 1)
+        XCTAssertEqual(reopened.startOffset, 50)
+    }
+
+    @MainActor
+    func testBlockOnlyPositionReopensAtOffsetZero() throws {
+        let defaults = UserDefaults(suiteName: "InBlockReaderTests.\(UUID().uuidString)")!
+        defaults.set(Data(#"{"position":{"chapterIndex":0,"blockIndex":1},"percentage":0.5}"#.utf8),
+                     forKey: "position.inblock")
+        let model = ReaderViewModel(book: book(), positions: PositionStore(defaults: defaults),
+                                    sync: SyncCoordinator(defaults: defaults, credentials: { nil }), settings: defaults)
+        XCTAssertEqual(model.startIndex, 1)
+        XCTAssertEqual(model.startOffset, 0)
+        XCTAssertEqual(model.localPosition.xpointer, "/body/DocFragment[1]/body/p[2]")
+    }
+}
