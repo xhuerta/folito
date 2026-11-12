@@ -117,11 +117,25 @@ final class AccessibilityAuditTests: XCTestCase {
                              _ body: @MainActor () throws -> Void) throws {
         for _ in 0..<10 {
             try body()
-            let before = Self.layoutSignature(app)
-            Self.scrollDown(app)
-            afterScroll?(app)
-            if Self.layoutSignature(app) == before { break }
+            guard Self.scrollDownIfPossible(app, afterScroll: afterScroll) else { break }
         }
+    }
+
+    /// Scrolls down once and tells whether the content moved. A drag that leaves the content where it was is
+    /// tried once more before it counts as the end of the content: on CI (PR #124, e0f1a73) the first drag on
+    /// Book detail left the screen unchanged, the pass ended after its first page, and the rows it had found
+    /// under the tab bar ("Information", "Publisher") were never audited clear of the bars, although every
+    /// other run scrolled that screen three times.
+    @MainActor
+    private static func scrollDownIfPossible(_ app: XCUIApplication,
+                                             afterScroll: (@MainActor (XCUIApplication) -> Void)? = nil) -> Bool {
+        let before = layoutSignature(app)
+        for _ in 0..<2 {
+            scrollDown(app)
+            afterScroll?(app)
+            if layoutSignature(app) != before { return true }
+        }
+        return false
     }
 
     @MainActor
@@ -151,9 +165,7 @@ final class AccessibilityAuditTests: XCTestCase {
     @MainActor
     private static func scrollToEnd(_ app: XCUIApplication) {
         for _ in 0..<8 {
-            let before = layoutSignature(app)
-            scrollDown(app)
-            if layoutSignature(app) == before { break }
+            guard scrollDownIfPossible(app) else { break }
         }
     }
 
@@ -389,6 +401,7 @@ final class AccessibilityAuditTests: XCTestCase {
     func testLibraryEmptyStateAudit() throws {
         try auditScreen("Library (empty)") { app in
             XCTAssertFalse(app.descendants(matching: .any)["libraryRow"].exists, "Library should start empty")
+            Self.waitForWatchStatus(app)
         }
     }
 
@@ -471,6 +484,20 @@ final class AccessibilityAuditTests: XCTestCase {
         }
         XCTAssertTrue(atTop(), "Watch notice not back at the top of the list: "
                       + "\(notice.exists ? "\(notice.frame)" : "missing"), navigation bar bottom \(barBottom())")
+    }
+
+    /// Waits for the Library's watch status (the "No Apple Watch" card on CI). It shows nothing until the watch
+    /// session has activated, which can take longer than the Library takes to appear: on CI (PR #124, e0f1a73)
+    /// the first page of the empty Library was apparently audited before the card was there (no finding at all on
+    /// it, not even the bottom buttons flagged in other runs), so the card's title was never
+    /// audited clear of the bars; on the only other page it was scrolled under the navigation bar.
+    @MainActor
+    private static func waitForWatchStatus(_ app: XCUIApplication) {
+        let titles = ["No Apple Watch", "Folito Isn’t on Your Apple Watch", "Apple Watch connected",
+                      "Books are sent to your Apple Watch in the background."]
+        let status = app.staticTexts.matching(NSPredicate(format: "label IN %@", titles)).firstMatch
+        XCTAssertTrue(status.waitForExistence(timeout: 10), "Watch status not shown")
+        waitForScrollToSettle(app)
     }
 
     /// Largest-size pass of the libraries whose book is the last row: the first page is the top of the list (the
