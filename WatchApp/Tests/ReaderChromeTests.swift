@@ -61,6 +61,25 @@ final class ReaderChromeTests: XCTestCase {
         XCTAssertTrue(bar.isHidden)
     }
 
+    /// Restores, in-block corrections, chapter jumps and "Go to Synced Position" (#125): while the reader
+    /// scrolls by itself no distance hides the bar, even moves below `jumpDistance`; the user's own scrolling
+    /// afterwards does, measured from where the programmatic scroll left the text.
+    func testProgrammaticScrollNeverHidesTheBar() {
+        var bar = BarAutoHide()
+        bar.programmaticScroll(true)
+        bar.scrolled(to: 0, at: at(0), voiceOver: false)
+        bar.scrolled(to: 1_200, at: at(0.1), voiceOver: false) // to the saved block
+        bar.scrolled(to: 1_350, at: at(0.3), voiceOver: false) // the in-block restore: 150 pt, under jumpDistance
+        var time = scroll(&bar, from: 1_350, to: 1_500, start: 0.5) // small steps, as a settling layout
+        XCTAssertFalse(bar.isHidden)
+        bar.programmaticScroll(false)
+        XCTAssertFalse(bar.isHidden)
+        time = scroll(&bar, from: 1_500, to: 1_515, start: time) // less than hideDistance from where it stopped
+        XCTAssertFalse(bar.isHidden)
+        _ = scroll(&bar, from: 1_515, to: 1_540, start: time)
+        XCTAssertTrue(bar.isHidden, "the user's own scrolling hides the bar again")
+    }
+
     func testInsetChangeWhileSettlingCannotFlipTheBarBack() {
         var bar = BarAutoHide()
         let time = scroll(&bar, from: 0, to: 70, start: 0) // hides at 60

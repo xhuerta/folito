@@ -51,4 +51,49 @@ final class WatchReaderTopBarTests: XCTestCase {
         // The left-edge swipe back is tracked in #118: it does not leave the reader yet, with or without
         // the bar hidden, so it is not asserted here.
     }
+
+    /// The text block under a point 30% down the screen, below the navigation bar: the block being read.
+    @MainActor
+    private func blockAtReadingLine(_ app: XCUIApplication) -> String? {
+        let window = app.windows.firstMatch.frame
+        let y = window.minY + window.height * 0.3
+        let blocks = app.descendants(matching: .any).matching(identifier: "readerBlock").allElementsBoundByIndex
+        return blocks.first { $0.frame.minY <= y && $0.frame.maxY > y }?.label
+    }
+
+    /// Reopening a book (#125): it opens at the saved line with the bar visible, and nothing moves after
+    /// that. Before the fix the in-block restore scrolled the text again 0.7 s after it appeared, and that
+    /// programmatic scroll hid the bar.
+    @MainActor
+    func testReopeningKeepsTheBarAndTheSavedLine() {
+        let app = XCUIApplication()
+        app.launchArguments += ["-UITestingSeedAppStore", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        XCTAssertTrue(WatchUI.libraryRow(in: app).waitForExistence(timeout: 45), "Library screen did not appear")
+        WatchUI.openReader(app)
+        let options = WatchUI.element("readerOptionsButton", in: app)
+        XCTAssertTrue(waitFor(options, hittable: true), "Reading Options button should show when the book opens")
+
+        // Read on a little (into a paragraph, so the saved position has an in-block offset), then leave.
+        for _ in 0..<3 { WatchUI.nudgeUp(app) }
+        sleep(2)
+        guard let saved = blockAtReadingLine(app) else {
+            return WatchUI.fail("No text block at the reading line before leaving", in: app)
+        }
+        if !options.isHittable {
+            app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)).tap()
+        }
+        let back = WatchUI.element("BackButton", in: app)
+        XCTAssertTrue(waitFor(back, hittable: true), "The back button should show. Tree:\n\(app.debugDescription)")
+        back.tap()
+        XCTAssertTrue(waitFor(WatchUI.libraryRow(in: app), hittable: true, timeout: 10), "Did not return to the Library")
+
+        WatchUI.openReader(app)
+        XCTAssertTrue(waitFor(options, hittable: true), "The top bar should be visible when the book reopens")
+        let opened = blockAtReadingLine(app)
+        sleep(3) // longer than any restore check: nothing may move or hide after the first frame
+        XCTAssertTrue(options.isHittable, "The top bar hid by itself after reopening. Tree:\n\(app.debugDescription)")
+        XCTAssertEqual(opened, saved, "The book should reopen at the block it was left at")
+        XCTAssertEqual(blockAtReadingLine(app), opened, "The text moved after the book appeared")
+    }
 }

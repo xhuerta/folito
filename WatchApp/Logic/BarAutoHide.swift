@@ -9,8 +9,12 @@ import CoreGraphics
 /// - A tap on the text while the bar is hidden shows it; it hides again `tapRevealDuration` seconds later
 ///   unless the reader scrolled back up in the meantime.
 /// - At the start of the book (`minHideOffset`), and always with VoiceOver on, the bar stays visible.
-/// - A single offset change larger than `jumpDistance` is a programmatic jump (restore, chapter, remote
-///   position), not reading: it re-anchors without hiding, so a book never opens with the bar hidden.
+/// - While a programmatic scroll runs (the opening restore and its in-block correction, chapter jumps,
+///   "Go to Synced Position", re-anchoring after a text-size change), offsets only re-anchor: whatever the
+///   distance, they never hide the bar (#125). The reader sets `programmaticScroll(true)` when it starts one
+///   and `false` once the view model reports it settled; the next offset change is the user's.
+/// - A single offset change larger than `jumpDistance` is also treated as a jump (a fallback for scrolls
+///   that were not announced).
 /// - After the bar hides or shows, offsets are ignored for `settleDuration` while the safe area animates,
 ///   so the inset change itself can never flip the bar back.
 struct BarAutoHide: Equatable {
@@ -23,6 +27,9 @@ struct BarAutoHide: Equatable {
     static let jumpDistance: CGFloat = 400
     static let settleDuration: TimeInterval = 0.6
     static let tapRevealDuration: TimeInterval = 3
+    /// Height of the band kept above the text while the bar is hidden, so the system time (drawn by watchOS
+    /// at the top, also with the bar hidden) never covers the first line (#125).
+    static let clockBandHeight: CGFloat = 28
 
     private(set) var isHidden = false
     /// Where the current run of scrolling in one direction started (furthest point reached).
@@ -30,6 +37,8 @@ struct BarAutoHide: Equatable {
     private var lastOffset: CGFloat = 0
     private var settleUntil: Date = .distantPast
     private(set) var tapRevealUntil: Date?
+    /// True while the reader is scrolling by itself (restore, jump): offsets are not reading.
+    private(set) var isProgrammatic = false
 
     /// `offset`: how far the text is scrolled, 0 at the start of the book, growing while reading forward.
     mutating func scrolled(to offset: CGFloat, at now: Date, voiceOver: Bool) {
@@ -39,7 +48,7 @@ struct BarAutoHide: Equatable {
             anchor = offset
             return
         }
-        guard now >= settleUntil, let start = anchor, abs(offset - lastOffset) <= Self.jumpDistance else {
+        guard !isProgrammatic, now >= settleUntil, let start = anchor, abs(offset - lastOffset) <= Self.jumpDistance else {
             anchor = offset
             return
         }
@@ -62,6 +71,14 @@ struct BarAutoHide: Equatable {
                 anchor = offset
             }
         }
+    }
+
+    /// A programmatic scroll started (`true`) or settled (`false`). While one runs offsets only move the
+    /// anchor; when it ends the anchor is where it left the text, so only the user's own scrolling from
+    /// there can hide the bar.
+    mutating func programmaticScroll(_ active: Bool) {
+        isProgrammatic = active
+        anchor = lastOffset
     }
 
     /// A single tap on the text. Returns true when the tap was used to show the hidden bar (the caller

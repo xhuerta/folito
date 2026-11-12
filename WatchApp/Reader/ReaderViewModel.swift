@@ -33,8 +33,13 @@ final class ReaderViewModel: ObservableObject {
     let startIndex: Int
     let startOffset: Int
 
-    /// While true (initial restore / programmatic jumps) scroll callbacks do not overwrite the saved position.
-    private var isRestoring = true
+    /// While true (initial restore / programmatic jumps) scroll callbacks do not overwrite the saved position,
+    /// and the view tells `BarAutoHide` that offset changes are programmatic, not reading (#125).
+    @Published private(set) var isRestoring = true
+    /// False until the opening restore has brought the saved line to the top edge. The view keeps the
+    /// text transparent until then, so the book appears already at the saved line instead of first at the
+    /// top of the saved block and, a moment later, at the line inside it (#125).
+    @Published private(set) var isPositioned = false
     private var restoreTask: Task<Void, Never>?
     /// Block the current restore / jump must bring to the top, and how many times it was re-issued.
     private var restoreTarget: Int?
@@ -53,6 +58,10 @@ final class ReaderViewModel: ObservableObject {
     var viewportHeight: CGFloat = 0
     /// Pause before checking where a programmatic jump landed (injectable for tests).
     var settleDelay: UInt64 = 700_000_000
+    /// The same pause while the book opens. Shorter: the text is still hidden then, so a check that comes
+    /// before the lazy layout settled only costs a re-issued jump nobody sees, and the hidden time stays
+    /// short (at most `2 * RestoreCheck.maxRetries + 1` checks).
+    var openSettleDelay: UInt64 = 200_000_000
     private var lastReported: Spot?
 
     private let positions: PositionStore
@@ -96,15 +105,7 @@ final class ReaderViewModel: ObservableObject {
         self.positions = positions
         self.sync = sync
         self.resolver = resolver
-        let saved = positions.load(book.documentHash)
-        let start = saved.flatMap { flat.flatIndex(for: $0.position) } ?? 0
-        // Old block-only positions decode with offset 0. An offset is only kept for the block it was saved
-        // in (a clamped, out-of-range position starts at its block's top).
-        var startOffset = 0
-        if let p = saved?.position, let mapped = flat.position(at: start),
-           mapped.chapterIndex == p.chapterIndex, mapped.blockIndex == p.blockIndex {
-            startOffset = flat.clampedOffset(p.characterOffset, in: start)
-        }
+        let (start, startOffset) = Self.openPosition(saved: positions.load(book.documentHash), in: flat)
         self.startIndex = start
         self.startOffset = startOffset
         self.currentIndex = start
@@ -118,6 +119,19 @@ final class ReaderViewModel: ObservableObject {
             let index = BookLengthIndex(book: book)
             await self?.lengthsReady(index)
         }
+    }
+
+    /// Where a book opens: the saved block and the character offset of the saved line in it. Old
+    /// block-only positions decode with offset 0. An offset is only kept for the block it was saved in (a
+    /// clamped, out-of-range position starts at its block's top).
+    static func openPosition(saved: StoredPosition?, in flat: FlatBook) -> (index: Int, offset: Int) {
+        let start = saved.flatMap { flat.flatIndex(for: $0.position) } ?? 0
+        var offset = 0
+        if let p = saved?.position, let mapped = flat.position(at: start),
+           mapped.chapterIndex == p.chapterIndex, mapped.blockIndex == p.blockIndex {
+            offset = flat.clampedOffset(p.characterOffset, in: start)
+        }
+        return (start, offset)
     }
 
     private func lengthsReady(_ index: BookLengthIndex) {
@@ -163,7 +177,7 @@ final class ReaderViewModel: ObservableObject {
         // Time in the menu or a lookup is not reading time.
         pageTimer.reset(at: now())
         beginRestore(target: currentIndex, offset: currentOffset)
-        jumpRequest = JumpRequest(index: currentIndex)
+        jumpRequest = JumpRequest(index: currentIndex, anchorY: restoreAnchor)
     }
 
     // MARK: Visibility / persistence
@@ -276,20 +290,30 @@ final class ReaderViewModel: ObservableObject {
     /// the saved position meanwhile.
     /// With a non-zero `offset`, once the block is at the top a second jump (with an anchor computed from
     /// the offset's fraction of the block's laid-out height, then corrected from where it landed) brings
-    /// the saved line to the top edge (#108).
+    /// the saved line to the top edge (#108). When the target block is already laid out (a re-anchor, a
+    /// jump to a nearby block) that anchor is known up front and set as `restoreAnchor`, so the first
+    /// jump already lands on the line and no second, visible move follows (#125).
     private func beginRestore(target: Int, offset: Int = 0) {
-        isRestoring = true
+        if !isRestoring { isRestoring = true }
         restoreTarget = target
         restoreAttempts = 0
         restoreOffset = offset
-        restoreAnchor = nil
+        restoreAnchor = knownAnchor(target: target, offset: offset)
         inBlockAttempts = 0
         scheduleRestoreCheck()
     }
 
+    /// The in-block anchor for `offset`, from the block's last measured height, if it is laid out.
+    private func knownAnchor(target: Int, offset: Int) -> Double? {
+        guard offset > 0, target < flat.count, let frame = lastFrames[target], viewportHeight > 0 else { return nil }
+        let fraction = InBlockPosition.fraction(forCharacterOffset: offset, in: flat.blocks[target].text)
+        return InBlockPosition.anchorY(fraction: fraction, blockHeight: Double(frame.maxY - frame.minY),
+                                       viewportHeight: Double(viewportHeight), viewportTop: Double(viewportTop))
+    }
+
     private func scheduleRestoreCheck() {
         restoreTask?.cancel()
-        let delay = settleDelay
+        let delay = isPositioned ? settleDelay : openSettleDelay
         restoreTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: delay)
             guard !Task.isCancelled else { return }
@@ -316,6 +340,7 @@ final class ReaderViewModel: ObservableObject {
         }
         restoreTarget = nil
         isRestoring = false
+        if !isPositioned { isPositioned = true }
     }
 
     /// The anchor for another in-block jump, or nil when the saved line is at the top (or retries ran out).
@@ -334,10 +359,12 @@ final class ReaderViewModel: ObservableObject {
                                        viewportHeight: Double(viewportHeight), viewportTop: Double(viewportTop))
     }
 
-    /// Called by the view once it appeared: scroll to the saved block, then to the saved line in it.
+    /// Called by the view once it appeared: scroll to the saved block, then to the saved line in it. Both
+    /// moves happen while the text is still transparent (`isPositioned`), so the reader appears at the line.
     func restoreInitialPosition() {
+        if flat.isEmpty { isPositioned = true }
         beginRestore(target: startIndex, offset: startOffset)
-        jumpRequest = JumpRequest(index: startIndex)
+        jumpRequest = JumpRequest(index: startIndex, anchorY: restoreAnchor)
         // The opened book becomes the one the complications show.
         publishComplication(force: false)
     }
@@ -350,7 +377,7 @@ final class ReaderViewModel: ObservableObject {
         currentIndex = i
         currentOffset = offset
         persistCurrent()
-        jumpRequest = JumpRequest(index: i)
+        jumpRequest = JumpRequest(index: i, anchorY: restoreAnchor)
     }
 
     // MARK: Sync
