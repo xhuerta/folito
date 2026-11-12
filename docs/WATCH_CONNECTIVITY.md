@@ -123,6 +123,23 @@ The watch generates its own `device_id` UUID; it is never sent from the phone.
 ## Delete (`WCSession.transferUserInfo`)
 `{ "type": "delete_book", "documentHash": "<hash>" }` — watch removes the book (and local progress).
 
+## Book deleted on the watch (watch -> phone)
+`{ "type": "book_removed", "documentHash": "<hash>", "watchID": "<installation id>" }`, sent when the user deletes
+a book in the watch UI (not for a phone `delete_book`). With `sendMessage` when the phone is reachable, so the
+iPhone Library updates at once, and with `transferUserInfo` (queued, guaranteed) when it is not or the message
+fails. The watch also lists the hash in the `removed` key of its `library` report (below) until the book is
+stored there again, so the phone learns it even if the report arrives first.
+
+The phone marks the entry "Removed on Apple Watch" (`LibraryEntry.removedOnWatch` = the `watchID`, persisted in
+`library.json`) and stops sending it automatically. "Send to Apple Watch" on the row or in the book details
+clears the mark and sends it; a finished transfer clears it too. Re-importing the EPUB creates a fresh entry, which
+is sent automatically as usual.
+
+Only these explicit signals set the mark: a book that is merely missing from the report (lost transfer,
+reinstalled watch app) is still sent again. `watchID` is a UUID the watch app creates on first use and keeps in
+its `UserDefaults`, so a reinstall, reset or re-pair yields a new one; a report with a different `watchID` clears
+the marks set by the previous installation, and the new watch gets the whole library.
+
 ## Dictionary transfer (`WCSession.transferFile`)
 File: a compact dictionary (`.folidict`, format in docs/DICTIONARIES.md), converted on the phone.
 
@@ -142,14 +159,15 @@ Delete (`transferUserInfo`): `{ "type": "delete_dictionary", "dictionaryId": "<i
 managed on the phone only; the watch lists them read-only.
 
 ## Library report (watch -> phone, `WCSession.updateApplicationContext`)
-`{ "type": "library", "hashes": ["<documentHash>", ...], "dictionaries": ["<dictionaryId>", ...], "settingsStamp": <Int> }` — published
+`{ "type": "library", "hashes": ["<documentHash>", ...], "dictionaries": ["<dictionaryId>", ...], "settingsStamp": <Int>, "removed": ["<documentHash>", ...], "watchID": "<id>" }` — published
 by the watch on activation, after every import/delete (books or dictionaries) and after applying sync settings.
 `settingsStamp` is the stamp of the credentials or turn-off it last applied (0 = none); the phone uses it to
 decide whether to send the credentials (see "Sync credentials"). For dictionaries the phone
 waits for the first report and does not resend a file delivered in the last
 10 minutes, which the watch may still be verifying. The phone reconciles `sentToWatch` with it (skipping transfers still in flight) and
-sends whatever is missing, which covers a reinstalled watch app, books deleted on the watch and transfers
-lost in transit. The phone also reads `receivedApplicationContext` on its own activation.
+sends whatever is missing, which covers a reinstalled watch app and transfers lost in transit. Books in
+`removed` (deleted there by the user, at most 500, see "Book deleted on the watch") are marked and not sent; both
+keys are absent from older watch apps. The phone also reads `receivedApplicationContext` on its own activation.
 
 Optional key `timeRemaining`: `{ "<documentHash>": <seconds>, ... }`, the watch's estimate of the reading time
 left in each book it has opened (`ReadingTimeRemaining.bookSeconds`, rounded to whole minutes), shown in the

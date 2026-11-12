@@ -13,6 +13,11 @@ struct LibraryEntry: Codable, Identifiable, Equatable, Sendable {
     var size: Int
     var importedAt: Date
     var sentToWatch: Bool
+    /// Set when the user deleted the book on the watch: the installation id of that watch app ("" when it was
+    /// not reported). Such a book is not sent automatically any more; "Send to Apple Watch" clears it, and so does
+    /// a library report from another watch installation (reset, reinstall or re-pair). nil = not removed there.
+    /// Optional, so libraries saved before it existed decode unchanged.
+    var removedOnWatch: String? = nil
     /// Language of the bundled sample book this entry was imported from (see `SampleBooks`), nil for the
     /// user's own books. The library shows a "Sample" badge for these; otherwise they are ordinary books.
     /// Optional, so libraries saved before samples existed decode unchanged.
@@ -33,6 +38,9 @@ struct LibraryEntry: Codable, Identifiable, Equatable, Sendable {
     var onlineLookupAt: Date? = nil
 
     var isSample: Bool { sampleLanguage != nil }
+
+    /// The user deleted this book on the watch (see `removedOnWatch`).
+    var isRemovedOnWatch: Bool { removedOnWatch != nil }
 
     /// Whether the book has a cover from the EPUB itself (not the placeholder, not an Open Library cover).
     var hasEPUBCover: Bool { hasCover == true && online?.hasCover != true }

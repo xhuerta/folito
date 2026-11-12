@@ -14,6 +14,9 @@ final class BookLibrary: ObservableObject {
 
     /// Called after a book was removed (watch UI or iPhone request): used to drop its pending sync.
     var onBookDeleted: ((String) -> Void)?
+    /// Called when the user deleted a book on the watch (not on an iPhone request), before `onLibraryChanged`:
+    /// the iPhone stops sending it automatically.
+    var onUserDeletedBook: ((String) -> Void)?
     /// Called whenever the set of stored books changed (import / delete) so the phone can be told.
     var onLibraryChanged: (() -> Void)?
 
@@ -79,7 +82,8 @@ final class BookLibrary: ObservableObject {
         }.value
     }
 
-    func delete(documentHash: String) {
+    /// `byUser`: deleted in the watch UI (the iPhone is told, so it does not send the book back).
+    func delete(documentHash: String, byUser: Bool = false) {
         entries.removeAll { $0.documentHash == documentHash }
         storage.delete(documentHash: documentHash)
         storage.saveIndex(entries)
@@ -87,6 +91,7 @@ final class BookLibrary: ObservableObject {
         progress.removeValue(forKey: documentHash)
         covers.removeValue(forKey: documentHash)
         onBookDeleted?(documentHash)
+        if byUser { onUserDeletedBook?(documentHash) }
         onLibraryChanged?()
     }
 

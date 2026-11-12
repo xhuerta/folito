@@ -25,8 +25,10 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
     var onWatchTypography: ((ReaderTypography) -> Void)?
     /// Books not yet confirmed on the watch, with their payload files. Read on the main queue.
     var unsentBooksProvider: (() -> [(entry: LibraryEntry, fileURL: URL)])?
-    /// The watch reported the hashes of the books it currently stores.
-    var onWatchLibrary: ((Set<String>) -> Void)?
+    /// The watch reported the books it currently stores (and those the user deleted there).
+    var onWatchLibrary: ((WatchSchema.LibraryReport) -> Void)?
+    /// The user deleted a book on the watch: hash and the watch app's installation id.
+    var onWatchRemovedBook: ((String, String?) -> Void)?
     /// Dictionaries installed on the phone that should be on the watch: id, file, SHA-256, size.
     var dictionariesProvider: (() -> [(id: String, fileURL: URL, sha256: String, size: Int64)])?
     /// Ids of the dictionaries the watch reported (nil until it has reported).
@@ -222,8 +224,8 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
             if let error { self.lastError = error.localizedDescription }
             if state == .activated {
                 // The watch may already have published its library while we were not running.
-                if let hashes = WatchSchema.libraryHashes(from: session.receivedApplicationContext) {
-                    self.onWatchLibrary?(hashes)
+                if let report = WatchSchema.libraryReport(from: session.receivedApplicationContext) {
+                    self.onWatchLibrary?(report)
                 }
                 self.watchDictionaries = WatchSchema.libraryDictionaries(from: session.receivedApplicationContext)
                 self.watchSettingsStamp = WatchSchema.librarySettingsStamp(from: session.receivedApplicationContext)
@@ -260,22 +262,37 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
-        let hashes = WatchSchema.libraryHashes(from: applicationContext)
+        let report = WatchSchema.libraryReport(from: applicationContext)
         let dictionaries = WatchSchema.libraryDictionaries(from: applicationContext)
         let typography = TypographySync.decode(from: applicationContext)
         let times = WatchSchema.libraryTimeRemaining(from: applicationContext)
         let progress = WatchSchema.libraryProgress(from: applicationContext)
         let settingsStamp = WatchSchema.librarySettingsStamp(from: applicationContext)
-        guard hashes != nil || typography != nil || dictionaries != nil else { return }
+        guard report != nil || typography != nil || dictionaries != nil else { return }
         DispatchQueue.main.async {
             if let typography { self.onWatchTypography?(typography) }
             if let times { self.watchTimeRemaining = times }
             if let progress { self.watchProgress = progress }
-            if let hashes { self.onWatchLibrary?(hashes) }
+            if let report { self.onWatchLibrary?(report) }
             if let dictionaries { self.watchDictionaries = dictionaries }
             if let settingsStamp { self.watchSettingsStamp = settingsStamp }
             self.syncWatchState()
         }
+    }
+
+    /// `book_removed` from the watch: sent with `sendMessage` when the phone is reachable (the Library updates at
+    /// once) and with `transferUserInfo` otherwise.
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        handleWatchMessage(message)
+    }
+
+    func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
+        handleWatchMessage(userInfo)
+    }
+
+    private func handleWatchMessage(_ info: [String: Any]) {
+        guard let removed = WatchSchema.bookRemoved(from: info) else { return }
+        DispatchQueue.main.async { self.onWatchRemovedBook?(removed.hash, removed.watchID) }
     }
 
     func session(_ session: WCSession, didFinish userInfoTransfer: WCSessionUserInfoTransfer, error: Error?) {

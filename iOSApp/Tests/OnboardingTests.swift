@@ -199,6 +199,7 @@ final class SampleBookSelectionTests: XCTestCase {
         let json = #"[{"documentHash":"h","title":"T","author":"A","fileName":"h.wrbook","size":5,"importedAt":0,"sentToWatch":true}]"#
         let entries = try JSONDecoder().decode([LibraryEntry].self, from: Data(json.utf8))
         XCTAssertEqual(entries.first?.isSample, false)
+        XCTAssertNil(entries.first?.removedOnWatch, "saved before the watch-deletion mark existed")
     }
 
     /// The sample goes through the real import pipeline and is marked as a sample.

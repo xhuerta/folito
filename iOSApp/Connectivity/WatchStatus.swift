@@ -34,9 +34,30 @@ enum BookWatchState: Equatable {
     case sending
     /// Not on the watch yet; it is sent automatically as soon as the watch app can receive it.
     case waiting
+    /// The user deleted it on the watch: it is not sent automatically, only with "Send to Apple Watch".
+    case removedOnWatch
 
-    init(sentToWatch: Bool, inFlight: Bool) {
-        if inFlight { self = .sending } else if sentToWatch { self = .onWatch } else { self = .waiting }
+    init(sentToWatch: Bool, inFlight: Bool, removedOnWatch: Bool = false) {
+        if inFlight { self = .sending } else if sentToWatch { self = .onWatch }
+        else if removedOnWatch { self = .removedOnWatch } else { self = .waiting }
+    }
+
+    init(_ entry: LibraryEntry, inFlight: Bool) {
+        self.init(sentToWatch: entry.sentToWatch, inFlight: inFlight, removedOnWatch: entry.isRemovedOnWatch)
+    }
+
+    /// Title of the explicit send action: a book deleted on the watch is sent, any other one is sent again.
+    var sendActionTitle: String {
+        self == .removedOnWatch
+            ? String(localized: "Send to Apple Watch", comment: "Action: send a book that was deleted on the watch back to it")
+            : String(localized: "Send to Apple Watch Again")
+    }
+
+    /// Short title of the same action (row swipe action).
+    var sendActionShortTitle: String {
+        self == .removedOnWatch
+            ? String(localized: "Send", comment: "Swipe action: send a book that was deleted on the watch back to it")
+            : String(localized: "Send Again")
     }
 
     var text: String {
@@ -44,6 +65,7 @@ enum BookWatchState: Equatable {
         case .onWatch: return String(localized: "On Apple Watch", comment: "Library row: the book is stored on the watch")
         case .sending: return String(localized: "Sending to Apple Watch…", comment: "Library row: transfer in progress")
         case .waiting: return String(localized: "Waiting for Apple Watch", comment: "Library row: the book will be sent when the watch is available")
+        case .removedOnWatch: return String(localized: "Removed on Apple Watch", comment: "Library row: the user deleted the book on the watch, so it is not sent automatically")
         }
     }
 
@@ -52,6 +74,7 @@ enum BookWatchState: Equatable {
         case .onWatch: return "checkmark.circle.fill"
         case .sending: return "arrow.up.circle"
         case .waiting: return "clock"
+        case .removedOnWatch: return "applewatch.slash"
         }
     }
 }

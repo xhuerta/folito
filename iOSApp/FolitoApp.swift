@@ -23,7 +23,7 @@ struct FolitoApp: App {
         WindowGroup {
             TabView {
                 NavigationStack {
-                    LibraryView(library: library, connectivity: connectivity, sendToWatch: sendToWatch)
+                    LibraryView(library: library, connectivity: connectivity, sendToWatch: sendToWatchExplicitly)
                 }
                 .tabItem { Label("Library", systemImage: "books.vertical") }
                 NavigationStack { TypographySettingsView(typography: typography) }
@@ -79,7 +79,12 @@ struct FolitoApp: App {
         // its library; Save just triggers the same path.
         connectivity.settingsProvider = { settings.savedForWatch() }
         connectivity.unsentBooksProvider = { library.unsentBooks }
-        connectivity.onWatchLibrary = { library.reconcile(watchHashes: $0, inFlight: connectivity.outstandingHashes) }
+        connectivity.onWatchLibrary = { report in
+            library.reconcile(watchHashes: report.hashes, removed: report.removed, watchID: report.watchID,
+                              inFlight: connectivity.outstandingHashes)
+        }
+        // Deleted on the watch by the user: shown at once and no longer sent automatically.
+        connectivity.onWatchRemovedBook = { library.markRemovedOnWatch(hash: $0, watchID: $1) }
         connectivity.clearedStampProvider = { settings.clearedStamp }
         settings.onSave = { _ in
             connectivity.syncWatchState()
@@ -108,6 +113,13 @@ struct FolitoApp: App {
 
     private func configureReadest() {
         readest.configure(store: settings.libraryCredentialStore, readestActive: settings.isReadestActive)
+    }
+
+    /// "Send to Apple Watch (Again)": also undoes a deletion made on the watch, so the book is sent automatically
+    /// again (e.g. when the watch is not reachable right now).
+    private func sendToWatchExplicitly(_ entry: LibraryEntry) {
+        library.clearRemovedOnWatch(hash: entry.documentHash)
+        sendToWatch(entry)
     }
 
     private func sendToWatch(_ entry: LibraryEntry) {
