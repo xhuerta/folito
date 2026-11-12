@@ -252,6 +252,7 @@ Folito positions are already KOReader XPointers (the same strings Folito sends t
   only its fraction, and only when it is further than the exact row by more than 0.002, exactly like
   Readest's `applyRemoteProgress` (a sibling's XPointer belongs to a different file). Rows with `deleted_at`
   are ignored. The open-book offer then uses Folito's normal XPointer resolver with the percentage fallback.
+  The exact row's `location` (CFI) is read too and resolved on the watch; see *Mixed rows* below.
 - **Own progress**: rows carry no device id, so the watch remembers the last position it pushed per book
   (`OwnProgressLog`) and never offers a row that matches it or the current spot (XPointer, else page / page
   count). Percentages are not compared for this: Readest's `progress[0] / progress[1]` is not Folito's
@@ -275,8 +276,26 @@ The koplugin converts nothing: KOReader's `ui.rolling:getLastProgress()` *is* th
   (see `docs/DISCREPANCIES.md`). Readest's `progress` stays block-based (`[block index + 1, block count]`).
 - **The Readest apps move forward only on automatic pulls**: they apply the furthest of their CFI and the
   XPointer. Going back on the watch does not move an open Readest app back; KOReader behaves the same.
+- **Mixed rows**: Readest keeps one row per `(user_id, book_hash)` and Folito pushes only `xpointer` and
+  `progress`, so after a watch push the row holds the Readest apps' CFI (`location`) next to the watch's
+  XPointer. When the watch pushes an older spot after the Readest apps wrote a further one (its `updatedAt`
+  is newer), the CFI stays ahead of the XPointer. The Readest apps follow the CFI (e.g. 58 %); before this
+  fix the watch saw only its own XPointer (e.g. 30 %, the last position it pushed) and offered nothing, and
+  *Go to Synced Position* jumped to where it already was. The watch now parses the CFI (`EPUBCFI`, `CFIResolver`) and, when
+  it resolves to a spot further than the row's XPointer by more than 0.5 % of the book, treats that spot as
+  the remote position: "Continue where you left off?" on open, and *Go to Synced Position* goes there. When
+  the CFI and the XPointer agree, or the CFI is behind, the XPointer is used as before; a row with only one of
+  them uses that one. While the check runs and the offer is unanswered (until the reader reads past it), the
+  watch pushes nothing.
+- **CFI precision**: `epubcfi(/6/N!/4/...)` (range CFIs: common parent + start; `[id]` assertions and
+  offsets ignored) maps `N / 2` to `DocFragment[N/2]`, then each even step `k` to the `k / 2`-th element
+  child, matched level by level against the distinct elements the chapter's text blocks go through. Exact
+  for runs of paragraphs; element siblings without text (images, empty anchors, `<hr>`) are not counted, so
+  the watch can land a few blocks later in the same chapter. The watch lands at the block's start (the CFI's
+  character offset is not used). A spine item without text lands at the next chapter.
 - **Positions written only as CFI**: when the Readest app fails to convert its CFI, it pushes `xpointer: ""`;
-  Folito then has only `progress`, a page fraction of Readest's pagination, and lands by percentage.
+  Folito then places the CFI (above), else uses `progress`, a page fraction of Readest's pagination, and lands
+  by percentage.
 - **Different files**: positions only match for the same EPUB file (same partial MD5). Re-downloads with a
   different file but the same metadata sync by fraction only.
 - **Clock skew**: last-writer-wins uses device clocks. A device whose clock runs ahead can keep winning

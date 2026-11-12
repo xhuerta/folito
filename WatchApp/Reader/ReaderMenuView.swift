@@ -117,6 +117,9 @@ struct ReaderMenuView: View {
             switch result {
             case .jumped:
                 dismiss()
+            case .alreadyThere:
+                syncedPositionNote = Text("Already at the synced position.",
+                                          comment: "Shown under 'Go to Synced Position' when the reader already is at the position the sync service has")
             case .noPosition:
                 syncedPositionNote = Text("No synced position for this book yet.",
                                           comment: "Shown under 'Go to Synced Position' when the sync service has no position for the book")
