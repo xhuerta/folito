@@ -13,6 +13,14 @@ import ReaderCore
 /// Type (see `ReaderAccessibilityReader`). Programmatic jumps (restore, chapters, remote position) are never
 /// animated, so Reduce Motion needs no special case. With the wrist down (Always On, reduced luminance)
 /// the page switches to a dim black palette and the sync glyph is hidden.
+///
+/// Top bar (#106): the navigation bar hides while scrolling down through the text and comes back when
+/// scrolling up a little or on a tap on the text (`BarAutoHide`); with VoiceOver on it never hides. The
+/// back button is the system's own (nothing is placed in the leading / cancellation slot, which on watchOS
+/// replaces the back button and with it the left-edge swipe back), so leaving the book always works from the
+/// visible bar. The time in the corner is drawn by the system: watchOS documents no API for an app to hide
+/// it, so it is not requested; what remains on screen with the bar hidden is captured by
+/// `WatchReaderTopBarTests` (attachment "watch-reader-bar-hidden").
 struct ReaderView: View {
     @StateObject private var model: ReaderViewModel
     @EnvironmentObject private var sync: SyncCoordinator
@@ -22,6 +30,11 @@ struct ReaderView: View {
     @AppStorage(ReaderSettings.tapToLookUpKey) private var tapToLookUp = true
     @State private var showMenu = false
     @State private var lookupAfterMenu = false
+    /// Auto-hide state, updated on every scroll frame without re-rendering the view; `barHidden` mirrors
+    /// its `isHidden` and changes only when the bar actually hides or shows.
+    @State private var autoHide = BarAutoHideBox()
+    @State private var barHidden = false
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
     @Environment(\.isLuminanceReduced) private var isLuminanceReduced
     private var readerAccessibility = ReaderAccessibilityReader()
     private static let scrollSpace = "reader.scroll"
@@ -40,7 +53,7 @@ struct ReaderView: View {
                         BlockStyledText(block: model.flat.blocks[index], style: style)
                             .equatable()
                             .contentShape(Rectangle())
-                            .onTapGesture { if tapToLookUp { model.beginLookup(at: index) } }
+                            .onTapGesture { tapped(block: index) }
                             // Available from the VoiceOver actions rotor even with tap-to-look-up off.
                             .accessibilityAction(named: Text("Look Up a Word")) { model.beginLookup(at: index) }
                             .accessibilityIdentifier("readerBlock")
@@ -57,6 +70,9 @@ struct ReaderView: View {
                     }
                 }
                 .padding(.horizontal, style.typography.horizontalMargin)
+                .background(GeometryReader { geo in
+                    Color.clear.preference(key: ContentTopKey.self, value: geo.frame(in: .named(Self.scrollSpace)).minY)
+                })
             }
             .coordinateSpace(name: Self.scrollSpace)
             // The scroll view runs under the navigation bar: its top inset is where reading starts.
@@ -65,7 +81,14 @@ struct ReaderView: View {
                     .preference(key: ViewportTopKey.self, value: geo.safeAreaInsets.top)
                     .preference(key: ViewportHeightKey.self, value: geo.size.height)
             })
-            .onPreferenceChange(ViewportTopKey.self) { model.viewportTop = $0 }
+            .onPreferenceChange(ViewportTopKey.self) { top in
+                // The reading line stays where it is while the bar is hidden (see `ReadingLine`).
+                model.viewportTop = ReadingLine.updated(current: model.viewportTop, measured: top, barShown: !barHidden)
+            }
+            .onPreferenceChange(ContentTopKey.self) { top in
+                let offset = model.viewportTop - top
+                updateBar { $0.scrolled(to: offset, at: Date(), voiceOver: voiceOver) }
+            }
             .onPreferenceChange(ViewportHeightKey.self) { model.viewportHeight = $0 }
             .onPreferenceChange(BlockFramesKey.self) { model.blockFramesChanged($0) }
             .onChange(of: model.jumpRequest) { request in
@@ -92,19 +115,35 @@ struct ReaderView: View {
         .navigationTitle(model.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            // Only a trailing item: the leading slot belongs to the system back button (and its edge swipe).
             ToolbarItem(placement: .topBarTrailing) {
                 Button { showMenu = true } label: {
-                    Label("Reading Options", systemImage: "list.bullet")
+                    Label {
+                        Text("Reading Options")
+                    } icon: {
+                        // The sync glyph rides on the options button, which opens the menu that explains it.
+                        Image(systemName: "list.bullet")
+                            .overlay(alignment: .topTrailing) {
+                                if let status = visibleSyncStatus {
+                                    SyncStatusIndicator(status: status)
+                                        .font(.system(size: 10, weight: .semibold))
+                                        .offset(x: 8, y: -8)
+                                        .accessibilityHidden(true)
+                                }
+                            }
+                    }
                 }
                 .accessibilityHint(Text("Text size, chapters and dictionary."))
+                .accessibilityValue(Text(visibleSyncStatus.flatMap(WatchMessages.syncStatus) ?? ""))
                 .accessibilityIdentifier("readerOptionsButton")
             }
-            // Status only, never while the wrist is down (Always On shows just the page).
-            if showSyncInfo && sync.isConfigured && !isLuminanceReduced {
-                ToolbarItem(placement: .cancellationAction) {
-                    SyncStatusIndicator(status: sync.status)
-                }
-            }
+        }
+        .toolbar(barHidden ? .hidden : .visible, for: .navigationBar)
+        .onChange(of: voiceOver) { on in
+            if on { updateBar { $0.show(at: Date()) } }
+        }
+        .onChange(of: showMenu) { shown in
+            if shown { updateBar { $0.show(at: Date()) } }
         }
         .sheet(isPresented: $showMenu, onDismiss: {
             if lookupAfterMenu {
@@ -113,7 +152,9 @@ struct ReaderView: View {
             }
             model.reanchor()
         }) {
-            ReaderMenuView(model: model, onLookup: { lookupAfterMenu = true })
+            ReaderMenuView(model: model,
+                           syncNote: visibleSyncStatus.flatMap { WatchMessages.syncExplanation($0, failure: sync.failure) },
+                           onLookup: { lookupAfterMenu = true })
                 .environmentObject(typography)
         }
         .sheet(item: $model.lookupBlockIndex) { target in
@@ -148,6 +189,46 @@ struct ReaderView: View {
             }
         }
     }
+}
+
+extension ReaderView {
+    /// The sync status to show, if any: only with sync on and configured, never while the wrist is down
+    /// (Always On shows just the page), and nothing while idle.
+    fileprivate var visibleSyncStatus: SyncStatus? {
+        guard showSyncInfo, sync.isConfigured, !isLuminanceReduced, sync.status != .idle else { return nil }
+        return sync.status
+    }
+
+    /// A tap on the text shows the hidden bar (then hides it again after a few seconds); with the bar
+    /// visible it opens the word lookup as before.
+    fileprivate func tapped(block index: Int) {
+        var revealed = false
+        updateBar { revealed = $0.tapped(at: Date(), voiceOver: voiceOver) }
+        if revealed {
+            DispatchQueue.main.asyncAfter(deadline: .now() + BarAutoHide.tapRevealDuration + 0.05) {
+                updateBar { $0.tick(at: Date(), voiceOver: voiceOver) }
+            }
+            return
+        }
+        if tapToLookUp { model.beginLookup(at: index) }
+    }
+
+    fileprivate func updateBar(_ change: (inout BarAutoHide) -> Void) {
+        change(&autoHide.state)
+        guard autoHide.state.isHidden != barHidden else { return }
+        withAnimation(.easeInOut(duration: 0.2)) { barHidden = autoHide.state.isHidden }
+    }
+}
+
+/// Holds `BarAutoHide` outside SwiftUI's change tracking, so per-frame scroll updates do not re-render.
+final class BarAutoHideBox {
+    var state = BarAutoHide()
+}
+
+/// Top of the reader's text in the scroll view's coordinate space (moves up while scrolling forward).
+struct ContentTopKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
 
 /// Collects the frames of the blocks the `LazyVStack` currently has instantiated. Views that are
