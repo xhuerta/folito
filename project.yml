@@ -230,6 +230,10 @@ targets:
       # folder into the test bundle only: the app reads them in Debug builds through UITESTING_BOOK_TEXTS.
       - path: iOSApp/UITests/AppStoreBooks
         type: folder
+      # Per-language App Store screenshot seeds (scripts/make_appstore_seeds.py), read by the app in Debug builds
+      # through UITESTING_APPSTORE_SEED.
+      - path: AppStoreSeeds
+        type: folder
     dependencies:
       - target: Folito
     settings:
@@ -264,6 +268,9 @@ targets:
     platform: watchOS
     sources:
       - path: WatchApp/UITests
+      # Per-language App Store screenshot seeds (scripts/make_appstore_seeds.py).
+      - path: AppStoreSeeds
+        type: folder
     dependencies:
       - target: FolitoWatch
     settings:

@@ -30,7 +30,7 @@ final class AppEnvironment: ObservableObject {
         let positions = PositionStore(defaults: UITesting.defaults)
         self.positions = positions
         self.library = BookLibrary(storage: UITesting.makeBookStorage(), positions: positions)
-        self.sync = SyncCoordinator()
+        self.sync = UITesting.makeSync()
         self.typography = TypographyModel(store: TypographyStore(defaults: UITesting.defaults))
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         // The online lookup's cache of earlier versions is no longer used.

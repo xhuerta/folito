@@ -1,5 +1,5 @@
 #!/bin/bash
-# Captures the App Store screenshots of one display class into app-store-screenshots/<class>/.
+# Captures the App Store screenshots of one display class in one language into app-store-screenshots/<lang>/<class>/.
 #
 # Picks (or creates) a simulator whose screen is a size App Store Connect accepts for the class
 # (scripts/ci/appstore_simulator.py), boots it, overrides its status bar (iPhone: 9:41, Wi-Fi, full battery, no
@@ -13,14 +13,22 @@
 # stopped, the simulator is rebooted and the suite runs once more. A test failure is not retried.
 # On failure, appstore-<class>.log, appstore-<class>.xcresult and the hang screenshots are left for the
 # workflow to upload.
-# Environment (set by macos.yml): XCB_FLAGS, SCHEME; UDID is the job's main simulator, which is left booted;
-# ATTEMPT_MINUTES (default 12).
+# Environment (set by macos.yml / app-store-localized.yml): XCB_FLAGS, SCHEME or XCTESTRUN (a .xctestrun file); UDID is the job's main simulator,
+# which is left booted; ATTEMPT_MINUTES (default 12); SCREENSHOT_LANG (default en: en, es, fr, de, it, pt-BR, ja,
+# zh-Hans), passed to the suite as TEST_RUNNER_SCREENSHOT_LANG (xcodebuild hands TEST_RUNNER_* variables to the
+# test runner without the prefix): the suite launches the app in that language with its AppStoreSeeds/<lang>.json.
 #
 # Usage: scripts/ci/appstore_screenshots.sh iphone-medium|iphone-large|watch <Target/TestClass>
 set -euo pipefail
 CLASS=$1
 TEST=$2
-OUT=app-store-screenshots/$CLASS
+SHOT_LANG=${SCREENSHOT_LANG:-en}
+case "$SHOT_LANG" in
+  en|es|fr|de|it|pt-BR|ja|zh-Hans) ;;
+  *) echo "::error::unknown SCREENSHOT_LANG '$SHOT_LANG'"; exit 2 ;;
+esac
+export TEST_RUNNER_SCREENSHOT_LANG=$SHOT_LANG
+OUT=app-store-screenshots/$SHOT_LANG/$CLASS
 LOG=appstore-$CLASS.log
 LIMIT=$(( ${ATTEMPT_MINUTES:-12} * 60 ))
 # Lines of the xcodebuild log shown live.
@@ -61,8 +69,12 @@ run_suite() {
   SHOWN=0
   START=$SECONDS
   # shellcheck disable=SC2086
+  # With XCTESTRUN (app-store-localized.yml: products built once by another job) the .xctestrun file names the
+  # test bundles; otherwise the scheme of the project built in this job.
+  local target=(-scheme "$SCHEME")
+  [ -n "${XCTESTRUN:-}" ] && target=(-xctestrun "$XCTESTRUN")
   xcodebuild test-without-building $XCB_FLAGS \
-    -scheme "$SCHEME" \
+    "${target[@]}" \
     -destination "id=$U" \
     -only-testing:"$TEST" \
     -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
@@ -73,7 +85,7 @@ run_suite() {
     show_progress
     kill -0 "$pid" 2>/dev/null || break
     if [ $(( SECONDS - START )) -gt "$LIMIT" ]; then
-      echo "::warning::$CLASS: xcodebuild still running after $(( LIMIT / 60 )) min (attempt $attempt); last log lines:"
+      echo "::warning::$CLASS ($SHOT_LANG): xcodebuild still running after $(( LIMIT / 60 )) min (attempt $attempt); last log lines:"
       tail -15 "$LOG" || true
       xcrun simctl io "$U" screenshot "appstore-$CLASS-hang-$attempt.png" > /dev/null 2>&1 || true
       kill -TERM "$pid" 2>/dev/null || true

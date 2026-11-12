@@ -8,7 +8,10 @@ LISTING.md has one "## <language>, `<locale>`" section per App Store Connect loc
   * a field exceeds App Store Connect's limit: name 30 characters (and at least 2), subtitle 30, promotional
     text 170, description 4000 (characters), keywords 100 bytes of UTF-8 (App Store Connect Help, "App
     information" and "Platform version information", read 2026-11-11);
-  * the keywords have an empty entry, a duplicate, a space next to a comma, or the app name;
+  * the keywords have an empty entry, a duplicate, a space next to a comma, or the app name, or (Latin-script
+    languages) repeat a word of the name or subtitle;
+  * a partial section (PARTIAL: es-MX, which shares es-ES's text except the keywords) fails any of these with
+    its own fields over those of the section it shares;
   * a third-party name (THIRD_PARTY) appears in any field but the description, or a store or competitor name
     (NEVER) appears anywhere;
   * an English field talks about a price or a purchase (PRICING);
@@ -40,6 +43,12 @@ LOCALES = {
     "ja": "ja",
     "zh-Hans": "zh-hans",
 }
+
+# A localization that repeats another one's text except for the fields its section gives:
+# locale -> (locale it shares the rest with, website folder).
+PARTIAL = {"es-MX": ("es-ES", "es")}
+# Languages whose words are separated by spaces, for the check that keywords do not repeat the name or subtitle.
+SPACED = {"en-US", "es-ES", "es-MX", "fr-FR", "de-DE", "it", "pt-BR"}
 
 # field -> (maximum, unit)
 LIMITS = {
@@ -79,8 +88,14 @@ def parse(text):
 def check(text, site=SITE):
     errors = []
     listing = parse(text)
-    for locale, folder in LOCALES.items():
+    targets = dict(LOCALES)
+    for locale, (base, folder) in PARTIAL.items():
+        if locale in listing:
+            targets[locale] = folder
+    for locale, folder in targets.items():
         fields = listing.get(locale)
+        if locale in PARTIAL and fields is not None:
+            fields = {**listing.get(PARTIAL[locale][0], {}), **fields}
         if fields is None:
             errors.append(f"{locale}: no section")
             continue
@@ -124,6 +139,11 @@ def check(text, site=SITE):
                 errors.append(f"{locale}: Keywords have a duplicate")
             if APP_NAME.lower() in cleaned:
                 errors.append(f"{locale}: Keywords repeat the app name")
+            if locale in SPACED:
+                words = lambda value: {w.lower() for w in re.findall(r"\w+", value)}
+                repeated = sorted(words(",".join(cleaned)) & (words(fields.get("Name", "")) | words(fields.get("Subtitle", ""))))
+                if repeated:
+                    errors.append(f"{locale}: Keywords repeat words of the name or subtitle: {', '.join(repeated)}")
         prefix = "https://folito.app/" + (folder + "/" if folder else "")
         for field, page in (("Support URL", "support.html"), ("Privacy Policy URL", "privacy.html"),
                             ("Marketing URL", "")):
@@ -136,7 +156,7 @@ def check(text, site=SITE):
             if not built.is_file():
                 errors.append(f"{locale}: {field}: the site has no {built.relative_to(site)}")
     for locale in listing:
-        if locale not in LOCALES:
+        if locale not in LOCALES and locale not in PARTIAL:
             errors.append(f"{locale}: section for a language the app is not localized into")
     return errors, listing
 
@@ -182,6 +202,11 @@ def self_test():
         assert any("duplicate" in e for e in run(Keywords="ebook,Ebook"))
         assert any("empty entry" in e for e in run(Keywords="ebook,,reading"))
         assert any("app name" in e for e in run(Keywords="ebook,folito"))
+        assert any("repeat words of the name or subtitle: books" in e for e in run(Keywords="ebook,books"))
+        mx = "## Spanish (Mexico), `es-MX`\n\n### Keywords\n\n```text\nlibro,books\n```\n"
+        base = "".join(section(l, f) for l, f in LOCALES.items())
+        assert any(e.startswith("es-MX: Keywords repeat") for e in check(base + mx, site)[0])
+        assert check(base + mx.replace("libro,books", "libro,cuento"), site)[0] == []
         assert any("names Readest" in e for e in run(Subtitle="Sync with Readest"))
         assert any("names Kindle" in e for e in run(Description="Better than Kindle"))
         assert any("pricing" in e for e in run(Description="Free to download"))

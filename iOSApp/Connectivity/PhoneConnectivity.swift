@@ -71,6 +71,7 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
             isPaired = true
             isWatchAppInstalled = true
             isReachable = true
+            watchProgress = UITesting.simulatedWatchProgress
             return
         }
         #endif

@@ -25,6 +25,12 @@ enum UITesting {
     /// sample book and three more public-domain titles, each with a title-and-author cover drawn in code and
     /// three of them part-read, and a small sample dictionary.
     static let seedAppStoreArgument = "-UITestingSeedAppStore"
+    /// `-UITestingAppStoreSepia` (with `-UITestingSeedAppStore`): the reader in the "Comfortable" preset with the
+    /// sepia theme, and the sample book opened further on (`AppStoreSeed.sepia`), for the sepia screenshot.
+    static let appStoreSepiaArgument = "-UITestingAppStoreSepia"
+    /// `-UITestingSimulateSync`: a progress sync service counts as set up (an in-memory client that has no
+    /// position for any book; nothing leaves the simulator), so the reader menu offers "Go to Synced Position".
+    static let simulateSyncArgument = "-UITestingSimulateSync"
 
     #if DEBUG
     static let isActive: Bool = {
@@ -42,6 +48,23 @@ enum UITesting {
         return suite
     }()
 
+    /// The sync coordinator; with `-UITestingSimulateSync` one whose service is an offline stand-in.
+    @MainActor
+    static func makeSync() -> SyncCoordinator {
+        guard isActive, ProcessInfo.processInfo.arguments.contains(simulateSyncArgument) else { return SyncCoordinator() }
+        let credentials = KOSyncCredentials(serverURL: URL(string: "https://sync.example.invalid")!, // i18n-ignore: UI-test fixture
+                                            username: "reader", authKey: String(repeating: "0", count: 32)) // i18n-ignore: UI-test fixture
+        return SyncCoordinator(defaults: defaults, credentials: { credentials }, makeClient: { _ in OfflineSyncClient() })
+    }
+
+    /// A sync service with no stored positions that accepts every push.
+    private struct OfflineSyncClient: KOSyncClientProtocol {
+        func authorize() async throws {}
+        func createUser() async throws {}
+        func pushProgress(_ progress: KOSyncProgress) async throws {}
+        func fetchProgress(document: String) async throws -> KOSyncProgress? { nil }
+    }
+
     static func makeBookStorage() -> BookStorage {
         guard isActive else { return BookStorage() }
         let root = FileManager.default.temporaryDirectory
@@ -57,7 +80,11 @@ enum UITesting {
             UserDefaults.standard.removeObject(forKey: ReaderSettings.showCoversKey)
         }
         if ProcessInfo.processInfo.arguments.contains(seedAppStoreArgument) {
-            seedAppStore(into: storage, scratch: root)
+            if let seed = AppStoreSeed.current {
+                seedAppStore(seed, into: storage, scratch: root)
+            } else {
+                seedAppStore(into: storage, scratch: root)
+            }
         } else if ProcessInfo.processInfo.arguments.contains(seedCoversArgument) {
             seedCovers(into: storage, scratch: root)
         }
@@ -126,6 +153,44 @@ enum UITesting {
             entries.append(entry)
         }
         storage.saveIndex(entries)
+    }
+
+    /// The App Store Library of one language (`UITESTING_APPSTORE_SEED`): its sample book (newest, at its opening;
+    /// with `-UITestingAppStoreSepia` further on, in the sepia "Comfortable" look) and three more public-domain
+    /// titles with title covers, part-read. The other titles hold a placeholder paragraph: only their rows show.
+    private static func seedAppStore(_ seed: AppStoreSeed, into storage: BookStorage, scratch: URL) {
+        let positions = PositionStore(defaults: defaults)
+        var books: [(book: ProcessedBook, color: UInt32, read: Double)] = [(seed.sampleBook(), seed.sample.color, 0)]
+        for b in seed.library {
+            books.append((placeholderBook(hash: b.hash, title: b.title, author: b.author), b.color, b.read))
+        }
+        var entries: [LibraryEntry] = []
+        for (i, b) in books.enumerated() {
+            guard var entry = seedEntry(b.book, into: storage, scratch: scratch) else { continue }
+            entry.addedAt = Date(timeIntervalSince1970: TimeInterval(1_000 - i))
+            if let jpeg = titleCover(title: b.book.metadata.title, author: b.book.metadata.authors.first ?? "",
+                                     rgb: b.color) {
+                entry.hasCover = storage.saveCover(jpeg, documentHash: b.book.documentHash)
+            }
+            if b.read > 0 {
+                positions.save(StoredPosition(position: BookPosition(chapterIndex: 0, blockIndex: 0), percentage: b.read),
+                               for: b.book.documentHash)
+            }
+            entries.append(entry)
+        }
+        storage.saveIndex(entries)
+        if ProcessInfo.processInfo.arguments.contains(appStoreSepiaArgument) {
+            let book = books[0].book
+            let chapter = min(seed.sepia.chapter, book.chapters.count - 1)
+            let block = min(seed.sepia.block, book.chapters[chapter].blocks.count - 1)
+            let offset = book.chapters[chapter].blocks[block].globalOffset
+            positions.save(StoredPosition(position: BookPosition(chapterIndex: chapter, blockIndex: block),
+                                          percentage: Double(offset) / Double(max(book.totalCharacters, 1))),
+                           for: book.documentHash)
+            var look = ReaderTypography().applying(.comfortable)
+            look.theme = .sepia
+            TypographyStore(defaults: defaults).save(look)
+        }
     }
 
     /// A 72 × 108 px JPEG (the size the iPhone sends) laid out like a printed cover: a colour field, a thin
@@ -215,7 +280,11 @@ enum UITesting {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("UITesting-dict-\(UUID().uuidString)", isDirectory: true)
         if ProcessInfo.processInfo.arguments.contains(seedAppStoreArgument) {
-            seedSampleDictionary(into: directory)
+            if let seed = AppStoreSeed.current {
+                seedSampleDictionary(seed.dictionary, into: directory)
+            } else {
+                seedSampleDictionary(into: directory)
+            }
         }
         return directory
     }()
@@ -260,6 +329,29 @@ enum UITesting {
             _ = try writer.finish(info: CompactDictionaryInfo(id: id, name: source, language: "en", source: source,
                                                               license: "", licenseURL: "", attribution: source,
                                                               sourceURL: "", sourceVersion: ""))
+        } catch {
+            assertionFailure("sample dictionary: \(error)")
+        }
+    }
+
+    /// The sample dictionary of one language (`AppStoreSeed.dictionary`), written like the English one.
+    private static func seedSampleDictionary(_ dictionary: AppStoreSeed.SampleDictionary, into directory: URL) {
+        let source = "Sample dictionary" // i18n-ignore: UI-test fixture (Debug only)
+        do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let writer = try CompactDictionaryWriter(url: directory.appendingPathComponent(InstalledDictionaries.fileName(for: dictionary.id)))
+            for e in dictionary.entries {
+                let senses = e.senses.map { DictionarySense(definition: $0.definition, examples: $0.examples ?? []) }
+                let entry = DictionaryEntry(word: e.word, language: dictionary.language, pronunciation: e.pronunciation,
+                                            meanings: [DictionaryMeaning(partOfSpeech: e.partOfSpeech, senses: senses)],
+                                            source: source)
+                let ref = try writer.add(entry)
+                writer.addKey(entry.word, ref: ref)
+                for form in e.forms { writer.addKey(form, ref: ref, isHeadword: false) }
+            }
+            _ = try writer.finish(info: CompactDictionaryInfo(id: dictionary.id, name: source, language: dictionary.language,
+                                                              source: source, license: "", licenseURL: "",
+                                                              attribution: source, sourceURL: "", sourceVersion: ""))
         } catch {
             assertionFailure("sample dictionary: \(error)")
         }
@@ -328,5 +420,6 @@ enum UITesting {
     static var defaults: UserDefaults { .standard }
     static func makeBookStorage() -> BookStorage { BookStorage() }
     static let dictionaryDirectory: URL? = nil
+    @MainActor static func makeSync() -> SyncCoordinator { SyncCoordinator() }
     #endif
 }

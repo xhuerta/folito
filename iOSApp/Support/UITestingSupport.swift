@@ -67,10 +67,20 @@ enum UITesting {
     /// True when the iPhone should act as if a paired, reachable watch with the app installed were there.
     static var simulatesWatch: Bool { ProcessInfo.processInfo.arguments.contains(simulateWatchArgument) }
 
+    /// The reading progress the simulated watch reports (`UITESTING_APPSTORE_SEED`): the Library books' progress
+    /// as the watch Library shows it, and the sample book part-read, so its details show a synced position.
+    static var simulatedWatchProgress: [String: Double] {
+        guard let seed = AppStoreSeed.current else { return [:] }
+        var progress = [seed.sample.hash: 0.27]
+        for book in seed.library { progress[book.hash] = book.read }
+        return progress
+    }
+
     /// Public-domain books with generated covers (no cover art ships in the app). With `UITESTING_BOOK_TEXTS`
     /// each book holds its full text (so its size is a real book's); otherwise one short paragraph.
     @MainActor
     private static func seedCovers(into store: LibraryStore) {
+        if let seed = AppStoreSeed.current { return seedAppStore(seed, into: store) }
         let texts = ProcessInfo.processInfo.environment[bookTextsEnvironment].map { URL(fileURLWithPath: $0, isDirectory: true) }
         let onWatch = simulatesWatch
         func fullText(_ name: String) -> String? {
@@ -108,6 +118,37 @@ enum UITesting {
                                                         language: "en", subjects: ["Science fiction"], // i18n-ignore: UI-test fixture
                                                         series: BookSeries(name: "Barsoom", index: 2)), // i18n-ignore: UI-test fixture
                                    sentToWatch: true)
+    }
+
+    /// The App Store Library of one language (`UITESTING_APPSTORE_SEED`): the language's sample book on top, with
+    /// its details, and three more public-domain titles with generated covers. Their text is the English full text
+    /// named in the seed when `UITESTING_BOOK_TEXTS` has it, else the sample text repeated, so the sizes look like
+    /// books'. Every book shows as on the watch with `-UITestingSimulateWatch`.
+    @MainActor
+    private static func seedAppStore(_ seed: AppStoreSeed, into store: LibraryStore) {
+        let texts = ProcessInfo.processInfo.environment[bookTextsEnvironment].map { URL(fileURLWithPath: $0, isDirectory: true) }
+        let onWatch = simulatesWatch
+        // Oldest first: the Library lists the newest on top.
+        for b in seed.library.reversed() {
+            let metadata = BookMetadata(title: b.title, authors: [b.author], language: seed.sample.language)
+            var book = seed.sampleBook(hash: b.hash, title: b.title, author: b.author, times: b.repeats)
+            if let name = b.text, let url = texts?.appendingPathComponent(name + ".deflate"),
+               let data = try? (Data(contentsOf: url) as NSData).decompressed(using: .zlib) as Data,
+               let text = String(data: data, encoding: .utf8) {
+                book = bookFromText(text, metadata: metadata, hash: b.hash)
+            }
+            let color = UIColor(red: CGFloat((b.color >> 16) & 0xFF) / 255, green: CGFloat((b.color >> 8) & 0xFF) / 255,
+                                blue: CGFloat(b.color & 0xFF) / 255, alpha: 1)
+            try? store.addForUITesting(book, fileName: "\(b.hash).epub", coverPNG: generatedCover(color),
+                                       details: EPUBDetails(title: b.title, creators: [BookCreator(name: b.author, role: "aut")],
+                                                            language: seed.sample.language),
+                                       sentToWatch: onWatch)
+        }
+        let sample = seed.sample
+        try? store.addForUITesting(seed.sampleBook(), fileName: "sample.epub",
+                                   details: EPUBDetails(title: sample.title, creators: [BookCreator(name: sample.author, role: "aut")],
+                                                        year: sample.year, language: sample.language),
+                                   sentToWatch: onWatch)
     }
 
     /// A book from a plain text: one paragraph per line, `# ` lines are headings, and every `# CHAPTER` heading

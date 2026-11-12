@@ -6,23 +6,43 @@ General: 1 to 10 screenshots per device size and localization; `.jpeg`, `.jpg` o
 
 ## Where the screenshots come from
 
-CI takes them: nobody needs a Mac or a device. The UI tier of `macos.yml` (every push to `main`, and pull requests labelled `ui`; see [TESTING.md](../TESTING.md)) runs two screenshot suites on simulators whose screens are accepted sizes: the iPhone sets in a job of their own, `app-store-iphone`, one runner per size (`app-store-iphone-medium`, `app-store-iphone-large`, in parallel with the `ios` job, which they would otherwise push past its time limit), the watch set at the end of the `watch` job. The job `app-store-screenshots` merges them into one artifact, **`app-store-screenshots`**:
+CI takes them: nobody needs a Mac or a device. The UI tier of `macos.yml` (every push to `main`, and pull requests labelled `ui`; see [TESTING.md](../TESTING.md)) runs two screenshot suites on simulators whose screens are accepted sizes: the iPhone sets in a job of their own, `app-store-iphone`, one runner per size (`app-store-iphone-medium`, `app-store-iphone-large`, in parallel with the `ios` job, which they would otherwise push past its time limit), the watch set at the end of the `watch` job. The job `app-store-screenshots` merges them into one artifact, **`app-store-screenshots`**, with the English set in `en/` (every language: see [Localized sets](#localized-sets)):
 
 | Directory | Display class | Simulator (first one the runner has) | Pixels | Suite |
 |---|---|---|---|---|
-| `iphone-medium/` | iPhone with Dynamic Island, medium display (**required**) | iPhone 17 Pro, 17, 16 Pro; else 16, 15 Pro, 15, 14 Pro | 1206 × 2622 (else 1179 × 2556) | `iOSApp/UITests/AppStoreScreenshotTests.swift` |
-| `iphone-large/` | iPhone with Dynamic Island, large display (given so that the older Face ID large size is not required) | iPhone 17 Pro Max, 16 Pro Max; else 16 Plus, 15 Pro Max, 15 Plus, 14 Pro Max; else iPhone Air | 1320 × 2868 (else 1290 × 2796, 1260 × 2736) | the same suite |
-| `watch/` | Apple Watch (**required**) | Apple Watch Ultra 3; else Ultra 2, Ultra; else Series 11 / 10 (46mm); else Series 9, 8, 7 (45mm) | 422 × 514 (else 410 × 502, 416 × 496, 396 × 484) | `WatchApp/UITests/WatchAppStoreScreenshotTests.swift` |
+| `<lang>/iphone-medium/` | iPhone with Dynamic Island, medium display (**required**) | iPhone 17 Pro, 17, 16 Pro; else 16, 15 Pro, 15, 14 Pro | 1206 × 2622 (else 1179 × 2556) | `iOSApp/UITests/AppStoreScreenshotTests.swift` |
+| `<lang>/iphone-large/` | iPhone with Dynamic Island, large display (given so that the older Face ID large size is not required) | iPhone 17 Pro Max, 16 Pro Max; else 16 Plus, 15 Pro Max, 15 Plus, 14 Pro Max; else iPhone Air | 1320 × 2868 (else 1290 × 2796, 1260 × 2736) | the same suite |
+| `<lang>/watch/` | Apple Watch (**required**) | Apple Watch Ultra 3; else Ultra 2, Ultra; else Series 11 / 10 (46mm); else Series 9, 8, 7 (45mm) | 422 × 514 (else 410 × 502, 416 × 496, 396 × 484) | `WatchApp/UITests/WatchAppStoreScreenshotTests.swift` |
+
+The frames are the raw captures of the screenshot spec: the Apple Watch frames are uploaded as they are; the iPhone captures are the screens that the composed iPhone images (brand background, headline, drawn devices; a later step) place inside a drawn phone.
 
 | File | Shows |
 |---|---|
-| `watch/watch-1-reader.png` | The reader: the opening of *Pride and Prejudice*, the English sample book |
-| `watch/watch-2-word-lookup.png` | Word lookup: the definition of the selected word |
-| `watch/watch-2a-word-picker.png` | Word lookup: choosing the word in its paragraph |
-| `watch/watch-3-library.png` | The Library, with covers and reading progress |
-| `iphone-*/iphone-1-library.png` | The Library with covers and each book's Apple Watch state |
-| `iphone-*/iphone-2-book-details.png` | A book's details |
-| `iphone-*/iphone-3-reading.png` | The Reading tab with its live preview (the opening line of *Pride and Prejudice*, in every language: `TypographyPreview` in `Shared/TypographyRendering.swift`) |
+| `watch/watch-1-reader.png` | The reader at the opening of chapter 1 of the language's sample book, scrolled just enough for the top bar to hide: the system time above the page-coloured clock band, no book title |
+| `watch/watch-2-word-lookup.png` | Word lookup: the language's word with its entry in the language's sample dictionary |
+| `watch/watch-2a-word-picker.png` | The same word selected in its paragraph (for iPhone frame 3; optional in the watch set) |
+| `watch/watch-3-library.png` | The Library: the sample book (0 %) and three public-domain titles of the language, with title covers and progress (43 %, 78 %, 12 %) |
+| `watch/watch-4-sepia.png` | The reader in the "Comfortable" preset (serif) with the sepia theme, further on (mid chapter 2; in de, it and ja, which have one chapter of text, a later page of chapter 1), top bar hidden |
+| `watch/watch-5-menu.png` | The reader menu scrolled to "Go to Synced Position" (an offline stand-in sync service: `-UITestingSimulateSync`), with "Look Up a Word" and the text size above it |
+| `complications/complication-rectangular.png`, `complication-circular.png` | The rectangular and circular complications with the language's short title, at 3× (localized workflow only; input of iPhone frame 6, which falls back to `watch-3-library` without them). Not uploaded as they are |
+| `iphone-*/iphone-1-library.png` | The Library: the sample book on top, the other three titles, each "On Apple Watch" (iPhone frames 1 and 4) |
+| `iphone-*/iphone-2-book-details.png` | The sample book's details, with the reading progress synced from the watch (iPhone frame 2) |
+| `iphone-*/iphone-3-reading.png` | The Reading tab with its live preview (the opening line of *Pride and Prejudice*, in every language: `TypographyPreview` in `Shared/TypographyRendering.swift`) (iPhone frame 5) |
+
+The App Store upload order of the watch frames is 1, 2, 3, 4, 5. iPhone frames 3 and 6 have no iPhone screen.
+
+| Language | Sample book (reader) | Word looked up | Rest of the Library | Short title (3.1) |
+|---|---|---|---|---|
+| en | *Pride and Prejudice* | acknowledged | *Emma*; *Alice’s Adventures in Wonderland*; *The Gods of Mars* | *Emma* |
+| es | *Don Quijote de la Mancha* | hidalgo | *La Regenta*; *Marianela*; *Lazarillo de Tormes* | *Don Quijote* |
+| fr | *Les Misérables* | évêque | *Madame Bovary*; *Le Comte de Monte-Cristo*; *Germinal* | *Germinal* |
+| de | *Die Verwandlung* | Ungeziefer | *Effi Briest*; *Der Process*; *Faust* | *Faust* |
+| it | *I promessi sposi* | lago | *Le avventure di Pinocchio*; *I Malavoglia*; *Cuore* | *Cuore* |
+| pt-BR | *Dom Casmurro* | casmurro | *Memórias Póstumas de Brás Cubas*; *O Cortiço*; *Iracema* | *Iracema* |
+| ja | 『吾輩は猫である』 | 猫 | 『坊っちゃん』; 『こころ』; 『羅生門』 | 『こころ』 |
+| zh-Hans | 《狂人日记》 | 月光 | 《阿Q正传》; 《红楼梦》; 《西游记》 | 《阿Q正传》 |
+
+**No truncated titles.** No capture may show a cut title. The reader frames are taken with the top bar hidden (the tests fail unless the bar has hidden and the clock band is there), so they show no book title. On every other captured screen the suites compare each navigation title's text width with its element and fail when the title is cut (an ellipsis, or a watchOS marquee that runs past the screen). A future frame that shows the reader's bar must use the language's short title above; the complication snapshots already do.
 
 How it works:
 
@@ -31,37 +51,44 @@ How it works:
 * The suites wait for each screen with generous timeouts and fail with the screen they found, a screenshot ("failure screen") and the accessibility tree. On the watch, opening the reader taps the Library row again while the Library is still showing: right after launch a tap can be dropped before the list takes taps.
 * **The watch clock is not overridden.** `simctl status_bar` does not support watchOS simulators: with Xcode 26.3 (watchOS 26 runtime) it fails with "Status bar overrides not supported on this platform" (POSIX error 45). The watch captures therefore show the time at which CI ran them (the runner's clock, UTC). The script still tries, and prints a `::notice::` when the override is refused, so a later Xcode that supports it is used without a change. Nothing is drawn over the capture to fake a time; if a fixed time matters for the listing, retake the watch set on a Mac at the wanted time.
 * `scripts/ci/check_screenshot_sizes.py` then fails the job if a capture is not an accepted size for its class, if a class mixes sizes (so the watch size is the same in every set), if a required class is missing, or if an image has an alpha channel. The job `app-store-screenshots` repeats the check on the merged artifact. The script's own test and the simulator choice run on Linux (`linux.yml`, job `ci-scripts`).
-* The content is seeded by launch arguments that exist in Debug builds only (`-UITestingSeedCovers` on the iPhone, `-UITestingSeedAppStore` on the watch): public-domain titles, generated covers, and on the watch the opening of the English sample book. No book file, cover art or dictionary is added to the shipped apps.
-* Watch Library: every book has a cover drawn in code with its title and author (`UITesting.titleCover`, 72 × 108 px like the thumbnails the iPhone sends), and three of them a stored reading position (43 %, 78 %, 12 %), so the rows show the progress of a library in use. *Pride and Prejudice*, the book of the reader screenshot, is at its opening (0 %).
-* Watch reader: the book title is longer than the space beside the clock, so watchOS scrolls it as a marquee (a real user sees it scroll; it is not cut for good). A capture at a fixed delay could catch it mid-scroll, so the suite captures the reader and the Library only once two consecutive screenshots are identical: the marquee rests only at its start, so the title then reads from its first letter.
-* iPhone Library: the seeded books hold the full public-domain texts of *The Gods of Mars*, *Emma* and *Alice's Adventures in Wonderland* (Project Gutenberg #64, #158, #11, without the Gutenberg header and licence; built by `scripts/make_appstore_books.py`). They live in the UI test bundle only (`iOSApp/UITests/AppStoreBooks`), and the test passes their folder to the app in `UITESTING_BOOK_TEXTS`, so the sizes in the Library are those of real books.
+* The content is seeded by launch arguments that exist in Debug builds only (`-UITestingSeedCovers` on the iPhone, `-UITestingSeedAppStore` on the watch) from the language's seed, `AppStoreSeeds/<lang>.json`, which the suites pass to the app in `UITESTING_APPSTORE_SEED`. The seeds are built by `scripts/make_appstore_seeds.py` from the texts of the bundled sample books (`docs/samples-src/<lang>.txt`, the same text as `sample-<lang>.epub`) plus the Library titles and the sample dictionary of each language; `linux.yml` (job `ci-scripts`) fails when a committed seed is stale. The folder is in the UI test bundles only: no book file, cover art or dictionary is added to the shipped apps.
+* The suites take the language from `SCREENSHOT_LANG` (`appstore_screenshots.sh` passes `TEST_RUNNER_SCREENSHOT_LANG`; default `en`), launch the app with `-AppleLanguages`/`-AppleLocale`, and find every element by accessibility identifier (or the tab bar item's position), never by an English label.
+* Watch Library: every book has a cover drawn in code with its title and author (`UITesting.titleCover`, 72 × 108 px like the thumbnails the iPhone sends), and three of them a stored reading position (43 %, 78 %, 12 %), so the rows show the progress of a library in use. The sample book, the book of the reader screenshot, is at its opening (0 %). The other titles are metadata seeds: only their rows show.
+* Watch screens are captured once two consecutive screenshots are identical (nothing scrolling, no covers still loading).
+* iPhone Library: the sample book holds the language's sample text; the other titles hold that text repeated (so their sizes look like books'), except in English, where they hold the full public-domain texts of *Emma*, *Alice's Adventures in Wonderland* and *The Gods of Mars* (Project Gutenberg #158, #11, #64, without the Gutenberg header and licence; built by `scripts/make_appstore_books.py`, in the UI test bundle only, `iOSApp/UITests/AppStoreBooks`, passed in `UITESTING_BOOK_TEXTS`). The simulated watch reports the watch Library's progress, and 27 % for the sample book, which its details show as the synced progress.
 * iPhone Library: a simulator has no paired Apple Watch, so the Library would open with a "No Apple Watch" card and every book "Waiting for Apple Watch". `-UITestingSimulateWatch` (Debug builds only, `PhoneConnectivity.activate()`) makes the Library show what a user with a paired, reachable watch sees: "Apple Watch connected" and the books on the watch. The real WatchConnectivity session is not activated, so nothing is sent; Release builds have no such code.
-* The definitions in the word-lookup capture come from a four-word sample dictionary written for the screenshots, so its source line reads "Sample dictionary". The real dictionaries are Wiktionary data that each user downloads (see [DICTIONARIES.md](../DICTIONARIES.md)); they are not bundled or downloaded in CI.
+* The definitions in the word-lookup capture come from a four-word sample dictionary per language written for the screenshots (in the seed), so its source line reads "Sample dictionary". The real dictionaries are Wiktionary data that each user downloads (see [DICTIONARIES.md](../DICTIONARIES.md)); they are not bundled or downloaded in CI.
 
 ### Regenerating
 
 1. Add the `ui` label to a pull request, or push to `main` (or run the *macOS* workflow by hand).
-2. When the run is done, download the `app-store-screenshots` artifact from the run's page.
+2. When the run is done, download the `app-store-screenshots` artifact from the run's page (the English set, in `en/`).
 3. Upload each directory to its display size in App Store Connect.
 
 On a Mac: `xcodegen generate`, then for instance
-`xcodebuild test -project Folito.xcodeproj -scheme FolitoWatch -destination 'platform=watchOS Simulator,name=Apple Watch Ultra 3 (49mm)' -only-testing:FolitoWatchUITests/WatchAppStoreScreenshotTests CODE_SIGNING_ALLOWED=NO`
-and export the attachments of the result bundle (`xcrun xcresulttool export attachments`). Check a directory with `python3 scripts/ci/check_screenshot_sizes.py <root> --require iphone-medium,iphone-large,watch`.
+`TEST_RUNNER_SCREENSHOT_LANG=fr xcodebuild test -project Folito.xcodeproj -scheme FolitoWatch -destination 'platform=watchOS Simulator,name=Apple Watch Ultra 3 (49mm)' -only-testing:FolitoWatchUITests/WatchAppStoreScreenshotTests CODE_SIGNING_ALLOWED=NO`
+and export the attachments of the result bundle (`xcrun xcresulttool export attachments`). Check a directory with `python3 scripts/ci/check_screenshot_sizes.py <root> --require iphone-medium,iphone-large,watch` (a root of language directories is checked language by language, and the watch size must be the same in all of them).
 
 ### The website's watch image
 
-The home page hero (`docs/site-src/templates/index.html`) shows `watch/watch-1-reader.png` from this artifact, so the site shows the reader as it is. Only the case around it is drawn in CSS (`.watch` in `docs/site/style.css`). It lives in `docs/site/assets/watch-reader.webp` (lossless WebP, 422 × 514; `scripts/site/build.py` leaves `docs/site/assets/` as it is). To refresh it after the reader changes:
+The home page hero (`docs/site-src/templates/index.html`) shows `en/watch/watch-1-reader.png` from this artifact, so the site shows the reader as it is. Only the case around it is drawn in CSS (`.watch` in `docs/site/style.css`). It lives in `docs/site/assets/watch-reader.webp` (lossless WebP, 422 × 514; `scripts/site/build.py` leaves `docs/site/assets/` as it is). To refresh it after the reader changes:
 
-1. Download `app-store-screenshots` from the latest successful *macOS* run on `main` (or a run of a PR labelled `ui`) and look at `watch/watch-1-reader.png`: the title should read from its first letter and the text should be the opening of the chapter.
+1. Download `app-store-screenshots` from the latest successful *macOS* run on `main` (or a run of a PR labelled `ui`) and look at `en/watch/watch-1-reader.png`: the text should be the opening of the chapter with the time above it and no top bar.
 2. Convert it without loss and replace the file:
    `python3 -c "from PIL import Image; Image.open('watch-1-reader.png').convert('RGB').save('docs/site/assets/watch-reader.webp', lossless=True, method=6)"`
 3. If the size changed, update `width` and `height` on the `<img class="screen">` in the template, run `python3 scripts/site/build.py`, and commit `docs/site/`.
 
 The clock in the image is the CI runner's time (see above); the alt text (`index.watch_label` in `docs/site-src/i18n/*.json`) describes the screen, so keep it in step if the capture shows something else.
 
-### Other languages
+### Localized sets
 
-The sets are English. A localized set needs: the suites launched in that language (`-AppleLanguages`), element lookups by identifier instead of English labels (`Library`, `Reading`, `Next Word`, `Look Up`), the sample text and sample dictionary entries of that language on the watch (the iPhone app already bundles one sample book per language), and one directory level per language in the artifact. The simulator choice already keeps one watch size for all of them.
+The UI tier captures only English. All eight languages (en, es, fr, de, it, pt-BR, ja, zh-Hans) are captured by the workflow **`app-store-localized.yml`**, which runs only by hand (Actions tab > "App Store screenshots (localized)" > Run workflow, any branch), or through the API:
+
+```sh
+gh workflow run app-store-localized.yml --ref main -f languages="en,es,fr,de,it,pt-BR,ja,zh-Hans" -f devices="iphone,watch"
+```
+
+Inputs (plain strings): `languages`, comma-separated, default all eight; `devices`, `iphone` (both iPhone sizes) and/or `watch` (the watch frames and the complication snapshots), default both. It builds each platform once (`build-ios`, `build-watch`: build-for-testing, uploaded with the `.xctestrun` file) and runs `test-without-building` per language and device class, at most four macOS runners at a time (about 20 jobs of a few minutes each for the full set). It uploads **`app-store-screenshots-<lang>`** per language (`<lang>/{iphone-medium,iphone-large,watch,complications}/`) and **`app-store-screenshots-all`**, after `check_screenshot_sizes.py` has checked every language. es-ES and es-MX share the `es` set.
 
 ## iPhone (the iOS target is iPhone-only: `TARGETED_DEVICE_FAMILY = 1`, so **no iPad screenshots**)
 

@@ -9,6 +9,11 @@ has them:
                                  size is required)
     <root>/watch/*.png           Apple Watch (required for an app with a watch app)
 
+The artifact holds one such set per language, `<root>/<lang>/<class>/` (en, es, fr, de, it, pt-BR, ja, zh-Hans).
+Given a root whose directories are languages, every language set is checked, and the Apple Watch size must be
+the same in all of them. A `complications/` directory (complication snapshots for the composed iPhone images)
+is not a display class and is not checked.
+
 For every class given with --require, the directory must hold at least one PNG. Every PNG of a class must have
 one of the pixel sizes accepted for that class (portrait), all PNGs of a class must have the same size (Apple
 asks for one Apple Watch size in every localization; a mixed iPhone set would be a capture mistake), there may
@@ -36,6 +41,9 @@ ACCEPTED = {
     "watch": {(422, 514), (410, 502), (416, 496), (396, 484), (368, 448), (312, 390)},
 }
 MAX_PER_CLASS = 10
+LANGUAGES = ["en", "es", "fr", "de", "it", "pt-BR", "ja", "zh-Hans"]
+# Inputs of the composed images, not uploaded as they are.
+NOT_A_CLASS = {"complications"}
 PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
 
@@ -66,7 +74,8 @@ def check(root, required):
     root = pathlib.Path(root)
     report, errors = [], []
     present = [c for c in ACCEPTED if (root / c).is_dir()]
-    unknown = sorted(p.name for p in root.iterdir() if p.is_dir() and p.name not in ACCEPTED) if root.is_dir() else []
+    unknown = sorted(p.name for p in root.iterdir() if p.is_dir() and p.name not in ACCEPTED
+                     and p.name not in NOT_A_CLASS) if root.is_dir() else []
     for name in unknown:
         errors.append(f"{name}/: not a known display class ({', '.join(ACCEPTED)})")
     for name in dict.fromkeys(list(required) + present):
@@ -94,6 +103,33 @@ def check(root, required):
         if len(sizes) > 1:
             errors.append(f"{name}/: mixed sizes {sorted(sizes)}; use one size per display class")
     return report, errors
+
+
+def check_languages(root, required):
+    """Like check(), for a root holding one set per language; the watch size must match across languages."""
+    root = pathlib.Path(root)
+    report, errors, watch = [], [], {}
+    for lang in sorted(p.name for p in root.iterdir() if p.is_dir()):
+        if lang not in LANGUAGES:
+            errors.append(f"{lang}/: not a screenshot language ({', '.join(LANGUAGES)})")
+            continue
+        r, e = check(root / lang, required)
+        report += [f"{lang}/{line}" for line in r]
+        errors += [f"{lang}/{line}" for line in e]
+        for path in sorted((root / lang / "watch").glob("*.png")):
+            try:
+                watch.setdefault(png_info(path)[:2], []).append(lang)
+            except (OSError, ValueError):
+                pass
+    if len(watch) > 1:
+        errors.append("watch: sizes differ between languages "
+                      + "; ".join(f"{w} x {h}: {', '.join(sorted(set(l)))}" for (w, h), l in sorted(watch.items())))
+    return report, errors
+
+
+def is_language_root(root):
+    root = pathlib.Path(root)
+    return root.is_dir() and any(p.is_dir() and p.name in LANGUAGES for p in root.iterdir())
 
 
 def write_png(path, width, height, colour_type=2):
@@ -142,6 +178,24 @@ def self_test():
         for i in range(MAX_PER_CLASS):
             write_png(root / "iphone-large" / f"more-{i}.png", 1320, 2868)
         assert any("at most 10" in e for e in check(root, everything)[1])
+    with tempfile.TemporaryDirectory() as tmp:
+        # One set per language, with complication snapshots beside them.
+        root = pathlib.Path(tmp)
+        for lang in ("en", "ja"):
+            write_png(root / lang / "iphone-medium" / "a.png", 1206, 2622)
+            write_png(root / lang / "iphone-large" / "a.png", 1320, 2868)
+            write_png(root / lang / "watch" / "a.png", 422, 514)
+            write_png(root / lang / "complications" / "c.png", 540, 228, colour_type=6)
+        assert is_language_root(root) and not is_language_root(root / "en")
+        assert check_languages(root, everything)[1] == [], check_languages(root, everything)[1]
+        # A language missing a class, and a watch size that differs from the other languages.
+        (root / "ja" / "iphone-large" / "a.png").unlink()
+        write_png(root / "ja" / "watch" / "a.png", 410, 502)
+        errors = check_languages(root, everything)[1]
+        assert any(e.startswith("ja/iphone-large/: no screenshots") for e in errors), errors
+        assert any("sizes differ between languages" in e for e in errors), errors
+        (root / "xx").mkdir()
+        assert any("xx/: not a screenshot language" in e for e in check_languages(root, everything)[1])
     print("check_screenshot_sizes self-test OK")
 
 
@@ -156,7 +210,7 @@ def main():
         del args[i:i + 2]
     if len(args) != 1 or any(c not in ACCEPTED for c in required):
         sys.exit(__doc__)
-    report, errors = check(args[0], required)
+    report, errors = (check_languages if is_language_root(args[0]) else check)(args[0], required)
     print("\n".join(report))
     if errors:
         print("\n".join("error: " + e for e in errors), file=sys.stderr)

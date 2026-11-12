@@ -47,6 +47,7 @@ jobs:
         run: |
           python3 scripts/ci/appstore_simulator.py --self-test
           python3 scripts/ci/check_screenshot_sizes.py --self-test
+          python3 scripts/make_appstore_seeds.py --check
 
       # Which macOS platforms a PR needs (macos.yml / accessibility.yml job `scope`).
       - name: Test the platform picker

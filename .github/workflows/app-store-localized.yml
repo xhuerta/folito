@@ -1,0 +1,324 @@
+name: App Store screenshots (localized)
+
+# The App Store screenshots in every listing language (docs/appstore/SCREENSHOTS.md, "Localized sets"): the raw
+# iPhone captures (two display sizes) and the raw Apple Watch frames, plus the complication snapshots, for
+# en, es, fr, de, it, pt-BR, ja and zh-Hans. Eight languages times three device classes is too heavy for every
+# pull request: the UI tier of macos.yml keeps capturing the English set (pull requests labelled `ui`, pushes to
+# main), and this workflow runs only by hand.
+#
+# Each platform is built once (build-ios, build-watch: build-for-testing, uploaded with the .xctestrun file) and
+# every language runs test-without-building against those products on the same Xcode, in a matrix limited to
+# four macOS runners at a time. One artifact per language, `app-store-screenshots-<lang>`, holding
+# <lang>/{iphone-medium,iphone-large,watch,complications}/ (the per-runner `capture-<lang>-<class>` artifacts are
+# kept 3 days); the `app-store-screenshots` job checks all of them
+# together (sizes, one watch size across languages) and uploads the merged set as `app-store-screenshots-all`.
+#
+# Start it from the Actions tab or through the API (all inputs are plain strings):
+#   gh workflow run app-store-localized.yml --ref <branch> -f languages="en,es,fr,de,it,pt-BR,ja,zh-Hans" -f devices="iphone,watch"
+
+on:
+  workflow_dispatch:
+    inputs:
+      languages:
+        description: "Comma-separated languages (default: all eight): en,es,fr,de,it,pt-BR,ja,zh-Hans"
+        type: string
+        required: false
+        default: "en,es,fr,de,it,pt-BR,ja,zh-Hans"
+      devices:
+        description: "Comma-separated device groups: iphone (both iPhone sizes), watch (watch frames and complications)"
+        type: string
+        required: false
+        default: "iphone,watch"
+
+concurrency:
+  group: app-store-localized-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # Shared build settings (as in macos.yml): no indexing, no dSYMs, no signing.
+  XCB_FLAGS: >-
+    -project Folito.xcodeproj
+    -derivedDataPath DerivedData
+    -clonedSourcePackagesDirPath SourcePackages
+    -skipPackagePluginValidation -skipMacroValidation
+    CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO DEBUG_INFORMATION_FORMAT=dwarf
+
+jobs:
+  # The matrix of the run, from the inputs (a few seconds on Linux).
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      languages: ${{ steps.plan.outputs.languages }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+      iphone: ${{ steps.plan.outputs.iphone }}
+      watch: ${{ steps.plan.outputs.watch }}
+    steps:
+      - name: Plan
+        id: plan
+        env:
+          LANGUAGES: ${{ inputs.languages }}
+          DEVICES: ${{ inputs.devices }}
+        run: |
+          python3 - <<'EOF' >> "$GITHUB_OUTPUT"
+          import json, os, sys
+          known = ["en", "es", "fr", "de", "it", "pt-BR", "ja", "zh-Hans"]
+          langs = [l.strip() for l in (os.environ["LANGUAGES"] or ",".join(known)).split(",") if l.strip()]
+          devices = {d.strip() for d in (os.environ["DEVICES"] or "iphone,watch").split(",") if d.strip()}
+          bad = [l for l in langs if l not in known] + [d for d in devices if d not in ("iphone", "watch")]
+          if bad or not langs or not devices:
+              sys.exit(f"::error::unknown or empty input: {bad or 'nothing selected'}")
+          classes = (["iphone-medium", "iphone-large"] if "iphone" in devices else []) + (["watch"] if "watch" in devices else [])
+          print("languages=" + json.dumps(langs))
+          print("matrix=" + json.dumps([{"lang": l, "class": c} for l in langs for c in classes]))
+          print("iphone=" + str("iphone" in devices).lower())
+          print("watch=" + str("watch" in devices).lower())
+          EOF
+          cat "$GITHUB_OUTPUT"
+
+  # Builds the iPhone app and its UI test bundle once for every language (as accessibility.yml's build-ios).
+  build-ios:
+    needs: plan
+    if: needs.plan.outputs.iphone == 'true'
+    runs-on: ${{ vars.MACOS_RUNNER || 'macos-15' }}
+    timeout-minutes: 30
+    outputs:
+      xcode: ${{ steps.build.outputs.xcode }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/prepare-xcode
+
+      - name: Build for testing
+        id: build
+        run: |
+          xcodebuild build-for-testing $XCB_FLAGS \
+            -scheme Folito \
+            -destination "generic/platform=iOS Simulator" \
+            ARCHS="$ARCH" ONLY_ACTIVE_ARCH=YES > build.log 2>&1 || { grep -E "error:" build.log; tail -80 build.log; exit 1; }
+          ls DerivedData/Build/Products/*.xctestrun
+          tar -czf ios-test-products.tar.gz -C DerivedData/Build Products
+          ls -lh ios-test-products.tar.gz
+          echo "xcode=$(xcodebuild -version | awk 'NR==1 {print $2}')" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Upload test products
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: appstore-ios-test-products
+          path: ios-test-products.tar.gz
+          retention-days: 1
+          compression-level: 0
+
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: appstore-ios-build-log
+          path: build.log
+          if-no-files-found: ignore
+
+  # Builds the watch app, its UI tests and its unit tests (the complication snapshots) once.
+  build-watch:
+    needs: plan
+    if: needs.plan.outputs.watch == 'true'
+    runs-on: ${{ vars.MACOS_RUNNER || 'macos-15' }}
+    timeout-minutes: 30
+    outputs:
+      xcode: ${{ steps.build.outputs.xcode }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/prepare-xcode
+
+      - name: Build for testing
+        id: build
+        run: |
+          xcodebuild build-for-testing $XCB_FLAGS \
+            -scheme FolitoWatch \
+            -destination "generic/platform=watchOS Simulator" \
+            ARCHS="$ARCH" ONLY_ACTIVE_ARCH=YES > build.log 2>&1 || { grep -E "error:" build.log; tail -80 build.log; exit 1; }
+          ls DerivedData/Build/Products/*.xctestrun
+          tar -czf watch-test-products.tar.gz -C DerivedData/Build Products
+          ls -lh watch-test-products.tar.gz
+          echo "xcode=$(xcodebuild -version | awk 'NR==1 {print $2}')" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Upload test products
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: appstore-watch-test-products
+          path: watch-test-products.tar.gz
+          retention-days: 1
+          compression-level: 0
+
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: appstore-watch-build-log
+          path: build.log
+          if-no-files-found: ignore
+
+  # One runner per language and device class, at most four at a time (the account's macOS concurrency).
+  capture:
+    name: capture (${{ matrix.lang }}, ${{ matrix.class }})
+    needs: [plan, build-ios, build-watch]
+    if: >-
+      always() && needs.plan.result == 'success' &&
+      needs.build-ios.result != 'failure' && needs.build-watch.result != 'failure' &&
+      needs.build-ios.result != 'cancelled' && needs.build-watch.result != 'cancelled'
+    runs-on: ${{ vars.MACOS_RUNNER || 'macos-15' }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      CLASS: ${{ matrix.class }}
+      SCREENSHOT_LANG: ${{ matrix.lang }}
+      PLATFORM: ${{ matrix.class == 'watch' && 'watch' || 'ios' }}
+      # test-without-building against the .xctestrun file: no project, no packages.
+      XCB_FLAGS: -derivedDataPath DerivedData
+    steps:
+      # Only the scripts are needed from the checkout.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Select Xcode (the version that built the products)
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: ${{ (matrix.class == 'watch' && needs.build-watch.outputs.xcode || needs.build-ios.outputs.xcode) || 'latest-stable' }}
+
+      - name: Boot the App Store simulator (background)
+        run: |
+          nohup bash -c 'U=$(python3 scripts/ci/appstore_simulator.py "$CLASS") && xcrun simctl bootstatus "$U" -b > /dev/null && echo "$CLASS booted $U"' \
+            > "$RUNNER_TEMP/boot.log" 2>&1 &
+
+      - name: Download test products
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: appstore-${{ matrix.class == 'watch' && 'watch' || 'ios' }}-test-products
+
+      - name: Unpack test products
+        run: |
+          mkdir -p DerivedData/Build
+          tar -xzf "$PLATFORM-test-products.tar.gz" -C DerivedData/Build
+          XCTESTRUN=$(ls DerivedData/Build/Products/*.xctestrun | head -1)
+          echo "XCTESTRUN=$XCTESTRUN" >> "$GITHUB_ENV"
+          echo "test run: $XCTESTRUN"
+
+      - name: App Store screenshots (${{ matrix.lang }}, ${{ matrix.class }})
+        timeout-minutes: 30
+        env:
+          ATTEMPT_MINUTES: ${{ matrix.class == 'watch' && '12' || '13' }}
+        run: |
+          cat "$RUNNER_TEMP/boot.log" || true
+          case "$CLASS" in
+            watch) SUITE=FolitoWatchUITests/WatchAppStoreScreenshotTests ;;
+            *)     SUITE=FolitoUITests/AppStoreScreenshotTests ;;
+          esac
+          status=0
+          scripts/ci/appstore_screenshots.sh "$CLASS" "$SUITE" || status=1
+          python3 scripts/ci/check_screenshot_sizes.py app-store-screenshots --require "$CLASS" || status=1
+          exit $status
+
+      # The complication snapshots (ComplicationSnapshotTests/testAppStoreComplications), in the language of the
+      # set: the input of iPhone frame 6. A failure here leaves the watch frames in place (frame 6 then falls back
+      # to the watch Library).
+      - name: Complication snapshots (${{ matrix.lang }})
+        if: matrix.class == 'watch' && !cancelled()
+        continue-on-error: true
+        timeout-minutes: 10
+        run: |
+          U=$(python3 scripts/ci/appstore_simulator.py watch)
+          OUT="app-store-screenshots/$SCREENSHOT_LANG/complications"
+          rm -rf complications.xcresult "$OUT"
+          TEST_RUNNER_SCREENSHOT_LANG=$SCREENSHOT_LANG xcodebuild test-without-building $XCB_FLAGS \
+            -xctestrun "$XCTESTRUN" -destination "id=$U" \
+            -only-testing:FolitoWatchTests/ComplicationSnapshotTests/testAppStoreComplications \
+            -testLanguage "$SCREENSHOT_LANG" \
+            -resultBundlePath complications.xcresult > complications.log 2>&1 || { tail -60 complications.log; exit 1; }
+          mkdir -p "$OUT"
+          xcrun xcresulttool export attachments --path complications.xcresult --output-path "$OUT" > /dev/null
+          python3 scripts/ci/name_attachments.py "$OUT"
+          find "$OUT" -type f ! -name "complication-*.png" -delete
+          ls -l "$OUT"
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: capture-${{ matrix.lang }}-${{ matrix.class }}
+          path: app-store-screenshots
+          retention-days: 3
+          if-no-files-found: ignore
+
+      - name: Upload diagnostics
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: appstore-diagnostics-${{ matrix.lang }}-${{ matrix.class }}
+          path: |
+            appstore-${{ matrix.class }}.log
+            appstore-${{ matrix.class }}.xcresult
+            appstore-${{ matrix.class }}-hang-*.png
+            complications.log
+          retention-days: 14
+          if-no-files-found: ignore
+
+  # Merges the captures: one artifact per language (`app-store-screenshots-<lang>`) and all of them together
+  # (`app-store-screenshots-all`), after checking every language set (accepted sizes, every class of the run
+  # present, the same watch size in every language).
+  app-store-screenshots:
+    needs: [plan, capture]
+    if: always() && needs.plan.result == 'success' && needs.capture.result != 'cancelled'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        lang: ${{ fromJSON(needs.plan.outputs.languages) }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: capture-${{ matrix.lang }}-*
+          path: app-store-screenshots
+          merge-multiple: true
+
+      - name: Upload the language set
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: app-store-screenshots-${{ matrix.lang }}
+          path: app-store-screenshots
+          if-no-files-found: error
+
+  check:
+    needs: [plan, app-store-screenshots]
+    if: always() && needs.plan.result == 'success' && needs.app-store-screenshots.result != 'cancelled'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: app-store-screenshots-*
+          path: app-store-screenshots
+          merge-multiple: true
+
+      - name: Check every language set
+        env:
+          IPHONE: ${{ needs.plan.outputs.iphone }}
+          WATCH: ${{ needs.plan.outputs.watch }}
+        run: |
+          REQUIRE=""
+          [ "$IPHONE" = true ] && REQUIRE="iphone-medium,iphone-large"
+          [ "$WATCH" = true ] && REQUIRE="${REQUIRE:+$REQUIRE,}watch"
+          python3 scripts/ci/check_screenshot_sizes.py app-store-screenshots --require "$REQUIRE"
+          for d in app-store-screenshots/*/; do
+            [ -d "$d/complications" ] || echo "::notice::$(basename "$d"): no complication snapshots (iPhone frame 6 falls back to the watch Library)"
+          done
+
+      - name: Upload all languages
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: app-store-screenshots-all
+          path: app-store-screenshots
+          if-no-files-found: ignore
