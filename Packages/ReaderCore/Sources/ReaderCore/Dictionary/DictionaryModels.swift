@@ -63,6 +63,9 @@ public enum DictionaryLimits {
 public enum DictionaryError: Error, Equatable, Sendable {
     /// No dictionary is installed on this device.
     case noDictionary
+    /// Dictionaries are installed, but none for the book's language, and the others have no entry for the
+    /// word. The value is the primary language subtag ("es"), or nil when the book's language is unknown.
+    case noDictionaryForLanguage(String?)
     /// The installed dictionaries have no entry for the word or any of its candidate forms.
     case notFound
     /// An installed dictionary file could not be read (damaged or from a newer app version).

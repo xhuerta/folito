@@ -35,6 +35,7 @@ struct FolitoApp: App {
             .environment(readest)
             .environmentObject(onlineMetadata)
             .environmentObject(library)
+            .environmentObject(dictionaries)
             .fullScreenCover(isPresented: $onboarding.isPresented) {
                 OnboardingView(model: onboarding, library: library, connectivity: connectivity,
                                settings: settings, dictionaries: dictionaries)
