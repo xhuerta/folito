@@ -405,8 +405,17 @@ final class ReaderViewModel: ObservableObject {
         ReadingProgressFormat.read(localPercentage, locale: locale)
     }
 
+    /// True while the open-time check is fetching the remote position: nothing is pushed meanwhile, so a
+    /// newer remote position (e.g. the Readest apps' CFI) is not overwritten before it could be offered.
+    private(set) var isCheckingRemote = false
+
+    /// Readest rows can hold the Readest apps' CFI next to an older XPointer written by the watch: place the
+    /// CFI in this book and use it when it is further (`ReadingPosition.resolvingCFI`).
     func syncOnOpen() async {
-        let decision = await sync.decisionOnOpen(book: bookIdentity, local: localPosition)
+        isCheckingRemote = true
+        defer { isCheckingRemote = false }
+        let decision = await sync.decisionOnOpen(book: bookIdentity, local: localPosition,
+                                                 resolveRemote: { [book] in $0.resolvingCFI(in: book) })
         if case .offerRemote(let remote) = decision {
             remoteOffer = remote
             showRemoteOffer = true
@@ -425,6 +434,8 @@ final class ReaderViewModel: ObservableObject {
     /// What "Go to Synced Position" did.
     enum SyncedJump: Equatable {
         case jumped
+        /// The synced position is the one on screen: nothing moved (the menu says so).
+        case alreadyThere
         /// The service has no position for this book (or sync is off).
         case noPosition
         /// The service could not be reached.
@@ -434,10 +445,12 @@ final class ReaderViewModel: ObservableObject {
     /// Fetches the remote position and jumps to it even when it is behind the local one (#112): the
     /// open-time check only offers positions that are ahead.
     func goToSyncedPosition() async -> SyncedJump {
-        switch await sync.syncedPosition(book: bookIdentity) {
+        switch await sync.syncedPosition(book: bookIdentity, resolveRemote: { [book] in $0.resolvingCFI(in: book) }) {
         case .position(let remote):
             remoteOffer = nil
             showRemoteOffer = false
+            let target = spot(for: remote)
+            if target == Spot(index: currentIndex, offset: currentOffset) { return .alreadyThere }
             go(to: remote)
             return .jumped
         case .missing, .notConfigured:
@@ -447,7 +460,8 @@ final class ReaderViewModel: ObservableObject {
         }
     }
 
-    private func go(to remote: ReadingPosition) {
+    /// Where `remote` lands in this book (clamped block index and in-block offset).
+    private func spot(for remote: ReadingPosition) -> Spot {
         let target: Int
         var offset = 0
         switch resolver.resolve(remote.xpointer, percentage: remote.percentage, in: book) {
@@ -459,17 +473,34 @@ final class ReaderViewModel: ObservableObject {
         case nil:
             target = flat.index(forPercentage: remote.percentage)
         }
+        let i = flat.clamped(target)
+        return Spot(index: i, offset: flat.clampedOffset(offset, in: i))
+    }
+
+    private func go(to remote: ReadingPosition) {
+        let target = spot(for: remote)
         // The remote position is now our baseline: no need to echo it back.
-        lastReported = Spot(index: flat.clamped(target), offset: flat.clampedOffset(offset, in: flat.clamped(target)))
-        jump(to: target, characterOffset: offset)
+        lastReported = target
+        jump(to: target.index, characterOffset: target.offset)
     }
 
     func declineRemote() { remoteOffer = nil }
 
+    /// Whether `reportProgress` must not push now (see there).
+    var isHoldingPushes: Bool {
+        if isCheckingRemote { return true }
+        if let offer = remoteOffer, localPercentage < offer.percentage { return true }
+        return false
+    }
+
     /// Records the current position for syncing. No-op if nothing changed since the last report.
+    ///
+    /// Held back while the open-time check runs, and while a further remote position is offered and not yet
+    /// answered (until the reader reads past it): pushing the older local position first would overwrite the
+    /// remote one (Readest keeps one row per book, last writer wins).
     func reportProgress(immediately: Bool) {
         let spot = Spot(index: currentIndex, offset: currentOffset)
-        guard !flat.isEmpty, lastReported != spot else { return }
+        guard !flat.isEmpty, lastReported != spot, !isHoldingPushes else { return }
         lastReported = spot
         sync.report(book: bookIdentity,
                     xpointer: currentXPointer,

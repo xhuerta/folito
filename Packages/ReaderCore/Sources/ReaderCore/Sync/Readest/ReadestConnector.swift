@@ -7,9 +7,11 @@ import FoundationNetworking
 ///
 /// Readest stores two position fields: `location` (an EPUB CFI, written only by the Readest apps) and
 /// `xpointer` (a KOReader XPointer, written by the koplugin and by the Readest apps, which convert their
-/// CFI with `getXPointerFromCFI`). Folito positions already are KOReader XPointers, so only `xpointer`
-/// and the `[page, total]` `progress` pair are used; `location` is never written (a push that omits it
-/// leaves the stored CFI untouched, exactly like the koplugin's pushes).
+/// CFI with `getXPointerFromCFI`). Folito positions already are KOReader XPointers, so `xpointer` and the
+/// `[page, total]` `progress` pair are pushed; `location` is never written (a push that omits it leaves the
+/// stored CFI untouched, exactly like the koplugin's pushes). Because of that a row can be *mixed*: the
+/// Readest apps' CFI further on than an XPointer the watch wrote later. The exact row's CFI is therefore
+/// passed on in `ReadingPosition.cfi`, and the reader resolves it against the book (`resolvingCFI(in:)`).
 public enum ReadestProgressMapper {
     /// Denominator for `progress` when the reader has no page count.
     public static let fallbackPageCount = 1000
@@ -44,10 +46,10 @@ public enum ReadestProgressMapper {
             return ReadingPosition(xpointer: "", percentage: f, page: s.progress?[0], pageCount: s.progress?[1],
                                    timestamp: s.updatedAt, deviceID: "", deviceName: "")
         }
-        guard let e = exact, e.xpointer != nil || e.fraction != nil else { return nil }
+        guard let e = exact, e.xpointer != nil || e.fraction != nil || e.location != nil else { return nil }
         return ReadingPosition(xpointer: e.xpointer ?? "", percentage: e.fraction ?? 0,
                                page: e.progress?[0], pageCount: e.progress?[1],
-                               timestamp: e.updatedAt, deviceID: "", deviceName: "")
+                               timestamp: e.updatedAt, deviceID: "", deviceName: "", cfi: e.location)
     }
 }
 

@@ -12,7 +12,7 @@ All of it lives in ReaderCore (`Packages/ReaderCore/Sources/ReaderCore/Sync/`), 
 | Type | Role |
 |---|---|
 | `BookIdentity` | Every id Folito knows for a book: KOReader partial MD5 (= Readest `book_hash`), Readest `meta_hash`, file name, title, authors. Each connector picks what it needs. |
-| `ReadingPosition` | Connector-neutral position: KOReader XPointer, percentage (0...1), chapter, page / page count (Folito: block index + 1 / block count), timestamp, device id and name. |
+| `ReadingPosition` | Connector-neutral position: KOReader XPointer, percentage (0...1), chapter, page / page count (Folito: block index + 1 / block count), timestamp, device id and name, and an optional EPUB CFI read from the service (never pushed). |
 | `SyncConnectorDescriptor` | Static description: stable `id`, English `displayName` and `summary` (the apps localize them), `capabilities` (progress pull / push; `annotations` reserved), `authKind` (none, username/password, email/password, token, OAuth), declarative `credentialFields` (the settings form), `storageKeys` (Keychain accounts), `staleCheckRequiresDeviceID`, `hosts`. |
 | `SyncConnector` | A signed-in connection: `authorize()`, `fetchProgress(for: BookIdentity)`, `pushProgress(_:for:)`. |
 | `SyncConnectorFactory` | Builds connectors: `signIn(fields:)` turns the form into the credentials to store (KOSync: validation only; Readest: a password grant returning a session), `makeConnector(credentials:store:)`, `signOut`, `formValues`, `accountLabel`, and `watchCredentials(from:)`: what the watch gets (default: the stored credentials). It must never contain a password; KOSync returns server, user and the MD5 auth key instead (`kosync_key`). The conformance test checks that no secret typed in the form reaches the watch. |
@@ -60,7 +60,13 @@ Library: with KOSync every local book syncs its position, and the cloud symbols 
   that is behind is ignored silently, since the local one is most likely the newer. To go back to it anyway,
   the watch reader menu (*Options*) has **Go to Synced Position** (`SyncCoordinator.syncedPosition(book:)`,
   `ReaderViewModel.goToSyncedPosition()`): it fetches the remote position and jumps there whatever its
-  direction. The item is hidden while sync is off and says so when the service has no position for the book.
+  direction. The item is hidden while sync is off, says so when the service has no position for the book, and
+  says "Already at the synced position." when the position is the one on screen (so the tap never looks dead).
+- A connector may also pass an EPUB CFI in `ReadingPosition.cfi` (Readest's `location`). Only the reader holds
+  the book, so the watch resolves it (`ReadingPosition.resolvingCFI(in:)`) before the open-time decision and
+  for *Go to Synced Position*, and uses it when it is further than the XPointer (see READEST_SYNC.md, mixed
+  rows). While the open-time check runs, and while a further position is offered and not answered (until the
+  reader reads past it), the watch pushes nothing, so it cannot overwrite the newer remote position first.
 - The other side is not Folito's to change: the Readest apps apply the furthest of their own and the remote
   position, and KOReader does the same by default, so a backward move made on the watch is not followed
   there ("The Readest Sync Server currently does not support backward syncing", Readest wiki).

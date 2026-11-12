@@ -201,11 +201,15 @@ final class SyncCoordinator: ObservableObject {
     /// `local` by more than the policy's threshold; one that is behind is ignored silently.
     /// The remote position is never offered when it is the spot `local` is at or the last position this
     /// device pushed: Readest keeps no device id, so that is how the watch recognises its own write (#105).
-    func decisionOnOpen(book: BookIdentity, local: ReadingPosition) async -> ProgressDecision {
+    ///
+    /// `resolveRemote` places what only the reader can place (Readest's CFI, `ReadingPosition.resolvingCFI`):
+    /// a mixed Readest row whose CFI is further than its XPointer is then judged at the CFI spot.
+    func decisionOnOpen(book: BookIdentity, local: ReadingPosition,
+                        resolveRemote: (ReadingPosition) -> ReadingPosition = { $0 }) async -> ProgressDecision {
         guard let connector = connector() else { return .keepLocal }
         status = .syncing
         do {
-            let remote = try await connector.fetchProgress(for: book)
+            let remote = try await connector.fetchProgress(for: book).map(resolveRemote)
             status = .idle
             let lastPushed = ownProgress.lastPushed(connectorID: connector.descriptor.id, bookKey: book.key)
             return policy.decide(local: local, remote: remote, ownDeviceID: device.id, lastPushed: lastPushed)
@@ -229,11 +233,13 @@ final class SyncCoordinator: ObservableObject {
     /// The remote position for `book`, fetched on demand and returned whatever its direction (#112).
     /// The open-time check only offers a position that is ahead, like Readest and KOReader; this is the
     /// manual way back to a position that is behind the local one.
-    func syncedPosition(book: BookIdentity) async -> SyncedPosition {
+    /// `resolveRemote` is the same as for `decisionOnOpen`, so the menu goes where the offer would.
+    func syncedPosition(book: BookIdentity,
+                        resolveRemote: (ReadingPosition) -> ReadingPosition = { $0 }) async -> SyncedPosition {
         guard let connector = connector() else { isConfigured = false; return .notConfigured }
         status = .syncing
         do {
-            let remote = try await connector.fetchProgress(for: book)
+            let remote = try await connector.fetchProgress(for: book).map(resolveRemote)
             status = .idle
             return remote.map { SyncedPosition.position($0) } ?? .missing
         } catch {

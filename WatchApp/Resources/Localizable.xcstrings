@@ -466,6 +466,53 @@
         }
       }
     },
+    "Already at the synced position." : {
+      "comment" : "Shown under 'Go to Synced Position' when the reader already is at the position the sync service has",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Du bist bereits an der synchronisierten Position."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ya estás en la posición sincronizada."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous êtes déjà à la position synchronisée."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sei già alla posizione sincronizzata."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "すでに同期した位置にいます。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Você já está na posição sincronizada."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已在同步的位置。"
+          }
+        }
+      }
+    },
     "Bold Text" : {
       "localizations" : {
         "de" : {

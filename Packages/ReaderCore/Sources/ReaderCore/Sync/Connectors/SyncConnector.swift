@@ -53,9 +53,14 @@ public struct ReadingPosition: Codable, Sendable, Equatable {
     public var timestamp: Date?
     public var deviceID: String
     public var deviceName: String
+    /// EPUB CFI the service stored next to the XPointer (Readest's `location`, written only by the Readest
+    /// apps). Only a reader holding the book can place it: see `resolvingCFI(in:)`. Never pushed.
+    public var cfi: String?
 
     public init(xpointer: String, percentage: Double, chapter: String? = nil, page: Int? = nil,
-                pageCount: Int? = nil, timestamp: Date? = nil, deviceID: String = "", deviceName: String = "") {
+                pageCount: Int? = nil, timestamp: Date? = nil, deviceID: String = "", deviceName: String = "",
+                cfi: String? = nil) {
+        self.cfi = cfi
         self.xpointer = xpointer
         self.percentage = percentage
         self.chapter = chapter
