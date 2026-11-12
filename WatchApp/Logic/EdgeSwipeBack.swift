@@ -6,7 +6,8 @@ import CoreGraphics
 /// watchOS turns off the navigation stack's interactive pop while the navigation bar is hidden (the reader
 /// hides it while scrolling, `BarAutoHide`), and with the bar shown the full-width vertical scroll view and
 /// the tap gestures on the text claim the touch before the system edge pan does. So the reader recognises the
-/// swipe itself, on a thin strip along the left edge of the screen, and only for a clear rightward drag:
+/// swipe itself, with a simultaneous drag gesture (taps and scrolling still reach the text), and only for a
+/// clear rightward drag:
 ///
 /// - the touch starts within `edgeWidth` of the screen's left edge;
 /// - it moves right by at least `minDistance`, or is a quick flick of at least `minFlickDistance` whose
@@ -14,7 +15,7 @@ import CoreGraphics
 /// - it is mostly horizontal: the vertical movement is at most `maxSlope` times the horizontal one, so a
 ///   vertical scroll that happens to start at the edge never leaves the book.
 enum EdgeSwipeBack {
-    /// Width of the strip along the left edge where the swipe must start, in points.
+    /// Distance from the screen's left edge within which the swipe must start, in points.
     static let edgeWidth: CGFloat = 12
     /// Rightward travel that leaves the book (about a quarter of a 44 mm screen).
     static let minDistance: CGFloat = 44

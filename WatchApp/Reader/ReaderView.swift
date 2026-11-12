@@ -135,11 +135,19 @@ struct ReaderView: View {
         .overlay(alignment: .top) {
             ClockBandOverlay(barHidden: barHidden, color: style.background)
         }
-        // The left-edge swipe back (#118), with the bar shown or hidden. Above the scroll view so the edge
-        // touch reaches it first; a thin strip along the text margin.
-        .overlay(alignment: .leading) {
-            EdgeSwipeBackStrip { dismiss() }
-        }
+        // The left-edge swipe back (#118), with the bar shown or hidden. watchOS disables the navigation
+        // stack's own edge pan while the bar is hidden, and the scroll view and the text's tap gestures claim
+        // edge touches when it is shown, so the reader recognises the swipe itself. A simultaneous gesture, not
+        // an overlay: taps (word lookup) and scrolling still reach the text everywhere, including at the margin.
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 8, coordinateSpace: .global)
+                .onEnded { value in
+                    if EdgeSwipeBack.isBackSwipe(startX: value.startLocation.x, translation: value.translation,
+                                                 predictedEndTranslation: value.predictedEndTranslation) {
+                        dismiss()
+                    }
+                }
+        )
         .tint(style.accentColor)
         .preferredColorScheme(style.isLightPage ? .light : .dark)
         // Layout metrics changed: keep reading the same block. Colour-only changes (Always On,
@@ -342,35 +350,6 @@ private struct ClockBandOverlay: View {
         // (the side safe areas are 2 pt on 44 mm) and its height is a fraction of the real screen height.
         .ignoresSafeArea()
         .allowsHitTesting(false)
-    }
-}
-
-/// A transparent strip `EdgeSwipeBack.edgeWidth` wide along the left edge of the screen that leaves the book on
-/// a clear rightward drag starting there (#118). watchOS disables the navigation stack's own edge pan while the
-/// bar is hidden, and the scroll view and the text's tap gestures claim edge touches when it is shown, so the
-/// reader recognises the swipe itself. A touch that starts in the strip neither scrolls nor taps the text; the
-/// strip is mostly the text margin (4 pt by default, at most 16), the crown and touches anywhere else scroll as
-/// usual. Hidden from VoiceOver, which leaves with the escape scrub instead.
-private struct EdgeSwipeBackStrip: View {
-    let onBack: () -> Void
-
-    var body: some View {
-        Color.clear
-            .frame(width: EdgeSwipeBack.edgeWidth)
-            .frame(maxHeight: .infinity)
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 8, coordinateSpace: .global)
-                    .onEnded { value in
-                        if EdgeSwipeBack.isBackSwipe(startX: value.startLocation.x, translation: value.translation,
-                                                     predictedEndTranslation: value.predictedEndTranslation) {
-                            onBack()
-                        }
-                    }
-            )
-            // From the physical left edge (the side safe area is 2 pt on 44 mm), below the bar.
-            .ignoresSafeArea(.container, edges: .leading)
-            .accessibilityHidden(true)
     }
 }
 
