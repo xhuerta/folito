@@ -55,7 +55,7 @@ struct LibraryView: View {
             .confirmationDialog(deleteTitle, isPresented: deleteDialogShown, titleVisibility: .visible,
                                 presenting: pendingDelete) { entry in
                 Button("Delete Book", role: .destructive) {
-                    library.delete(documentHash: entry.documentHash)
+                    library.delete(documentHash: entry.documentHash, byUser: true)
                 }
                 Button("Cancel", role: .cancel) {}
             } message: { _ in
@@ -204,7 +204,7 @@ struct ReaderLoaderView: View {
                                          comment: "Confirmation title before deleting a book from the watch. The argument is the book title."),
                                     isPresented: $confirmDelete, titleVisibility: .visible) {
                     Button("Delete Book", role: .destructive) {
-                        library.delete(documentHash: entry.documentHash)
+                        library.delete(documentHash: entry.documentHash, byUser: true)
                         dismiss()
                     }
                     Button("Cancel", role: .cancel) {}

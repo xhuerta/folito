@@ -121,6 +121,78 @@ final class LogicTests: XCTestCase {
         XCTAssertTrue(store.entries.isEmpty)
     }
 
+    /// A store with books "a" and "b", both confirmed on the watch.
+    @MainActor
+    private func storeWithBooksOnWatch() throws -> (LibraryStore, URL) {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let books = dir.appendingPathComponent("Books", isDirectory: true)
+        try FileManager.default.createDirectory(at: books, withIntermediateDirectories: true)
+        let entries = ["a", "b"].map {
+            LibraryEntry(documentHash: $0, title: $0, author: "A", fileName: LibraryEntry.fileName(forHash: $0),
+                         size: 1, importedAt: Date(), sentToWatch: true)
+        }
+        for e in entries { try Data([1]).write(to: books.appendingPathComponent(e.fileName)) }
+        try JSONEncoder().encode(entries).write(to: dir.appendingPathComponent("library.json"))
+        return (LibraryStore(rootDirectory: dir), dir)
+    }
+
+    @MainActor
+    func testBookRemovedOnWatchIsNotResent() throws {
+        let (store, dir) = try storeWithBooksOnWatch()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        // The message may arrive before or after the report: either way "a" is not sent back.
+        store.markRemovedOnWatch(hash: "a", watchID: "W1")
+        store.reconcile(watchHashes: ["b"], removed: ["a"], watchID: "W1", inFlight: [])
+        XCTAssertTrue(store.unsentBooks.isEmpty)
+        XCTAssertEqual(store.entries.first { $0.documentHash == "a" }?.removedOnWatch, "W1")
+        XCTAssertEqual(BookWatchState(store.entries.first { $0.documentHash == "a" }!, inFlight: false), .removedOnWatch)
+        // A later report that no longer lists it as removed still does not resend it (same watch).
+        store.reconcile(watchHashes: ["b"], watchID: "W1", inFlight: [])
+        XCTAssertTrue(store.unsentBooks.isEmpty)
+        // The flag survives a relaunch.
+        XCTAssertEqual(LibraryStore(rootDirectory: dir).entries.first { $0.documentHash == "a" }?.removedOnWatch, "W1")
+        // A book that is merely missing (lost transfer, reinstalled watch app) is sent again.
+        store.reconcile(watchHashes: [], watchID: "W1", inFlight: [])
+        XCTAssertEqual(store.unsentBooks.map(\.entry.documentHash), ["b"])
+    }
+
+    @MainActor
+    func testExplicitSendClearsRemovedOnWatch() throws {
+        let (store, dir) = try storeWithBooksOnWatch()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        store.markRemovedOnWatch(hash: "a", watchID: "W1")
+        store.clearRemovedOnWatch(hash: "a")
+        XCTAssertEqual(store.unsentBooks.map(\.entry.documentHash), ["a"])
+        store.markRemovedOnWatch(hash: "a", watchID: "W1")
+        store.markSent(hash: "a")
+        XCTAssertNil(store.entries.first { $0.documentHash == "a" }?.removedOnWatch)
+    }
+
+    @MainActor
+    func testNewWatchInstallationGetsRemovedBooksAgain() throws {
+        let (store, dir) = try storeWithBooksOnWatch()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        store.markRemovedOnWatch(hash: "a", watchID: "W1")
+        // A reset / re-paired watch reports an empty library: no deletion, so everything goes to it.
+        store.reconcile(watchHashes: [], watchID: "W2", inFlight: [])
+        XCTAssertEqual(Set(store.unsentBooks.map(\.entry.documentHash)), ["a", "b"])
+        XCTAssertTrue(store.entries.allSatisfy { !$0.isRemovedOnWatch })
+    }
+
+    func testBookRemovedSchema() {
+        XCTAssertEqual(WatchSchema.bookRemoved(from: ["type": "book_removed", "documentHash": "h", "watchID": "W"])?.hash, "h")
+        XCTAssertEqual(WatchSchema.bookRemoved(from: ["type": "book_removed", "documentHash": "h", "watchID": "W"])?.watchID, "W")
+        XCTAssertNil(WatchSchema.bookRemoved(from: ["type": "book_removed", "documentHash": "h"])?.watchID)
+        XCTAssertNil(WatchSchema.bookRemoved(from: ["type": "delete_book", "documentHash": "h"]))
+        XCTAssertEqual(WatchSchema.libraryReport(from: ["type": "library", "hashes": ["a"], "removed": ["b"], "watchID": "W"]),
+                       WatchSchema.LibraryReport(hashes: ["a"], removed: ["b"], watchID: "W"))
+        // Watch apps that predate the keys.
+        XCTAssertEqual(WatchSchema.libraryReport(from: ["type": "library", "hashes": ["a"]]),
+                       WatchSchema.LibraryReport(hashes: ["a"]))
+        XCTAssertNotEqual(BookWatchState.removedOnWatch.text, BookWatchState.waiting.text)
+        XCTAssertNotEqual(BookWatchState.removedOnWatch.sendActionTitle, BookWatchState.onWatch.sendActionTitle)
+    }
+
     func testClearedSettingsSchema() {
         let info = WatchSchema.clearedInfo(stamp: 42)
         XCTAssertEqual(info["type"] as? String, "settings")

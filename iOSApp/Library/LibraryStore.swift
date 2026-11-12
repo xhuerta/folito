@@ -87,6 +87,7 @@ final class LibraryStore: ObservableObject {
         relinked.sampleLanguage = entry.sampleLanguage
         relinked.online = entry.online
         relinked.onlineLookupAt = entry.onlineLookupAt
+        relinked.removedOnWatch = entry.removedOnWatch
         if entry.online?.hasCover == true {
             // The accepted Open Library cover lives next to the book under its id.
             let names: [(String) -> String] = [CoverStore.coverFileName(forHash:), CoverStore.watchFileName(forHash:)]
@@ -362,23 +363,57 @@ final class LibraryStore: ObservableObject {
     func markSent(hash: String, sent: Bool = true) {
         guard let i = entries.firstIndex(where: { $0.documentHash == hash }) else { return }
         entries[i].sentToWatch = sent
+        if sent { entries[i].removedOnWatch = nil }
         save()
     }
 
-    /// Aligns `sentToWatch` with what the watch reports it stores (it may have been reinstalled, or the
-    /// user deleted a book there). Books whose transfer is still in flight are left untouched.
-    func reconcile(watchHashes: Set<String>, inFlight: Set<String>) {
+    /// The user deleted the book on the watch (`book_removed` message or the `removed` list of its library
+    /// report): it is no longer sent automatically. `watchID` is the reporting watch app's installation id.
+    func markRemovedOnWatch(hash: String, watchID: String?) {
+        guard let i = entries.firstIndex(where: { $0.documentHash == hash }) else { return }
+        let flag = watchID ?? ""
+        guard entries[i].sentToWatch || entries[i].removedOnWatch != flag else { return }
+        entries[i].sentToWatch = false
+        entries[i].removedOnWatch = flag
+        save()
+    }
+
+    /// "Send to Apple Watch": the user wants the book there again, so it is sent automatically from now on.
+    func clearRemovedOnWatch(hash: String) {
+        guard let i = entries.firstIndex(where: { $0.documentHash == hash }), entries[i].removedOnWatch != nil else { return }
+        entries[i].removedOnWatch = nil
+        save()
+    }
+
+    /// Aligns `sentToWatch` with what the watch reports it stores (it may have been reinstalled, or a
+    /// transfer was lost). Books whose transfer is still in flight are left untouched.
+    /// Only an explicit deletion on the watch marks a book "removed there": `removed` (the hashes the user deleted
+    /// on that watch) or a `book_removed` message. A book that is merely missing is sent again, so a reset or
+    /// re-paired watch gets the whole library; a report from another watch installation (`watchID`) also clears
+    /// the "removed" mark of books deleted on the previous one.
+    func reconcile(watchHashes: Set<String>, removed: Set<String> = [], watchID: String? = nil, inFlight: Set<String>) {
         var changed = false
         for i in entries.indices where !inFlight.contains(entries[i].documentHash) {
-            let onWatch = watchHashes.contains(entries[i].documentHash)
+            let hash = entries[i].documentHash
+            let onWatch = watchHashes.contains(hash)
+            var flag = entries[i].removedOnWatch
+            if onWatch {
+                flag = nil
+            } else if removed.contains(hash) {
+                flag = watchID ?? flag ?? ""
+            } else if let watchID, let current = flag, current != watchID {
+                flag = nil
+            }
             if entries[i].sentToWatch != onWatch { entries[i].sentToWatch = onWatch; changed = true }
+            if entries[i].removedOnWatch != flag { entries[i].removedOnWatch = flag; changed = true }
         }
         if changed { save() }
     }
 
-    /// Books the watch has not confirmed, with their payload files.
+    /// Books the watch has not confirmed, with their payload files. Books the user deleted on the watch are left
+    /// out until they are sent explicitly.
     var unsentBooks: [(entry: LibraryEntry, fileURL: URL)] {
-        entries.filter { !$0.sentToWatch }.map { ($0, fileURL(for: $0)) }
+        entries.filter { !$0.sentToWatch && !$0.isRemovedOnWatch }.map { ($0, fileURL(for: $0)) }
     }
 
     // MARK: Persistence

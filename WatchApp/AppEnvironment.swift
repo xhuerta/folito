@@ -70,6 +70,7 @@ final class AppEnvironment: ObservableObject {
         typography.onLocalChange = { [weak receiver] _ in receiver?.publishLibrary() }
         let complications = self.complications
         library.onBookDeleted = { sync.discard(document: $0); complications.bookRemoved($0) }
+        library.onUserDeletedBook = { [weak receiver] in receiver?.reportUserRemoval(of: $0) }
         library.onLibraryChanged = { [weak receiver] in receiver?.publishLibrary() }
         receiver.start()
         connectivity = receiver

@@ -341,6 +341,25 @@ final class MiscLogicTests: XCTestCase {
         XCTAssertEqual(c["dictionaries"] as? [String], [])
         let d = ConnectivityReceiver.libraryContext(hashes: [], dictionaries: ["readerdict-fr", "readerdict-en"])
         XCTAssertEqual(d["dictionaries"] as? [String], ["readerdict-en", "readerdict-fr"])
+        XCTAssertEqual(c["removed"] as? [String], [])
+        XCTAssertNil(c["watchID"])
+        let r = ConnectivityReceiver.libraryContext(hashes: ["a"], removed: ["z", "y"], watchID: "W")
+        XCTAssertEqual(r["removed"] as? [String], ["y", "z"])
+        XCTAssertEqual(r["watchID"] as? String, "W")
+    }
+
+    func testUserRemovedBooksList() {
+        XCTAssertEqual(ConnectivityReceiver.userRemoved([], adding: "a", stored: []), ["a"])
+        // No duplicates; a book sent to the watch again is no longer "removed".
+        XCTAssertEqual(ConnectivityReceiver.userRemoved(["a", "b"], adding: "a", stored: ["b"]), ["a"])
+        let many = (0..<600).map(String.init)
+        XCTAssertEqual(ConnectivityReceiver.userRemoved(many, stored: []).count, ConnectivityReceiver.maxRemembered)
+        let message = ConnectivityReceiver.bookRemovedMessage(hash: "h", watchID: "W")
+        XCTAssertEqual(message["type"] as? String, "book_removed")
+        XCTAssertEqual(message["documentHash"] as? String, "h")
+        XCTAssertEqual(message["watchID"] as? String, "W")
+        let defaults = UserDefaults(suiteName: "watchID-\(UUID().uuidString)")!
+        XCTAssertEqual(ConnectivityReceiver.watchID(in: defaults), ConnectivityReceiver.watchID(in: defaults))
     }
 
     func testLibraryContextCarriesTimeRemainingOfStoredBooks() {

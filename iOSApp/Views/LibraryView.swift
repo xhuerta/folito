@@ -235,9 +235,9 @@ struct LibraryView: View {
     }
 
     private func row(_ entry: LibraryEntry, cloud: ReadestCloudBook?) -> some View {
-        let state = BookWatchState(sentToWatch: entry.sentToWatch,
-                                   inFlight: connectivity.outstandingHashes.contains(entry.documentHash))
-        let canResend = connectivity.status.canSend && state != .sending
+        let state = BookWatchState(entry, inFlight: connectivity.outstandingHashes.contains(entry.documentHash))
+        // A book deleted on the watch always offers the send action: without a watch at hand it is sent once it can be.
+        let canResend = state == .removedOnWatch || (connectivity.status.canSend && state != .sending)
         let readestOn = readest?.isAvailable == true
         let inReadest = readestOn && cloud != nil
         let isUploading = readest?.uploading.contains(entry.documentHash) == true
@@ -257,7 +257,7 @@ struct LibraryView: View {
             .accessibilityIdentifier("libraryRow")
             .accessibilityActions {
                 if canResend {
-                    Button("Send to Apple Watch Again") { sendToWatch(entry) }
+                    Button(state.sendActionTitle) { sendToWatch(entry) }
                 }
                 if canUpload {
                     Button("Upload to Readest") { upload(entry) }
@@ -278,7 +278,7 @@ struct LibraryView: View {
             }
             .swipeActions(edge: .leading) {
                 if canResend {
-                    Button { sendToWatch(entry) } label: { Label("Send Again", systemImage: "applewatch.and.arrow.forward") }
+                    Button { sendToWatch(entry) } label: { Label(state.sendActionShortTitle, systemImage: "applewatch.and.arrow.forward") }
                 }
                 if canUpload {
                     Button { upload(entry) } label: { Label("Upload", systemImage: "icloud.and.arrow.up") }
@@ -288,7 +288,7 @@ struct LibraryView: View {
             .contextMenu {
                 if canResend {
                     Button { sendToWatch(entry) } label: {
-                        Label("Send to Apple Watch Again", systemImage: "applewatch.and.arrow.forward")
+                        Label(state.sendActionTitle, systemImage: "applewatch.and.arrow.forward")
                     }
                 }
                 if canUpload {

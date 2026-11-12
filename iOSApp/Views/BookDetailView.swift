@@ -237,7 +237,7 @@ struct BookDetailView: View {
     }
 
     private func watchState(_ entry: LibraryEntry) -> BookWatchState {
-        BookWatchState(sentToWatch: entry.sentToWatch, inFlight: connectivity.outstandingHashes.contains(entry.documentHash))
+        BookWatchState(entry, inFlight: connectivity.outstandingHashes.contains(entry.documentHash))
     }
 
     @ViewBuilder
@@ -246,9 +246,9 @@ struct BookDetailView: View {
         let readestOn = readest?.isAvailable == true
         let inReadest = readestOn && readest?.cloudBook(for: entry, in: library.entries) != nil
         let isUploading = readest?.uploading.contains(entry.documentHash) == true
-        if connectivity.status.canSend && state != .sending {
+        if state == .removedOnWatch || (connectivity.status.canSend && state != .sending) {
             Button { sendToWatch(entry) } label: {
-                Label("Send to Apple Watch Again", systemImage: "applewatch.and.arrow.forward").modifier(ActionLabel())
+                Label(state.sendActionTitle, systemImage: "applewatch.and.arrow.forward").modifier(ActionLabel())
             }
             .buttonStyle(.borderless)
         }

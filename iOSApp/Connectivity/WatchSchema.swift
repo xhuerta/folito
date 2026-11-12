@@ -28,6 +28,11 @@ enum WatchSchema {
         static let dictionaryId = "dictionaryId"
         static let dictionaries = "dictionaries"
         static let sha256 = "sha256"
+        /// Watch -> phone (`library` context): hashes of the books the user deleted on the watch.
+        static let removed = "removed"
+        /// Watch -> phone (`library` context, `book_removed`): id of the watch app installation (a new one after
+        /// a reinstall, reset or re-pair).
+        static let watchID = "watchID"
     }
     enum MessageType {
         static let book = "book"
@@ -42,6 +47,35 @@ enum WatchSchema {
         /// Phone -> watch (transferFile): a compact offline dictionary.
         static let dictionary = "dictionary"
         static let deleteDictionary = "delete_dictionary"
+        /// Watch -> phone (sendMessage, or transferUserInfo when not reachable): the user deleted a book there.
+        static let bookRemoved = "book_removed"
+    }
+
+    /// What the watch's `library` context says about its books.
+    struct LibraryReport: Equatable {
+        var hashes: Set<String>
+        /// Books the user deleted on the watch (empty from watch apps that predate the key).
+        var removed: Set<String> = []
+        /// The watch app installation that reported (nil from watch apps that predate the key).
+        var watchID: String? = nil
+    }
+
+    /// The `library` report of a context; nil for any other message.
+    static func libraryReport(from context: [String: Any]) -> LibraryReport? {
+        guard let hashes = libraryHashes(from: context) else { return nil }
+        let removed = (context[Key.removed] as? [String] ?? []).filter { !$0.isEmpty }
+        return LibraryReport(hashes: hashes, removed: Set(removed), watchID: nonEmpty(context[Key.watchID]))
+    }
+
+    /// `(hash, watchID)` of a `book_removed` message; nil for any other message.
+    static func bookRemoved(from info: [String: Any]) -> (hash: String, watchID: String?)? {
+        guard (info[Key.type] as? String) == MessageType.bookRemoved, let hash = nonEmpty(info[Key.documentHash]) else { return nil }
+        return (hash, nonEmpty(info[Key.watchID]))
+    }
+
+    private static func nonEmpty(_ value: Any?) -> String? {
+        guard let string = value as? String, !string.isEmpty else { return nil }
+        return string
     }
 
     /// File metadata of a dictionary transfer; the watch installs it only if size and SHA-256 match.

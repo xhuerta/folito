@@ -18,8 +18,10 @@ import ReaderCore
 ///    dictionary (docs/DICTIONARIES.md), installed only if its size and SHA-256 match
 ///  - delete dictionary: `{ type: "delete_dictionary", dictionaryId: <id> }` (userInfo)
 ///  - watch -> phone (applicationContext): `{ type: "library", hashes: [<documentHash>], dictionaries: [<id>],
-///    settingsStamp (last applied; tells the phone whether to send the credentials), typography?,
-///    typographyStamp? }`
+///    settingsStamp (last applied; tells the phone whether to send the credentials), removed: [<documentHash>]
+///    (deleted here by the user), watchID (this installation), typography?, typographyStamp? }`
+///  - watch -> phone: `{ type: "book_removed", documentHash, watchID }` when the user deletes a book here
+///    (sendMessage when reachable, else transferUserInfo)
 /// WCSessionDelegate callbacks arrive on a background queue; all heavy work is hopped off the main actor.
 final class ConnectivityReceiver: NSObject, WCSessionDelegate {
     static let typeKey = "type"
@@ -64,6 +66,37 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
     /// Watch -> phone: whole percent read per book that has been opened.
     static let progressKey = "progress"
     static let coverKey = "cover"
+    /// Watch -> phone: books the user deleted here, so the phone does not send them back automatically.
+    static let removedKey = "removed"
+    /// Watch -> phone: this watch app installation's id (a new one after a reinstall, reset or re-pair), so the
+    /// phone sends books deleted on a previous watch to this one again.
+    static let watchIDKey = "watchID"
+    static let bookRemovedType = "book_removed"
+    static let watchIDDefaultsKey = "connectivity.watchID"
+    static let removedDefaultsKey = "connectivity.userRemovedBooks"
+    /// At most this many deletions are remembered (the phone keeps its own mark anyway).
+    static let maxRemembered = 500
+
+    /// This installation's id, created on first use and kept in `UserDefaults` (gone with the app).
+    static func watchID(in defaults: UserDefaults = .standard) -> String {
+        if let id = defaults.string(forKey: watchIDDefaultsKey), !id.isEmpty { return id }
+        let id = UUID().uuidString
+        defaults.set(id, forKey: watchIDDefaultsKey)
+        return id
+    }
+
+    /// `book_removed` message for the phone.
+    static func bookRemovedMessage(hash: String, watchID: String) -> [String: Any] {
+        [typeKey: bookRemovedType, documentHashKey: hash, watchIDKey: watchID]
+    }
+
+    /// Hashes the user deleted here, newest last, without the books stored again since (sent anew from the
+    /// phone), at most `maxRemembered`.
+    static func userRemoved(_ list: [String], adding hash: String? = nil, stored: Set<String>) -> [String] {
+        var result = list.filter { !stored.contains($0) && $0 != hash }
+        if let hash { result.append(hash) }
+        return Array(result.suffix(maxRemembered))
+    }
     static let bookCoverType = "book_cover"
 
     /// The cover thumbnail in a book transfer's metadata or a `book_cover` message, if any.
@@ -113,11 +146,15 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
     /// credentials until this matches, which is also how a reinstalled watch app gets them again.
     static func libraryContext(hashes: [String], dictionaries: [String] = [],
                                settingsStamp: Int = 0,
+                               removed: [String] = [],
+                               watchID: String? = nil,
                                typography: ReaderTypography? = nil,
                                timeRemaining: [String: ReadingTimeRemaining] = [:],
                                progress: [String: Double] = [:]) -> [String: Any] {
         var context: [String: Any] = [typeKey: libraryType, hashesKey: hashes.sorted(),
-                                      dictionariesKey: dictionaries.sorted(), stampKey: settingsStamp]
+                                      dictionariesKey: dictionaries.sorted(), stampKey: settingsStamp,
+                                      removedKey: removed.sorted()]
+        if let watchID { context[watchIDKey] = watchID }
         var times: [String: Double] = [:]
         for hash in hashes {
             if let t = timeRemaining[hash] { times[hash] = Double(ReadingTimeEstimator.displayMinutes(t.bookSeconds) * 60) }
@@ -185,12 +222,37 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
             let session = WCSession.default
             guard WCSession.isSupported(), session.activationState == .activated else { return }
             let hashes = library.entries.map(\.documentHash)
-            let stamp = UserDefaults.standard.integer(forKey: Self.settingsStampKey)
+            let defaults = UserDefaults.standard
+            let stamp = defaults.integer(forKey: Self.settingsStampKey)
+            let removed = Self.userRemoved(defaults.stringArray(forKey: Self.removedDefaultsKey) ?? [], stored: Set(hashes))
+            defaults.set(removed, forKey: Self.removedDefaultsKey)
             try? session.updateApplicationContext(Self.libraryContext(hashes: hashes, dictionaries: dictionaryIds,
                                                                       settingsStamp: stamp,
+                                                                      removed: removed,
+                                                                      watchID: Self.watchID(in: defaults),
                                                                       typography: typography(),
                                                                       timeRemaining: library.positions.readingTimes.all(),
                                                                       progress: library.progress))
+        }
+    }
+
+    /// The user deleted a book here: remembered in the library report (latest state, so the phone learns it even
+    /// if the message is lost) and told to the phone right away, with `sendMessage` when it is reachable (the
+    /// iPhone Library updates at once) and `transferUserInfo` (queued, guaranteed) otherwise or on failure.
+    /// Call before `publishLibrary`.
+    func reportUserRemoval(of hash: String) {
+        let defaults = UserDefaults.standard
+        // Books stored again are dropped from the list by `publishLibrary`.
+        defaults.set(Self.userRemoved(defaults.stringArray(forKey: Self.removedDefaultsKey) ?? [], adding: hash, stored: []),
+                     forKey: Self.removedDefaultsKey)
+        guard WCSession.isSupported() else { return }
+        let session = WCSession.default
+        guard session.activationState == .activated else { return } // the library report carries it later
+        let message = Self.bookRemovedMessage(hash: hash, watchID: Self.watchID(in: defaults))
+        if session.isReachable {
+            session.sendMessage(message, replyHandler: nil) { _ in session.transferUserInfo(message) }
+        } else {
+            session.transferUserInfo(message)
         }
     }
 
