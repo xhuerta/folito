@@ -122,7 +122,15 @@ public struct OfflineDictionaryService: DictionaryProviding {
                 }
             }
         }
-        throw unreadable ? DictionaryError.unreadable : DictionaryError.notFound
+        if unreadable { throw DictionaryError.unreadable }
+        // Nothing found: when no installed dictionary is in the book's language (nil = unknown: English is
+        // assumed), the missing dictionary is the real cause, not the word.
+        let known = WordNormalizer.knownPrimaryLanguage(language)
+        let lang = known ?? "en"
+        if !dictionaries.contains(where: { $0.info.language == lang }) {
+            throw DictionaryError.noDictionaryForLanguage(known)
+        }
+        throw DictionaryError.notFound
     }
 
     /// One result from the entries sharing a key, best first, the others' meanings appended (within

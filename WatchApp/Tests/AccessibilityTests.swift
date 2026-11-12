@@ -44,7 +44,7 @@ final class ReadingProgressFormatTests: XCTestCase {
 
 final class WatchMessagesTests: XCTestCase {
     private let allConnections: [SyncCoordinator.ConnectionResult?] = [nil, .ok, .unauthorized, .offline, .notConfigured, .failed, .signInAgain]
-    private let allDictionaryErrors: [DictionaryError] = [.noDictionary, .notFound, .unreadable]
+    private let allDictionaryErrors: [DictionaryError] = [.noDictionary, .noDictionaryForLanguage("es"), .noDictionaryForLanguage(nil), .notFound, .unreadable]
 
     private func assertSpecific(_ message: String, file: StaticString = #filePath, line: UInt = #line) {
         XCTAssertGreaterThan(message.count, 12, message, file: file, line: line)
@@ -65,6 +65,18 @@ final class WatchMessagesTests: XCTestCase {
         messages.forEach { assertSpecific($0) }
         XCTAssertEqual(Set(messages).count, messages.count)
         XCTAssertTrue(WatchMessages.dictionary(.noDictionary).contains("iPhone"))
+    }
+
+    func testMissingLanguageDictionaryMessage() {
+        let en = Locale(identifier: "en_US")
+        let spanish = WatchMessages.dictionary(.noDictionaryForLanguage("es"), locale: en)
+        XCTAssertTrue(spanish.contains("Spanish"), spanish)
+        XCTAssertTrue(spanish.contains("iPhone"), spanish)
+        let unknown = WatchMessages.dictionary(.noDictionaryForLanguage(nil), locale: en)
+        XCTAssertTrue(unknown.contains("this book"), unknown)
+        XCTAssertNotEqual(unknown, WatchMessages.dictionary(.notFound, locale: en))
+        XCTAssertEqual(WatchMessages.languageName("es", locale: en), "Spanish")
+        XCTAssertNil(WatchMessages.languageName(nil, locale: en))
     }
 
     func testDictionaryLabelsAndCredit() {
