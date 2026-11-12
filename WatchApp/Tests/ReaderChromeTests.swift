@@ -137,6 +137,19 @@ final class ReaderChromeTests: XCTestCase {
                        InBlockPosition.fractionScrolledPast(minY: 10, maxY: 80, viewportTop: 44))
     }
 
+    /// The clock band (#125): none with the bar shown, the measured top inset with the bar hidden, a
+    /// fraction of the screen when watchOS reports no inset, and never a large part of the screen.
+    func testClockBandHeight() {
+        let screen: CGFloat = 224 // 44 mm
+        XCTAssertEqual(ClockBand.height(barHidden: false, topInset: 31, screenHeight: screen), 0)
+        XCTAssertEqual(ClockBand.height(barHidden: true, topInset: 31, screenHeight: screen), 31)
+        let fallback = ClockBand.height(barHidden: true, topInset: 0, screenHeight: screen)
+        XCTAssertGreaterThanOrEqual(fallback, 28)
+        XCTAssertLessThan(fallback, screen * 0.25)
+        XCTAssertEqual(ClockBand.height(barHidden: true, topInset: 90, screenHeight: screen), screen * ClockBand.maximumFraction)
+        XCTAssertEqual(ClockBand.height(barHidden: true, topInset: 20, screenHeight: 0), 0)
+    }
+
     func testSyncFailureClassification() {
         XCTAssertNil(SyncErrorClassifier.failure(for: KOSyncError.offline))
         XCTAssertNil(SyncErrorClassifier.failure(for: URLError(.notConnectedToInternet)))

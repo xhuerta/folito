@@ -52,6 +52,53 @@ final class WatchReaderTopBarTests: XCTestCase {
         // the bar hidden, so it is not asserted here.
     }
 
+    /// The clock band (#125): with the bar hidden a page-coloured band covers the system time at the very top
+    /// of the screen (on a 44 mm watch it showed up mid-screen and the time was drawn over the text), and
+    /// with the bar shown there is none. "clockBand" is in the accessibility tree only under the UI tests.
+    @MainActor
+    func testClockBandCoversTheTimeWhenTheBarIsHidden() {
+        let app = XCUIApplication()
+        app.launchArguments += ["-UITestingSeedAppStore", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        XCTAssertTrue(WatchUI.libraryRow(in: app).waitForExistence(timeout: 45), "Library screen did not appear")
+        WatchUI.openReader(app)
+        let options = WatchUI.element("readerOptionsButton", in: app)
+        XCTAssertTrue(waitFor(options, hittable: true), "Reading Options button should show when the book opens")
+        let band = WatchUI.element("clockBand", in: app)
+        XCTAssertFalse(band.exists, "No clock band while the bar is shown (the bar covers the time area)")
+
+        for _ in 0..<3 { WatchUI.nudgeUp(app) }
+        XCTAssertTrue(waitFor(options, hittable: false),
+                      "The top bar should hide after scrolling down. Tree:\n\(app.debugDescription)")
+        sleep(1)
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "watch-reader-clock-band"
+        shot.lifetime = .keepAlways
+        add(shot)
+
+        guard band.waitForExistence(timeout: 3) else {
+            return WatchUI.fail("The clock band should show while the bar is hidden", in: app)
+        }
+        let screen = app.windows.firstMatch.frame
+        let frame = band.frame
+        XCTAssertEqual(frame.minY, screen.minY, accuracy: 0.5, "The band must start at the top edge: \(frame)")
+        XCTAssertEqual(frame.width, screen.width, accuracy: 1, "The band must span the screen: \(frame)")
+        // The time is drawn in roughly the top 12% of the screen (about 27 pt on 44 mm).
+        XCTAssertGreaterThanOrEqual(frame.height, screen.height * 0.12, "The band must cover the time: \(frame)")
+        XCTAssertLessThan(frame.height, screen.height * 0.25, "The band must not cover the text: \(frame)")
+
+        // Text still scrolls; the first block below the band is readable (its top is not under the band).
+        let blocks = app.descendants(matching: .any).matching(identifier: "readerBlock").allElementsBoundByIndex
+        XCTAssertTrue(blocks.contains { $0.frame.minY >= frame.maxY - 0.5 && $0.frame.minY < screen.maxY },
+                      "Some text should start below the band")
+
+        // A tap on the text shows the bar again, and the band goes with it.
+        app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)).tap()
+        XCTAssertTrue(waitFor(options, hittable: true), "A tap on the text should show the top bar")
+        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: band)
+        XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 3), .completed, "The clock band should go when the bar shows")
+    }
+
     /// The text block under a point 30% down the screen, below the navigation bar: the block being read.
     @MainActor
     private func blockAtReadingLine(_ app: XCUIApplication) -> String? {
