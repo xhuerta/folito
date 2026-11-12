@@ -4,6 +4,11 @@ import XCTest
 /// back (without opening the word picker), and the left-edge swipe leaves the book. Runs with the watch
 /// accessibility UI tests (`accessibility.yml`); the hidden-bar screenshot is attached to the result to show
 /// what watchOS keeps on screen (the system time).
+///
+/// The book is the App Store seed's *Pride and Prejudice* opening (`-UITestingSeedAppStore`, the newest and
+/// first Library row, opened at its start): the one-paragraph sample book (`-UITestingSeedSampleBook`) is
+/// shorter than a screen and a half, so it can scroll only about 50 pt, which stays within
+/// `BarAutoHide.minHideOffset` (the start of the book, where the bar never hides).
 final class WatchReaderTopBarTests: XCTestCase {
     override func setUp() {
         super.setUp()
@@ -19,7 +24,10 @@ final class WatchReaderTopBarTests: XCTestCase {
 
     @MainActor
     func testBarHidesOnScrollReturnsOnTapAndEdgeSwipeLeaves() {
-        let app = WatchUI.launch(seedSampleBook: true)
+        let app = XCUIApplication()
+        app.launchArguments += ["-UITestingSeedAppStore", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        XCTAssertTrue(WatchUI.libraryRow(in: app).waitForExistence(timeout: 45), "Library screen did not appear")
         WatchUI.openReader(app)
         let options = WatchUI.element("readerOptionsButton", in: app)
         XCTAssertTrue(waitFor(options, hittable: true), "Reading Options button should show when the book opens")
