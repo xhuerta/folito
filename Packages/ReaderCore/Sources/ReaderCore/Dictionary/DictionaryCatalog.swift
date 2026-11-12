@@ -75,4 +75,30 @@ public enum DictionaryCatalog {
     ]
 
     public static func descriptor(id: String) -> DictionaryDescriptor? { all.first { $0.id == id } }
+
+    /// The catalog dictionary for a book's BCP-47 language tag ("es-ES" -> the Spanish one), if any.
+    public static func descriptor(forBookLanguage tag: String?) -> DictionaryDescriptor? {
+        guard let lang = WordNormalizer.knownPrimaryLanguage(tag) else { return nil }
+        return all.first { $0.language == lang }
+    }
+
+    /// Whether word lookup can work for a book in `tag`, given the languages of the installed dictionaries.
+    public static func availability(forBookLanguage tag: String?, installedLanguages: Set<String>) -> DictionaryAvailability {
+        guard let lang = WordNormalizer.knownPrimaryLanguage(tag) else { return .unknownLanguage }
+        if installedLanguages.contains(lang) { return .installed(language: lang) }
+        guard let descriptor = descriptor(forBookLanguage: lang) else { return .unavailable(language: lang) }
+        return .downloadable(descriptor)
+    }
+}
+
+/// Dictionary support for a book's language (the iPhone's book details).
+public enum DictionaryAvailability: Equatable, Sendable {
+    /// A dictionary for the language is installed.
+    case installed(language: String)
+    /// The catalog has one, not installed yet.
+    case downloadable(DictionaryDescriptor)
+    /// No dictionary exists for this language (primary subtag).
+    case unavailable(language: String)
+    /// The book has no (usable) language metadata.
+    case unknownLanguage
 }

@@ -80,6 +80,17 @@ final class WordNormalizerTests: XCTestCase {
         XCTAssertEqual(WordNormalizer.primaryLanguage("!!"), "en")
     }
 
+    func testKnownPrimaryLanguage() {
+        XCTAssertEqual(WordNormalizer.knownPrimaryLanguage("es-ES"), "es")
+        XCTAssertEqual(WordNormalizer.knownPrimaryLanguage(" fr_CA "), "fr")
+        XCTAssertEqual(WordNormalizer.knownPrimaryLanguage("ger"), "de")
+        XCTAssertEqual(WordNormalizer.knownPrimaryLanguage("el"), "el")
+        for tag in [nil, "", "!!", "x-klingon", "und", "mul", "zxx", "english"] as [String?] {
+            XCTAssertNil(WordNormalizer.knownPrimaryLanguage(tag), tag ?? "nil")
+        }
+        XCTAssertEqual(WordNormalizer.primaryLanguage("und"), "en")
+    }
+
     func testCandidatesOrderAndLowercase() {
         XCTAssertEqual(WordNormalizer.candidates(for: "Running,", language: "en").prefix(2), ["Running", "running"])
         let c = WordNormalizer.candidates(for: "Running", language: "en")

@@ -6425,6 +6425,100 @@
         }
       }
     },
+    "No %@ dictionary on this watch. Download one in Folito on your iPhone: Settings, Dictionaries." : {
+      "comment" : "Dictionary lookup failed: no dictionary for the book's language is installed. The placeholder is a language name (Spanish)",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kein Wörterbuch für %@ auf dieser Watch. Lade eins in Folito auf deinem iPhone: Einstellungen, Wörterbücher."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay diccionario de %@ en este reloj. Descarga uno en Folito en tu iPhone: Ajustes, Diccionarios."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun dictionnaire en %@ sur cette montre. Téléchargez-en un dans Folito sur votre iPhone : Réglages, Dictionnaires."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessun dizionario per la lingua %@ su questo orologio. Scaricane uno in Folito su iPhone: Impostazioni, Dizionari."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このWatchには%@の辞書がありません。iPhoneのFolitoでダウンロードしてください：設定、辞書。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nenhum dicionário de %@ neste relógio. Baixe um no Folito no iPhone: Ajustes, Dicionários."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此手表上没有%@词典。请在 iPhone 上的 Folito 中下载：设置，词典。"
+          }
+        }
+      }
+    },
+    "No dictionary for this book's language on this watch. Download one in Folito on your iPhone: Settings, Dictionaries." : {
+      "comment" : "Dictionary lookup failed: no dictionary for the book's language, which is unknown or has no name",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kein Wörterbuch für die Sprache dieses Buchs auf dieser Watch. Lade eins in Folito auf deinem iPhone: Einstellungen, Wörterbücher."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay diccionario para el idioma de este libro en este reloj. Descarga uno en Folito en tu iPhone: Ajustes, Diccionarios."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun dictionnaire pour la langue de ce livre sur cette montre. Téléchargez-en un dans Folito sur votre iPhone : Réglages, Dictionnaires."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessun dizionario per la lingua di questo libro su questo orologio. Scaricane uno in Folito su iPhone: Impostazioni, Dizionari."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このWatchにはこの本の言語の辞書がありません。iPhoneのFolitoでダウンロードしてください：設定、辞書。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nenhum dicionário para o idioma deste livro neste relógio. Baixe um no Folito no iPhone: Ajustes, Dicionários."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此手表上没有这本书所用语言的词典。请在 iPhone 上的 Folito 中下载：设置，词典。"
+          }
+        }
+      }
+    },
     "Sync" : {
       "localizations" : {
         "de" : {

@@ -63,10 +63,21 @@ enum WatchMessages {
     // MARK: Dictionary
 
     static func dictionary(_ error: DictionaryError) -> String {
+        dictionary(error, locale: .current)
+    }
+
+    static func dictionary(_ error: DictionaryError, locale: Locale) -> String {
         switch error {
         case .noDictionary:
             return String(localized: "No dictionary on this watch yet. Download one in Folito on your iPhone: Settings, Dictionaries.",
                           comment: "Dictionary lookup failed: no offline dictionary is installed")
+        case .noDictionaryForLanguage(let code):
+            if let name = languageName(code, locale: locale) {
+                return String(localized: "No \(name) dictionary on this watch. Download one in Folito on your iPhone: Settings, Dictionaries.",
+                              comment: "Dictionary lookup failed: no dictionary for the book's language is installed. The placeholder is a language name (Spanish)")
+            }
+            return String(localized: "No dictionary for this book's language on this watch. Download one in Folito on your iPhone: Settings, Dictionaries.",
+                          comment: "Dictionary lookup failed: no dictionary for the book's language, which is unknown or has no name")
         case .notFound:
             return String(localized: "No definition found for this word. Try another form of it, such as the singular.",
                           comment: "Dictionary lookup: the word is not in the dictionary")
@@ -80,6 +91,13 @@ enum WatchMessages {
     static func dictionaryCredit(_ info: CompactDictionaryInfo) -> String {
         String(localized: "Definitions from \(info.dataSource) by its contributors, under the \(info.license) licence. Compiled by \(info.publisher). Shortened and reformatted by Folito.",
                comment: "Dictionary credit. 1: data source (Wiktionary), 2: licence (CC BY-SA 4.0), 3: who compiled the file (reader.dict)")
+    }
+
+    /// The display name of a language code ("es" -> "Spanish"), nil when the code is nil or has no name.
+    static func languageName(_ code: String?, locale: Locale = .current) -> String? {
+        guard let code, let name = locale.localizedString(forLanguageCode: code),
+              !name.isEmpty, name.lowercased() != code.lowercased() else { return nil }
+        return name
     }
 
     /// "English · 41 MB" for a dictionary installed on the watch.

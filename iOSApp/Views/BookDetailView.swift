@@ -16,6 +16,7 @@ struct BookDetailView: View {
     @ObservedObject var connectivity: PhoneConnectivity
     var sendToWatch: (LibraryEntry) -> Void
     @EnvironmentObject private var onlineMetadata: OnlineMetadataModel
+    @EnvironmentObject private var dictionaries: DictionaryManager
     @State private var showOnlineLookup = false
     @Environment(ReadestLibraryModel.self) private var readest: ReadestLibraryModel?
     @Environment(\.dismiss) private var dismiss
@@ -191,6 +192,7 @@ struct BookDetailView: View {
             row(Text("Language", comment: "Book detail label"),
                 value: Locale.current.localizedString(forIdentifier: language) ?? language)
         }
+        BookDictionaryRow(language: details?.language, manager: dictionaries)
         if let fraction = connectivity.watchProgress[entry.documentHash] {
             row(Text("Progress", comment: "Book detail label: how much has been read on the watch"),
                 value: String(localized: "\(DisplayFormat.percent(fraction)) read",
@@ -301,6 +303,59 @@ struct BookDetailView: View {
 }
 
 /// An action row's label: body text that wraps at every size, the full row width as hit area, at least 44 pt tall.
+/// Whether word lookup on the watch has a dictionary for the book's language: nothing when it does or when
+/// the language is unknown, a Download button when the catalog has one, a note when none exists. No modal.
+struct BookDictionaryRow: View {
+    let language: String?
+    @ObservedObject var manager: DictionaryManager
+
+    var body: some View {
+        let installedLanguages = Set(manager.installedInfos.values.map(\.language))
+        switch DictionaryCatalog.availability(forBookLanguage: language, installedLanguages: installedLanguages) {
+        case .installed, .unknownLanguage:
+            EmptyView()
+        case .unavailable(let code):
+            DetailRow(title: Text("Dictionary", comment: "Book detail label: the word-lookup dictionary for the book's language"),
+                      value: Self.unavailableText(DictionaryManager.languageName(code)))
+                .accessibilityIdentifier("bookDetailNoDictionary")
+        case .downloadable(let descriptor):
+            downloadable(descriptor)
+        }
+    }
+
+    /// The note shown when the catalog has no dictionary for the language ("No Greek dictionary is available yet, ...").
+    static func unavailableText(_ languageName: String) -> String {
+        String(localized: "No \(languageName) dictionary is available yet, so word lookup on Apple Watch can’t define words in this book.",
+               comment: "Book detail: no downloadable dictionary exists for the book's language; the placeholder is a language name")
+    }
+
+    @ViewBuilder
+    private func downloadable(_ descriptor: DictionaryDescriptor) -> some View {
+        let name = DictionaryManager.languageName(descriptor.language)
+        VStack(alignment: .leading, spacing: 6) {
+            DetailRow(title: Text("Dictionary", comment: "Book detail label: the word-lookup dictionary for the book's language"),
+                      value: String(localized: "Word lookup on Apple Watch needs the \(name) dictionary.",
+                                    comment: "Book detail: the book's language has a dictionary that is not downloaded; the placeholder is a language name"))
+            switch manager.phases[descriptor.id] {
+            case .downloading(let fraction)?:
+                ProgressView(value: fraction) { Text("Downloading…").font(.footnote) }
+            case .converting(let fraction)?:
+                ProgressView(value: fraction) { Text("Preparing for Apple Watch…").font(.footnote) }
+            case nil:
+                Button { manager.download(descriptor) } label: {
+                    Label(String(localized: "Download \(name) Dictionary",
+                                 comment: "Book detail button; the placeholder is a language name"),
+                          systemImage: "arrow.down.circle")
+                        .modifier(ActionLabel())
+                }
+                .buttonStyle(.borderless)
+                .accessibilityHint(Text("Downloads and installs this dictionary on your iPhone and Apple Watch."))
+                .accessibilityIdentifier("bookDetailDownloadDictionary")
+            }
+        }
+    }
+}
+
 struct ActionLabel: ViewModifier {
     func body(content: Content) -> some View {
         content
