@@ -55,4 +55,22 @@ final class WatchReaderTopBarTests: XCTestCase {
         XCTAssertTrue(waitFor(WatchUI.libraryRow(in: app), hittable: true),
                       "The edge swipe should leave the reader. Tree:\n\(app.debugDescription)")
     }
+
+    /// The left-edge swipe leaves the reader right after it opens, before the bar has ever hidden. Kept apart
+    /// from the test above so a failure tells whether the swipe itself or the bar's hiding is at fault.
+    @MainActor
+    func testEdgeSwipeLeavesBeforeAnyScrolling() {
+        let app = XCUIApplication()
+        app.launchArguments += ["-UITestingSeedAppStore", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        XCTAssertTrue(WatchUI.libraryRow(in: app).waitForExistence(timeout: 45), "Library screen did not appear")
+        WatchUI.openReader(app)
+        XCTAssertTrue(waitFor(WatchUI.element("readerOptionsButton", in: app), hittable: true),
+                      "Reading Options button should show when the book opens")
+        let window = app.windows.firstMatch
+        window.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.5))
+            .press(forDuration: 0.05, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)))
+        XCTAssertTrue(waitFor(WatchUI.libraryRow(in: app), hittable: true),
+                      "The edge swipe should leave the reader. Tree:\n\(app.debugDescription)")
+    }
 }
