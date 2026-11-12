@@ -75,6 +75,12 @@ struct ReaderView: View {
                 })
             }
             .coordinateSpace(name: Self.scrollSpace)
+            // How far the text is scrolled, for the bar auto-hide. Read from the scroll view itself where
+            // available: the content-top preference below is not delivered reliably while scrolling on
+            // watchOS (the text scrolled hundreds of points and the bar never hid).
+            .modifier(ScrollDistanceReader { offset in
+                updateBar { $0.scrolled(to: offset, at: Date(), voiceOver: voiceOver) }
+            })
             // The scroll view runs under the navigation bar: its top inset is where reading starts.
             .background(GeometryReader { geo in
                 Color.clear
@@ -86,6 +92,8 @@ struct ReaderView: View {
                 model.viewportTop = ReadingLine.updated(current: model.viewportTop, measured: top, barShown: !barHidden)
             }
             .onPreferenceChange(ContentTopKey.self) { top in
+                // Fallback for watchOS 10 only (see `ScrollDistanceReader`).
+                guard !ScrollDistanceReader.readsScrollGeometry else { return }
                 let offset = model.viewportTop - top
                 updateBar { $0.scrolled(to: offset, at: Date(), voiceOver: voiceOver) }
             }
@@ -223,6 +231,32 @@ extension ReaderView {
 /// Holds `BarAutoHide` outside SwiftUI's change tracking, so per-frame scroll updates do not re-render.
 final class BarAutoHideBox {
     var state = BarAutoHide()
+}
+
+/// Reports how far a scroll view's content is scrolled (0 at the top, growing while reading forward) on
+/// every scroll position change, from the scroll view's own geometry (watchOS 11+). On watchOS 10 it does
+/// nothing and the reader falls back to the `ContentTopKey` preference.
+struct ScrollDistanceReader: ViewModifier {
+    let action: (CGFloat) -> Void
+
+    static var readsScrollGeometry: Bool {
+        if #available(watchOS 11.0, *) { return true }
+        return false
+    }
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(watchOS 11.0, *) {
+            content.onScrollGeometryChange(for: CGFloat.self) { geometry in
+                // contentOffset.y is -inset at the top; adding the (bar) inset makes the start of the text 0.
+                geometry.contentOffset.y + geometry.contentInsets.top
+            } action: { _, offset in
+                action(offset)
+            }
+        } else {
+            content
+        }
+    }
 }
 
 /// Top of the reader's text in the scroll view's coordinate space (moves up while scrolling forward).
