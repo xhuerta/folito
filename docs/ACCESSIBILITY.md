@@ -192,10 +192,11 @@ scrolled under the bar, so there is no scroll edge effect and the notice is full
 the bar shows its expanded large title, the harness counts texts as clear from the bar's bottom edge, without
 the 16 pt margin (`textsClearOfBars`); the margin still applies once anything is scrolled under the bar.
 
-Above the tab bar the margin is 32 pt. In the Book detail audit, the file size row ("327 bytes") ended 2.7 pt
-inside a 16 pt margin and was flagged for contrast. A screenshot measured 5.64:1 (PR #124), so the tab bar's
-scroll edge effect reaches further than the navigation bar's. A text flagged there still has to pass the audit
-clear of the bars on another page.
+In the Book detail audit, the file size row ("327 bytes") ended 2.7 pt inside the 16 pt margin above the tab bar
+and was flagged for contrast, although a screenshot measured 5.64:1 (PR #124). The tab bar's scroll edge effect
+reaches further than the navigation bar's. So a contrast finding within 32 pt of the tab bar is treated as under
+a bar (`nearTabBar`). The text still has to pass the audit clear of the bars, with the usual 16 pt margin, on
+another page.
 
 **Settings › Book Details at AX5** (PR #47) hit the same artifact. The AX5 Settings audit flagged *Look Up
 Missing Details Now* (`onlineBulkStart`): "Dynamic Type font sizes are partially unsupported", on one page

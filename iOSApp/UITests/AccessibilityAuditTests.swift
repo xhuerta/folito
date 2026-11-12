@@ -202,11 +202,8 @@ final class AccessibilityAuditTests: XCTestCase {
         let tabBar = app.tabBars.firstMatch
         // The scroll edge effect reaches a little past the bars' frames: text within 16 pt of a bar was flagged
         // for contrast although a screenshot measured 21:1 (CI run 41647325837, "Paragraph Spacing").
-        // Above the tab bar the effect reaches further: "327 bytes" on Book detail, ending 2.7 pt inside a 16 pt
-        // margin, failed the audit although a screenshot measured 5.64:1 (PR #124). Text there is still
-        // audited: an element found under a bar must pass on another page (`auditScreen`).
         let top = (navigationBar.exists ? navigationBar.frame.maxY : window.minY) + 16
-        let bottom = (tabBar.exists ? tabBar.frame.minY : window.maxY) - 32
+        let bottom = (tabBar.exists ? tabBar.frame.minY : window.maxY) - 16
         return (top, bottom)
     }
 
@@ -220,6 +217,13 @@ final class AccessibilityAuditTests: XCTestCase {
         let width = app.windows.firstMatch.frame.width
         return !frame.isEmpty && frame.minY >= area.top && frame.maxY <= area.bottom && frame.minX >= 0
             && frame.maxX <= width
+    }
+
+    /// Within 32 pt of the tab bar's top edge, where its scroll edge effect can still lower measured contrast.
+    @MainActor
+    private static func nearTabBar(_ frame: CGRect, in app: XCUIApplication) -> Bool {
+        let tabBar = app.tabBars.firstMatch
+        return tabBar.exists && frame.maxY > tabBar.frame.minY - 32
     }
 
     @MainActor
@@ -334,7 +338,12 @@ final class AccessibilityAuditTests: XCTestCase {
         }
         // Contrast measured on text partly scrolled under a bar (measured against the bar, not the page).
         // Accepted for now; `auditScreen` then requires the same element to pass on another page.
-        if issue.auditType == .contrast, !clearOfBars(element.frame, in: app) {
+        // Above the tab bar the effect reaches further: "327 bytes" on Book detail, ending 2.7 pt inside the
+        // 16 pt margin, failed the audit although a screenshot measured 5.64:1 (PR #124). So a contrast finding
+        // within 32 pt of the tab bar also counts as under a bar. It is still verified: the same text must pass
+        // clear of the bars, with the usual 16 pt margin, on another page.
+        if issue.auditType == .contrast,
+           !clearOfBars(element.frame, in: app) || nearTabBar(element.frame, in: app) {
             return .underBar
         }
         return .fails
