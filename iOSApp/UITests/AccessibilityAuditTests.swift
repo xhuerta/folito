@@ -202,8 +202,11 @@ final class AccessibilityAuditTests: XCTestCase {
         let tabBar = app.tabBars.firstMatch
         // The scroll edge effect reaches a little past the bars' frames: text within 16 pt of a bar was flagged
         // for contrast although a screenshot measured 21:1 (CI run 41647325837, "Paragraph Spacing").
+        // Above the tab bar the effect reaches further: "327 bytes" on Book detail, ending 2.7 pt inside a 16 pt
+        // margin, failed the audit although a screenshot measured 5.64:1 (PR #124). Text there is still
+        // audited: an element found under a bar must pass on another page (`auditScreen`).
         let top = (navigationBar.exists ? navigationBar.frame.maxY : window.minY) + 16
-        let bottom = (tabBar.exists ? tabBar.frame.minY : window.maxY) - 16
+        let bottom = (tabBar.exists ? tabBar.frame.minY : window.maxY) - 32
         return (top, bottom)
     }
 
