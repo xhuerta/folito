@@ -1,7 +1,8 @@
 import XCTest
 
 /// The reader's top bar (#106): it hides while scrolling down through the text, a tap on the text brings it
-/// back (without opening the word picker). The left-edge swipe back is tracked in #118. Runs with the watch
+/// back (without opening the word picker), and a swipe from the left edge leaves the book with the bar shown or
+/// hidden (#118). Runs with the watch
 /// accessibility UI tests (`accessibility.yml`); the hidden-bar screenshot is attached to the result to show
 /// what watchOS keeps on screen (the system time).
 ///
@@ -48,8 +49,48 @@ final class WatchReaderTopBarTests: XCTestCase {
         let nextWord = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Next Word"))
             .element(boundBy: 0)
         XCTAssertFalse(nextWord.exists, "The tap that shows the bar must not open the word picker")
-        // The left-edge swipe back is tracked in #118: it does not leave the reader yet, with or without
-        // the bar hidden, so it is not asserted here.
+    }
+
+    /// A rightward drag from the very left edge of the screen.
+    @MainActor
+    private func swipeFromLeftEdge(_ app: XCUIApplication) {
+        let window = app.windows.firstMatch
+        let start = window.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.6))
+        let end = window.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.6))
+        start.press(forDuration: 0.05, thenDragTo: end)
+    }
+
+    /// The left-edge swipe back (#118), right after opening the book (bar shown) and with the bar hidden by
+    /// scrolling. A vertical drag starting at the edge must not leave the book.
+    @MainActor
+    func testLeftEdgeSwipeGoesBackToTheLibrary() {
+        let app = XCUIApplication()
+        app.launchArguments += ["-UITestingSeedAppStore", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        XCTAssertTrue(WatchUI.libraryRow(in: app).waitForExistence(timeout: 45), "Library screen did not appear")
+        let options = WatchUI.element("readerOptionsButton", in: app)
+
+        // Bar shown, before any scrolling.
+        WatchUI.openReader(app)
+        XCTAssertTrue(waitFor(options, hittable: true), "Reading Options button should show when the book opens")
+        swipeFromLeftEdge(app)
+        XCTAssertTrue(waitFor(WatchUI.libraryRow(in: app), hittable: true, timeout: 10),
+                      "The edge swipe did not return to the Library with the bar shown. Tree:\n\(app.debugDescription)")
+
+        // Bar hidden by scrolling.
+        WatchUI.openReader(app)
+        XCTAssertTrue(waitFor(options, hittable: true), "Reading Options button should show when the book reopens")
+        for _ in 0..<3 { WatchUI.nudgeUp(app) }
+        XCTAssertTrue(waitFor(options, hittable: false),
+                      "The top bar should hide after scrolling down. Tree:\n\(app.debugDescription)")
+        // A vertical drag from the edge is a scroll, not a swipe back.
+        let window = app.windows.firstMatch
+        window.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.8))
+            .press(forDuration: 0.05, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.3)))
+        XCTAssertTrue(WatchUI.element("readerBlock", in: app).exists, "A vertical drag from the edge left the book")
+        swipeFromLeftEdge(app)
+        XCTAssertTrue(waitFor(WatchUI.libraryRow(in: app), hittable: true, timeout: 10),
+                      "The edge swipe did not return to the Library with the bar hidden. Tree:\n\(app.debugDescription)")
     }
 
     /// The clock band (#125): with the bar hidden a page-coloured band covers the system time at the very top

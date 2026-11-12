@@ -479,6 +479,16 @@ the watch; triple-click the crown if the shortcut is on):
    word and "word n of m" are announced, with a click. Look up a word offline: the failure message is read
    and the failure haptic plays.
 4. Settings: steppers read their value; Reset and Remove Credentials ask for confirmation.
+5. In a book, the two-finger scrub (Z shape) on any paragraph returns to the Library (#118).
+
+**Swipe back from the reader** (#118, real watch; the simulator's synthesized drag is not a real edge touch):
+1. Open a book and, with the top bar shown, swipe right from the very left edge of the screen: the Library
+   returns.
+2. Scroll down until the bar hides and swipe right from the left edge again: the Library returns.
+3. Drag up or down starting at the left edge, and drag right starting in the middle of the text: the book
+   stays open (the first scrolls only if it starts outside the 12 pt edge strip; the second does nothing).
+4. Tap words near the left margin with the bar shown: the word picker still opens (except within the first
+   12 pt of the screen, which is the edge strip).
 
 **Text size** (watch Settings › Display & Brightness › Text Size, and Accessibility › Bold Text): at the
 largest size check that the library, Settings, menus and the word picker scroll without clipped text. Turn on
@@ -508,6 +518,12 @@ values and traits of the elements above and run *Audit* on each screen.
   position); use *Reading Options › Chapters* to jump further.
 - The reader puts nothing in the leading / `.cancellationAction` toolbar slot: on watchOS an item there
   replaces the back button (#106). `WatchReaderTopBarTests` checks the auto-hiding bar on the simulator; on a
-  real watch it still needs a manual check. The left-edge swipe back is tracked in #118.
+  real watch it still needs a manual check.
+- The left-edge swipe back (#118) is the reader's own recogniser (`EdgeSwipeBack`, a 12 pt strip along the left
+  edge), because watchOS turns off the navigation stack's edge pan while the bar is hidden and the scroll view
+  and text taps took edge touches while it was shown. `EdgeSwipeBackTests` checks the thresholds and
+  `WatchReaderTopBarTests` the swipe on the simulator; the feel on a real watch (and that it does not fight the
+  system's own edge pan when the bar is shown) needs the manual check above. A touch that starts in the strip
+  does not scroll or look up a word.
 - *Match System Text Size* is synced with the iPhone like the rest of the typography; the iPhone preview
   does not apply the watch's text size.
