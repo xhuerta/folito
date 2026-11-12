@@ -26,9 +26,18 @@ public enum WordNormalizer {
     /// Primary language subtag of a BCP-47 tag, lowercased; 3-letter ISO 639-2 codes of common languages
     /// are mapped to their 2-letter form. nil/empty/garbage -> "en".
     public static func primaryLanguage(_ tag: String?) -> String {
-        guard let tag, !tag.isEmpty else { return "en" }
-        let primary = tag.lowercased().split(whereSeparator: { $0 == "-" || $0 == "_" }).first.map(String.init) ?? ""
-        guard primary.count >= 2, primary.allSatisfy({ $0.isASCII && $0.isLetter }) else { return "en" }
+        knownPrimaryLanguage(tag) ?? "en"
+    }
+
+    /// Like `primaryLanguage`, but nil when the tag does not name a language: nil, empty, garbage, or the
+    /// "undetermined" / "multiple" / "no linguistic content" codes ("und", "mul", "zxx").
+    /// "es-ES", "es_MX" and "spa" all give "es".
+    public static func knownPrimaryLanguage(_ tag: String?) -> String? {
+        guard let tag else { return nil }
+        let trimmed = tag.trimmingCharacters(in: .whitespacesAndNewlines)
+        let primary = trimmed.lowercased().split(whereSeparator: { $0 == "-" || $0 == "_" }).first.map(String.init) ?? ""
+        guard (2...3).contains(primary.count), primary.allSatisfy({ $0.isASCII && $0.isLetter }),
+              !["und", "mul", "zxx", "mis"].contains(primary) else { return nil }
         return iso639_2to1[primary] ?? primary
     }
 

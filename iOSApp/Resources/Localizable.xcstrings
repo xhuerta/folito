@@ -15659,6 +15659,194 @@
           }
         }
       }
+    },
+    "Dictionary" : {
+      "comment" : "Book detail label: the word-lookup dictionary for the book's language",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wörterbuch"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diccionario"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dictionnaire"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dizionario"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "辞書"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dicionário"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "词典"
+          }
+        }
+      }
+    },
+    "No %@ dictionary is available yet, so word lookup on Apple Watch can’t define words in this book." : {
+      "comment" : "Book detail: no downloadable dictionary exists for the book's language; the placeholder is a language name",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Für %@ gibt es noch kein Wörterbuch, daher kann die Wortsuche auf der Apple Watch die Wörter in diesem Buch nicht erklären."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aún no hay ningún diccionario de %@, así que la búsqueda de palabras en el Apple Watch no puede definir las palabras de este libro."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun dictionnaire en %@ n’est encore disponible : la recherche de mots sur l’Apple Watch ne peut pas définir les mots de ce livre."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non è ancora disponibile un dizionario per la lingua %@, quindi la ricerca di parole su Apple Watch non può definire le parole di questo libro."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@の辞書はまだありません。そのため、Apple Watchの単語検索ではこの本の単語を調べられません。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ainda não há um dicionário de %@, então a busca de palavras no Apple Watch não consegue definir as palavras deste livro."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目前还没有%@词典，因此 Apple Watch 上的查词功能无法解释这本书中的词语。"
+          }
+        }
+      }
+    },
+    "Word lookup on Apple Watch needs the %@ dictionary." : {
+      "comment" : "Book detail: the book's language has a dictionary that is not downloaded; the placeholder is a language name",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Für die Wortsuche auf der Apple Watch wird das Wörterbuch für %@ benötigt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La búsqueda de palabras en el Apple Watch necesita el diccionario de %@."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La recherche de mots sur l’Apple Watch nécessite un dictionnaire en %@."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La ricerca di parole su Apple Watch richiede il dizionario per la lingua %@."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Watchで単語を調べるには%@の辞書が必要です。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A busca de palavras no Apple Watch precisa do dicionário de %@."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要在 Apple Watch 上查词，需要%@词典。"
+          }
+        }
+      }
+    },
+    "Download %@ Dictionary" : {
+      "comment" : "Book detail button; the placeholder is a language name",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wörterbuch für %@ laden"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descargar diccionario de %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Télécharger le dictionnaire en %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scarica il dizionario per la lingua %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@の辞書をダウンロード"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Baixar dicionário de %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下载%@词典"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

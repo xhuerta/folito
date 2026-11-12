@@ -388,6 +388,31 @@ final class OfflineDictionaryServiceTests: XCTestCase {
         do { _ = try await empty.lookup("run", language: "en"); XCTFail() }
         catch { XCTAssertEqual(error as? DictionaryError, .noDictionary) }
     }
+
+    func testMissingDictionaryForBookLanguage() async throws {
+        let service = OfflineDictionaryService(installed: installed) // English and Spanish
+        // A French book: the word is in no installed dictionary, and none is French.
+        do { _ = try await service.lookup("zzzz", language: "fr-FR"); XCTFail() }
+        catch { XCTAssertEqual(error as? DictionaryError, .noDictionaryForLanguage("fr")) }
+        do { _ = try await service.lookup("zzzz", language: "fra"); XCTFail() }
+        catch { XCTAssertEqual(error as? DictionaryError, .noDictionaryForLanguage("fr")) }
+        // A regional tag matches the installed dictionary: a plain "not found".
+        do { _ = try await service.lookup("zzzz", language: "es-ES"); XCTFail() }
+        catch { XCTAssertEqual(error as? DictionaryError, .notFound) }
+        // Another installed dictionary still answers when it has the word.
+        let casa = try await service.lookup("casas", language: "fr")
+        XCTAssertEqual(casa.language, "es")
+        // No language metadata: English is assumed, and it is installed.
+        do { _ = try await service.lookup("zzzz", language: nil); XCTFail() }
+        catch { XCTAssertEqual(error as? DictionaryError, .notFound) }
+
+        // Only Spanish installed, book language unknown: the generic case.
+        installed.remove(id: "tiny-en")
+        for tag in [nil, "", "und", "!!"] as [String?] {
+            do { _ = try await service.lookup("zzzz", language: tag); XCTFail() }
+            catch { XCTAssertEqual(error as? DictionaryError, .noDictionaryForLanguage(nil), "\(tag ?? "nil")") }
+        }
+    }
 }
 
 final class DictionaryCatalogTests: XCTestCase {
@@ -409,5 +434,24 @@ final class DictionaryCatalogTests: XCTestCase {
         }
         XCTAssertEqual(DictionaryCatalog.descriptor(id: "readerdict-ja")?.language, "ja")
         XCTAssertNil(DictionaryCatalog.descriptor(id: "nope"))
+    }
+
+    func testDescriptorForBookLanguage() {
+        XCTAssertEqual(DictionaryCatalog.descriptor(forBookLanguage: "es-ES")?.id, "readerdict-es")
+        XCTAssertEqual(DictionaryCatalog.descriptor(forBookLanguage: "pt_BR")?.id, "readerdict-pt")
+        XCTAssertEqual(DictionaryCatalog.descriptor(forBookLanguage: "zh-Hans")?.id, "readerdict-zh")
+        XCTAssertNil(DictionaryCatalog.descriptor(forBookLanguage: "el"))
+        XCTAssertNil(DictionaryCatalog.descriptor(forBookLanguage: nil))
+    }
+
+    func testAvailability() {
+        let es = DictionaryCatalog.descriptor(id: "readerdict-es")!
+        XCTAssertEqual(DictionaryCatalog.availability(forBookLanguage: "es-ES", installedLanguages: []), .downloadable(es))
+        XCTAssertEqual(DictionaryCatalog.availability(forBookLanguage: "es-ES", installedLanguages: ["es"]),
+                       .installed(language: "es"))
+        XCTAssertEqual(DictionaryCatalog.availability(forBookLanguage: "ell", installedLanguages: ["en"]),
+                       .unavailable(language: "el"))
+        XCTAssertEqual(DictionaryCatalog.availability(forBookLanguage: nil, installedLanguages: []), .unknownLanguage)
+        XCTAssertEqual(DictionaryCatalog.availability(forBookLanguage: "und", installedLanguages: []), .unknownLanguage)
     }
 }

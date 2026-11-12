@@ -167,7 +167,7 @@ struct DefinitionView: View {
 
     private func icon(for error: DictionaryError) -> String {
         switch error {
-        case .noDictionary: return "character.book.closed"
+        case .noDictionary, .noDictionaryForLanguage: return "character.book.closed"
         case .notFound: return "questionmark.circle"
         case .unreadable: return "exclamationmark.triangle"
         }
