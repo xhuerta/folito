@@ -184,7 +184,19 @@ pass of `testLibraryWithBookAudit` and `testLibraryReadestLocalRowAudit` audits 
 the end (`openWatchNoticeAtTop`, `scrollToLastRow`), where the book is the last row. At the default size the
 Readest library is only a little taller than the screen, so once scrolled to the Readest rows it cannot
 scroll on and the notice stayed within 16 pt of the navigation bar ("never audited clear of the bars"); the
-default pass of the Readest audits starts back at the top (`openCloudRowsAtTop`).
+default pass of the Readest audits starts back at the top (`openCloudRowsAtTop`). There the notice is the first
+row, right below the expanded large title, but still within 16 pt of the navigation bar's frame, so it still
+never counted as audited clear (CI on 240711f, `testLibraryReadestOfflineAudit`: bar bottom 168 pt at the top,
+the notice under the collapsed bar at 90 pt once scrolled). Not a layout bug: at rest at the top nothing is
+scrolled under the bar, so there is no scroll edge effect and the notice is fully visible, as on a device. While
+the bar shows its expanded large title, the harness counts texts as clear from the bar's bottom edge, without
+the 16 pt margin (`textsClearOfBars`); the margin still applies once anything is scrolled under the bar.
+
+In the Book detail audit, the file size row ("327 bytes") ended 2.7 pt inside the 16 pt margin above the tab bar
+and was flagged for contrast, although a screenshot measured 5.64:1 (PR #124). The tab bar's scroll edge effect
+reaches further than the navigation bar's. So a contrast finding within 32 pt of the tab bar is treated as under
+a bar (`nearTabBar`). The text still has to pass the audit clear of the bars, with the usual 16 pt margin, on
+another page.
 
 **Settings › Book Details at AX5** (PR #47) hit the same artifact. The AX5 Settings audit flagged *Look Up
 Missing Details Now* (`onlineBulkStart`): "Dynamic Type font sizes are partially unsupported", on one page
@@ -196,6 +208,21 @@ above the screen (`skipBookDetailsRows`), and `testSettingsBookDetailsAudit` aud
 (`-UITestingSettingsBookDetailsOnly`, a UI-testing switch that shows only that section in the same `Form`),
 where its rows are on the first screen at scroll offset 0, which does not move when the audit changes the
 text size.
+The same finding came back on main (CI on 240711f, `testSettingsAudit`): the drag of a page leaves the list
+decelerating after XCTest's idle wait, so `skipBookDetailsRows` read the button's frame while it was still
+moving, saw it not yet fully on screen and did not skip, and the audit a moment later found it fully on screen
+at 351–568 pt. The button itself was unchanged (`ActionLabel`: `.body`, wraps, no line limit or scale factor,
+44 pt minimum). Each scroll of the audit pages now waits until the texts on screen stop moving
+(`waitForScrollToSettle`), and the skip checks the button against the whole screen, not only the area clear
+of the bars.
+That did not help (CI on PR #124): the log shows the list had settled and `skipBookDetailsRows` read the
+button's frame, found its top on screen but its bottom below the screen, and returned without scrolling; the
+Dynamic Type audit four seconds later reported it fully on screen at 349–567 pt. Nothing moved in between: the
+audit re-renders the screen at smaller sizes at the same scroll offset, the rows above the button get shorter
+and the button moves up into full view (the same effect as the fixed-size layout switches above). The button
+is unchanged and passes at scroll offset 0 in `testSettingsBookDetailsAudit`, so this is not an app bug and
+not accepted: the skip now starts as soon as any part of the button is on screen at AX5, and scrolls on until
+it is above the area clear of the bars. Each skip is logged with the button's frame.
 
 **The book detail screen** (PR #46) was first a `List`: an inset-grouped section per part, `LabeledContent`
 rows for the publication details, action rows and a separate *More* row under the description. At AX5 the
