@@ -38,23 +38,63 @@ CI runs in tiers, so that an ordinary PR gets its feedback from the fast tier on
 Labels: add `ui` to a PR that changes views or layout, and `accessibility` to one that may affect VoiceOver,
 contrast or text sizes. A label starts its tier at once; no new push is needed.
 
-A PR that only touches `iOSApp/` skips the `watch` job, and one that only touches `WatchApp/` or `WatchWidgets/`
-skips the `ios` job (`scripts/ci/pick_platforms.py`, job `scope`). The iOS scheme embeds the watch app, but the
-`watch` job builds the same targets; for such a PR the `watch` job also runs the String Catalog comparison for
-the watch targets. Anything else (`Packages/ReaderCore`, `Shared`, `WidgetShared`, `project.yml`, `Config`,
-scripts, workflows) runs both jobs, and so does every push to `main`.
+Path filtering on PRs (`scripts/ci/pick_platforms.py`, job `scope` of `macos.yml` and `accessibility.yml`, on
+Linux): a PR that only touches `iOSApp/` skips the watch jobs (`watch`, the watch audit), and one that only touches
+`WatchApp/` or `WatchWidgets/` skips the iOS jobs (`ios`, the App Store iPhone screenshots, the iOS audit shards).
+The iOS scheme embeds the watch app, but the `watch` job builds the same targets; for such a PR the `watch` job
+also runs the String Catalog comparison for the watch targets. Docs, `*.md`, Linux-only tooling and the other
+workflows run neither. Anything else (`Packages/`, `Shared`, `WidgetShared`, `project.yml`, `Config`,
+`scripts/ci/`, the workflow itself, unknown paths) runs both, and so does every push to `main`, the nightly audit
+and every manual run. In `macos.yml` a platform that is not needed is reported by the Linux job `skipped` under
+the same check name (`ios` / `watch`), so those checks exist, and pass, on every PR.
+
+Superseded runs: every PR workflow (`linux.yml`, `macos.yml`, `accessibility.yml`, `release-check.yml`) has one
+concurrency group per PR with `cancel-in-progress`, so a new push (or the `ui` / `accessibility` label) cancels
+the run still going for that PR. A label that does not concern a workflow (e.g. `accessibility` for `macos.yml`)
+gets a group of its own and cancels nothing. Pushes to `main`, nightly and manual runs each get a group of their
+own and are never cancelled; `release.yml` and `cla.yml` are unchanged.
+
+Build once: `accessibility.yml` builds the iPhone app once (`build-ios`, `build-for-testing`), uploads
+`DerivedData/Build/Products` (with the `.xctestrun`) as the short-lived artifact `ios-test-products`, and the
+three shards `ios (library|book|rest)` run `test-without-building -xctestrun` on the Xcode version that built it.
+
+### Targeted runs
+
+To rerun one test (or a few) without the whole tier, start `macos.yml` (unit and screenshot UI suites) or
+`accessibility.yml` (audits) by hand with `only_testing` set. Only one job runs, `targeted (<platform>)`, which
+builds the scheme and runs just those tests; its result bundle is the artifact `targeted-xcresult`. The inputs
+are plain strings:
+
+| Input | Value |
+|---|---|
+| `platform` | `ios` (scheme Folito, default) or `watch` (scheme FolitoWatch) |
+| `only_testing` | one or more `xcodebuild -only-testing` values, comma-separated: `FolitoUITests/AccessibilityAuditTests/testBookDetailAudit`, `FolitoWatchUITests/WatchCoversScreenshotTests`, `FolitoTests/LogicTests` |
+| `ref` | branch, tag or SHA to check out; empty means the branch the run was started on |
+
+```sh
+gh workflow run accessibility.yml --ref my-branch \
+  -f platform=ios -f only_testing=FolitoUITests/AccessibilityAuditTests/testBookDetailAudit
+# or the REST API
+gh api repos/xhuerta/folito/actions/workflows/accessibility.yml/dispatches \
+  -f ref=my-branch -f 'inputs[platform]=ios' \
+  -f 'inputs[only_testing]=FolitoUITests/AccessibilityAuditTests/testBookDetailAudit'
+```
+
+Start the run on the branch itself (`--ref`), or give `ref` a branch that contains `scripts/ci/run_only_testing.sh`
+and `.github/actions/prepare-xcode`. With `only_testing` empty, a manual run is the full workflow as before.
 
 | Workflow | Runs on | Triggers | Typical time |
 |---|---|---|---|
 | `linux.yml`: `test-core` (ReaderCore `swift test`), `kosync-integration`, `strings`, `site`, `samples`, `ci-scripts` | `ubuntu-latest` | every push to `main` and every PR | 1-2 min |
 | `macos.yml`: jobs `ios` and `watch` in parallel (build + unit tests on simulators, String Catalog comparison in `ios`; plus the UI tier above) | `macos-15` (arm64) | push to `main` and PRs, **except** docs-only changes (`docs/**`, `*.md`, scripts and workflows that do not affect the build); **draft PRs skip it** and it runs when the PR is marked ready for review; manual (`workflow_dispatch`, optional runner label) | fast tier: `ios` about 9 min, `watch` about 5 min, in parallel (measured on PR #87); the UI tier adds the suites' own time to the same jobs |
 | `release-check.yml`: Release archive of both apps + `validate_release.py` | `macos-15` (arm64) | every push to `main`; PRs (not drafts) only when they touch `project.yml`, `Config/**`, asset catalogs, Info/plist/entitlements/privacy manifests, `InfoPlist.xcstrings`, the package manifest/pins, `scripts/validate_release.py` or the workflow; manual | 2-3 min |
-| `accessibility.yml`: accessibility audit UI tests | `macos-15` (arm64) | nightly on `main` (03:17 UTC), manual, PRs labelled `accessibility` | per shard: build (about 6 min) plus 7-9 min of audits; `watch` about 9 min |
+| `accessibility.yml`: accessibility audit UI tests | `macos-15` (arm64) | nightly on `main` (03:17 UTC), manual, PRs labelled `accessibility` | `build-ios` (about 6 min), then per shard 7-9 min of audits; `watch` about 9 min |
 | `release.yml`: signed build + TestFlight upload | `macos-15` (arm64) | tag `v*`, manual; dry run on PRs touching the pipeline | |
 
-`main` has no branch protection or required checks, so path-filtered workflows simply do not run for docs-only PRs. If
-a macOS check is ever made required, replace `paths-ignore` with a job-level `if` (e.g. a paths-filter step) so the
-check still reports on docs-only PRs.
+`main` has no branch protection or required checks. `macos.yml` no longer uses `paths-ignore` on pull requests
+(only on pushes to `main`): its `ios` / `watch` checks report on every PR, from the macOS job or from `skipped`,
+so they can be made required. `release-check.yml` still filters with `paths`; it is not a candidate for a
+required check.
 
 How `macos.yml` stays fast:
 

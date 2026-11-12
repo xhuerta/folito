@@ -5,9 +5,11 @@ on:
     branches: [main]
   pull_request:
 
+# Pull requests: one group per PR, and a new push cancels the run still going. Pushes to main and manual runs
+# get a group of their own (the run id), so they are never cancelled.
 concurrency:
-  group: linux-${{ github.ref }}
-  cancel-in-progress: true
+  group: linux-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   strings:
@@ -45,6 +47,10 @@ jobs:
         run: |
           python3 scripts/ci/appstore_simulator.py --self-test
           python3 scripts/ci/check_screenshot_sizes.py --self-test
+
+      # Which macOS platforms a PR needs (macos.yml / accessibility.yml job `scope`).
+      - name: Test the platform picker
+        run: python3 scripts/ci/pick_platforms.py --self-test
 
       # The App Store listing text (docs/appstore/LISTING.md): every field of every language within App Store
       # Connect's limits, third-party names only in the description, no pricing.

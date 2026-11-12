@@ -10,27 +10,129 @@ name: Accessibility audit
 # Runs on:
 #  * every night on main (not on every push to main);
 #  * manually: Actions tab > "Accessibility audit" > Run workflow (any branch);
-#  * a pull request labelled `accessibility` (when the label is added and on every later push while it is set).
+#  * a pull request labelled `accessibility` (when the label is added and on every later push while it is set),
+#    for the platforms its changed paths need (scripts/ci/pick_platforms.py, job `scope`);
+#  * targeted: workflow_dispatch with `only_testing` runs just those tests in one job (`targeted`).
+#
+# The iPhone app is built once (`build-ios`, build-for-testing) and the three shards run test-without-building
+# against the uploaded products (.xctestrun), on the same Xcode version.
 
 on:
   schedule:
     # 03:17 UTC, on the default branch. GitHub pauses schedules after 60 days without repository activity.
     - cron: "17 3 * * *"
+  # All inputs empty: the full audit of the branch. `only_testing` set: a targeted run of just those tests.
+  # Plain strings, so the run can be started through the API. See docs/TESTING.md ("Targeted runs").
   workflow_dispatch:
+    inputs:
+      platform:
+        description: "Targeted run: ios or watch"
+        type: string
+        required: false
+        default: ios
+      only_testing:
+        description: "Targeted run: xcodebuild -only-testing value(s), comma-separated (e.g. FolitoUITests/AccessibilityAuditTests/testBookDetailAudit)"
+        type: string
+        required: false
+      ref:
+        description: "Targeted run: branch, tag or SHA to test (default: the branch the run was started on)"
+        type: string
+        required: false
   pull_request:
     types: [labeled, synchronize]
 
+# Pull requests: one group per PR; a new push or the `accessibility` label cancels the run still going for that
+# PR. Any other label starts a run that does nothing and gets a group of its own, so that it does not cancel the
+# real run. Nightly and manual runs get a group of their own (the run id) and are never cancelled.
 concurrency:
-  group: accessibility-${{ github.ref }}
-  cancel-in-progress: true
+  group: accessibility-${{ github.event.pull_request.number || github.run_id }}${{ github.event.action == 'labeled' && github.event.label.name != 'accessibility' && '-other-label' || '' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Shared build settings (as in macos.yml): no indexing, no dSYMs, no signing.
+  XCB_FLAGS: >-
+    -project Folito.xcodeproj
+    -derivedDataPath DerivedData
+    -clonedSourcePackagesDirPath SourcePackages
+    -skipPackagePluginValidation -skipMacroValidation
+    CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO DEBUG_INFORMATION_FORMAT=dwarf
 
 jobs:
-  ios:
+  # Whether this run audits anything, and which platforms (a few seconds on Linux).
+  scope:
     if: >-
+      !inputs.only_testing && (
       github.event_name != 'pull_request' ||
       (github.event.action == 'labeled' && github.event.label.name == 'accessibility') ||
-      (github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'accessibility'))
+      (github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'accessibility')))
+    runs-on: ubuntu-latest
+    outputs:
+      platforms: ${{ steps.pick.outputs.platforms }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Pick platforms from the changed paths
+        id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          # Nightly and manual runs audit both; so does a PR whose file list cannot be read.
+          : > changed.txt
+          if [ -n "$PR" ]; then
+            gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" \
+              --jq '.[] | .filename, (.previous_filename // empty)' > changed.txt || : > changed.txt
+          fi
+          python3 scripts/ci/pick_platforms.py --workflow accessibility.yml < changed.txt | tee -a "$GITHUB_OUTPUT"
+
+  # Builds the iPhone app and its test bundles once for the three shards: build-for-testing for a generic
+  # simulator and the runner's architecture, uploaded as a tarball (keeps symlinks and permissions) with the
+  # .xctestrun file. Same flags as macos.yml.
+  build-ios:
+    needs: scope
+    if: contains(needs.scope.outputs.platforms, 'ios')
     # Same runner as macos.yml (arm64 macos-15); set the repository variable MACOS_RUNNER to override.
+    runs-on: ${{ vars.MACOS_RUNNER || 'macos-15' }}
+    timeout-minutes: 30
+    outputs:
+      xcode: ${{ steps.build.outputs.xcode }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/prepare-xcode
+
+      - name: Build for testing
+        id: build
+        run: |
+          xcodebuild build-for-testing $XCB_FLAGS \
+            -scheme Folito \
+            -destination "generic/platform=iOS Simulator" \
+            ARCHS="$ARCH" ONLY_ACTIVE_ARCH=YES > build.log 2>&1 || { grep -E "error:" build.log; tail -80 build.log; exit 1; }
+          ls DerivedData/Build/Products/*.xctestrun
+          tar -czf ios-test-products.tar.gz -C DerivedData/Build Products
+          ls -lh ios-test-products.tar.gz
+          # The shards select this exact Xcode, so that test-without-building runs with the toolchain that built.
+          echo "xcode=$(xcodebuild -version | awk 'NR==1 {print $2}')" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Upload test products
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ios-test-products
+          path: ios-test-products.tar.gz
+          retention-days: 1
+          compression-level: 0
+
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ios-accessibility-build-log
+          path: build.log
+          if-no-files-found: ignore
+
+  ios:
+    needs: [scope, build-ios]
+    if: contains(needs.scope.outputs.platforms, 'ios')
     runs-on: ${{ vars.MACOS_RUNNER || 'macos-15' }}
     timeout-minutes: 40
     name: ios (${{ matrix.shard }})
@@ -47,34 +149,33 @@ jobs:
       BOOK: >-
         testLibraryWithBookAudit testBookDetailAudit testOnlineMatchSheetAudit testSettingsBookDetailsAudit
     steps:
+      # Only the scripts are needed from the checkout: no project generation, no package resolution.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Select Xcode
+      - name: Select Xcode (the version that built the products)
         uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         with:
-          xcode-version: latest-stable
+          xcode-version: ${{ needs.build-ios.outputs.xcode || 'latest-stable' }}
 
-      - name: Cache SwiftPM
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Download test products
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          path: |
-            ~/Library/Caches/org.swift.swift-package-manager
-            SourcePackages
-          key: spm-a11y-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Packages/ReaderCore/Package.swift', 'Packages/ReaderCore/Package.resolved') }}
-          restore-keys: spm-a11y-${{ runner.os }}-${{ runner.arch }}-
+          name: ios-test-products
 
-      - name: Install XcodeGen
-        run: brew install xcodegen
-
-      - name: Generate Xcode project
-        run: xcodegen generate
+      - name: Unpack test products
+        run: |
+          mkdir -p DerivedData/Build
+          tar -xzf ios-test-products.tar.gz -C DerivedData/Build
+          XCTESTRUN=$(ls DerivedData/Build/Products/*.xctestrun | head -1)
+          echo "XCTESTRUN=$XCTESTRUN" >> "$GITHUB_ENV"
+          echo "test run: $XCTESTRUN"
 
       # Per-test time limits make a hung audit fail that test instead of stalling the job.
       # The other suites of FolitoUITests (welcome tour, Readest library, covers, online metadata) are not
       # audits; they run in the UI tier of macos.yml.
       - name: iOS accessibility audit (FolitoUITests/AccessibilityAuditTests)
-        # Build (about 6 minutes) plus 4 or 5 audits of 1 to 3 minutes each.
-        timeout-minutes: 35
+        # 4 or 5 audits of 1 to 3 minutes each (the app is built by build-ios).
+        timeout-minutes: 30
         run: |
           set -o pipefail
           CLASS=FolitoUITests/AccessibilityAuditTests
@@ -103,15 +204,12 @@ jobs:
           # Boot the simulator and wait until it is fully up: a cold boot inside xcodebuild can make the UI-test
           # runner time out ("Timed out waiting for AX loaded notification") before any test runs.
           xcrun simctl bootstatus "$UDID" -b
-          xcodebuild test \
-            -project Folito.xcodeproj \
-            -scheme Folito \
+          xcodebuild test-without-building \
+            -xctestrun "$XCTESTRUN" \
             -destination "id=$UDID" \
             "${SELECTION[@]}" \
-            -clonedSourcePackagesDirPath SourcePackages \
             -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
-            -resultBundlePath ios-uitests.xcresult \
-            CODE_SIGNING_ALLOWED=NO 2>&1 | tee ios-uitests.log
+            -resultBundlePath ios-uitests.xcresult 2>&1 | tee ios-uitests.log
 
       - name: Findings summary
         if: always()
@@ -128,10 +226,8 @@ jobs:
           if-no-files-found: ignore
 
   watch:
-    if: >-
-      github.event_name != 'pull_request' ||
-      (github.event.action == 'labeled' && github.event.label.name == 'accessibility') ||
-      (github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'accessibility'))
+    needs: scope
+    if: contains(needs.scope.outputs.platforms, 'watch')
     runs-on: ${{ vars.MACOS_RUNNER || 'macos-15' }}
     timeout-minutes: 30
     steps:
@@ -205,4 +301,41 @@ jobs:
         with:
           name: watch-accessibility-xcresult
           path: watch-uitests.xcresult
+          if-no-files-found: ignore
+
+  # Targeted run (workflow_dispatch with `only_testing`): one job that builds one scheme and runs only the given
+  # tests, e.g. platform=ios only_testing=FolitoUITests/AccessibilityAuditTests/testBookDetailAudit.
+  targeted:
+    name: targeted (${{ inputs.platform }})
+    if: github.event_name == 'workflow_dispatch' && inputs.only_testing
+    runs-on: ${{ vars.MACOS_RUNNER || 'macos-15' }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+
+      - uses: ./.github/actions/prepare-xcode
+
+      - name: Run the selected tests
+        env:
+          PLATFORM: ${{ inputs.platform }}
+          ONLY_TESTING: ${{ inputs.only_testing }}
+        run: scripts/ci/run_only_testing.sh "$PLATFORM" "$ONLY_TESTING"
+
+      - name: Findings summary
+        if: always()
+        run: |
+          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:|Accessibility audit issue|Accessibility audit timed out" targeted.log || true
+          xcrun xcresulttool get test-results summary --path targeted.xcresult || true
+
+      - name: Upload xcresult
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: targeted-xcresult
+          path: |
+            targeted.xcresult
+            targeted.log
+            build.log
           if-no-files-found: ignore

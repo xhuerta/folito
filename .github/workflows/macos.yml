@@ -2,7 +2,9 @@ name: macOS
 
 # Builds the iPhone and watch apps and runs their tests on simulators, as two parallel jobs, in two tiers:
 #  * fast tier (every push of a non-draft PR): build + unit tests. A PR that only touches iOSApp/ skips the watch
-#    job and one that only touches WatchApp/ or WatchWidgets/ skips the iOS job (scripts/ci/pick_platforms.py).
+#    job, one that only touches WatchApp/ or WatchWidgets/ skips the iOS job, and a docs-only PR skips both
+#    (scripts/ci/pick_platforms.py); the job `skipped` then reports the `ios` / `watch` check as passed.
+#  * targeted (workflow_dispatch with `only_testing`): one job running just those tests (docs/TESTING.md).
 #  * UI tier (pushes to main, manual runs, and PRs labelled `ui`): the same jobs go on, after the unit tests, to
 #    the screenshot UI suites (iPhone: welcome tour, Readest library, covers, online metadata; watch: covers),
 #    export the complication screenshots and capture the watch App Store screenshots. The iPhone App Store
@@ -32,42 +34,49 @@ on:
   pull_request:
     # ready_for_review: draft PRs skip the macOS jobs; they run when the PR is marked ready.
     # labeled: adding the `ui` label runs the UI tier at once (any other label is a no-op, see `scope`).
+    # No paths-ignore here: the `scope` job reads the changed paths and the platforms a PR does not need are
+    # reported as passed by `skipped` (same check names), so the `ios` / `watch` checks exist on every PR.
     types: [opened, synchronize, reopened, ready_for_review, labeled]
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
-      - "scripts/kosync-server/**"
-      - "scripts/check_real_books.sh"
-      - "scripts/make_icons.py"
-      - "scripts/partial_md5_*"
-      - ".github/workflows/linux.yml"
-      - ".github/workflows/release.yml"
-      - ".github/workflows/release-check.yml"
-      - ".github/workflows/accessibility.yml"
-      - ".github/workflows/cla.yml"
+  # Full run of a branch (all inputs empty), or a targeted run: `only_testing` set runs just those tests in one
+  # job (`targeted`) and nothing else. All inputs are plain strings. See docs/TESTING.md ("Targeted runs").
   workflow_dispatch:
     inputs:
       runner:
         description: "Runner label override (e.g. macos-15-intel)"
         type: string
         required: false
+      platform:
+        description: "Targeted run: ios or watch"
+        type: string
+        required: false
+        default: ios
+      only_testing:
+        description: "Targeted run: xcodebuild -only-testing value(s), comma-separated (e.g. FolitoUITests/CoversUITests)"
+        type: string
+        required: false
+      ref:
+        description: "Targeted run: branch, tag or SHA to test (default: the branch the run was started on)"
+        type: string
+        required: false
 
-# A new push cancels the run of the previous one. A label other than `ui` starts a run that does nothing; it gets
-# a group of its own so that it does not cancel the real run of the same PR.
+# Pull requests: one group per PR, and a new push or `ui` label cancels the run still going for that PR. A label
+# other than `ui` starts a run that does nothing; it gets a group of its own so that it does not cancel the real
+# run. Pushes to main and manual runs get a group of their own (the run id), so they are never cancelled.
 concurrency:
-  group: macos-${{ github.ref }}${{ github.event.action == 'labeled' && github.event.label.name != 'ui' && '-other-label' || '' }}
-  cancel-in-progress: true
+  group: macos-${{ github.event.pull_request.number || github.run_id }}${{ github.event.action == 'labeled' && github.event.label.name != 'ui' && '-other-label' || '' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # Which of the two macOS jobs this change needs (a few seconds on Linux).
   scope:
     name: scope
     if: >-
-      github.event.pull_request.draft != true &&
+      github.event.pull_request.draft != true && !inputs.only_testing &&
       (github.event.action != 'labeled' || github.event.label.name == 'ui')
     runs-on: ubuntu-latest
     outputs:
       platforms: ${{ steps.pick.outputs.platforms }}
+      skipped: ${{ steps.pick.outputs.skipped }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -83,11 +92,25 @@ jobs:
             gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" \
               --jq '.[] | .filename, (.previous_filename // empty)' > changed.txt || : > changed.txt
           fi
-          python3 scripts/ci/pick_platforms.py < changed.txt | tee -a "$GITHUB_OUTPUT"
+          python3 scripts/ci/pick_platforms.py --workflow macos.yml < changed.txt | tee -a "$GITHUB_OUTPUT"
+
+  # The platforms the PR does not need (scripts/ci/pick_platforms.py): their `ios` / `watch` checks pass at once
+  # on Linux instead of going missing, so a required check never waits for a job that will not run.
+  skipped:
+    name: ${{ matrix.platform }}
+    needs: scope
+    if: needs.scope.outputs.skipped != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: ${{ fromJSON(needs.scope.outputs.skipped) }}
+    steps:
+      - run: echo "No change for ${{ matrix.platform }} in this pull request (scripts/ci/pick_platforms.py); its macOS job is not needed."
 
   test:
     name: ${{ matrix.platform }}
     needs: scope
+    if: needs.scope.outputs.platforms != '[]'
     # Default: arm64 `macos-15` (free for public repos and ~2x faster than Intel; see docs/TESTING.md for
     # the measurements). If the arm64 pool is capacity-constrained again (jobs queued for a long time or
     # "not acquired by Runner"), set the repository variable MACOS_RUNNER to `macos-15-intel`.
@@ -529,7 +552,8 @@ jobs:
     name: app-store-screenshots
     needs: [scope, test, app-store-iphone]
     if: >-
-      always() && needs.scope.result == 'success' && needs.test.result != 'cancelled' &&
+      always() && needs.scope.result == 'success' && needs.scope.outputs.platforms != '[]' &&
+      needs.test.result != 'cancelled' &&
       needs.app-store-iphone.result != 'cancelled' &&
       (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ui'))
     runs-on: ubuntu-latest
@@ -557,4 +581,48 @@ jobs:
         with:
           name: app-store-screenshots
           path: app-store-screenshots
+          if-no-files-found: ignore
+
+  # Targeted run (workflow_dispatch with `only_testing`): one job that builds one scheme and runs only the given
+  # tests, e.g. platform=ios only_testing=FolitoUITests/CoversUITests/testLibraryWithCovers. See docs/TESTING.md.
+  targeted:
+    name: targeted (${{ inputs.platform }})
+    if: github.event_name == 'workflow_dispatch' && inputs.only_testing
+    runs-on: ${{ inputs.runner || vars.MACOS_RUNNER || 'macos-15' }}
+    timeout-minutes: 45
+    env:
+      XCB_FLAGS: >-
+        -project Folito.xcodeproj
+        -derivedDataPath DerivedData
+        -clonedSourcePackagesDirPath SourcePackages
+        -skipPackagePluginValidation -skipMacroValidation
+        CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO DEBUG_INFORMATION_FORMAT=dwarf
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+
+      - uses: ./.github/actions/prepare-xcode
+
+      - name: Run the selected tests
+        env:
+          PLATFORM: ${{ inputs.platform }}
+          ONLY_TESTING: ${{ inputs.only_testing }}
+        run: scripts/ci/run_only_testing.sh "$PLATFORM" "$ONLY_TESTING"
+
+      - name: Test summary
+        if: always()
+        run: |
+          grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:|Accessibility audit issue" targeted.log || true
+          xcrun xcresulttool get test-results summary --path targeted.xcresult || true
+
+      - name: Upload xcresult
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: targeted-xcresult
+          path: |
+            targeted.xcresult
+            targeted.log
+            build.log
           if-no-files-found: ignore

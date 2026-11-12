@@ -1,0 +1,37 @@
+name: Prepare Xcode
+description: >-
+  Selects the latest stable Xcode, installs XcodeGen (release zip, Homebrew as a fallback), generates
+  Folito.xcodeproj and restores the SwiftPM checkouts (SourcePackages). Used by the build-once and targeted jobs;
+  run actions/checkout first.
+runs:
+  using: composite
+  steps:
+    - name: Select Xcode
+      uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+      with:
+        xcode-version: latest-stable
+
+    - name: Install XcodeGen
+      shell: bash
+      run: |
+        if curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" https://github.com/yonaskolb/XcodeGen/releases/download/2.44.1/xcodegen.zip; then
+          unzip -q -o "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP/xg"
+          echo "$RUNNER_TEMP/xg/xcodegen/bin" >> "$GITHUB_PATH"
+        else
+          brew install xcodegen
+        fi
+
+    - name: Generate Xcode project
+      shell: bash
+      run: |
+        command -v xcodegen >/dev/null || export PATH="$RUNNER_TEMP/xg/xcodegen/bin:$PATH"
+        xcodegen generate
+        xcodebuild -version
+        echo "ARCH=$(uname -m)" >> "$GITHUB_ENV"
+
+    - name: Cache SwiftPM checkouts
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: SourcePackages
+        key: spm-src-${{ hashFiles('Packages/ReaderCore/Package.resolved') }}
+        restore-keys: spm-src-
