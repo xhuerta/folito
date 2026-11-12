@@ -115,11 +115,21 @@ final class LibraryStore: ObservableObject {
         let temp = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".epub")
         do {
             try fm.copyItem(at: url, to: temp)
+            removeInboxCopy(url)
             return temp
         } catch {
             importError = .fileUnreadable(fileName: displayName ?? url.lastPathComponent)
             return nil
         }
+    }
+
+    /// Files opened from other apps arrive as a copy in Documents/Inbox (documents are not opened in place).
+    /// The import keeps its own copy, so the Inbox one is removed to avoid keeping every book twice.
+    private func removeInboxCopy(_ url: URL) {
+        guard let documents = fm.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
+        let inbox = documents.appendingPathComponent("Inbox", isDirectory: true).standardizedFileURL.path + "/"
+        guard url.standardizedFileURL.path.hasPrefix(inbox) else { return }
+        try? fm.removeItem(at: url)
     }
 
     @discardableResult

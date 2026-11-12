@@ -85,6 +85,10 @@ def check_bundle(app, kind):
     ats = info.get("NSAppTransportSecurity", {})
     if ats.get("NSAllowsArbitraryLoads"):
         fail(f"{label}: NSAllowsArbitraryLoads must not be set")
+    # ITMS-90737: an app that declares document types must say whether it opens them in place.
+    if "CFBundleDocumentTypes" in info and "LSSupportsOpeningDocumentsInPlace" not in info \
+            and "UISupportsDocumentBrowser" not in info:
+        fail(f"{label}: CFBundleDocumentTypes needs LSSupportsOpeningDocumentsInPlace (ITMS-90737)")
     for key in ("UIFileSharingEnabled", "LSSupportsOpeningDocumentsInPlace"):
         if info.get(key):
             fail(f"{label}: {key} should not be enabled for release")
