@@ -153,6 +153,22 @@ final class WatchAccessibilityChecksTests: XCTestCase {
         XCTAssertTrue(value.hasSuffix("points"), "Stepper value should read 'n points', got '\(value)'", file: file, line: line)
     }
 
+    /// Issue #102: the watch Stepper lays its label out between the − and + buttons, where "Tamaño del texto"
+    /// broke letter by letter at large sizes. The title now sits above the control; this checks the control
+    /// keeps the row's full width and attaches a screenshot of the screen at the largest text size.
+    @MainActor
+    private func assertStepperSpansRow(_ stepper: XCUIElement, in app: XCUIApplication, screen: String,
+                                       file: StaticString = #filePath, line: UInt = #line) {
+        let window = app.windows.firstMatch.frame.width
+        XCTAssertGreaterThan(stepper.frame.width, window * 0.7,
+                             "\(screen): text size stepper is \(stepper.frame.width) pt wide in a \(window) pt window",
+                             file: file, line: line)
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = "text-size-\(screen)-\(Int(window.rounded()))pt"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     // MARK: Largest accessibility text size (AX5)
 
     @MainActor
@@ -179,6 +195,7 @@ final class WatchAccessibilityChecksTests: XCTestCase {
         WatchUI.openReaderMenu(app)
         let stepper = WatchUI.element("textSizeStepper", in: app)
         XCTAssertTrue(WatchUI.scrollToHittable(stepper, in: app), "Text size stepper not reachable at AX5")
+        assertStepperSpansRow(stepper, in: app, screen: "Reading Options (AX5)")
         let chapter = WatchUI.element("chapterButton", in: app)
         XCTAssertTrue(WatchUI.scrollToHittable(chapter, in: app), "Chapter button not reachable at AX5")
     }
@@ -190,5 +207,9 @@ final class WatchAccessibilityChecksTests: XCTestCase {
         let stepper = WatchUI.element("textSizeStepper", in: app)
         XCTAssertTrue(WatchUI.scrollToHittable(stepper, in: app), "Text size stepper not reachable at AX5")
         try assertInteractiveElementsAreLabelled(app, screen: "Settings (AX5)")
+        WatchUI.openTypography(app)
+        let typographyStepper = WatchUI.element("textSizeStepper", in: app)
+        XCTAssertTrue(WatchUI.scrollToHittable(typographyStepper, in: app), "Typography text size stepper not reachable at AX5")
+        assertStepperSpansRow(typographyStepper, in: app, screen: "Typography (AX5)")
     }
 }

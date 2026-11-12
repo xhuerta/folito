@@ -278,7 +278,7 @@ behind a `confirmationDialog`.
   the colour the iPhone uses for its placeholder. Turning the setting off restores the text-only row exactly.
 - Icon-only buttons are `Label`s ("Settings", "Reading Options", "Previous Word", "Next Word"); decorative
   icons (error glyphs, the current-chapter bookmark, list bullets) are hidden, and the current chapter in
-  *Contents* has the *Selected* trait instead.
+  the *Options* sheet has the *Selected* trait instead.
 - Reader: every block (paragraph, heading, quote, list item) is one element; headings carry `.isHeader`
   and their level (`accessibilityHeading(.h1…)`), so the rotor's *Headings* jumps between chapter titles.
   Every block also has the action *Look Up a Word*, even with *Tap Paragraph to Look Up* turned off.

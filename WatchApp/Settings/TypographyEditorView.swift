@@ -31,37 +31,47 @@ struct TypographyEditorView: View {
                 TextSizeStepper()
                 Toggle("Match System Text Size", isOn: typography.binding(\.matchSystemTextSize))
                 Toggle("Bold Text", isOn: typography.binding(\.boldText))
-                Stepper(value: typography.binding(\.headingScale), in: ReaderTypography.headingScaleRange, step: 0.25) {
-                    row(Text("Headings"), t.headingScale.formatted(.percent.precision(.fractionLength(0))))
+                row(Text("Headings")) {
+                    Stepper(value: typography.binding(\.headingScale), in: ReaderTypography.headingScaleRange, step: 0.25) {
+                        SettingStepperValue(Text(verbatim: t.headingScale.formatted(.percent.precision(.fractionLength(0)))))
+                    }
+                    .accessibilityLabel(Text("Heading Size"))
+                    .accessibilityValue(Text(t.headingScale.formatted(.percent.precision(.fractionLength(0)))))
                 }
-                .accessibilityLabel(Text("Heading Size"))
-                .accessibilityValue(Text(t.headingScale.formatted(.percent.precision(.fractionLength(0)))))
-                Stepper(value: typography.binding(\.tracking), in: ReaderTypography.trackingRange, step: 0.25) {
-                    row(Text("Letter Spacing"), Self.signed(t.tracking))
+                row(Text("Letter Spacing")) {
+                    Stepper(value: typography.binding(\.tracking), in: ReaderTypography.trackingRange, step: 0.25) {
+                        SettingStepperValue(Text(verbatim: Self.signed(t.tracking)))
+                    }
+                    .accessibilityLabel(Text("Letter Spacing"))
+                    .accessibilityValue(Text("\(Self.signed(t.tracking)) points", comment: "VoiceOver value of letter spacing, e.g. '+0.25 points'"))
                 }
-                .accessibilityLabel(Text("Letter Spacing"))
-                .accessibilityValue(Text("\(Self.signed(t.tracking)) points", comment: "VoiceOver value of letter spacing, e.g. '+0.25 points'"))
             } header: {
                 Text("Font")
             } footer: {
                 Text("With Match System Text Size on, the text size follows the Text Size setting of your Apple Watch, starting from the size above.")
             }
             Section("Layout") {
-                Stepper(value: typography.binding(\.lineSpacing), in: ReaderTypography.lineSpacingRange, step: 1) {
-                    row(Text("Line Spacing"), Self.points(t.lineSpacing))
+                row(Text("Line Spacing")) {
+                    Stepper(value: typography.binding(\.lineSpacing), in: ReaderTypography.lineSpacingRange, step: 1) {
+                        SettingStepperValue(Text(verbatim: Self.points(t.lineSpacing)))
+                    }
+                    .accessibilityLabel(Text("Line Spacing"))
+                    .accessibilityValue(Text("\(Int(t.lineSpacing)) points", comment: "VoiceOver value of a spacing in points"))
                 }
-                .accessibilityLabel(Text("Line Spacing"))
-                .accessibilityValue(Text("\(Int(t.lineSpacing)) points", comment: "VoiceOver value of a spacing in points"))
-                Stepper(value: typography.binding(\.paragraphSpacing), in: ReaderTypography.paragraphSpacingRange, step: 2) {
-                    row(Text("Paragraph Spacing"), Self.points(t.paragraphSpacing))
+                row(Text("Paragraph Spacing")) {
+                    Stepper(value: typography.binding(\.paragraphSpacing), in: ReaderTypography.paragraphSpacingRange, step: 2) {
+                        SettingStepperValue(Text(verbatim: Self.points(t.paragraphSpacing)))
+                    }
+                    .accessibilityLabel(Text("Paragraph Spacing"))
+                    .accessibilityValue(Text("\(Int(t.paragraphSpacing)) points", comment: "VoiceOver value of a spacing in points"))
                 }
-                .accessibilityLabel(Text("Paragraph Spacing"))
-                .accessibilityValue(Text("\(Int(t.paragraphSpacing)) points", comment: "VoiceOver value of a spacing in points"))
-                Stepper(value: typography.binding(\.horizontalMargin), in: ReaderTypography.horizontalMarginRange, step: 2) {
-                    row(Text("Margins"), Self.points(t.horizontalMargin))
+                row(Text("Margins")) {
+                    Stepper(value: typography.binding(\.horizontalMargin), in: ReaderTypography.horizontalMarginRange, step: 2) {
+                        SettingStepperValue(Text(verbatim: Self.points(t.horizontalMargin)))
+                    }
+                    .accessibilityLabel(Text("Margins"))
+                    .accessibilityValue(Text("\(Int(t.horizontalMargin)) points", comment: "VoiceOver value of a spacing in points"))
                 }
-                .accessibilityLabel(Text("Margins"))
-                .accessibilityValue(Text("\(Int(t.horizontalMargin)) points", comment: "VoiceOver value of a spacing in points"))
                 Picker("Alignment", selection: typography.binding(\.alignment)) {
                     ForEach(ReaderTypography.Alignment.allCases, id: \.self) { Text($0.localizedName).tag($0) }
                 }
@@ -96,10 +106,8 @@ struct TypographyEditorView: View {
         String(localized: "\(Int(value)) pt", comment: "A length in typographic points, e.g. '4 pt'")
     }
 
-    private func row(_ title: Text, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            title
-            Text(value).font(.footnote).foregroundStyle(.secondary)
-        }
+    /// Title above, value between − and +: see `SettingStepperRow`.
+    private func row<Control: View>(_ title: Text, @ViewBuilder _ control: () -> Control) -> some View {
+        SettingStepperRow(title: title, control: control)
     }
 }
