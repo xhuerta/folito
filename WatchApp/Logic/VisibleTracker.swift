@@ -1,5 +1,6 @@
 import Foundation
 import CoreGraphics
+import ReaderCore
 
 /// Vertical extent of a block in the scroll view's coordinate space (0 = top edge of the viewport).
 struct BlockFrame: Equatable {
@@ -31,5 +32,12 @@ enum RestoreCheck {
     /// end of a book the target may be unable to reach the top; the retries then run out harmlessly.
     static func needsRetry(top: Int?, target: Int, attempts: Int) -> Bool {
         attempts < maxRetries && top != target
+    }
+
+    /// The target block is at the top but the saved line inside it is more than `tolerance` points away
+    /// from the top edge, and corrections remain.
+    static func needsInBlockRetry(landedMinY: Double, wantedMinY: Double, attempts: Int,
+                                  tolerance: Double = InBlockPosition.tolerance) -> Bool {
+        attempts < maxRetries && abs(landedMinY - wantedMinY) > tolerance
     }
 }

@@ -242,7 +242,8 @@ pagination.
 
 Folito positions are already KOReader XPointers (the same strings Folito sends to KOSync), so:
 
-- **Push**: `xpointer` = Folito's XPointer of the paragraph; `progress` = `[block index + 1, block count]`
+- **Push**: `xpointer` = Folito's XPointer of the line at the top of the watch screen (the paragraph's
+  XPointer plus `/text().N` when the line is not the paragraph's first, see below); `progress` = `[block index + 1, block count]`
   (Folito's "pages"), or `[round(percentage × 1000), 1000]` when unknown (never `[0, n]`: Readest ignores
   page 0); `updatedAt` = when the position was reached (epoch ms), not when it is sent; `location` is never
   sent.
@@ -262,7 +263,16 @@ The koplugin converts nothing: KOReader's `ui.rolling:getLastProgress()` *is* th
 
 ### Limitations
 
-- **Paragraph granularity**: Folito's XPointers point at the start of a block (same as with KOSync).
+- **Line granularity, with paragraph fallbacks**: the watch saves the character offset of the line at the
+  top edge inside its block (paragraph), locally and in the XPointer it pushes to Readest and KOSync:
+  `/body/DocFragment[N]/body/.../p[3]/text().N`, N in Unicode code points as crengine counts them. The
+  offset is estimated from the part of the block's laid-out height scrolled past the top edge (characters
+  assumed spread evenly over the lines), so it is right within a line or so and survives text-size changes.
+  At the start of a block no `text()` part is sent, as before. Limits: the offset counts the whole block's
+  text, so in a paragraph with inline markup (`<em>`, links) it can point past crengine's first text node,
+  and KOReader may then land elsewhere in that paragraph; incoming offsets are only honoured for an exact
+  block path and the first text node (`text()` / `text()[1]`), else the reader opens at the block's start
+  (see `docs/DISCREPANCIES.md`). Readest's `progress` stays block-based (`[block index + 1, block count]`).
 - **The Readest apps move forward only on automatic pulls**: they apply the furthest of their CFI and the
   XPointer. Going back on the watch does not move an open Readest app back; KOReader behaves the same.
 - **Positions written only as CFI**: when the Readest app fails to convert its CFI, it pushes `xpointer: ""`;

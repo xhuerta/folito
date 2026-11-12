@@ -71,11 +71,18 @@ struct FlatBook {
         return clamped(start + local)
     }
 
-    func position(at index: Int) -> BookPosition? {
+    func position(at index: Int, characterOffset: Int = 0) -> BookPosition? {
         guard !blocks.isEmpty else { return nil }
         let i = clamped(index)
         let ci = chapterOfBlock[i]
-        return BookPosition(chapterIndex: ci, blockIndex: i - chapterStarts[ci], characterOffset: 0)
+        return BookPosition(chapterIndex: ci, blockIndex: i - chapterStarts[ci],
+                            characterOffset: clampedOffset(characterOffset, in: i))
+    }
+
+    /// `offset` limited to the text of block `index` (0 for an empty book).
+    func clampedOffset(_ offset: Int, in index: Int) -> Int {
+        guard !blocks.isEmpty else { return 0 }
+        return min(max(offset, 0), blocks[clamped(index)].text.count)
     }
 
     /// Fraction 0...1 of the book before the start of block `index` (plus `characterOffset`).

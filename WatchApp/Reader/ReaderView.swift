@@ -61,9 +61,12 @@ struct ReaderView: View {
             .coordinateSpace(name: Self.scrollSpace)
             // The scroll view runs under the navigation bar: its top inset is where reading starts.
             .background(GeometryReader { geo in
-                Color.clear.preference(key: ViewportTopKey.self, value: geo.safeAreaInsets.top)
+                Color.clear
+                    .preference(key: ViewportTopKey.self, value: geo.safeAreaInsets.top)
+                    .preference(key: ViewportHeightKey.self, value: geo.size.height)
             })
             .onPreferenceChange(ViewportTopKey.self) { model.viewportTop = $0 }
+            .onPreferenceChange(ViewportHeightKey.self) { model.viewportHeight = $0 }
             .onPreferenceChange(BlockFramesKey.self) { model.blockFramesChanged($0) }
             .onChange(of: model.jumpRequest) { request in
                 guard let request else { return }
@@ -72,7 +75,8 @@ struct ReaderView: View {
                     var transaction = Transaction()
                     transaction.disablesAnimations = true
                     withTransaction(transaction) {
-                        proxy.scrollTo(request.index, anchor: .top)
+                        // An in-block restore passes an anchor that puts the saved line at the top edge.
+                        proxy.scrollTo(request.index, anchor: request.anchorY.map { UnitPoint(x: 0, y: $0) } ?? .top)
                     }
                 }
             }
@@ -157,6 +161,12 @@ struct BlockFramesKey: PreferenceKey {
 
 /// Top safe-area inset of the reader's scroll view (navigation bar height when content runs under it).
 struct ViewportTopKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+/// Height of the reader's scroll view, for the in-block restore anchor.
+struct ViewportHeightKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }

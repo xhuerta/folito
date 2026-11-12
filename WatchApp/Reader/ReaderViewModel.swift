@@ -9,6 +9,14 @@ final class ReaderViewModel: ObservableObject {
     struct JumpRequest: Equatable {
         let token = UUID()
         let index: Int
+        /// Vertical `UnitPoint` anchor for `scrollTo`; nil scrolls the block's top to the top (`.top`).
+        var anchorY: Double? = nil
+    }
+
+    /// A block and a character offset inside it.
+    private struct Spot: Equatable {
+        var index: Int
+        var offset: Int
     }
 
     let book: ProcessedBook
@@ -18,8 +26,12 @@ final class ReaderViewModel: ObservableObject {
     @Published var showRemoteOffer = false
     @Published private(set) var remoteOffer: ReadingPosition?
     @Published private(set) var currentIndex: Int
+    /// Character offset inside `currentIndex` of the line at the top edge (not published: it changes on
+    /// every line scrolled and nothing on screen shows it).
+    private(set) var currentOffset: Int
 
     let startIndex: Int
+    let startOffset: Int
 
     /// While true (initial restore / programmatic jumps) scroll callbacks do not overwrite the saved position.
     private var isRestoring = true
@@ -27,14 +39,21 @@ final class ReaderViewModel: ObservableObject {
     /// Block the current restore / jump must bring to the top, and how many times it was re-issued.
     private var restoreTarget: Int?
     private var restoreAttempts = 0
+    /// Character offset inside `restoreTarget` the jump must bring to the top edge, the anchor last used
+    /// for it, and how many times it was corrected.
+    private var restoreOffset = 0
+    private var restoreAnchor: Double?
+    private var inBlockAttempts = 0
     /// Latest frames reported by the view, kept while restoring to verify where the jump landed.
     private var lastFrames: [Int: BlockFrame] = [:]
     /// Top of the visible area in the scroll view's coordinate space (the inset under the navigation
     /// bar when the scroll view extends beneath it). Set by the view.
     var viewportTop: CGFloat = 0
+    /// Height of the scroll view (set by the view); used to compute in-block `scrollTo` anchors.
+    var viewportHeight: CGFloat = 0
     /// Pause before checking where a programmatic jump landed (injectable for tests).
     var settleDelay: UInt64 = 700_000_000
-    private var lastReportedIndex: Int?
+    private var lastReported: Spot?
 
     private let positions: PositionStore
     private let sync: SyncCoordinator
@@ -79,12 +98,21 @@ final class ReaderViewModel: ObservableObject {
         self.resolver = resolver
         let saved = positions.load(book.documentHash)
         let start = saved.flatMap { flat.flatIndex(for: $0.position) } ?? 0
+        // Old block-only positions decode with offset 0. An offset is only kept for the block it was saved
+        // in (a clamped, out-of-range position starts at its block's top).
+        var startOffset = 0
+        if let p = saved?.position, let mapped = flat.position(at: start),
+           mapped.chapterIndex == p.chapterIndex, mapped.blockIndex == p.blockIndex {
+            startOffset = flat.clampedOffset(p.characterOffset, in: start)
+        }
         self.startIndex = start
+        self.startOffset = startOffset
         self.currentIndex = start
+        self.currentOffset = startOffset
         // Merely opening a book must not PUT its (possibly 0%) start position: if the open-time GET
         // failed or the user declined the remote offer, that would overwrite real remote progress.
         // Only report once the reader actually moves.
-        self.lastReportedIndex = start
+        self.lastReported = Spot(index: start, offset: startOffset)
         // Counting the words of a whole book takes a moment on the watch: do it off the main actor.
         Task.detached(priority: .utility) { [weak self] in
             let index = BookLengthIndex(book: book)
@@ -129,19 +157,39 @@ final class ReaderViewModel: ObservableObject {
         guard !flat.isEmpty else { return }
         // Time in the menu or a lookup is not reading time.
         pageTimer.reset(at: now())
-        beginRestore(target: currentIndex)
+        beginRestore(target: currentIndex, offset: currentOffset)
         jumpRequest = JumpRequest(index: currentIndex)
     }
 
     // MARK: Visibility / persistence
 
     /// Receives the frames of the currently instantiated blocks (scroll-view coordinate space).
+    ///
+    /// The position is the line at the viewport's top edge: the top block plus the character offset of
+    /// the part of it scrolled past that edge.
     func blockFramesChanged(_ frames: [Int: BlockFrame]) {
         lastFrames = frames
         guard !isRestoring, let top = VisibleBlockResolver.topIndex(frames: frames, viewportTop: viewportTop),
-              top != currentIndex, top < flat.count else { return }
+              top < flat.count, let frame = frames[top] else { return }
+        let text = flat.blocks[top].text
+        let fraction = InBlockPosition.fractionScrolledPast(minY: Double(frame.minY), maxY: Double(frame.maxY),
+                                                           viewportTop: Double(viewportTop))
+        guard top != currentIndex else {
+            // Still within the saved line (layout rounding, the settle after a restore): keep the offset,
+            // so reopening never creeps back a word at a time.
+            let saved = InBlockPosition.fraction(forCharacterOffset: currentOffset, in: text)
+            let wanted = InBlockPosition.wantedMinY(fraction: saved, blockHeight: Double(frame.maxY - frame.minY),
+                                                    viewportTop: Double(viewportTop))
+            guard abs(Double(frame.minY) - wanted) > InBlockPosition.tolerance else { return }
+            let offset = InBlockPosition.characterOffset(forFraction: fraction, in: text)
+            guard offset != currentOffset else { return }
+            currentOffset = offset
+            savePosition()
+            return
+        }
         learnSpeed(from: currentIndex, to: top)
         currentIndex = top
+        currentOffset = InBlockPosition.characterOffset(forFraction: fraction, in: text)
         persistCurrent()
     }
 
@@ -156,11 +204,15 @@ final class ReaderViewModel: ObservableObject {
     }
 
     private func persistCurrent() {
-        guard let pos = flat.position(at: currentIndex) else { return }
-        positions.save(StoredPosition(position: pos, percentage: flat.percentage(at: currentIndex)),
-                       for: documentHash)
+        savePosition()
         saveTimeRemaining()
         publishComplication(force: false)
+    }
+
+    /// Saves block and in-block offset for the next opening (and the Library's percentage).
+    private func savePosition() {
+        guard let pos = flat.position(at: currentIndex, characterOffset: currentOffset) else { return }
+        positions.save(StoredPosition(position: pos, percentage: localPercentage), for: documentHash)
     }
 
     // MARK: Time remaining
@@ -217,10 +269,16 @@ final class ReaderViewModel: ObservableObject {
     /// not move at all). Once the view settles the landing block is checked and the jump re-issued, so
     /// reopening a book shows the exact block it was closed at (#105). Scroll callbacks never overwrite
     /// the saved position meanwhile.
-    private func beginRestore(target: Int) {
+    /// With a non-zero `offset`, once the block is at the top a second jump (with an anchor computed from
+    /// the offset's fraction of the block's laid-out height, then corrected from where it landed) brings
+    /// the saved line to the top edge (#108).
+    private func beginRestore(target: Int, offset: Int = 0) {
         isRestoring = true
         restoreTarget = target
         restoreAttempts = 0
+        restoreOffset = offset
+        restoreAnchor = nil
+        inBlockAttempts = 0
         scheduleRestoreCheck()
     }
 
@@ -239,7 +297,15 @@ final class ReaderViewModel: ObservableObject {
            RestoreCheck.needsRetry(top: VisibleBlockResolver.topIndex(frames: lastFrames, viewportTop: viewportTop),
                                    target: target, attempts: restoreAttempts) {
             restoreAttempts += 1
-            jumpRequest = JumpRequest(index: target)
+            jumpRequest = JumpRequest(index: target, anchorY: restoreAnchor)
+            scheduleRestoreCheck()
+            return
+        }
+        if let target = restoreTarget, restoreOffset > 0, let frame = lastFrames[target],
+           let anchor = inBlockAnchor(target: target, frame: frame) {
+            inBlockAttempts += 1
+            restoreAnchor = anchor
+            jumpRequest = JumpRequest(index: target, anchorY: anchor)
             scheduleRestoreCheck()
             return
         }
@@ -247,32 +313,58 @@ final class ReaderViewModel: ObservableObject {
         isRestoring = false
     }
 
-    /// Called by the view once it appeared: scroll to the saved block.
+    /// The anchor for another in-block jump, or nil when the saved line is at the top (or retries ran out).
+    private func inBlockAnchor(target: Int, frame: BlockFrame) -> Double? {
+        let height = Double(frame.maxY - frame.minY)
+        let fraction = InBlockPosition.fraction(forCharacterOffset: restoreOffset, in: flat.blocks[target].text)
+        let wanted = InBlockPosition.wantedMinY(fraction: fraction, blockHeight: height,
+                                                viewportTop: Double(viewportTop))
+        guard RestoreCheck.needsInBlockRetry(landedMinY: Double(frame.minY), wantedMinY: wanted,
+                                             attempts: inBlockAttempts) else { return nil }
+        if let previous = restoreAnchor {
+            return InBlockPosition.correctedAnchorY(previous, error: Double(frame.minY) - wanted,
+                                                    blockHeight: height, viewportHeight: Double(viewportHeight))
+        }
+        return InBlockPosition.anchorY(fraction: fraction, blockHeight: height,
+                                       viewportHeight: Double(viewportHeight), viewportTop: Double(viewportTop))
+    }
+
+    /// Called by the view once it appeared: scroll to the saved block, then to the saved line in it.
     func restoreInitialPosition() {
-        beginRestore(target: startIndex)
+        beginRestore(target: startIndex, offset: startOffset)
         jumpRequest = JumpRequest(index: startIndex)
         // The opened book becomes the one the complications show.
         publishComplication(force: false)
     }
 
-    func jump(to index: Int) {
+    func jump(to index: Int, characterOffset: Int = 0) {
         let i = flat.clamped(index)
-        beginRestore(target: i)
+        let offset = flat.clampedOffset(characterOffset, in: i)
+        beginRestore(target: i, offset: offset)
         pageTimer.reset(at: now())
         currentIndex = i
+        currentOffset = offset
         persistCurrent()
         jumpRequest = JumpRequest(index: i)
     }
 
     // MARK: Sync
 
-    var localPercentage: Double { flat.percentage(at: currentIndex) }
+    /// Characters before the line at the top edge over the book's characters.
+    var localPercentage: Double { flat.percentage(at: currentIndex, characterOffset: currentOffset) }
 
-    /// The current position in the same form `reportProgress` pushes it.
+    /// The current position in the same form `reportProgress` pushes it. The XPointer carries the
+    /// in-block offset (`.../text().N`, in code points as crengine counts them) when it is not 0.
     var localPosition: ReadingPosition {
         guard !flat.isEmpty else { return ReadingPosition(xpointer: "", percentage: 0) }
-        return ReadingPosition(xpointer: flat.blocks[currentIndex].xpointer, percentage: localPercentage,
+        return ReadingPosition(xpointer: currentXPointer, percentage: localPercentage,
                                page: currentIndex + 1, pageCount: flat.count)
+    }
+
+    private var currentXPointer: String {
+        guard let pos = flat.position(at: currentIndex, characterOffset: currentOffset),
+              let located = XPointerResolver().locate(pos, in: book) else { return flat.blocks[currentIndex].xpointer }
+        return located.xpointer
     }
 
     /// "43% read" for the reader menu: the position saved for the Library, so the menu and the book's
@@ -293,28 +385,31 @@ final class ReaderViewModel: ObservableObject {
         guard let remote = remoteOffer else { return }
         remoteOffer = nil
         let target: Int
+        var offset = 0
         switch resolver.resolve(remote.xpointer, percentage: remote.percentage, in: book) {
         case .position(let pos, _)?:
             target = flat.flatIndex(for: pos) ?? flat.index(forPercentage: remote.percentage)
+            offset = pos.characterOffset
         case .percentage(let p)?:
             target = flat.index(forPercentage: p)
         case nil:
             target = flat.index(forPercentage: remote.percentage)
         }
         // The remote position is now our baseline: no need to echo it back.
-        lastReportedIndex = flat.clamped(target)
-        jump(to: target)
+        lastReported = Spot(index: flat.clamped(target), offset: flat.clampedOffset(offset, in: flat.clamped(target)))
+        jump(to: target, characterOffset: offset)
     }
 
     func declineRemote() { remoteOffer = nil }
 
     /// Records the current position for syncing. No-op if nothing changed since the last report.
     func reportProgress(immediately: Bool) {
-        guard !flat.isEmpty, lastReportedIndex != currentIndex else { return }
-        lastReportedIndex = currentIndex
+        let spot = Spot(index: currentIndex, offset: currentOffset)
+        guard !flat.isEmpty, lastReported != spot else { return }
+        lastReported = spot
         sync.report(book: bookIdentity,
-                    xpointer: flat.blocks[currentIndex].xpointer,
-                    percentage: flat.percentage(at: currentIndex),
+                    xpointer: currentXPointer,
+                    percentage: localPercentage,
                     page: currentIndex + 1, pageCount: flat.count,
                     immediately: immediately)
     }
