@@ -31,7 +31,7 @@ final class WordLookupModel: ObservableObject {
         self.language = language
         self.provider = provider
         self.haptics = haptics
-        let tokens = WordTokenizer.tokens(in: text)
+        let tokens = WordTokenizer.tokens(in: text, language: language)
         self.tokens = tokens
         if let offset = initialCharacterOffset {
             cursor = Double(TapPosition.tokenIndex(forCharacterOffset: offset, in: text, tokens: tokens))

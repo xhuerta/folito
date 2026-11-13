@@ -5,7 +5,8 @@ import XCTest
 /// The Apple Watch screenshots of the App Store listing (docs/appstore/SCREENSHOTS.md), in one language:
 ///
 /// 1. `watch-1-reader`: the reader at the opening of chapter 1 of the language's sample book, scrolled just enough
-///    for the top bar to hide (the system time shows above the page-coloured clock band; no book title).
+///    for the top bar to hide, then on to the next paragraph start so no line is cut under the clock band (the
+///    system time shows above the page-coloured clock band; no book title).
 /// 2. `watch-2-word-lookup` / `watch-2a-word-picker`: the definition of the language's word, and the word picker on it.
 /// 3. `watch-3-library`: the Library, with title covers and reading progress.
 /// 4. `watch-4-sepia`: the reader further on in the "Comfortable" preset with the sepia theme, top bar hidden.
@@ -156,6 +157,38 @@ final class WatchAppStoreScreenshotTests: XCTestCase {
         }
     }
 
+    /// Scrolls the text on until a paragraph starts right under the clock band, so a reader frame does not open
+    /// on a line cut in half by the band. Only forwards: scrolling back would show the bar again. A drag moves the
+    /// text a little less than the finger (the scroll view's touch slop), so each step measures how far the text
+    /// really went and adds the shortfall to the next one.
+    @MainActor
+    private func alignParagraphUnderBand(_ app: XCUIApplication) {
+        let band = WatchUI.element("clockBand", in: app)
+        let window = app.windows.firstMatch
+        let blocks = app.descendants(matching: .any).matching(identifier: "readerBlock")
+        let start = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85))
+        func drag(_ distance: CGFloat) {
+            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -distance)))
+            sleep(1)
+        }
+        var slop: CGFloat = 0
+        for _ in 0..<8 {
+            let top = band.frame.maxY
+            // A long paragraph can fill the screen: read on until the next one comes into view.
+            guard let target = blocks.allElementsBoundByIndex.filter({ $0.exists && $0.frame.minY >= top - 0.5 })
+                .min(by: { $0.frame.minY < $1.frame.minY }) else { drag(window.frame.height * 0.5); continue }
+            let before = target.frame.minY
+            let gap = before - top
+            if gap <= 3 { return }
+            let distance = min(gap + slop, window.frame.height * 0.5)
+            drag(distance)
+            let moved = before - target.frame.minY
+            if moved <= 0 && distance >= window.frame.height * 0.5 { break }   // the end of the text
+            if moved < distance { slop = max(0, distance - moved) }
+        }
+        print("::warning::[\(seed.language)] no paragraph could be lined up under the clock band")
+    }
+
     @MainActor
     func testLibrary() {
         let app = launch()
@@ -169,6 +202,7 @@ final class WatchAppStoreScreenshotTests: XCTestCase {
         let app = launch()
         WatchUI.openReader(app)
         hideReaderBar(app)
+        alignParagraphUnderBand(app)
         captureWhenStill("watch-1-reader")
         app.terminate()
     }
@@ -178,6 +212,7 @@ final class WatchAppStoreScreenshotTests: XCTestCase {
         let app = launch(["-UITestingAppStoreSepia"])
         WatchUI.openReader(app)
         hideReaderBar(app)
+        alignParagraphUnderBand(app)
         captureWhenStill("watch-4-sepia")
         app.terminate()
     }

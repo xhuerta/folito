@@ -16,9 +16,9 @@ final class WordTokenizerTests: XCTestCase {
     }
 
     func testUTF16SafetyWithEmojiAndCombining() {
-        let text = "😀 café naïve 日本語 e\u{0301}tude"
+        let text = "😀 café naïve Ελλάδα e\u{0301}tude"
         let tokens = WordTokenizer.tokens(in: text)
-        XCTAssertEqual(tokens.map(\.text), ["café", "naïve", "日本語", "e\u{0301}tude"])
+        XCTAssertEqual(tokens.map(\.text), ["café", "naïve", "Ελλάδα", "e\u{0301}tude"])
         for tok in tokens {
             let r = WordTokenizer.range(of: tok, in: text)
             XCTAssertNotNil(r)
@@ -46,6 +46,65 @@ final class WordTokenizerTests: XCTestCase {
         let t = WordTokenizer.tokens(in: "inter\u{00AD}national")
         XCTAssertEqual(t.count, 1)
         XCTAssertEqual(WordNormalizer.clean(t[0].text), "international")
+    }
+
+    func testLanguageLeavesSpaceSeparatedScriptsAlone() {
+        let text = "“Don’t,” she said — a well-known l’homme, 3rd café"
+        XCTAssertEqual(WordTokenizer.tokens(in: text, language: "en"), WordTokenizer.tokens(in: text))
+        XCTAssertEqual(WordTokenizer.tokens(in: text, language: "fr"), WordTokenizer.tokens(in: text))
+    }
+
+    /// Every token maps back to its text, tokens do not overlap, and together they hold every letter.
+    private func assertCovers(_ text: String, _ tokens: [WordToken], letters: String,
+                              file: StaticString = #filePath, line: UInt = #line) {
+        var end = 0
+        for tok in tokens {
+            XCTAssertGreaterThanOrEqual(tok.range.location, end, "overlapping \(tok)", file: file, line: line)
+            end = NSMaxRange(tok.range)
+            XCTAssertEqual(WordTokenizer.range(of: tok, in: text).map { String(text[$0]) }, tok.text, file: file, line: line)
+        }
+        XCTAssertEqual(tokens.map(\.text).joined(), letters, file: file, line: line)
+    }
+
+    func testJapaneseIsSegmentedIntoWords() {
+        let text = "吾輩は猫である。名前はまだ無い。"
+        let words = WordTokenizer.tokens(in: text, language: "ja").map(\.text)
+        assertCovers(text, WordTokenizer.tokens(in: text, language: "ja"), letters: "吾輩は猫である名前はまだ無い")
+        XCTAssertTrue(words.contains("猫"), "\(words)")
+        XCTAssertGreaterThan(words.count, 4, "\(words)")
+        #if canImport(NaturalLanguage)
+        XCTAssertTrue(words.contains("名前"), "\(words)")
+        #else
+        XCTAssertEqual(words, ["吾", "輩", "は", "猫", "で", "あ", "る", "名", "前", "は", "ま", "だ", "無", "い"])
+        #endif
+        // Ranges are UTF-16 offsets into the whole text: "猫" is the fourth character.
+        XCTAssertEqual(WordTokenizer.tokens(in: text, language: "ja").first { $0.text == "猫" }?.range,
+                       NSRange(location: 3, length: 1))
+    }
+
+    func testChineseIsSegmentedIntoWords() {
+        let text = "今天晚上，很好的月光。"
+        let tokens = WordTokenizer.tokens(in: text, language: "zh-Hans")
+        let words = tokens.map(\.text)
+        assertCovers(text, tokens, letters: "今天晚上很好的月光")
+        #if canImport(NaturalLanguage)
+        XCTAssertTrue(words.contains("月光"), "\(words)")
+        XCTAssertTrue(words.contains("晚上"), "\(words)")
+        XCTAssertEqual(tokens.first { $0.text == "月光" }?.range, NSRange(location: 8, length: 2))
+        #else
+        XCTAssertEqual(words, ["今", "天", "晚", "上", "很", "好", "的", "月", "光"])
+        #endif
+    }
+
+    func testCJKFallbackSegments() {
+        // Han and hiragana one character each, a katakana run whole, Latin letters together.
+        func split(_ s: String) -> [String] {
+            let u = Array(s.utf16)
+            return WordTokenizer.fallbackSegments(s).map { String(decoding: u[$0.start..<$0.end], as: UTF16.self) }
+        }
+        XCTAssertEqual(split("ニャーニャー泣いた"), ["ニャーニャー", "泣", "い", "た"])
+        XCTAssertEqual(split("阿Q正传"), ["阿", "Q", "正", "传"])
+        XCTAssertEqual(split("𠮷野"), ["𠮷", "野"])   // a Han character outside the BMP
     }
 
     func testTokenIndexLookup() {

@@ -18,11 +18,11 @@ The frames are the raw captures of the screenshot spec: the Apple Watch frames a
 
 | File | Shows |
 |---|---|
-| `watch/watch-1-reader.png` | The reader at the opening of chapter 1 of the language's sample book, scrolled just enough for the top bar to hide: the system time above the page-coloured clock band, no book title |
+| `watch/watch-1-reader.png` | The reader at the opening of chapter 1 of the language's sample book, scrolled just enough for the top bar to hide, then to the next paragraph so no line is cut under the clock band: the system time above the page-coloured clock band, no book title |
 | `watch/watch-2-word-lookup.png` | Word lookup: the language's word with its entry in the language's sample dictionary |
 | `watch/watch-2a-word-picker.png` | The same word selected in its paragraph (for iPhone frame 3; optional in the watch set) |
-| `watch/watch-3-library.png` | The Library: the sample book (0 %) and three public-domain titles of the language, with title covers and progress (43 %, 78 %, 12 %) |
-| `watch/watch-4-sepia.png` | The reader in the "Comfortable" preset (serif) with the sepia theme, further on (mid chapter 2; in de, it and ja, which have one chapter of text, a later page of chapter 1), top bar hidden |
+| `watch/watch-3-library.png` | The Library: the sample book (27 %, as its iPhone details show) and three public-domain titles of the language, with title covers and progress (43 %, 78 %, 12 %) |
+| `watch/watch-4-sepia.png` | The reader in the "Comfortable" preset (serif) with the sepia theme, further on (mid chapter 2; in de, it and ja, which have one chapter of text, a later page of chapter 1), top bar hidden, a paragraph starting right under the clock band |
 | `watch/watch-5-menu.png` | The reader menu scrolled to "Go to Synced Position" (an offline stand-in sync service: `-UITestingSimulateSync`), with "Look Up a Word" and the text size above it |
 | `complications/complication-rectangular.png`, `complication-circular.png` | The rectangular and circular complications with the language's short title, at 3× (localized workflow only; input of iPhone frame 6, which falls back to `watch-3-library` without them). Not uploaded as they are |
 | `iphone-*/iphone-1-library.png` | The Library: the sample book on top, the other three titles, each "On Apple Watch" (iPhone frames 1 and 4) |
@@ -38,7 +38,7 @@ The App Store upload order of the watch frames is 1, 2, 3, 4, 5. iPhone frames 3
 | fr | *Les Misérables* | évêque | *Madame Bovary*; *Le Comte de Monte-Cristo*; *Germinal* | *Germinal* |
 | de | *Die Verwandlung* | Ungeziefer | *Effi Briest*; *Der Process*; *Faust* | *Faust* |
 | it | *I promessi sposi* | lago | *Le avventure di Pinocchio*; *I Malavoglia*; *Cuore* | *Cuore* |
-| pt-BR | *Dom Casmurro* | casmurro | *Memórias Póstumas de Brás Cubas*; *O Cortiço*; *Iracema* | *Iracema* |
+| pt-BR | *Dom Casmurro* | trem | *Memórias Póstumas de Brás Cubas*; *O Cortiço*; *Iracema* | *Iracema* |
 | ja | 『吾輩は猫である』 | 猫 | 『坊っちゃん』; 『こころ』; 『羅生門』 | 『こころ』 |
 | zh-Hans | 《狂人日记》 | 月光 | 《阿Q正传》; 《红楼梦》; 《西游记》 | 《阿Q正传》 |
 
