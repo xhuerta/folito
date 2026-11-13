@@ -1,7 +1,11 @@
+import UIKit
 import XCTest
 
-/// The iPhone screenshots of the App Store listing (docs/appstore/SCREENSHOTS.md): the Library, a book's
-/// details and the Reading tab with its live preview. Launched with `-UITestingSeedCovers` (Debug builds only:
+/// The iPhone screenshots of the App Store listing (docs/appstore/SCREENSHOTS.md), in one language
+/// (`SCREENSHOT_LANG`, seeded from `AppStoreSeeds/<lang>.json` through `UITESTING_APPSTORE_SEED`): the Library
+/// with the language's sample book on top, the sample book's details with the progress synced from the watch,
+/// and the Reading tab with its live preview. Elements are found by identifier or position, never by English
+/// labels, and every navigation title on a captured screen must fit (no truncated titles). Launched with `-UITestingSeedCovers` (Debug builds only:
 /// public-domain books with generated covers), built from the full texts in `AppStoreBooks` (so the Library shows
 /// real book sizes), and `-UITestingSimulateWatch`, which shows the Library as with a paired, reachable Apple Watch
 /// that already has the books (nothing is sent; Release builds ignore both). The whole screen is captured,
@@ -36,51 +40,79 @@ final class AppStoreScreenshotTests: XCTestCase {
         XCTFail("\(message) (waited \(Int(timeout)) s). Tree:\n\(app.debugDescription)", file: file, line: line)
     }
 
+    /// The language of the set: `SCREENSHOT_LANG` in the test runner's environment (xcodebuild passes
+    /// `TEST_RUNNER_SCREENSHOT_LANG`), `en` by default.
+    private static var language: String {
+        ProcessInfo.processInfo.environment["SCREENSHOT_LANG"].flatMap { $0.isEmpty ? nil : $0 } ?? "en"
+    }
+
+    /// Fails when a navigation title on screen is cut: its text, measured in a font no larger than the title's,
+    /// is wider than its element (UIKit shortens a title that does not fit with an ellipsis).
     @MainActor
-    private func row(_ app: XCUIApplication, _ title: String) -> XCUIElement {
-        app.descendants(matching: .any)
-            .matching(NSPredicate(format: "identifier == 'libraryRow' AND label BEGINSWITH %@", title)).firstMatch
+    private func assertTitlesFit(_ screen: String, in app: XCUIApplication) {
+        for title in app.navigationBars.staticTexts.allElementsBoundByIndex where title.exists && !title.label.isEmpty {
+            let frame = title.frame
+            guard frame.width > 0 else { continue }
+            // Inline titles are 17 pt semibold, large titles 34 pt bold: measure a little smaller than either.
+            let font = UIFont.systemFont(ofSize: frame.height > 30 ? 30 : 15, weight: .regular)
+            let needed = (title.label as NSString).size(withAttributes: [.font: font]).width
+            XCTAssertLessThanOrEqual(needed, frame.width + 1,
+                                     "\(screen) [\(Self.language)]: the title \u{201C}\(title.label)\u{201D} is cut (element \(frame))")
+        }
     }
 
     @MainActor
     func testAppStoreScreenshots() throws {
+        let lang = Self.language
+        let seedURL = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "AppStoreSeeds", withExtension: nil),
+                                    "AppStoreSeeds missing from the UI test bundle").appendingPathComponent("\(lang).json")
+        let seed = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(contentsOf: seedURL)) as? [String: Any])
+        let appleLanguage = try XCTUnwrap(seed["appleLanguage"] as? String)
+        let appleLocale = try XCTUnwrap(seed["appleLocale"] as? String)
+        let library = try XCTUnwrap(seed["library"] as? [[String: Any]])
+        let sample = try XCTUnwrap(seed["sample"] as? [String: Any])
+        let sampleTitle = try XCTUnwrap(sample["title"] as? String)
+
         let app = XCUIApplication()
         app.launchArguments += ["-UITestingSeedCovers", "-UITestingSimulateWatch", "-UITestingSkipOnboarding",
-                                "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
-        // The simulator app reads the texts straight from this test bundle (a folder reference in project.yml).
+                                "-AppleLanguages", "(\"\(appleLanguage)\")", "-AppleLocale", appleLocale]
+        // The simulator app reads the seed and the texts straight from this test bundle (folder references in
+        // project.yml).
+        app.launchEnvironment["UITESTING_APPSTORE_SEED"] = seedURL.path
         let texts = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "AppStoreBooks", withExtension: nil),
                                   "AppStoreBooks missing from the UI test bundle")
         app.launchEnvironment["UITESTING_BOOK_TEXTS"] = texts.path
         app.launch()
-        require(app.navigationBars["Library"], 60, "Library screen did not appear", in: app)
-        let mars = row(app, "The Gods of Mars")
-        require(mars, 30, "seeded books missing", in: app)
+        let rows = app.descendants(matching: .any).matching(identifier: "libraryRow")
+        require(rows.element(boundBy: library.count), 60, "Library with the seeded books did not appear", in: app)
         // Checked at the end, so that a wrong Library still yields all three captures to look at.
-        let labels = ["The Gods of Mars", "Emma", "Alice"].map { title in
-            let book = row(app, title)
-            return book.exists ? book.label : "\(title): no row"
-        }
+        let labels = rows.allElementsBoundByIndex.map(\.label)
         sleep(2)
         capture("iphone-1-library")
+        assertTitlesFit("iphone-1-library", in: app)
 
-        mars.tap()
-        if !app.descendants(matching: .any)["bookDetail"].waitForExistence(timeout: 20) {
-            require(app.navigationBars["The Gods of Mars"], 5, "book details did not open", in: app)
-        }
+        let first = rows.element(boundBy: 0)
+        let sampleRow = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == 'libraryRow' AND label BEGINSWITH %@", sampleTitle)).firstMatch
+        (sampleRow.exists ? sampleRow : first).tap()
+        require(app.descendants(matching: .any)["bookDetail"], 20, "book details did not open", in: app)
         sleep(2)
         capture("iphone-2-book-details")
+        assertTitlesFit("iphone-2-book-details", in: app)
 
-        let readingTab = app.tabBars.buttons["Reading"]
+        // The tab bar's second item (Library, Reading, Settings): found by position, not by its localized label.
+        let readingTab = app.tabBars.buttons.element(boundBy: 1)
         require(readingTab, 20, "Reading tab button missing", in: app)
         readingTab.tap()
         require(app.descendants(matching: .any)["typographyPreview"], 30, "Reading tab did not show its preview", in: app)
         sleep(2)
         capture("iphone-3-reading")
+        assertTitlesFit("iphone-3-reading", in: app)
 
-        // The full texts were read (sizes in KB, not bytes) and every book shows as on the watch.
+        XCTAssertTrue(labels.first?.hasPrefix(sampleTitle) == true, "the sample book should be on top: \(labels)")
+        // The texts were read (sizes in KB, not bytes).
         for label in labels {
-            XCTAssertTrue(label.contains("On Apple Watch"), "book not shown on the watch: \(label)")
-            XCTAssertFalse(label.contains("bytes"), "book seeded without its full text: \(label)")
+            XCTAssertFalse(label.contains("bytes"), "book seeded without a full text: \(label)")
         }
     }
 }

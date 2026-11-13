@@ -72,6 +72,7 @@ struct WordPickerView: View {
         .buttonBorderShape(.circle)
         .frame(width: arrowSize, height: arrowSize)
         .disabled(delta < 0 ? !model.canStepBack : !model.canStepForward)
+        .accessibilityIdentifier(delta < 0 ? "previousWordButton" : "nextWordButton")
     }
 
     private var lookUpButton: some View {
@@ -88,6 +89,7 @@ struct WordPickerView: View {
         .frame(minHeight: arrowSize)
         .fixedSize(horizontal: false, vertical: true)
         .accessibilityHint(Text("Shows the definition of \(model.currentWord)."))
+        .accessibilityIdentifier("lookUpButton")
     }
 
     /// The selected word in its context. One adjustable VoiceOver element: it announces the word and its
@@ -117,6 +119,7 @@ struct WordPickerView: View {
         .accessibilityValue(Text(model.accessibilityValue))
         .accessibilityHint(Text("Swipe up or down to choose another word."))
         .accessibilityAdjustableAction { model.adjust($0) }
+        .accessibilityIdentifier("selectedWord")
     }
 
     static func highlighted(_ c: WordContext) -> AttributedString {

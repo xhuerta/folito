@@ -9,11 +9,11 @@ The text of the App Store product page, in the eight languages the app is locali
 * **Only what the app does today.** Every claim below is in the app: check the code before adding one.
 * **No third-party names outside the description.** KOReader and Readest appear only in the description, to say what sync is compatible with, next to the "not affiliated" sentence (guideline 5.2, see `REVIEW_RISKS.md`). They are not in the name, subtitle, promotional text or keywords; neither are other apps, stores or competitors. The script checks this.
 * **No price, no purchases.** The listing does not mention a price, a purchase or a subscription.
-* **Keywords**: comma-separated, no spaces around the commas. Words already in the name or subtitle are indexed anyway and are not repeated; the app name is not a keyword.
+* **Keywords**: comma-separated, no spaces around the commas. Words already in the name or subtitle are indexed anyway and are not repeated (the script checks whole words in the Latin-script languages); the app name is not a keyword.
 * **Feature names** are the ones of the app's String Catalogs and of the website (`docs/site-src/i18n/`), so the listing, the app and folito.app use the same words.
 * **URLs**: support and privacy pages in the listing's language on folito.app (the site is translated into the same eight languages). The privacy URL is the page `AppLinks.privacyPolicy` opens in the app for that language.
 
-App Store Connect locales: Spanish is entered as *Spanish (Spain)* and, with the same text, *Spanish (Mexico)*; French as *French*; German as *German*; Italian, *Portuguese (Brazil)*, Japanese and *Chinese (Simplified)* as such.
+App Store Connect locales: Spanish is entered as *Spanish (Spain)* and, with the same text except the keywords (section `es-MX`), *Spanish (Mexico)*; French as *French*; German as *German*; Italian, *Portuguese (Brazil)*, Japanese and *Chinese (Simplified)* as such.
 
 ## Fields that are not localized
 
@@ -35,7 +35,7 @@ Folito: EPUB Reader for Watch
 ### Subtitle
 
 ```text
-Your own books, on your wrist
+Offline ebooks on your wrist
 ```
 
 ### Promotional text
@@ -83,7 +83,7 @@ GOOD TO KNOW
 ### Keywords
 
 ```text
-ebook,ereader,offline,dictionary,novel,literature,library,typography,reading,classics,smartwatch
+book,read,novel,dictionary,ereader,sync,library,smartwatch,literature,classic,font,lookup,story,page
 ```
 
 ### Support URL
@@ -115,7 +115,7 @@ Folito: lector EPUB para reloj
 ### Subtitle
 
 ```text
-Tus libros, en la muñeca
+Lee tus ebooks en la muñeca
 ```
 
 ### Promotional text
@@ -163,7 +163,7 @@ CONVIENE SABER
 ### Keywords
 
 ```text
-ebook,lectura,diccionario,offline,novela,literatura,biblioteca,tipografía,clásicos,sincronizar
+libro,leer,lectura,novela,diccionario,offline,electrónico,biblioteca,clásicos,smartwatch,cuento
 ```
 
 ### Support URL
@@ -184,6 +184,16 @@ https://folito.app/es/privacy.html
 https://folito.app/es/
 ```
 
+## Spanish (Mexico), `es-MX`
+
+The same text as *Spanish (Spain)* in every field but the keywords, which complement it: a store that lists both localizations to the same people indexes both keyword sets.
+
+### Keywords
+
+```text
+libro,leer,lectura,novela,cuento,literatura,diccionario,fiction,reading,bookworm,tale,text,classics
+```
+
 ## French, `fr-FR`
 
 ### Name
@@ -195,7 +205,7 @@ Folito : EPUB sur votre montre
 ### Subtitle
 
 ```text
-Lisez vos propres livres
+Lisez vos livres au poignet
 ```
 
 ### Promotional text
@@ -243,7 +253,7 @@ BON À SAVOIR
 ### Keywords
 
 ```text
-ebook,liseuse,lecture,dictionnaire,hors ligne,roman,littérature,bibliothèque,typographie
+ebook,liseuse,lecteur,lecture,dictionnaire,hors ligne,roman,littérature,bibliothèque,classique
 ```
 
 ### Support URL
@@ -275,7 +285,7 @@ Folito: EPUB auf der Uhr lesen
 ### Subtitle
 
 ```text
-Deine Bücher am Handgelenk
+E-Books offline am Handgelenk
 ```
 
 ### Promotional text
@@ -323,7 +333,7 @@ GUT ZU WISSEN
 ### Keywords
 
 ```text
-E-Book,E-Reader,Lesen,Wörterbuch,offline,Roman,Literatur,Bibliothek,Typografie,Klassiker,Smartwatch
+Buch,Reader,Wörterbuch,Roman,Literatur,Bibliothek,Klassiker,Smartwatch,Schrift,Sync,Lektüre,Text
 ```
 
 ### Support URL
@@ -355,7 +365,7 @@ Folito: lettore EPUB al polso
 ### Subtitle
 
 ```text
-I tuoi libri sull’orologio
+Libri ed ebook sull’orologio
 ```
 
 ### Promotional text
@@ -403,7 +413,7 @@ BUONO A SAPERSI
 ### Keywords
 
 ```text
-ebook,ereader,lettura,leggere,dizionario,offline,romanzo,letteratura,libreria,tipografia,classici
+lettura,leggere,dizionario,offline,romanzo,letteratura,libreria,classici,ereader,smartwatch,libro
 ```
 
 ### Support URL
@@ -435,7 +445,7 @@ Folito: leitor EPUB no relógio
 ### Subtitle
 
 ```text
-Seus livros, no seu pulso
+Livros e ebooks no seu pulso
 ```
 
 ### Promotional text
@@ -483,7 +493,7 @@ BOM SABER
 ### Keywords
 
 ```text
-ebook,ereader,leitura,ler,dicionário,offline,romance,literatura,biblioteca,tipografia,clássicos
+leitura,ler,livro,dicionário,offline,romance,literatura,biblioteca,clássicos,ereader,smartwatch
 ```
 
 ### Support URL
@@ -515,7 +525,7 @@ Folito：ウォッチ用EPUBリーダー
 ### Subtitle
 
 ```text
-あなたの本を手首に
+小説も電子書籍も手首で読める
 ```
 
 ### Promotional text
@@ -563,7 +573,7 @@ VoiceOver、大きな文字サイズ（Dynamic Type）、“文字を太くす�
 ### Keywords
 
 ```text
-電子書籍,読書,辞書,オフライン,小説,文学,ライブラリ,スマートウォッチ
+読書,辞書,オフライン,文学,本,腕時計,スマートウォッチ,名作,物語,ブック
 ```
 
 ### Support URL
@@ -595,7 +605,7 @@ Folito：手表 EPUB 阅读器
 ### Subtitle
 
 ```text
-你的图书，戴在手腕上
+在手腕上离线看小说和电子书
 ```
 
 ### Promotional text
@@ -643,7 +653,7 @@ Folito 是一款适用于 Apple Watch 的 EPUB 阅读器。在 iPhone 上导入�
 ### Keywords
 
 ```text
-电子书,阅读,词典,离线,小说,文学,书库,排版,名著,经典,智能手表
+读书,阅读,词典,文学,名著,经典,书架,智能手表,腕上,字典,书籍,字体
 ```
 
 ### Support URL

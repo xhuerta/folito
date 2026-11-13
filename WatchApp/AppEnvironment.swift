@@ -34,7 +34,7 @@ final class AppEnvironment: ObservableObject {
         self.positions = positions
         let library = BookLibrary(storage: UITesting.makeBookStorage(), positions: positions)
         self.library = library
-        let sync = SyncCoordinator()
+        let sync = UITesting.makeSync()
         self.sync = sync
         self.typography = TypographyModel(store: TypographyStore(defaults: UITesting.defaults))
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
