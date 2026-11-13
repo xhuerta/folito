@@ -156,6 +156,30 @@ final class ComplicationTextTests: XCTestCase {
         XCTAssertEqual(ComplicationText.accessibilityLabel(nil, redacted: false, locale: en), "Folito, start reading")
     }
 
+    /// The complication strings follow a forced language (App Store snapshots), with plural forms.
+    func testMinutesLeftLocalized() {
+        XCTAssertEqual(ComplicationText.minutesLeft(7, language: "en"), "7 min left in chapter")
+        XCTAssertEqual(ComplicationText.minutesLeft(7, language: "ja"), "この章の残り7分")
+        XCTAssertEqual(ComplicationText.minutesLeft(7, language: "de"), "Noch 7 Min. im Kapitel")
+        XCTAssertEqual(ComplicationText.minutesLeft(7, language: "zh-Hans"), "本章剩余 7 分钟")
+        XCTAssertEqual(ComplicationText.minutesLeft(1, language: "es"), "Queda 1 min del capítulo")
+        XCTAssertEqual(ComplicationText.minutesLeft(7, language: "es"), "Quedan 7 min del capítulo")
+        XCTAssertEqual(ComplicationText.minutesLeft(1, language: "fr"), "1 min restante dans le chapitre")
+        XCTAssertEqual(ComplicationText.minutesLeft(7, language: "pt-BR"), "7 min restantes no capítulo")
+        XCTAssertEqual(ComplicationText.startReading(language: "en"), "Start reading")
+        XCTAssertNotEqual(ComplicationText.startReading(language: "ja"), "Start reading")
+    }
+
+    /// Every App Store language has a complication book (the seeded sample book, 27 % read).
+    @MainActor
+    func testAppStoreComplicationBooks() {
+        for lang in ["en", "es", "fr", "de", "it", "pt-BR", "ja", "zh-Hans"] {
+            XCTAssertNotNil(ComplicationSnapshotTests.appStoreBooks[lang], lang)
+        }
+        XCTAssertEqual(ComplicationSnapshotTests.appStoreBooks["en"]?.title, "Pride and Prejudice")
+        XCTAssertEqual(ComplicationSnapshotTests.appStoreFraction, 0.27)
+    }
+
     func testRelevanceEntries() {
         let now = Date(timeIntervalSince1970: 100_000)
         XCTAssertEqual(SmartStackRelevance.entries(for: nil, now: now).count, 1)

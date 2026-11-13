@@ -62,28 +62,40 @@ final class ComplicationSnapshotTests: XCTestCase {
     }
 
     /// The book shown by the App Store complication snapshots (docs/appstore/SCREENSHOTS.md, iPhone frame 6), per
-    /// language: the short title of the screenshot spec (it must fit without being cut) and a chapter title.
-    private static let appStoreBooks: [String: (title: String, chapter: String)] = [
-        "en": ("Emma", "Chapter III"), // i18n-ignore: App Store fixture
-        "es": ("Don Quijote", "Capítulo III"), // i18n-ignore: App Store fixture
-        "fr": ("Germinal", "Chapitre III"), // i18n-ignore: App Store fixture
-        "de": ("Faust", "Kapitel 3"), // i18n-ignore: App Store fixture
-        "it": ("Cuore", "Capitolo III"), // i18n-ignore: App Store fixture
-        "pt-BR": ("Iracema", "Capítulo III"), // i18n-ignore: App Store fixture
-        "ja": ("こころ", "第三章"), // i18n-ignore: App Store fixture
-        "zh-Hans": ("阿Q正传", "第三章"), // i18n-ignore: App Store fixture
+    /// language: the current book of the App Store set, i.e. the seeded sample book (AppStoreSeeds/<lang>.json
+    /// `sample`, `shortTitle`; WatchApp/Support/UITestingSupport.swift seeds it newest and 27 % read), so the
+    /// complication matches the iPhone book-details frame. Short title (it must fit without being cut) and the
+    /// first chapter's title (`complication.chapterTitle`, abridged where it is a long sentence).
+    static let appStoreBooks: [String: (title: String, chapter: String)] = [
+        "en": ("Pride and Prejudice", "Chapter I"), // i18n-ignore: App Store fixture
+        "es": ("Don Quijote", "Capítulo primero"), // i18n-ignore: App Store fixture
+        "fr": ("Les Misérables", "Chapitre I"), // i18n-ignore: App Store fixture
+        "de": ("Die Verwandlung", "I"), // i18n-ignore: App Store fixture
+        "it": ("I promessi sposi", "Capitolo primo"), // i18n-ignore: App Store fixture
+        "pt-BR": ("Dom Casmurro", "I. Do titulo."), // i18n-ignore: App Store fixture
+        "ja": ("吾輩は猫である", "一"), // i18n-ignore: App Store fixture
+        "zh-Hans": ("狂人日记", "一"), // i18n-ignore: App Store fixture
     ]
 
+    /// Reading progress of the seeded sample book (UITestingSupport.seedAppStore), as on the iPhone screenshots.
+    static let appStoreFraction = 0.27
+
     /// The rectangular and circular complications as the App Store set shows them, in the language of
-    /// `SCREENSHOT_LANG` (xcodebuild: `TEST_RUNNER_SCREENSHOT_LANG`, with `-testLanguage` for the app's strings).
-    /// The localized App Store workflow exports them to `<lang>/complications/`.
+    /// `SCREENSHOT_LANG` (xcodebuild: `TEST_RUNNER_SCREENSHOT_LANG`). The strings and the percentage are forced to
+    /// that language (`complicationPreviewLanguage`) rather than relying on the runner's language
+    /// (`-testLanguage`). The localized App Store workflow exports them to `<lang>/complications/`.
     func testAppStoreComplications() throws {
         let lang = ProcessInfo.processInfo.environment["SCREENSHOT_LANG"].flatMap { $0.isEmpty ? nil : $0 } ?? "en"
         let book = try XCTUnwrap(Self.appStoreBooks[lang], "no App Store complication book for \(lang)")
-        var snapshot = ReadingSnapshot(bookID: "sample", title: book.title, chapterTitle: book.chapter, fraction: 0.43)
+        var snapshot = ReadingSnapshot(bookID: "sample", title: book.title, chapterTitle: book.chapter,
+                                       fraction: Self.appStoreFraction)
         snapshot.minutesLeft = 7
-        try attach(tile(families[3], .default, snapshot: snapshot), name: "complication-rectangular", scale: 3)
-        try attach(tile(families[0], .default, snapshot: snapshot), name: "complication-circular", scale: 3)
+        for (family, name) in [(families[3], "complication-rectangular"), (families[0], "complication-circular")] {
+            let view = tile(family, .default, snapshot: snapshot)
+                .environment(\.complicationPreviewLanguage, lang)
+                .environment(\.locale, Locale(identifier: lang))
+            try attach(view, name: name, scale: 3)
+        }
     }
 
     // MARK: Views
