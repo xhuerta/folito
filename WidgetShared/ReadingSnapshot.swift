@@ -75,8 +75,14 @@ final class ReadingSnapshotStore: @unchecked Sendable {
     static let appGroupInfoKey = "FolitoAppGroup"
 
     private let defaults: UserDefaults?
+    private let key: String
 
-    init(defaults: UserDefaults?) { self.defaults = defaults }
+    /// `key`: the watch app also keeps the reader's own (local) snapshot under another key, so the
+    /// complications can go back to it after showing a newer synced position (#132).
+    init(defaults: UserDefaults?, key: String = ReadingSnapshotStore.key) {
+        self.defaults = defaults
+        self.key = key
+    }
 
     /// The App Group store, or a store that does nothing when no App Group is configured.
     static let shared: ReadingSnapshotStore = {
@@ -87,15 +93,15 @@ final class ReadingSnapshotStore: @unchecked Sendable {
     }()
 
     func load() -> ReadingSnapshot? {
-        defaults?.data(forKey: Self.key).flatMap(ReadingSnapshot.decode)
+        defaults?.data(forKey: key).flatMap(ReadingSnapshot.decode)
     }
 
     func save(_ snapshot: ReadingSnapshot) {
         guard let data = snapshot.encoded() else { return }
-        defaults?.set(data, forKey: Self.key)
+        defaults?.set(data, forKey: key)
     }
 
     func clear() {
-        defaults?.removeObject(forKey: Self.key)
+        defaults?.removeObject(forKey: key)
     }
 }

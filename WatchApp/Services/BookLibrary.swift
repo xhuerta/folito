@@ -19,6 +19,11 @@ final class BookLibrary: ObservableObject {
     var onUserDeletedBook: ((String) -> Void)?
     /// Called whenever the set of stored books changed (import / delete) so the phone can be told.
     var onLibraryChanged: (() -> Void)?
+    /// A newer position the sync service holds for a book (#132, `SyncedProgressStore`); the row shows it
+    /// when it is further than the local one.
+    var syncedFraction: ((String) -> Double?)? {
+        didSet { reloadProgress() }
+    }
 
     let storage: BookStorage
     let positions: PositionStore
@@ -32,7 +37,10 @@ final class BookLibrary: ObservableObject {
 
     func reloadProgress() {
         var map: [String: Double] = [:]
-        for e in entries { map[e.documentHash] = positions.load(e.documentHash)?.percentage ?? 0 }
+        for e in entries {
+            let local = positions.load(e.documentHash)?.percentage ?? 0
+            map[e.documentHash] = max(local, syncedFraction?(e.documentHash) ?? 0)
+        }
         progress = map
     }
 
