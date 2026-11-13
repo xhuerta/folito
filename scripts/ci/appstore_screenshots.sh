@@ -71,8 +71,8 @@ run_suite() {
   # shellcheck disable=SC2086
   # With XCTESTRUN (app-store-localized.yml: products built once by another job) the .xctestrun file names the
   # test bundles; otherwise the scheme of the project built in this job.
-  local target=(-scheme "$SCHEME")
-  [ -n "${XCTESTRUN:-}" ] && target=(-xctestrun "$XCTESTRUN")
+  local target
+  if [ -n "${XCTESTRUN:-}" ]; then target=(-xctestrun "$XCTESTRUN"); else target=(-scheme "$SCHEME"); fi
   xcodebuild test-without-building $XCB_FLAGS \
     "${target[@]}" \
     -destination "id=$U" \
