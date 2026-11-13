@@ -209,12 +209,8 @@ struct ReaderView: View {
             Button("Stay Here", role: .cancel) { model.declineRemote() }
         } message: {
             if let remote = model.remoteOffer {
-                Text(ReadingProgressFormat.readOnDevice(
-                    remote.percentage,
-                    device: remote.deviceName.isEmpty
-                        ? String(localized: "another device",
-                                 comment: "Used in '43% read on another device' when the device name is unknown")
-                        : remote.deviceName))
+                Text(ReadingProgressFormat.remoteOffer(remote.percentage, deviceName: remote.deviceName,
+                                                       connectorID: model.syncConnectorID))
             }
         }
         .onAppear {

@@ -24,6 +24,15 @@ final class ReadingProgressFormatTests: XCTestCase {
         XCTAssertEqual(ReadingProgressFormat.percent(1, locale: en), "100%")
     }
 
+    func testRemoteOfferNamesReadestWhenNoDeviceIsKnown() {
+        XCTAssertEqual(ReadingProgressFormat.remoteOffer(0.58, deviceName: "", connectorID: ReadestConnectorFactory.id,
+                                                         locale: en), "58% read in Readest")
+        XCTAssertEqual(ReadingProgressFormat.remoteOffer(0.58, deviceName: "", connectorID: "kosync", locale: en),
+                       "58% read on another device")
+        XCTAssertEqual(ReadingProgressFormat.remoteOffer(0.58, deviceName: "Kobo", connectorID: "kosync", locale: en),
+                       "58% read on Kobo")
+    }
+
     func testOutOfRangeValuesAreClamped() {
         XCTAssertEqual(ReadingProgressFormat.percent(-0.5, locale: en), "0%")
         XCTAssertEqual(ReadingProgressFormat.percent(7, locale: en), "100%")

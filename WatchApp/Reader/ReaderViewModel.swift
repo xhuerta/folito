@@ -439,6 +439,9 @@ final class ReaderViewModel: ObservableObject {
         publishComplication(force: true)
     }
 
+    /// The active sync service (`SyncConnectorDescriptor.id`), for the offer's wording.
+    var syncConnectorID: String? { sync.activeConnectorID }
+
     /// Whether the reader menu offers "Go to Synced Position": only while a sync service is set up.
     var canGoToSyncedPosition: Bool { sync.isConfigured }
 

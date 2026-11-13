@@ -64,6 +64,21 @@ enum ReadingProgressFormat {
                       comment: "Reading progress of a book, e.g. '43% read'. The argument is a formatted percentage.")
     }
 
+    /// The remote-position offer's message: "43% read on iPad", or, when the service names no device,
+    /// "43% read in Readest" for Readest Cloud and "43% read on another device" otherwise.
+    static func remoteOffer(_ fraction: Double, deviceName: String, connectorID: String?,
+                            locale: Locale = .current) -> String {
+        if !deviceName.isEmpty { return readOnDevice(fraction, device: deviceName, locale: locale) }
+        if connectorID == ReadestConnectorFactory.id {
+            let p = percent(fraction, locale: locale)
+            return String(localized: "\(p) read in Readest", locale: locale,
+                          comment: "Reading progress saved in the Readest app (Readest Cloud sync). Argument: formatted percentage.")
+        }
+        return readOnDevice(fraction, device: String(localized: "another device", locale: locale,
+                                                     comment: "Used in '43% read on another device' when the device name is unknown"),
+                            locale: locale)
+    }
+
     /// "43% read on iPad" (the remote-position offer).
     static func readOnDevice(_ fraction: Double, device: String, locale: Locale = .current) -> String {
         let p = percent(fraction, locale: locale)
