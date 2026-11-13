@@ -37,9 +37,9 @@ FONTS = {
     "sub": [("Inter", "Medium"), ("Inter", "Regular"), ("Noto Sans", "Medium"), ("DejaVu Sans", "Book")],
     "clock": [("Inter", "SemiBold"), ("Inter", "Medium"), ("Noto Sans", "SemiBold"), ("DejaVu Sans", "Bold")],
     "head-ja": [("Noto Sans CJK JP", "Bold"), ("Noto Sans JP", "Bold"), ("IPAPGothic", None), ("IPAGothic", None)],
-    "sub-ja": [("Noto Sans CJK JP", "Medium"), ("Noto Sans JP", "Medium"), ("IPAPGothic", None), ("IPAGothic", None)],
+    "sub-ja": [("Noto Sans CJK JP", "Medium"), ("Noto Sans CJK JP", "Regular"), ("Noto Sans JP", "Medium"), ("IPAPGothic", None), ("IPAGothic", None)],
     "head-zh-Hans": [("Noto Sans CJK SC", "Bold"), ("Noto Sans SC", "Bold"), ("WenQuanYi Zen Hei", None)],
-    "sub-zh-Hans": [("Noto Sans CJK SC", "Medium"), ("Noto Sans SC", "Medium"), ("WenQuanYi Zen Hei", None)],
+    "sub-zh-Hans": [("Noto Sans CJK SC", "Medium"), ("Noto Sans CJK SC", "Regular"), ("Noto Sans SC", "Medium"), ("WenQuanYi Zen Hei", None)],
 }
 
 # Slide order and text. Each entry: (headline, subline). "\n" in a headline forces the break.
@@ -125,17 +125,19 @@ def _font_table():
     global _FONT_FILES
     if _FONT_FILES is None:
         _FONT_FILES = {}
-        out = subprocess.run(["fc-list", "--format", "%{file}\t%{family}\t%{style}\n"],
+        # Collections (.ttc, e.g. Noto Sans CJK) hold one face per language: keep the index.
+        out = subprocess.run(["fc-list", "--format", "%{file}\t%{index}\t%{family}\t%{style}\n"],
                              capture_output=True, text=True, check=True).stdout
-        for line in out.splitlines():
+        for line in sorted(out.splitlines()):
             parts = line.split("\t")
-            if len(parts) != 3:
+            if len(parts) != 4:
                 continue
-            path, families, styles = parts
+            path, index, families, styles = parts
+            face = (path, int(index or 0))
             for fam in families.split(","):
                 for sty in styles.split(","):
-                    _FONT_FILES.setdefault((fam.strip(), sty.strip()), path)
-                _FONT_FILES.setdefault((fam.strip(), None), path)
+                    _FONT_FILES.setdefault((fam.strip(), sty.strip()), face)
+                _FONT_FILES.setdefault((fam.strip(), None), face)
     return _FONT_FILES
 
 
@@ -155,8 +157,8 @@ _FONT_CACHE = {}
 def font(role, size):
     key = (role, size)
     if key not in _FONT_CACHE:
-        path, faux = font_path(role)
-        _FONT_CACHE[key] = (ImageFont.truetype(path, size), faux)
+        (path, index), faux = font_path(role)
+        _FONT_CACHE[key] = (ImageFont.truetype(path, size, index=index), faux)
     return _FONT_CACHE[key]
 
 
@@ -503,14 +505,24 @@ def compose(raw, lang, size_name, out_dir):
                 wshot = load_watch(raw, lang, "watch-4-sepia")
             else:
                 wshot = watch_face(raw, lang) or load_watch(raw, lang, "watch-5-menu")
-            psw = round(850 * k)
+            # Phone and watch side by side: the watch case overlaps only the phone's bezel
+            # (and its crown the screen's side margin), so neither device hides the other.
             left = slide != "typography"
-            px = round(110 * k) if left else W - round(110 * k) - psw - round(2 * psw * 0.034)
-            draw_phone(c, phone, px, top + round(20 * k), psw)
-            wsw = round(520 * k)
+            psw = round(730 * k)
+            bezel = round(psw * 0.034)
+            pbw = psw + 2 * bezel
+            pbh = round(psw * phone.height / phone.width) + 2 * bezel
+            edge = round(56 * k)
+            py = top + max(0, round((H - round(90 * k) - top - pbh) * 0.3))
+            px = edge if left else W - edge - pbw
+            draw_phone(c, phone, px, py, psw)
+            overlap = round(bezel * 0.7)
+            room = W - pbw - edge - round(44 * k) + overlap
+            wsw = round(room / (1 + 2 * 0.085))
             _, _, cw, ch = watch_geometry(wsw)
-            wcx = W - round(70 * k) - cw // 2 if left else round(70 * k) + cw // 2
-            draw_watch(c, wshot, wcx, H - ch - round(200 * k), wsw, strap_to=H + 40)
+            wcx = px + pbw - overlap + cw // 2 if left else px + overlap - cw // 2
+            wy = py + round(pbh * 0.62) - ch // 2
+            draw_watch(c, wshot, wcx, wy, wsw, strap_to=H + 40, strap_top=st)
         p = os.path.join(out_dir, f"{idx + 1:02d}-{slide}.png")
         c.convert("RGB").save(p, optimize=True)
         paths.append(p)
