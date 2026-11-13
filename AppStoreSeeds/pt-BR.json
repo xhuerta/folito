@@ -98,10 +98,10 @@
   }
  ],
  "lookup": {
-  "block": 5,
+  "block": 1,
   "chapter": 0,
-  "probe": "calado",
-  "word": "casmurro"
+  "probe": "locomotiva",
+  "word": "trem"
  },
  "sample": {
   "author": "Machado de Assis",

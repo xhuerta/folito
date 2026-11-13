@@ -155,12 +155,15 @@ enum UITesting {
         storage.saveIndex(entries)
     }
 
-    /// The App Store Library of one language (`UITESTING_APPSTORE_SEED`): its sample book (newest, at its opening;
-    /// with `-UITestingAppStoreSepia` further on, in the sepia "Comfortable" look) and three more public-domain
-    /// titles with title covers, part-read. The other titles hold a placeholder paragraph: only their rows show.
+    /// The App Store Library of one language (`UITESTING_APPSTORE_SEED`): its sample book (newest, shown 27 % read
+    /// but at its opening; with `-UITestingAppStoreSepia` further on, in the sepia "Comfortable" look) and three
+    /// more public-domain titles with title covers, part-read. The other titles hold a placeholder paragraph: only
+    /// their rows show.
     private static func seedAppStore(_ seed: AppStoreSeed, into storage: BookStorage, scratch: URL) {
         let positions = PositionStore(defaults: defaults)
-        var books: [(book: ProcessedBook, color: UInt32, read: Double)] = [(seed.sampleBook(), seed.sample.color, 0)]
+        // The sample book is part-read (27 %, at its opening position): the progress its iPhone details show
+        // (`simulatedWatchProgress` in iOSApp/Support/UITestingSupport.swift).
+        var books: [(book: ProcessedBook, color: UInt32, read: Double)] = [(seed.sampleBook(), seed.sample.color, 0.27)]
         for b in seed.library {
             books.append((placeholderBook(hash: b.hash, title: b.title, author: b.author), b.color, b.read))
         }

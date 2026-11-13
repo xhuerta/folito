@@ -140,7 +140,7 @@ LOCALES = {
         "library": [("Memórias Póstumas de Brás Cubas", "Machado de Assis", 0x5D4E8C, None),
                     ("O Cortiço", "Aluísio Azevedo", 0x2E8B57, None),
                     ("Iracema", "José de Alencar", 0xD35400, None)],
-        "word": "casmurro", "probe": "calado", "sepiaChapter2": True,
+        "word": "trem", "probe": "locomotiva", "sepiaChapter2": True,
         "dictionary": [
             entry("casmurro", "/kazˈmu.ʁu/", "Adjetivo", [
                 ("Que é calado, fechado e metido consigo; teimoso.", "Acabou alcunhando-me Dom Casmurro."),
