@@ -37,7 +37,9 @@ PROGRESS='Testing started|Test Suite .* (started|passed|failed)|Test Case .* (st
 U=$(python3 scripts/ci/appstore_simulator.py "$CLASS")
 
 prepare_simulator() {
-  xcrun simctl bootstatus "$U" -b > /dev/null
+  # app-store-localized.yml boots this simulator in the background: if that boot wins the race, `bootstatus -b`
+  # fails with "Unable to boot device in current state: Booted"; then just wait for the boot to finish.
+  xcrun simctl bootstatus "$U" -b > /dev/null || xcrun simctl bootstatus "$U" > /dev/null
   case "$CLASS" in
     iphone-*)
       xcrun simctl status_bar "$U" override --time 9:41 --dataNetwork wifi --wifiMode active --wifiBars 3 \
@@ -71,8 +73,8 @@ run_suite() {
   # shellcheck disable=SC2086
   # With XCTESTRUN (app-store-localized.yml: products built once by another job) the .xctestrun file names the
   # test bundles; otherwise the scheme of the project built in this job.
-  local target=(-scheme "$SCHEME")
-  [ -n "${XCTESTRUN:-}" ] && target=(-xctestrun "$XCTESTRUN")
+  local target
+  if [ -n "${XCTESTRUN:-}" ]; then target=(-xctestrun "$XCTESTRUN"); else target=(-scheme "$SCHEME"); fi
   xcodebuild test-without-building $XCB_FLAGS \
     "${target[@]}" \
     -destination "id=$U" \
