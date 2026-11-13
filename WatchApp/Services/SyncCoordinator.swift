@@ -106,9 +106,14 @@ final class SyncCoordinator: ObservableObject {
     let queue: SyncQueue
     /// Last position this device pushed per connector and book (services without device ids, #105).
     let ownProgress: OwnProgressLog
+    /// Synced (ahead) and declined remote positions per book, and the books' sync identities (#132).
+    let remoteMemory: SyncedProgressStore
     private let policy: SyncConflictPolicy
     private let connector: @Sendable () -> SyncConnector?
     private var chain: Task<Void, Never>?
+    /// The remote position as the service returned it (CFI not yet placed) for each book with an open
+    /// offer, so declining remembers exactly that row.
+    private var offered: [String: ReadingPosition] = [:]
 
     init(device: DeviceIdentity = DeviceIdentity(),
          defaults: UserDefaults = .standard,
@@ -122,6 +127,7 @@ final class SyncCoordinator: ObservableObject {
         let observer = SyncObserver()
         let ownProgress = OwnProgressLog(defaults: defaults)
         self.ownProgress = ownProgress
+        self.remoteMemory = SyncedProgressStore(defaults: defaults)
         let restored = defaults.data(forKey: Self.queueKey)
         self.queue = SyncQueue(
             connector: ActiveSyncConnector(resolve: connector, observer: observer, ownProgress: ownProgress),
@@ -172,6 +178,8 @@ final class SyncCoordinator: ObservableObject {
             isConfigured = false
             // Credentials removed (or never set): nothing may stay queued and the UI shows no sync state.
             resetPending()
+            // The complications and the Library show the local positions again.
+            remoteMemory.clearAllSynced()
             return
         }
         isConfigured = true
@@ -206,17 +214,89 @@ final class SyncCoordinator: ObservableObject {
     /// a mixed Readest row whose CFI is further than its XPointer is then judged at the CFI spot.
     func decisionOnOpen(book: BookIdentity, local: ReadingPosition,
                         resolveRemote: (ReadingPosition) -> ReadingPosition = { $0 }) async -> ProgressDecision {
+        // The background refresh asks for the book the complications show with this identity (#132).
+        remoteMemory.setIdentity(book)
         guard let connector = connector() else { return .keepLocal }
         status = .syncing
         do {
-            let remote = try await connector.fetchProgress(for: book).map(resolveRemote)
+            let raw = try await connector.fetchProgress(for: book)
             status = .idle
+            // The book is open: what the refresh found is answered by the offer below (or is stale).
+            remoteMemory.clearSynced(for: book.key)
+            offered.removeValue(forKey: book.key)
+            guard let raw else { return .keepLocal }
+            // "Stay Here" was the answer to this very row: not offered again until the service changes (#132).
+            if let declined = remoteMemory.declined(for: book.key), declined.matches(raw) { return .keepLocal }
             let lastPushed = ownProgress.lastPushed(connectorID: connector.descriptor.id, bookKey: book.key)
-            return policy.decide(local: local, remote: remote, ownDeviceID: device.id, lastPushed: lastPushed)
+            let decision = policy.decide(local: local, remote: resolveRemote(raw), ownDeviceID: device.id,
+                                         lastPushed: lastPushed)
+            if case .offerRemote = decision { offered[book.key] = raw }
+            return decision
         } catch {
             record(error)
             return .keepLocal
         }
+    }
+
+    /// The user answered "Stay Here": the offered row is not offered again, nor shown as synced progress,
+    /// until the service holds another position for the book.
+    func offerDeclined(book: BookIdentity) {
+        guard let raw = offered.removeValue(forKey: book.key) else { return }
+        remoteMemory.setDeclined(RemoteFingerprint(raw), for: book.key)
+        remoteMemory.clearSynced(for: book.key)
+    }
+
+    /// The user went to a remote position ("Go to Position" or "Go to Synced Position"): the local position
+    /// is now the synced one.
+    func offerAccepted(book: BookIdentity) {
+        offered.removeValue(forKey: book.key)
+        remoteMemory.clearDeclined(for: book.key)
+        remoteMemory.clearSynced(for: book.key)
+    }
+
+    // MARK: Glance refresh (#132)
+
+    /// What `refreshSynced` found.
+    enum SyncedRefresh: Equatable {
+        /// The service is further than the local position (not this watch's own write, not declined):
+        /// stored as the synced position.
+        case ahead(ReadingPosition)
+        /// Nothing newer on the service (missing, behind, own or declined): any synced position is dropped.
+        case nothing
+        /// Sync is off: no request; synced positions are dropped, the local positions are shown.
+        case off
+        /// The request failed: nothing changes.
+        case failed
+    }
+
+    /// One GET of `book`'s remote position for the complications and the Library (background refresh,
+    /// launch, foreground). Same rules as the open-time offer, but quiet: the reader's sync status is not
+    /// touched. `resolveRemote` may load the book to place a Readest CFI.
+    func refreshSynced(book: BookIdentity, local: ReadingPosition,
+                       resolveRemote: (ReadingPosition) async -> ReadingPosition = { $0 }) async -> SyncedRefresh {
+        guard let connector = connector() else {
+            remoteMemory.clearAllSynced()
+            return .off
+        }
+        let raw: ReadingPosition?
+        do {
+            raw = try await connector.fetchProgress(for: book)
+        } catch {
+            return .failed
+        }
+        guard let raw, remoteMemory.declined(for: book.key)?.matches(raw) != true else {
+            remoteMemory.clearSynced(for: book.key)
+            return .nothing
+        }
+        let remote = await resolveRemote(raw)
+        let lastPushed = ownProgress.lastPushed(connectorID: connector.descriptor.id, bookKey: book.key)
+        guard case .offerRemote(let ahead) = policy.decide(local: local, remote: remote, ownDeviceID: device.id,
+                                                           lastPushed: lastPushed) else {
+            remoteMemory.clearSynced(for: book.key)
+            return .nothing
+        }
+        remoteMemory.setSynced(ahead, for: book.key)
+        return .ahead(ahead)
     }
 
     /// What "Go to Synced Position" in the reader menu found on the service.
@@ -301,6 +381,7 @@ final class SyncCoordinator: ObservableObject {
             await queue.remove(document: document)
         }
         ownProgress.remove(bookKey: document)
+        remoteMemory.remove(bookKey: document)
     }
 
     var hasPending: Bool { pendingCount > 0 }

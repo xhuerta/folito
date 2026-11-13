@@ -429,6 +429,14 @@ final class ReaderViewModel: ObservableObject {
         guard let remote = remoteOffer else { return }
         remoteOffer = nil
         go(to: remote)
+        syncedPositionReached()
+    }
+
+    /// The reader now stands at the synced position: the service's row is no longer offered or shown as
+    /// newer, and the complications show the new position at once (#132).
+    private func syncedPositionReached() {
+        sync.offerAccepted(book: bookIdentity)
+        publishComplication(force: true)
     }
 
     /// Whether the reader menu offers "Go to Synced Position": only while a sync service is set up.
@@ -453,8 +461,12 @@ final class ReaderViewModel: ObservableObject {
             remoteOffer = nil
             showRemoteOffer = false
             let target = spot(for: remote)
-            if target == Spot(index: currentIndex, offset: currentOffset) { return .alreadyThere }
+            if target == Spot(index: currentIndex, offset: currentOffset) {
+                sync.offerAccepted(book: bookIdentity)
+                return .alreadyThere
+            }
             go(to: remote)
+            syncedPositionReached()
             return .jumped
         case .missing, .notConfigured:
             return .noPosition
@@ -487,7 +499,12 @@ final class ReaderViewModel: ObservableObject {
         jump(to: target.index, characterOffset: target.offset)
     }
 
-    func declineRemote() { remoteOffer = nil }
+    /// "Stay Here": this remote position is not offered again on open, nor shown by the complications and
+    /// the Library, until the service holds another one (#132).
+    func declineRemote() {
+        remoteOffer = nil
+        sync.offerDeclined(book: bookIdentity)
+    }
 
     /// Whether `reportProgress` must not push now (see there).
     var isHoldingPushes: Bool {
