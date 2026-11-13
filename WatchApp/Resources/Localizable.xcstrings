@@ -95,6 +95,53 @@
         }
       }
     },
+    "%@ read in Readest" : {
+      "comment" : "Reading progress saved in the Readest app (Readest Cloud sync). Argument: formatted percentage.",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ in Readest gelesen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ leído en Readest"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ lu dans Readest"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ letto in Readest"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Readestで%@ 読了"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ lido no Readest"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 Readest 中已读 %@"
+          }
+        }
+      }
+    },
     "%@ read on %@" : {
       "comment" : "Reading progress saved by another device. Arguments: formatted percentage, device name.",
       "localizations" : {

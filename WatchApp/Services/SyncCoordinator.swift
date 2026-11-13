@@ -1,4 +1,5 @@
 import Foundation
+import os
 import SwiftUI
 import ReaderCore
 
@@ -95,6 +96,9 @@ final class SyncObserver: @unchecked Sendable {
 @MainActor
 final class SyncCoordinator: ObservableObject {
     static let queueKey = "sync.queue.v1"
+    /// Open-check diagnostics (Console.app, category "sync"): the service's row next to what the watch made
+    /// of it, so a wrong offer can be traced to the row's fields.
+    private static let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Folito", category: "sync")
 
     @Published private(set) var status: SyncStatus = .idle
     /// Why the last sync failed; meaningful while `status == .error`.
@@ -202,6 +206,9 @@ final class SyncCoordinator: ObservableObject {
         Task { await queue.resume() }
     }
 
+    /// The active connector's id (`"readest"`, `"kosync"`, ...), nil when sync is off.
+    var activeConnectorID: String? { connector()?.descriptor.id }
+
     // MARK: Open-book check
 
     /// Fetches the remote position and applies the conflict policy. Failures degrade to `.keepLocal`.
@@ -228,8 +235,13 @@ final class SyncCoordinator: ObservableObject {
             // "Stay Here" was the answer to this very row: not offered again until the service changes (#132).
             if let declined = remoteMemory.declined(for: book.key), declined.matches(raw) { return .keepLocal }
             let lastPushed = ownProgress.lastPushed(connectorID: connector.descriptor.id, bookKey: book.key)
-            let decision = policy.decide(local: local, remote: resolveRemote(raw), ownDeviceID: device.id,
+            let resolved = resolveRemote(raw)
+            let decision = policy.decide(local: local, remote: resolved, ownDeviceID: device.id,
                                          lastPushed: lastPushed)
+            let row = "cfi=\(raw.cfi ?? "-") xpointer=\(raw.xpointer) pct=\(raw.percentage) progress=\(raw.page ?? 0)/\(raw.pageCount ?? 0)"
+            let made = "xpointer=\(resolved.xpointer) pct=\(resolved.percentage)"
+            let here = "local=\(local.xpointer) pct=\(local.percentage) lastPushed=\(lastPushed?.xpointer ?? "-")"
+            Self.log.debug("open check \(connector.descriptor.id, privacy: .public): row \(row, privacy: .public) -> \(made, privacy: .public); \(here, privacy: .public)")
             if case .offerRemote = decision { offered[book.key] = raw }
             return decision
         } catch {
