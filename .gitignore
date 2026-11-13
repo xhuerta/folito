@@ -11,3 +11,4 @@ __pycache__/
 # Private strategy/research notes never belong in this public repo
 docs/research/
 private/
+composed/
