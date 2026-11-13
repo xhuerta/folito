@@ -47,7 +47,7 @@ def entry(word, pronunciation, pos, senses, forms=()):
 # whether the sepia capture opens mid chapter 2 (else a later page of chapter 1), and the dictionary.
 LOCALES = {
     "en": {
-        "appleLanguage": "en", "appleLocale": "en_US", "shortTitle": "Emma",
+        "appleLanguage": "en", "appleLocale": "en_US", "shortTitle": "Pride and Prejudice",
         "library": [("Emma", "Jane Austen", 0x30B0C7, "emma"),
                     ("Alice’s Adventures in Wonderland", "Lewis Carroll", 0x5856D6, "alice"),
                     ("The Gods of Mars", "Edgar Rice Burroughs", 0xE8833A, "mars")],
@@ -85,7 +85,7 @@ LOCALES = {
         ],
     },
     "fr": {
-        "appleLanguage": "fr", "appleLocale": "fr_FR", "shortTitle": "Germinal",
+        "appleLanguage": "fr", "appleLocale": "fr_FR", "shortTitle": "Les Misérables",
         "library": [("Madame Bovary", "Gustave Flaubert", 0x6A4C93, None),
                     ("Le Comte de Monte-Cristo", "Alexandre Dumas", 0x1F5F8B, None),
                     ("Germinal", "Émile Zola", 0x7A5C2E, None)],
@@ -102,7 +102,7 @@ LOCALES = {
         ],
     },
     "de": {
-        "appleLanguage": "de", "appleLocale": "de_DE", "shortTitle": "Faust",
+        "appleLanguage": "de", "appleLocale": "de_DE", "shortTitle": "Die Verwandlung",
         "library": [("Effi Briest", "Theodor Fontane", 0x3E7CB1, None),
                     ("Der Process", "Franz Kafka", 0x4A4A4A, None),
                     ("Faust", "Johann Wolfgang von Goethe", 0x9C2F2F, None)],
@@ -119,7 +119,7 @@ LOCALES = {
         ],
     },
     "it": {
-        "appleLanguage": "it", "appleLocale": "it_IT", "shortTitle": "Cuore",
+        "appleLanguage": "it", "appleLocale": "it_IT", "shortTitle": "I promessi sposi",
         "library": [("Le avventure di Pinocchio", "Carlo Collodi", 0xC0392B, None),
                     ("I Malavoglia", "Giovanni Verga", 0x2C6E91, None),
                     ("Cuore", "Edmondo De Amicis", 0xB5651D, None)],
@@ -136,7 +136,7 @@ LOCALES = {
         ],
     },
     "pt-BR": {
-        "appleLanguage": "pt-BR", "appleLocale": "pt_BR", "shortTitle": "Iracema",
+        "appleLanguage": "pt-BR", "appleLocale": "pt_BR", "shortTitle": "Dom Casmurro",
         "library": [("Memórias Póstumas de Brás Cubas", "Machado de Assis", 0x5D4E8C, None),
                     ("O Cortiço", "Aluísio Azevedo", 0x2E8B57, None),
                     ("Iracema", "José de Alencar", 0xD35400, None)],
@@ -151,7 +151,7 @@ LOCALES = {
         ],
     },
     "ja": {
-        "appleLanguage": "ja", "appleLocale": "ja_JP", "shortTitle": "こころ",
+        "appleLanguage": "ja", "appleLocale": "ja_JP", "shortTitle": "吾輩は猫である",
         "library": [("坊っちゃん", "夏目漱石", 0x2F6F9F, None),
                     ("こころ", "夏目漱石", 0x8B3A3A, None),
                     ("羅生門", "芥川龍之介", 0x4B5D3A, None)],
@@ -166,7 +166,7 @@ LOCALES = {
         ],
     },
     "zh-Hans": {
-        "appleLanguage": "zh-Hans", "appleLocale": "zh_CN", "shortTitle": "阿Q正传",
+        "appleLanguage": "zh-Hans", "appleLocale": "zh_CN", "shortTitle": "狂人日记",
         "library": [("阿Q正传", "鲁迅", 0x8C2D2D, None),
                     ("红楼梦", "曹雪芹", 0xA0522D, None),
                     ("西游记", "吴承恩", 0x2D6A8C, None)],

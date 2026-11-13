@@ -24,23 +24,23 @@ The frames are the raw captures of the screenshot spec: the Apple Watch frames a
 | `watch/watch-3-library.png` | The Library: the sample book (27 %, as its iPhone details show) and three public-domain titles of the language, with title covers and progress (43 %, 78 %, 12 %) |
 | `watch/watch-4-sepia.png` | The reader in the "Comfortable" preset (serif) with the sepia theme, further on (mid chapter 2; in de, it and ja, which have one chapter of text, a later page of chapter 1), top bar hidden, a paragraph starting right under the clock band |
 | `watch/watch-5-menu.png` | The reader menu scrolled to "Go to Synced Position" (an offline stand-in sync service: `-UITestingSimulateSync`), with "Look Up a Word" and the text size above it |
-| `complications/complication-rectangular.png`, `complication-circular.png` | The rectangular and circular complications with the language's short title, at 3× (localized workflow only; input of iPhone frame 6, which falls back to `watch-3-library` without them). Not uploaded as they are |
+| `complications/complication-rectangular.png`, `complication-circular.png` | The rectangular and circular complications with the language's sample book (its short title, 27 % read, as on the iPhone book-details frame), at 3× (localized workflow only; input of iPhone frame 6, which falls back to `watch-3-library` without them). Not uploaded as they are |
 | `iphone-*/iphone-1-library.png` | The Library: the sample book on top, the other three titles, each "On Apple Watch" (iPhone frames 1 and 4) |
 | `iphone-*/iphone-2-book-details.png` | The sample book's details, with the reading progress synced from the watch (iPhone frame 2) |
 | `iphone-*/iphone-3-reading.png` | The Reading tab with its live preview (the opening line of *Pride and Prejudice*, in every language: `TypographyPreview` in `Shared/TypographyRendering.swift`) (iPhone frame 5) |
 
 The App Store upload order of the watch frames is 1, 2, 3, 4, 5. iPhone frames 3 and 6 have no iPhone screen.
 
-| Language | Sample book (reader) | Word looked up | Rest of the Library | Short title (3.1) |
+| Language | Sample book (reader) | Word looked up | Rest of the Library | Short title (3.1; the sample book, shown 27 % read like the Library) |
 |---|---|---|---|---|
-| en | *Pride and Prejudice* | acknowledged | *Emma*; *Alice’s Adventures in Wonderland*; *The Gods of Mars* | *Emma* |
+| en | *Pride and Prejudice* | acknowledged | *Emma*; *Alice’s Adventures in Wonderland*; *The Gods of Mars* | *Pride and Prejudice* |
 | es | *Don Quijote de la Mancha* | hidalgo | *La Regenta*; *Marianela*; *Lazarillo de Tormes* | *Don Quijote* |
-| fr | *Les Misérables* | évêque | *Madame Bovary*; *Le Comte de Monte-Cristo*; *Germinal* | *Germinal* |
-| de | *Die Verwandlung* | Ungeziefer | *Effi Briest*; *Der Process*; *Faust* | *Faust* |
-| it | *I promessi sposi* | lago | *Le avventure di Pinocchio*; *I Malavoglia*; *Cuore* | *Cuore* |
-| pt-BR | *Dom Casmurro* | trem | *Memórias Póstumas de Brás Cubas*; *O Cortiço*; *Iracema* | *Iracema* |
-| ja | 『吾輩は猫である』 | 猫 | 『坊っちゃん』; 『こころ』; 『羅生門』 | 『こころ』 |
-| zh-Hans | 《狂人日记》 | 月光 | 《阿Q正传》; 《红楼梦》; 《西游记》 | 《阿Q正传》 |
+| fr | *Les Misérables* | évêque | *Madame Bovary*; *Le Comte de Monte-Cristo*; *Germinal* | *Les Misérables* |
+| de | *Die Verwandlung* | Ungeziefer | *Effi Briest*; *Der Process*; *Faust* | *Die Verwandlung* |
+| it | *I promessi sposi* | lago | *Le avventure di Pinocchio*; *I Malavoglia*; *Cuore* | *I promessi sposi* |
+| pt-BR | *Dom Casmurro* | trem | *Memórias Póstumas de Brás Cubas*; *O Cortiço*; *Iracema* | *Dom Casmurro* |
+| ja | 『吾輩は猫である』 | 猫 | 『坊っちゃん』; 『こころ』; 『羅生門』 | 『吾輩は猫である』 |
+| zh-Hans | 《狂人日记》 | 月光 | 《阿Q正传》; 《红楼梦》; 《西游记》 | 《狂人日记》 |
 
 **No truncated titles.** No capture may show a cut title. The reader frames are taken with the top bar hidden (the tests fail unless the bar has hidden and the clock band is there), so they show no book title. On every other captured screen the suites compare each navigation title's text width with its element and fail when the title is cut (an ellipsis, or a watchOS marquee that runs past the screen). A future frame that shows the reader's bar must use the language's short title above; the complication snapshots already do.
 

@@ -41,13 +41,31 @@ enum ComplicationText {
         return "\(p) \u{00B7} \(title)"
     }
 
-    static var startReading: String {
-        String(localized: "Start reading", comment: "Complication shown when no book is in progress; tapping it opens the library")
+    static var startReading: String { startReading(language: nil) }
+
+    /// `language` (an `.lproj` name such as "ja" or "pt-BR") forces that localization instead of the user's;
+    /// only the complication snapshots pass one (`complicationPreviewLanguage`).
+    static func startReading(language: String?) -> String {
+        String(localized: "Start reading", bundle: bundle(for: language), locale: locale(for: language),
+               comment: "Complication shown when no book is in progress; tapping it opens the library")
     }
 
-    static func minutesLeft(_ minutes: Int) -> String {
-        String(localized: "\(minutes) min left in chapter",
+    /// "7 min left in chapter" (plural variations in the catalogs).
+    static func minutesLeft(_ minutes: Int, language: String? = nil) -> String {
+        String(localized: "\(minutes) min left in chapter", bundle: bundle(for: language), locale: locale(for: language),
                comment: "Complication: estimated reading time left in the current chapter. The argument is a number of minutes.")
+    }
+
+    /// The bundle strings are looked up in: the main bundle (the user's language), or one localization of it.
+    static func bundle(for language: String?) -> Bundle {
+        guard let language,
+              let path = Bundle.main.path(forResource: language, ofType: "lproj"),
+              let bundle = Bundle(path: path) else { return .main }
+        return bundle
+    }
+
+    static func locale(for language: String?) -> Locale {
+        language.map { Locale(identifier: $0) } ?? .current
     }
 
     /// VoiceOver label: "Folito, 45% of Pride and Prejudice" (VoiceOver reads "45 percent").
@@ -78,10 +96,21 @@ struct ComplicationPreviewTintKey: EnvironmentKey {
     static let defaultValue: Color? = nil
 }
 
+/// Forces one localization (an `.lproj` name such as "ja") when rendering the App Store complication snapshots,
+/// whatever the test runner's language. Never set in the widget extension, which follows the user's language.
+struct ComplicationPreviewLanguageKey: EnvironmentKey {
+    static let defaultValue: String? = nil
+}
+
 extension EnvironmentValues {
     var complicationPreviewTint: Color? {
         get { self[ComplicationPreviewTintKey.self] }
         set { self[ComplicationPreviewTintKey.self] = newValue }
+    }
+
+    var complicationPreviewLanguage: String? {
+        get { self[ComplicationPreviewLanguageKey.self] }
+        set { self[ComplicationPreviewLanguageKey.self] = newValue }
     }
 }
 
@@ -94,8 +123,13 @@ struct ComplicationView: View {
     @Environment(\.redactionReasons) private var redactionReasons
     @Environment(\.isLuminanceReduced) private var isLuminanceReduced
     @Environment(\.complicationPreviewTint) private var previewTint
+    @Environment(\.complicationPreviewLanguage) private var previewLanguage
 
     private var isRedacted: Bool { redactionReasons.contains(.privacy) }
+    private var locale: Locale { ComplicationText.locale(for: previewLanguage) }
+    private var startReading: String { ComplicationText.startReading(language: previewLanguage) }
+
+    private func percent(_ fraction: Double) -> String { ComplicationText.percent(fraction, locale: locale) }
 
     /// Brand colour in full colour; in tinted / vibrant modes the system colours the accentable parts.
     private var accent: Color {
@@ -133,7 +167,7 @@ struct ComplicationView: View {
             Gauge(value: snapshot.fraction) {
                 Image(systemName: "book.fill")
             } currentValueLabel: {
-                Text(ComplicationText.percent(snapshot.fraction))
+                Text(percent(snapshot.fraction))
                     .minimumScaleFactor(0.6)
             }
             .gaugeStyle(.accessoryCircular)
@@ -160,13 +194,13 @@ struct ComplicationView: View {
             .widgetLabel {
                 if let snapshot {
                     Gauge(value: snapshot.fraction) {
-                        Text(ComplicationText.percent(snapshot.fraction))
+                        Text(percent(snapshot.fraction))
                     } currentValueLabel: {
-                        Text(ComplicationText.percent(snapshot.fraction))
+                        Text(percent(snapshot.fraction))
                     }
                     .tint(accent)
                 } else {
-                    Text(ComplicationText.startReading)
+                    Text(startReading)
                 }
             }
     }
@@ -176,16 +210,16 @@ struct ComplicationView: View {
     @ViewBuilder private var inline: some View {
         if let snapshot {
             if isRedacted {
-                Text(ComplicationText.inline(snapshot, title: ""))
+                Text(ComplicationText.inline(snapshot, title: "", locale: locale))
             } else {
                 ViewThatFits {
-                    Text(ComplicationText.inline(snapshot))
-                    Text(ComplicationText.inline(snapshot, title: ComplicationText.shortTitle(snapshot.title)))
-                    Text(ComplicationText.inline(snapshot, title: ""))
+                    Text(ComplicationText.inline(snapshot, locale: locale))
+                    Text(ComplicationText.inline(snapshot, title: ComplicationText.shortTitle(snapshot.title), locale: locale))
+                    Text(ComplicationText.inline(snapshot, title: "", locale: locale))
                 }
             }
         } else {
-            Text(ComplicationText.startReading)
+            Text(startReading)
         }
     }
 
@@ -216,12 +250,12 @@ struct ComplicationView: View {
                         .gaugeStyle(.accessoryLinearCapacity)
                         .tint(accent)
                         .widgetAccentable()
-                    Text(ComplicationText.percent(snapshot.fraction))
+                    Text(percent(snapshot.fraction))
                         .font(.caption2.monospacedDigit())
                         .fixedSize()
                 }
                 if let minutes = snapshot.minutesLeft {
-                    Text(ComplicationText.minutesLeft(minutes))
+                    Text(ComplicationText.minutesLeft(minutes, language: previewLanguage))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -238,7 +272,7 @@ struct ComplicationView: View {
                     Text(ComplicationText.appName)
                         .font(.headline)
                 }
-                Text(ComplicationText.startReading)
+                Text(startReading)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
