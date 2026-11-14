@@ -93,15 +93,23 @@ public struct ProcessedBook: Codable, Sendable, Equatable {
     public var metaHash: String
     public var chapters: [Chapter]
     public var totalCharacters: Int
+    /// Flat table of contents in document order (see `TOCEntry`, `TOCIndex`). Optional so that books stored
+    /// before it existed still decode (nil), and so that older watch builds, which ignore unknown keys, still
+    /// read new books: `formatVersion` stays 1. Nil also when the book has neither a TOC nor headings.
+    public var toc: [TOCEntry]?
+    public var tocSource: TOCSource?
 
     public init(formatVersion: Int = ProcessedBook.currentFormatVersion, metadata: BookMetadata,
-                documentHash: String, metaHash: String, chapters: [Chapter], totalCharacters: Int) {
+                documentHash: String, metaHash: String, chapters: [Chapter], totalCharacters: Int,
+                toc: [TOCEntry]? = nil, tocSource: TOCSource? = nil) {
         self.formatVersion = formatVersion
         self.metadata = metadata
         self.documentHash = documentHash
         self.metaHash = metaHash
         self.chapters = chapters
         self.totalCharacters = totalCharacters
+        self.toc = toc
+        self.tocSource = tocSource
     }
 }
 

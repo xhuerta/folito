@@ -9,6 +9,14 @@ struct RawBlock: Equatable {
     var path: [PathStep]
 }
 
+/// Where an element id (a TOC `#fragment` target) lives in the extracted blocks of one document.
+struct AnchorTarget: Equatable {
+    /// Index into the document's blocks; equal to the block count when no block follows the id.
+    var blockIndex: Int
+    /// Character offset inside that block (non-zero for an id on an inline element mid-paragraph).
+    var characterOffset: Int
+}
+
 /// Accumulates whitespace-collapsed text with inline style spans (UTF-16 ranges).
 struct TextAccumulator {
     private(set) var text = ""
@@ -19,6 +27,9 @@ struct TextAccumulator {
     private var lastItalic = false
 
     var isEmpty: Bool { text.isEmpty }
+
+    /// Character offset the next visible character will get (counting a pending separator).
+    var nextCharacterOffset: Int { text.count + (pendingSeparator == nil ? 0 : 1) }
 
     mutating func append(_ string: String, bold: Bool, italic: Bool) {
         for ch in string {
@@ -68,6 +79,8 @@ final class BlockExtractor: XMLEventHandler {
         var buffer = TextAccumulator()
         var bold = false
         var italic = false
+        /// Wanted ids on inline elements inside this block, with their character offset in `buffer`.
+        var pendingIDs: [(id: String, offset: Int)] = []
 
         init(name: String, path: [PathStep], isBlock: Bool, style: BlockStyle) {
             self.name = name
@@ -103,6 +116,27 @@ final class BlockExtractor: XMLEventHandler {
     private var boldDepth = 0
     private var italicDepth = 0
 
+    /// Element ids to locate (`#fragment`s the TOC points at in this document). Empty: record nothing.
+    private let wantedIDs: Set<String>
+    private var notedIDs: Set<String> = []
+    /// Ids seen before the next block is emitted; they resolve to that block's start.
+    private var idsForNextBlock: [String] = []
+    private(set) var anchors: [String: AnchorTarget] = [:]
+
+    init(wantedIDs: Set<String> = []) {
+        self.wantedIDs = wantedIDs
+    }
+
+    /// The wanted ids (`id`, or `name` on `<a>`) of an element that were not seen before.
+    private func newIDs(_ name: String, _ attributes: [String: String]) -> [String] {
+        guard !wantedIDs.isEmpty else { return [] }
+        var out: [String] = []
+        for key in name == "a" ? ["id", "name"] : ["id"] {
+            if let v = attributes[key], wantedIDs.contains(v), notedIDs.insert(v).inserted { out.append(v) }
+        }
+        return out
+    }
+
     func startElement(_ name: String, attributes: [String: String]) {
         if !inBody {
             if name == "body", !bodyDone {
@@ -111,15 +145,30 @@ final class BlockExtractor: XMLEventHandler {
             }
             return
         }
-        if skipDepth > 0 { skipDepth += 1; return }
-        if transparentDepth > 0 || stack.count > Self.maxDepth { transparentDepth += 1; return }
+        let ids = newIDs(name, attributes)
+        // An id inside a skipped subtree (svg, script, ...) resolves to the next block.
+        if skipDepth > 0 { idsForNextBlock += ids; skipDepth += 1; return }
+        if transparentDepth > 0 || stack.count > Self.maxDepth {
+            let block = nearestBlock()
+            for id in ids { block.pendingIDs.append((id, block.buffer.nextCharacterOffset)) }
+            transparentDepth += 1
+            return
+        }
         let parent = stack[stack.count - 1]
         let index = (parent.childCounts[name] ?? 0) + 1
         parent.childCounts[name] = index  // counted over ALL element siblings, as crengine does
-        if Self.skippedElements.contains(name) { skipDepth = 1; return }
+        if Self.skippedElements.contains(name) { idsForNextBlock += ids; skipDepth = 1; return }
 
         let isBlock = !Self.inlineElements.contains(name)
-        if isBlock { flush(nearestBlock()) }
+        if isBlock {
+            flush(nearestBlock())
+            // An id on a block (heading, wrapper div/section) resolves to the first block emitted inside or after it.
+            idsForNextBlock += ids
+        } else if !ids.isEmpty {
+            // An id on an inline element (span, empty <a id>) points into the enclosing block at the current offset.
+            let block = nearestBlock()
+            for id in ids { block.pendingIDs.append((id, block.buffer.nextCharacterOffset)) }
+        }
         if name == "br" {
             nearestBlock().buffer.lineBreak()
         }
@@ -153,6 +202,11 @@ final class BlockExtractor: XMLEventHandler {
     /// Flushes everything still open. Safe to call more than once.
     func finish() {
         while let frame = stack.popLast() { flush(frame) }
+        // Ids after the last block: past the end of the document (the resolver moves on to what follows).
+        for id in idsForNextBlock where anchors[id] == nil {
+            anchors[id] = AnchorTarget(blockIndex: blocks.count, characterOffset: 0)
+        }
+        idsForNextBlock = []
         inBody = false
         bodyDone = true
     }
@@ -163,11 +217,27 @@ final class BlockExtractor: XMLEventHandler {
     }
 
     private func flush(_ frame: Frame) {
-        guard !frame.buffer.isEmpty else { return }
+        let ids = frame.pendingIDs
+        frame.pendingIDs = []
         // Blocks that only hold invisible characters (e.g. `<td>&nbsp;</td>` spacer cells) are dropped.
-        guard frame.buffer.text.unicodeScalars.contains(where: { !Self.invisible.contains($0) }) else {
+        guard !frame.buffer.isEmpty,
+              frame.buffer.text.unicodeScalars.contains(where: { !Self.invisible.contains($0) }) else {
             frame.buffer = TextAccumulator()
+            idsForNextBlock += ids.map(\.id)
             return
+        }
+        if !idsForNextBlock.isEmpty || !ids.isEmpty {
+            let index = blocks.count
+            for id in idsForNextBlock where anchors[id] == nil {
+                anchors[id] = AnchorTarget(blockIndex: index, characterOffset: 0)
+            }
+            idsForNextBlock = []
+            let count = frame.buffer.text.count
+            for (id, offset) in ids {
+                // An anchor at the very end of a paragraph belongs to what follows it.
+                if offset < count { if anchors[id] == nil { anchors[id] = AnchorTarget(blockIndex: index, characterOffset: offset) } }
+                else { idsForNextBlock.append(id) }
+            }
         }
         blocks.append(RawBlock(text: frame.buffer.text, style: frame.style, spans: frame.buffer.spans, path: frame.path))
         frame.buffer = TextAccumulator()
@@ -193,5 +263,12 @@ final class BlockExtractor: XMLEventHandler {
         let result = XMLReader.parse(XMLSanitizer.decode(data)) { BlockExtractor() }
         result.handler.finish()
         return (result.handler.blocks, result.wasLenient)
+    }
+
+    /// Extracts blocks and locates `wantedIDs` (see `AnchorTarget`).
+    static func extract(from data: Data, wantedIDs: Set<String>) -> (blocks: [RawBlock], anchors: [String: AnchorTarget]) {
+        let result = XMLReader.parse(XMLSanitizer.decode(data)) { BlockExtractor(wantedIDs: wantedIDs) }
+        result.handler.finish()
+        return (result.handler.blocks, result.handler.anchors)
     }
 }

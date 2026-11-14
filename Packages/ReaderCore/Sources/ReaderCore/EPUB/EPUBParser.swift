@@ -29,6 +29,7 @@ public protocol EPUBParsing: Sendable {
 /// - Spine items that are not XHTML, are missing from the archive, or contain no text produce no `Chapter`;
 ///   `Chapter.spineIndex` still carries the original position.
 /// - Malformed XHTML is parsed leniently rather than rejected.
+/// - The table of contents (`ProcessedBook.toc`) is built separately from the spine chapters, see `TOCBuilder`.
 public struct EPUBParser: EPUBParsing {
     private let identity: DocumentIdentifying
     private let xpointers: XPointerGenerating
@@ -52,8 +53,16 @@ public struct EPUBParser: EPUBParsing {
         guard !package.spine.isEmpty else { throw EPUBError.emptySpine }
 
         let titles = Self.chapterTitles(package: package, zip: zip)
+        let navTOC = TOCBuilder.navEntries(package: package, zip: zip)
+        let ncxTOC = TOCBuilder.ncxEntries(package: package, zip: zip)
+        let wantedIDs = TOCBuilder.wantedIDs(navTOC, ncxTOC)
 
         var chapters: [Chapter] = []
+        var anchors: [[String: AnchorTarget]] = []
+        var spineIndexByPath: [String: Int] = [:]
+        for (i, item) in package.spine.enumerated() where spineIndexByPath[item.path] == nil {
+            spineIndexByPath[item.path] = i + 1
+        }
         var offset = 0
         for (i, item) in package.spine.enumerated() {
             let spineIndex = i + 1
@@ -62,7 +71,8 @@ public struct EPUBParser: EPUBParsing {
             do { data = try zip.data(at: item.path) }
             catch EPUBError.archiveTooLarge { throw EPUBError.archiveTooLarge }
             catch { continue }  // unreadable or oversized single chapter: skip it
-            let raw = BlockExtractor.extract(from: data).blocks
+            let extracted = BlockExtractor.extract(from: data, wantedIDs: wantedIDs[item.path] ?? [])
+            let raw = extracted.blocks
             guard !raw.isEmpty else { continue }
             var blocks: [Block] = []
             blocks.reserveCapacity(raw.count)
@@ -74,12 +84,15 @@ public struct EPUBParser: EPUBParsing {
             }
             let title = titles[item.path] ?? blocks.first(where: { Self.isHeading($0.style) })?.text
             chapters.append(Chapter(spineIndex: spineIndex, title: title, blocks: blocks))
+            anchors.append(extracted.anchors)
         }
+        let toc = TOCBuilder.build(nav: navTOC, ncx: ncxTOC,
+                                   context: .init(chapters: chapters, spineIndexByPath: spineIndexByPath, anchors: anchors))
 
         let documentHash = try identity.partialMD5(fileAt: url)
         return ProcessedBook(metadata: package.metadata, documentHash: documentHash,
                              metaHash: identity.metaHash(for: package.metadata),
-                             chapters: chapters, totalCharacters: offset)
+                             chapters: chapters, totalCharacters: offset, toc: toc?.toc, tocSource: toc?.source)
     }
 
     // MARK: - Package document

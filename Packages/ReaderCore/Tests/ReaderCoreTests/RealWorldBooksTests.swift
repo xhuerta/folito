@@ -15,24 +15,76 @@ final class RealWorldBooksTests: XCTestCase {
         if let reportDir { try FileManager.default.createDirectory(at: reportDir, withIntermediateDirectories: true) }
         let files = try FileManager.default.contentsOfDirectory(atPath: dir).filter { $0.hasSuffix(".epub") }.sorted()
         XCTAssertFalse(files.isEmpty)
-        var report = "name\tepubKB\tparseSec\tchapters\tblocks\tchars\tjsonKB\thash\ttitle\n"
+        var report = "name\tepubKB\tparseSec\tchapters\tblocks\tchars\tjsonKB\thash\ttitle\ttocSource\ttocEntries\ttocMaxDepth\ttocUnresolved\ttocOutOfOrder\ttocChapterLevel\n"
         for f in files {
             let url = URL(fileURLWithPath: dir).appendingPathComponent(f)
             let size = (try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int) ?? 0
             let t0 = Date()
             let book = try EPUBParser().process(epubAt: url)
             let secs = Date().timeIntervalSince(t0)
-            if ProcessInfo.processInfo.environment["FOLITO_SKIP_INVARIANTS"] == nil { try Self.checkInvariants(book, name: f) }
+            if ProcessInfo.processInfo.environment["FOLITO_SKIP_INVARIANTS"] == nil {
+                try Self.checkInvariants(book, name: f)
+                Self.checkTOC(book, name: f)
+            }
             let enc = JSONEncoder()
             let json = try enc.encode(book)
             let decoded = try JSONDecoder().decode(ProcessedBook.self, from: json)
             XCTAssertEqual(decoded, book, f)
             if let reportDir { try json.write(to: reportDir.appendingPathComponent(f + ".book.json")) }
             let nBlocks = book.chapters.reduce(0) { $0 + $1.blocks.count }
-            report += "\(f)\t\(size / 1024)\t\(String(format: "%.2f", secs))\t\(book.chapters.count)\t\(nBlocks)\t\(book.totalCharacters)\t\(json.count / 1024)\t\(book.documentHash)\t\(book.metadata.title)\n"
+            report += "\(f)\t\(size / 1024)\t\(String(format: "%.2f", secs))\t\(book.chapters.count)\t\(nBlocks)\t\(book.totalCharacters)\t\(json.count / 1024)\t\(book.documentHash)\t\(book.metadata.title)\t\(Self.tocColumns(book))\n"
             print("REAL \(f): \(size / 1024)KB parse=\(String(format: "%.2f", secs))s chapters=\(book.chapters.count) blocks=\(nBlocks) chars=\(book.totalCharacters) json=\(json.count / 1024)KB")
         }
         if let reportDir { try report.write(to: reportDir.appendingPathComponent("report.tsv"), atomically: true, encoding: .utf8) }
+    }
+
+    /// tocSource, entries, max depth, unresolved entries, out-of-order entries, chapter level (0-based).
+    static func tocColumns(_ book: ProcessedBook) -> String {
+        guard let toc = book.toc, let index = TOCIndex(book: book) else { return "-\t0\t0\t0\t0\t-" }
+        let unresolved = toc.filter { $0.position == nil }.count
+        let outOfOrder = toc.indices.filter { toc[$0].position != nil && !index.isOrdered[$0] }.count
+        return "\(book.tocSource?.rawValue ?? "-")\t\(toc.count)\t\((toc.map(\.depth).max() ?? 0) + 1)\t\(unresolved)\t\(outOfOrder)\t\(index.chapterLevel)"
+    }
+
+    /// Known TOC shapes of the books `scripts/check_real_books.sh` downloads (Project Gutenberg splits big
+    /// HTML files by size, so most entries are `#fragment`s into a few spine items): a minimum entry count,
+    /// and a label whose resolved block must contain that text.
+    static let tocExpectations: [String: (minEntries: Int, probe: String?)] = [
+        "moby.epub": (135, "Loomings"),
+        "pride.epub": (61, nil),
+        "lesmis.epub": (380, nil),
+        "alice.epub": (12, "Rabbit-Hole"),
+    ]
+
+    static func checkTOC(_ book: ProcessedBook, name: String, file: StaticString = #filePath, line: UInt = #line) {
+        func fail(_ m: String) { XCTFail("\(name): \(m)", file: file, line: line) }
+        guard let toc = book.toc, let index = TOCIndex(book: book) else {
+            if tocExpectations[name] != nil { fail("no TOC") }
+            return
+        }
+        for (i, e) in toc.enumerated() {
+            if i > 0, e.depth > toc[i - 1].depth + 1 { fail("TOC depth jumps at \(i)") }
+            guard let p = e.position else { continue }
+            if !book.chapters.indices.contains(p.chapterIndex) || !book.chapters[p.chapterIndex].blocks.indices.contains(p.blockIndex)
+                || p.characterOffset > book.chapters[p.chapterIndex].blocks[p.blockIndex].text.count {
+                fail("TOC entry \(i) out of range: \(p)")
+            }
+        }
+        let resolved = toc.filter { $0.position != nil }.count
+        let ordered = index.isOrdered.filter { $0 }.count
+        if Double(ordered) < 0.95 * Double(resolved) { fail("only \(ordered)/\(resolved) TOC entries in order") }
+        guard let expected = tocExpectations[name] else { return }
+        if toc.count < expected.minEntries { fail("TOC has \(toc.count) entries, expected >= \(expected.minEntries)") }
+        // Fragments resolve into the files: far more distinct positions than spine chapters.
+        let distinct = Set(toc.compactMap { $0.position.map { "\($0.chapterIndex):\($0.blockIndex)" } }).count
+        if Double(distinct) < 0.8 * Double(toc.count) { fail("only \(distinct) distinct TOC positions for \(toc.count) entries") }
+        if let probe = expected.probe {
+            guard let entry = toc.first(where: { $0.title.localizedCaseInsensitiveContains(probe) }), let p = entry.position else {
+                fail("no resolved TOC entry for \(probe)"); return
+            }
+            let text = book.chapters[p.chapterIndex].blocks[p.blockIndex].text
+            if !text.localizedCaseInsensitiveContains(probe) { fail("TOC \(probe) resolves to \"\(text.prefix(60))\"") }
+        }
     }
 
     static func checkInvariants(_ book: ProcessedBook, name: String, file: StaticString = #filePath, line: UInt = #line) throws {

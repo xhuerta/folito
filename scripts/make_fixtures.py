@@ -136,6 +136,101 @@ def build(out):
     })
 
 
+def build_toc(out):
+    """Table-of-contents fixtures (several chapters per file, group headings, NCX-only, odd hrefs)."""
+    # Parts with several chapters per file: fragments on headings, a wrapper div, an inline span mid-paragraph,
+    # an empty <a id>, <a name>, an id inside svg, an image-only paragraph and a missing id. The nav has a
+    # <span> group heading, an <a> labelled only by @title, a hidden sub-list, landmarks and a page-list;
+    # the stale NCX disagrees and must lose.
+    toc_nav = xhtml(
+        '<nav epub:type="toc"><h1>Contents</h1><ol>'
+        '<li><a href="part1.xhtml#p1">Part One</a><ol hidden="">'
+        '<li><a href="part1.xhtml#c1">Chapter 1</a></li>'
+        '<li><a href="part1.xhtml#c2">Chapter 2</a></li>'
+        '<li><a href="part1.xhtml#c3">Chapter 3</a></li></ol></li>'
+        '<li><span>Part Two</span><ol>'
+        '<li><a href="part2.xhtml#c4">Chapter 4</a></li>'
+        '<li><a href="part2.xhtml#c5">Chapter 5</a></li>'
+        '<li><a href="part2.xhtml#c6" title="Chapter 6"></a></li></ol></li>'
+        '<li><a href="part3.xhtml#fig">Figure</a></li>'
+        '<li><a href="part3.xhtml#img">Image</a></li>'
+        '<li><a href="part3.xhtml#missing">Missing</a></li>'
+        '<li><a href="https://example.com/">External</a></li>'
+        '</ol></nav>'
+        '<nav epub:type="landmarks" hidden=""><ol><li><a epub:type="bodymatter" href="part1.xhtml">Start</a></li></ol></nav>'
+        '<nav epub:type="page-list" hidden=""><ol><li><a href="part1.xhtml#c2">2</a></li></ol></nav>')
+    write_epub(os.path.join(out, "toc_parts.epub"), {
+        "OEBPS/content.opf": opf("Parts", ["P"], "en", [(None, "toc-parts-1")],
+                                 [("nav", "nav.xhtml", XH, "nav"), ("ncx", "toc.ncx", "application/x-dtbncx+xml", None),
+                                  ("p1", "part1.xhtml", XH, None), ("p2", "part2.xhtml", XH, None),
+                                  ("p3", "part3.xhtml", XH, None)],
+                                 [("p1", True), ("p2", True), ("p3", True)], version="3.0"),
+        "OEBPS/nav.xhtml": toc_nav,
+        "OEBPS/toc.ncx": ncx([("Stale One", "part1.xhtml"), ("Stale Two", "part2.xhtml")]),
+        "OEBPS/part1.xhtml": xhtml(
+            '<h1 id="p1">Part One</h1><h2 id="c1">Chapter 1</h2><p>Body one.</p>'
+            '<h2 id="c2">Chapter 2</h2><p>Body two.</p>'
+            '<div id="c3" class="chapter"><h2>Chapter 3</h2><p>Body three.</p></div>'),
+        "OEBPS/part2.xhtml": xhtml(
+            '<h1>Part Two</h1><p>Intro text. <span id="c4"></span>Chapter four starts here.</p>'
+            '<p>Four body.</p><a id="c5"></a><h2>Chapter 5</h2><p>Five body.</p>'
+            '<p><a name="c6"></a>Chapter six text.</p>'),
+        "OEBPS/part3.xhtml": xhtml(
+            '<p>Before figure.</p><svg xmlns="http://www.w3.org/2000/svg"><g id="fig"><text>x</text></g></svg>'
+            '<p>After figure.</p><p id="img"><img src="x.png" alt=""/></p><p>After image.</p>'),
+    })
+    # EPUB 2, NCX only: nesting, wrong/duplicate playOrder, an empty label, percent-encoded hrefs and ids,
+    # a textless spine item, a chapter split over two files, a non-spine and a missing target, and an
+    # out-of-order duplicate.
+    points = [
+        (0, 3, "Book One", "Text/Chapter%201.xhtml"),
+        (1, 1, "Chapter One", "Text/Chapter%201.xhtml#c1"),
+        (1, 1, "", "Text/Chapter%201.xhtml#c2"),
+        (0, 7, "Book Two", "Text/blank.xhtml"),
+        (1, 2, "Été", "Text/%C3%A9t%C3%A9.xhtml#%C3%A9t%C3%A9"),
+        (1, 4, "Split", "Text/ch5_split_000.xhtml"),
+        (0, 5, "Notes", "Text/notes.xhtml"),
+        (0, 6, "Missing", "Text/missing.xhtml"),
+        (0, 2, "Again", "Text/Chapter%201.xhtml#c1"),
+    ]
+    xml, depth = "", -1
+    for i, (d, order, label, src) in enumerate(points):
+        if d <= depth:
+            xml += "</navPoint>" * (depth - d + 1)
+        xml += ('<navPoint id="n%d" playOrder="%d"><navLabel><text>%s</text></navLabel><content src="%s"/>'
+                % (i, order, label, src))
+        depth = d
+    xml += "</navPoint>" * (depth + 1)
+    write_epub(os.path.join(out, "toc_ncx.epub"), {
+        "OEBPS/content.opf": opf("NCX Only", ["N"], "en", [(None, "toc-ncx-1")],
+                                 [("ncx", "toc.ncx", "application/x-dtbncx+xml", None),
+                                  ("a", "Text/Chapter%201.xhtml", XH, None), ("b", "Text/blank.xhtml", XH, None),
+                                  ("e", "Text/%C3%A9t%C3%A9.xhtml", XH, None),
+                                  ("s0", "Text/ch5_split_000.xhtml", XH, None), ("s1", "Text/ch5_split_001.xhtml", XH, None),
+                                  ("notes", "Text/notes.xhtml", XH, None)],
+                                 [("a", True), ("b", True), ("e", True), ("s0", True), ("s1", True)]),
+        "OEBPS/toc.ncx": ('<?xml version="1.0"?><ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">'
+                          '<head/><docTitle><text>x</text></docTitle><navMap>%s</navMap>'
+                          '<pageList><pageTarget id="pg1" type="normal" value="1"><navLabel><text>1</text></navLabel>'
+                          '<content src="Text/Chapter%%201.xhtml"/></pageTarget></pageList></ncx>' % xml),
+        "OEBPS/Text/Chapter 1.xhtml": xhtml(
+            '<section id="c1"><h2>First Heading</h2><p>One.</p></section><h2 id="c2">Second Heading</h2><p>Two.</p>'),
+        "OEBPS/Text/blank.xhtml": xhtml('<div><img src="x.png" alt=""/></div>'),
+        "OEBPS/Text/été.xhtml": xhtml('<p>Intro.</p><h2 id="été">Été</h2><p>Summer.</p>'),
+        "OEBPS/Text/ch5_split_000.xhtml": xhtml('<h2>Split</h2><p>First half.</p>'),
+        "OEBPS/Text/ch5_split_001.xhtml": xhtml('<p>Second half.</p>'),
+        "OEBPS/Text/notes.xhtml": xhtml('<p>A note.</p>'),
+    })
+    # No nav, no NCX: the TOC falls back to h1-h3 headings (h1 then h3 still nests one level deep).
+    write_epub(os.path.join(out, "toc_none.epub"), {
+        "OEBPS/content.opf": opf("No TOC", ["X"], "en", [(None, "toc-none-1")],
+                                 [("c1", "c1.xhtml", XH, None), ("c2", "c2.xhtml", XH, None)],
+                                 [("c1", True), ("c2", True)], toc=None),
+        "OEBPS/c1.xhtml": xhtml('<h1>Alpha</h1><p>a</p><h3>Alpha sub</h3><p>b</p><h4>Too deep</h4><p>c</p>'),
+        "OEBPS/c2.xhtml": xhtml('<h2>Beta</h2><p>d</p>'),
+    })
+
+
 def tiny_png(w=2, h=3, rgb=(0x3D, 0x5A, 0x80)):
     """A valid w x h solid-colour PNG, built without third-party modules."""
     def chunk(tag, data):
@@ -244,4 +339,5 @@ if __name__ == "__main__":
     os.makedirs(out, exist_ok=True)
     build(out)
     build_covers(out)
+    build_toc(out)
     print("fixtures written to", out)

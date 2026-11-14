@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # End-to-end check of ReaderCore against REAL EPUBs (Project Gutenberg, public domain).
+# Also checks the table of contents (ReaderCore TOCEntry): ranges, order, entry counts and resolved fragments.
 # Nothing is committed: books go to a scratch dir. Usage: scripts/check_real_books.sh [SCRATCH_DIR]
 # Needs: curl, python3, swift (PATH), optional luajit (real KOReader partialMD5 semantics).
 set -euo pipefail
