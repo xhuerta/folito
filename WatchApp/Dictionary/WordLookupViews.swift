@@ -32,37 +32,53 @@ struct WordPickerView: View {
     /// Side of the round previous / next buttons: the watchOS minimum tap target, scaled with Dynamic Type.
     @ScaledMetric(relativeTo: .body) private var arrowSize: CGFloat = 40
 
+    /// The crown drives the word cursor, so it must hold the focus: a bare `.focusable()` view does not get
+    /// it by itself, and the crown then went to the enclosing scroll view and scrolled the page instead.
+    @FocusState private var cursorFocused: Bool
+
     var body: some View {
-        // Scrolls at large text sizes; the crown stays on the word cursor (focused view) while the page
-        // can still be scrolled by touch.
-        ScrollView {
-            VStack(spacing: 6) {
-                cursor
-                // One compact row (previous, Look Up, next) so the word and its context keep the screen
-                // on a 40-45 mm watch. At large text sizes the row does not fit and the buttons stack.
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 4) {
-                        arrow(-1)
-                        lookUpButton.layoutPriority(1)
-                        arrow(1)
-                    }
-                    VStack(spacing: 4) {
-                        HStack(spacing: 4) {
-                            arrow(-1)
-                            Spacer(minLength: 0)
-                            arrow(1)
-                        }
-                        lookUpButton
-                    }
-                }
-            }
+        // A single page, no scroll view, so nothing competes with the cursor for the crown. The context gets
+        // fewer lines when the page does not fit (large text sizes); only past that, at the largest
+        // accessibility sizes, does the page scroll by touch, with the crown still on the cursor.
+        ViewThatFits(in: .vertical) {
+            page(contextLines: 6)
+            page(contextLines: 3)
+            ScrollView { page(contextLines: 3) }
         }
         .navigationTitle("Word")
         .navigationBarTitleDisplayMode(.inline)
+        // Also on the way back from the definition, which took the focus for its own list.
+        .onAppear { cursorFocused = true }
+    }
+
+    private func page(contextLines: Int) -> some View {
+        VStack(spacing: 6) {
+            cursor(contextLines: contextLines)
+            // One compact row (previous, Look Up, next) so the word and its context keep the screen
+            // on a 40-45 mm watch. At large text sizes the row does not fit and the buttons stack.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 4) {
+                    arrow(-1)
+                    lookUpButton.layoutPriority(1)
+                    arrow(1)
+                }
+                VStack(spacing: 4) {
+                    HStack(spacing: 4) {
+                        arrow(-1)
+                        Spacer(minLength: 0)
+                        arrow(1)
+                    }
+                    lookUpButton
+                }
+            }
+        }
     }
 
     private func arrow(_ delta: Int) -> some View {
-        Button { model.step(delta) } label: {
+        Button {
+            model.step(delta)
+            cursorFocused = true
+        } label: {
             Label(delta < 0 ? "Previous Word" : "Next Word",
                   systemImage: delta < 0 ? "chevron.backward" : "chevron.forward")
                 .labelStyle(.iconOnly)
@@ -94,7 +110,7 @@ struct WordPickerView: View {
 
     /// The selected word in its context. One adjustable VoiceOver element: it announces the word and its
     /// position, and swiping up / down moves to the next / previous word.
-    private var cursor: some View {
+    private func cursor(contextLines: Int) -> some View {
         VStack(spacing: 2) {
             Text(model.currentWord)
                 .font(.title3.weight(.semibold))
@@ -104,7 +120,7 @@ struct WordPickerView: View {
                 Text(Self.highlighted(context))
                     .font(.footnote)
                     .multilineTextAlignment(.center)
-                    .lineLimit(6)
+                    .lineLimit(contextLines)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Text(model.positionText)
@@ -112,6 +128,8 @@ struct WordPickerView: View {
         }
         .frame(maxWidth: .infinity)
         .focusable()
+        .focused($cursorFocused)
+        // One detent (and haptic click) per word, stopping at the first and last word.
         .digitalCrownRotation($model.cursor, from: 0, through: model.maxCursor, by: 1,
                               sensitivity: .medium, isContinuous: false, isHapticFeedbackEnabled: true)
         .accessibilityElement(children: .ignore)

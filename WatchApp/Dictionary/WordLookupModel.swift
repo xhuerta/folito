@@ -39,10 +39,16 @@ final class WordLookupModel: ObservableObject {
     }
 
     var hasWords: Bool { !tokens.isEmpty }
-    var index: Int { min(max(Int(cursor.rounded()), 0), max(tokens.count - 1, 0)) }
+    var index: Int { Self.wordIndex(forCrownValue: cursor, wordCount: tokens.count) }
     var currentWord: String { tokens.isEmpty ? "" : tokens[index].text }
     var context: WordContext? { WordContext.make(text: text, tokens: tokens, index: index) }
     var maxCursor: Double { Double(max(tokens.count - 1, 1)) }
+
+    /// The word a crown value selects: the nearest detent, clamped to the words (0 when there are none).
+    nonisolated static func wordIndex(forCrownValue value: Double, wordCount: Int) -> Int {
+        guard wordCount > 0, value.isFinite else { return 0 }
+        return min(max(Int(value.rounded()), 0), wordCount - 1)
+    }
 
     var canStepBack: Bool { hasWords && index > 0 }
     var canStepForward: Bool { hasWords && index < tokens.count - 1 }

@@ -227,20 +227,75 @@ struct TimeRemainingLine: View {
 }
 
 /// Reader body size stepper used in the reader menu, in Settings and in Typography. VoiceOver reads it as
-/// "Text Size, 16 points" and adjusts it with swipe up / down (Stepper is adjustable).
+/// "Text Size, 16 points" and adjusts it with swipe up / down (it is exposed as a Stepper).
 struct TextSizeStepper: View {
     @EnvironmentObject private var typography: TypographyModel
 
     var body: some View {
         let size = Int(typography.value.fontSize)
         SettingStepperRow(title: Text("Text Size")) {
-            Stepper(value: typography.binding(\.fontSize), in: ReaderTypography.fontSizeRange, step: 1) {
+            CrownFreeStepper(value: typography.binding(\.fontSize), in: ReaderTypography.fontSizeRange, step: 1) {
                 SettingStepperValue(Text("\(size) pt", comment: "Reader text size in typographic points, e.g. '16 pt'"))
             }
             .accessibilityLabel(Text("Text Size"))
             .accessibilityValue(Text("\(size) points", comment: "VoiceOver value of the reader text size"))
             .accessibilityIdentifier("textSizeStepper")
         }
+    }
+}
+
+/// A − value + control that looks like the watch Stepper but never takes the Digital Crown.
+///
+/// The system Stepper is crown-focusable: while the crown scrolled a List past it (the reader menu on the way
+/// to the chapters, Settings, Typography), the Stepper grabbed the crown and changed the value instead. Here
+/// the − and + are plain buttons, which the crown ignores, so the crown only scrolls the list. VoiceOver still
+/// gets a real, adjustable Stepper through `accessibilityRepresentation` (swipe up / down), so its label,
+/// value, identifier and element type are unchanged.
+struct CrownFreeStepper<Content: View>: View {
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    let step: Double
+    @ViewBuilder var label: Content
+    /// Height and width of the − / + tap targets: the watchOS minimum, scaled with Dynamic Type.
+    @ScaledMetric(relativeTo: .body) private var buttonSize: CGFloat = 40
+
+    init(value: Binding<Double>, in range: ClosedRange<Double>, step: Double, @ViewBuilder label: () -> Content) {
+        _value = value
+        self.range = range
+        self.step = step
+        self.label = label()
+    }
+
+    var body: some View {
+        HStack(spacing: 2) {
+            button(-1)
+            label.frame(maxWidth: .infinity)
+            button(1)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityRepresentation {
+            Stepper(value: $value, in: range, step: step) { label }
+        }
+    }
+
+    private func button(_ direction: Double) -> some View {
+        let target = Self.stepped(value, by: direction * step, in: range)
+        return Button { value = target } label: {
+            Image(systemName: direction < 0 ? "minus" : "plus")
+                .font(.body.weight(.semibold))
+                .frame(width: buttonSize, height: buttonSize)
+                .background(Circle().fill(.quaternary))
+                .contentShape(Circle())
+        }
+        // Plain: in a List row, each button keeps its own tap area instead of the row firing both.
+        .buttonStyle(.plain)
+        .disabled(target == value)
+        .accessibilityHidden(true)
+    }
+
+    /// `value` moved by `delta` and clamped to `range`.
+    static func stepped(_ value: Double, by delta: Double, in range: ClosedRange<Double>) -> Double {
+        min(max(value + delta, range.lowerBound), range.upperBound)
     }
 }
 
