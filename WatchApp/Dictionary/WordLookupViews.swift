@@ -40,13 +40,21 @@ struct WordPickerView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        // A single page, no scroll view, so nothing competes with the cursor for the crown. The context gets
-        // fewer lines when the page does not fit (large text sizes); only past that, at the largest
-        // accessibility sizes, does the page scroll by touch, with the crown still on the cursor.
-        ViewThatFits(in: .vertical) {
-            page(contextLines: 6)
-            page(contextLines: 3)
-            ScrollView { page(contextLines: 3) }
+        // The controls row is pinned to the bottom and sized first; the word and its context take the space
+        // left above it, top-aligned, so the buttons stay put while the crown moves between words whatever
+        // the length of the context. `ViewThatFits` only chooses how much context fits in that space: fewer
+        // lines at large text sizes, and only past that, at the largest accessibility sizes, does the text
+        // scroll by touch, with the crown still on the focused cursor inside it. The controls never sit in
+        // a scroll view.
+        VStack(spacing: 6) {
+            ViewThatFits(in: .vertical) {
+                cursor(contextLines: 6)
+                cursor(contextLines: 3)
+                ScrollView { cursor(contextLines: 3) }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            controls
+                .layoutPriority(1)
         }
         .navigationTitle("Word")
         .navigationBarTitleDisplayMode(.inline)
@@ -75,27 +83,26 @@ struct WordPickerView: View {
         cursorFocused = true
     }
 
-    private func page(contextLines: Int) -> some View {
-        VStack(spacing: 6) {
-            cursor(contextLines: contextLines)
-            // One compact row (previous, Look Up, next) so the word and its context keep the screen
-            // on a 40-45 mm watch. At large text sizes the row does not fit and the buttons stack.
-            ViewThatFits(in: .horizontal) {
+    /// Previous, Look Up and next, pinned below the text.
+    private var controls: some View {
+        // One compact row (previous, Look Up, next) so the word and its context keep the screen
+        // on a 40-45 mm watch. At large text sizes the row does not fit and the buttons stack.
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 4) {
+                arrow(-1)
+                lookUpButton.layoutPriority(1)
+                arrow(1)
+            }
+            VStack(spacing: 4) {
                 HStack(spacing: 4) {
                     arrow(-1)
-                    lookUpButton.layoutPriority(1)
+                    Spacer(minLength: 0)
                     arrow(1)
                 }
-                VStack(spacing: 4) {
-                    HStack(spacing: 4) {
-                        arrow(-1)
-                        Spacer(minLength: 0)
-                        arrow(1)
-                    }
-                    lookUpButton
-                }
+                lookUpButton
             }
         }
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private func arrow(_ delta: Int) -> some View {
@@ -153,7 +160,7 @@ struct WordPickerView: View {
         .frame(maxWidth: .infinity)
         .focusable()
         .focused($cursorFocused)
-        // Each page variant has its own cursor view: when `ViewThatFits` switches to another one, focus it.
+        // Each `ViewThatFits` variant has its own cursor view: when it switches to another one, focus it.
         .onAppear { reclaimCrown() }
         // One detent (and haptic click) per word, stopping at the first and last word.
         .digitalCrownRotation($model.cursor, from: 0, through: model.maxCursor, by: 1,
