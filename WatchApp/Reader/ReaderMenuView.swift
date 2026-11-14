@@ -19,87 +19,80 @@ struct ReaderMenuView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                // Top of the menu, not over the page: the reading view keeps every point for the text.
-                // The percentage always shows; the time left joins it when it is on and known.
-                Section {
-                    VStack(alignment: .leading, spacing: 2) {
-                        ReadingProgressLine(text: model.progressText())
-                        if showTimeRemaining, let remaining = model.timeRemaining {
-                            TimeRemainingLine(value: remaining)
-                        }
-                    }
-                    .listRowBackground(Color.clear)
-                }
-                if let syncNote {
+            ScrollViewReader { proxy in
+                List {
+                    // Top of the menu, not over the page: the reading view keeps every point for the text.
+                    // The percentage always shows; the time left joins it when it is on and known.
                     Section {
-                        Label {
-                            Text(syncNote).font(.footnote)
-                        } icon: {
-                            Image(systemName: "exclamationmark.arrow.triangle.2.circlepath").foregroundStyle(.tint)
-                        }
-                        .accessibilityElement(children: .combine)
-                        .accessibilityIdentifier("syncNote")
-                    }
-                }
-                Section("Text") {
-                    TextSizeStepper()
-                    NavigationLink("Typography", value: SettingsRoute.typography)
-                        .accessibilityIdentifier("typographyLink")
-                }
-                Section("Dictionary") {
-                    Button {
-                        onLookup()
-                        dismiss()
-                    } label: {
-                        Label("Look Up a Word", systemImage: "character.book.closed")
-                    }
-                }
-                // Sync is forward only, like Readest and KOReader (#112): the open-time prompt only offers a
-                // position that is ahead. This is the way back to one that is behind. Hidden while sync is off.
-                if model.canGoToSyncedPosition {
-                    Section("Sync") {
-                        Button {
-                            goToSyncedPosition()
-                        } label: {
-                            Label("Go to Synced Position", systemImage: "arrow.triangle.2.circlepath")
-                        }
-                        .disabled(fetchingSyncedPosition)
-                        .accessibilityLabel(Text("Go to Synced Position"))
-                        .accessibilityHint(Text("Jumps to the position saved on the sync service, even if it is earlier in the book.",
-                                                comment: "VoiceOver hint of 'Go to Synced Position' in the reader menu"))
-                        .accessibilityIdentifier("goToSyncedPositionButton")
-                        if let syncedPositionNote {
-                            syncedPositionNote
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .accessibilityIdentifier("syncedPositionNote")
-                        }
-                    }
-                }
-                Section("Chapters") {
-                    let current = model.flat.chapterRefIndex(containing: model.currentIndex)
-                    ForEach(Array(model.flat.chapterRefs.enumerated()), id: \.offset) { offset, ref in
-                        Button {
-                            model.jump(to: ref.startIndex)
-                            dismiss()
-                        } label: {
-                            HStack {
-                                Text(ref.title).lineLimit(3)
-                                if offset == current {
-                                    Spacer()
-                                    Image(systemName: "bookmark.fill")
-                                        .foregroundStyle(.tint)
-                                        .accessibilityHidden(true)
-                                }
+                        VStack(alignment: .leading, spacing: 2) {
+                            ReadingProgressLine(text: model.progressText())
+                            if showTimeRemaining, let remaining = model.timeRemaining {
+                                TimeRemainingLine(value: remaining)
                             }
                         }
-                        // The bookmark glyph is visual only: VoiceOver says "selected" instead.
-                        .accessibilityAddTraits(offset == current ? .isSelected : [])
-                        .accessibilityIdentifier("chapterButton")
+                        .listRowBackground(Color.clear)
+                    }
+                    if let syncNote {
+                        Section {
+                            Label {
+                                Text(syncNote).font(.footnote)
+                            } icon: {
+                                Image(systemName: "exclamationmark.arrow.triangle.2.circlepath").foregroundStyle(.tint)
+                            }
+                            .accessibilityElement(children: .combine)
+                            .accessibilityIdentifier("syncNote")
+                        }
+                    }
+                    Section("Text") {
+                        TextSizeStepper()
+                        NavigationLink("Typography", value: SettingsRoute.typography)
+                            .accessibilityIdentifier("typographyLink")
+                    }
+                    Section("Dictionary") {
+                        Button {
+                            onLookup()
+                            dismiss()
+                        } label: {
+                            Label("Look Up a Word", systemImage: "character.book.closed")
+                        }
+                    }
+                    // Sync is forward only, like Readest and KOReader (#112): the open-time prompt only offers a
+                    // position that is ahead. This is the way back to one that is behind. Hidden while sync is off.
+                    if model.canGoToSyncedPosition {
+                        Section("Sync") {
+                            Button {
+                                goToSyncedPosition()
+                            } label: {
+                                Label("Go to Synced Position", systemImage: "arrow.triangle.2.circlepath")
+                            }
+                            .disabled(fetchingSyncedPosition)
+                            .accessibilityLabel(Text("Go to Synced Position"))
+                            .accessibilityHint(Text("Jumps to the position saved on the sync service, even if it is earlier in the book.",
+                                                    comment: "VoiceOver hint of 'Go to Synced Position' in the reader menu"))
+                            .accessibilityIdentifier("goToSyncedPositionButton")
+                            if let syncedPositionNote {
+                                syncedPositionNote
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .accessibilityIdentifier("syncedPositionNote")
+                            }
+                        }
+                    }
+                    Section("Chapters") {
+                        let current = currentRow
+                        ForEach(Array(model.flat.contents.enumerated()), id: \.offset) { offset, row in
+                            ContentsRowView(row: row, isCurrent: offset == current) {
+                                if let start = row.startIndex {
+                                    model.jump(to: start, characterOffset: row.characterOffset)
+                                    dismiss()
+                                }
+                            }
+                            .id(offset)
+                        }
                     }
                 }
+                .onAppear { scrollToCurrentChapter(proxy) }
             }
             // "Options", not "Contents": the sheet holds the text size, typography and the dictionary as well as the
             // chapters, and it is opened from the Reading Options button.
@@ -107,6 +100,21 @@ struct ReaderMenuView: View {
             .navigationDestination(for: SettingsRoute.self) { $0.destination }
         }
     }
+
+    /// Row of the chapter list marked as the current one (nil in front matter before the first TOC entry).
+    private var currentRow: Int? {
+        model.flat.currentContentsRow(at: model.currentIndex, characterOffset: model.currentOffset)
+    }
+
+    /// With a TOC (books can list hundreds of entries), the list opens on the current entry. Not while it is one
+    /// of the first rows, which a short scroll reaches: the sheet then opens at its top, with the progress and the
+    /// text size in view. Books without a TOC open at the top as before.
+    private func scrollToCurrentChapter(_ proxy: ScrollViewProxy) {
+        guard model.flat.toc != nil, let row = currentRow, row >= Self.autoScrollMinimumRow else { return }
+        proxy.scrollTo(row, anchor: .center)
+    }
+
+    static let autoScrollMinimumRow = 3
 
     private func goToSyncedPosition() {
         fetchingSyncedPosition = true
@@ -128,6 +136,62 @@ struct ReaderMenuView: View {
                                           comment: "Shown under 'Go to Synced Position' when fetching the position failed")
             }
         }
+    }
+}
+
+/// A row of the chapter list: a chapter (marked with the bookmark glyph when it is the current one), or a group
+/// header above the chapters ("Part One") in a TOC. VoiceOver reads the group with an indented chapter
+/// ("Chapter 3, in Part One") and says "selected" for the current row.
+struct ContentsRowView: View {
+    let row: FlatBook.ContentsRow
+    let isCurrent: Bool
+    let action: () -> Void
+
+    var body: some View {
+        if row.kind == .group, row.startIndex == nil {
+            label
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(spokenTitle)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("chapterGroup")
+        } else {
+            Button(action: action) { label }
+                .accessibilityLabel(spokenTitle)
+                // The bookmark glyph is visual only: VoiceOver says "selected" instead.
+                .accessibilityAddTraits(isCurrent ? .isSelected : [])
+                .accessibilityAddTraits(row.kind == .group ? .isHeader : [])
+                .accessibilityIdentifier(row.kind == .group ? "chapterGroup" : "chapterButton")
+        }
+    }
+
+    private var label: some View {
+        HStack {
+            title
+            if isCurrent {
+                Spacer()
+                Image(systemName: "bookmark.fill")
+                    .foregroundStyle(.tint)
+                    .accessibilityHidden(true)
+            }
+        }
+        .padding(.leading, row.isIndented ? 8 : 0)
+    }
+
+    @ViewBuilder private var title: some View {
+        if row.kind == .group {
+            Text(row.title)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .lineLimit(3)
+        } else {
+            Text(row.title).lineLimit(3)
+        }
+    }
+
+    private var spokenTitle: Text {
+        guard row.isIndented, let group = row.groupTitle else { return Text(row.title) }
+        return Text("\(row.title), in \(group)",
+                    comment: "VoiceOver label of a chapter in the reader's chapter list, with the part it belongs to, e.g. 'Chapter 3, in Part One'")
     }
 }
 

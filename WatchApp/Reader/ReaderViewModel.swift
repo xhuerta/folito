@@ -115,8 +115,10 @@ final class ReaderViewModel: ObservableObject {
         // Only report once the reader actually moves.
         self.lastReported = Spot(index: start, offset: startOffset)
         // Counting the words of a whole book takes a moment on the watch: do it off the main actor.
+        // With a TOC, "chapter" in the time left is the chapter-level TOC section the menu marks.
+        let toc = flat.toc
         Task.detached(priority: .utility) { [weak self] in
-            let index = BookLengthIndex(book: book)
+            let index = FlatBook.lengthIndex(for: book, toc: toc)
             await self?.lengthsReady(index)
         }
     }
@@ -257,7 +259,7 @@ final class ReaderViewModel: ObservableObject {
 
     /// What the complications show for the current position.
     var complicationSnapshot: ReadingSnapshot {
-        let chapter = flat.chapterRefIndex(containing: currentIndex).map { flat.chapterRefs[$0].title }
+        let chapter = flat.chapterTitle(at: currentIndex, characterOffset: currentOffset)
         return ReadingSnapshot(bookID: documentHash, title: title, chapterTitle: chapter,
                                fraction: flat.percentage(at: currentIndex),
                                minutesLeft: minutesLeftInChapter())
