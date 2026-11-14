@@ -50,6 +50,19 @@ final class WordLookupModel: ObservableObject {
         return min(max(Int(value.rounded()), 0), wordCount - 1)
     }
 
+    /// The crown value that sits exactly on the word `value` selects: a whole detent within the words.
+    /// Used to re-sync the crown when it takes the cursor back, so it never resumes from a stale,
+    /// fractional or out-of-range value.
+    nonisolated static func crownValue(snapping value: Double, wordCount: Int) -> Double {
+        Double(wordIndex(forCrownValue: value, wordCount: wordCount))
+    }
+
+    /// Snaps `cursor` onto the selected word's detent (no-op when it already is there).
+    func resyncCursor() {
+        let snapped = Self.crownValue(snapping: cursor, wordCount: tokens.count)
+        if cursor != snapped { cursor = snapped }
+    }
+
     var canStepBack: Bool { hasWords && index > 0 }
     var canStepForward: Bool { hasWords && index < tokens.count - 1 }
 

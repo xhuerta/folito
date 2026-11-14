@@ -35,6 +35,9 @@ struct WordPickerView: View {
     /// The crown drives the word cursor, so it must hold the focus: a bare `.focusable()` view does not get
     /// it by itself, and the crown then went to the enclosing scroll view and scrolled the page instead.
     @FocusState private var cursorFocused: Bool
+    /// Whether the picker is on screen (not covered by the pushed definition), so it may take the crown.
+    @State private var isOnScreen = false
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         // A single page, no scroll view, so nothing competes with the cursor for the crown. The context gets
@@ -48,7 +51,28 @@ struct WordPickerView: View {
         .navigationTitle("Word")
         .navigationBarTitleDisplayMode(.inline)
         // Also on the way back from the definition, which took the focus for its own list.
-        .onAppear { cursorFocused = true }
+        .onAppear {
+            isOnScreen = true
+            reclaimCrown()
+        }
+        .onDisappear { isOnScreen = false }
+        // The page variant `ViewThatFits` shows depends on the selected word and its context, so a fast
+        // spin can swap it and replace the focused cursor view. Its focus is then dropped and nothing gave it
+        // back (the outer `onAppear` does not run again), which left the crown dead until the definition
+        // was opened and closed. Take it back whenever it is lost while the picker is on screen.
+        .onChange(of: cursorFocused) { focused in
+            if !focused { reclaimCrown() }
+        }
+        .onChange(of: scenePhase) { phase in
+            if phase == .active { reclaimCrown() }
+        }
+    }
+
+    /// Gives the crown back to the cursor, re-synced onto the selected word's detent.
+    private func reclaimCrown() {
+        guard isOnScreen else { return }
+        model.resyncCursor()
+        cursorFocused = true
     }
 
     private func page(contextLines: Int) -> some View {
@@ -129,6 +153,8 @@ struct WordPickerView: View {
         .frame(maxWidth: .infinity)
         .focusable()
         .focused($cursorFocused)
+        // Each page variant has its own cursor view: when `ViewThatFits` switches to another one, focus it.
+        .onAppear { reclaimCrown() }
         // One detent (and haptic click) per word, stopping at the first and last word.
         .digitalCrownRotation($model.cursor, from: 0, through: model.maxCursor, by: 1,
                               sensitivity: .medium, isContinuous: false, isHapticFeedbackEnabled: true)

@@ -150,6 +150,37 @@ final class WordLookupModelTests: XCTestCase {
         XCTAssertEqual(WordLookupModel.wordIndex(forCrownValue: .nan, wordCount: 5), 0)
     }
 
+    func testCrownValueSnapsOntoAWordDetent() {
+        XCTAssertEqual(WordLookupModel.crownValue(snapping: 2.4, wordCount: 5), 2)
+        XCTAssertEqual(WordLookupModel.crownValue(snapping: 2.6, wordCount: 5), 3)
+        XCTAssertEqual(WordLookupModel.crownValue(snapping: -7.3, wordCount: 5), 0)
+        XCTAssertEqual(WordLookupModel.crownValue(snapping: 99, wordCount: 5), 4)
+        XCTAssertEqual(WordLookupModel.crownValue(snapping: .infinity, wordCount: 5), 0)
+        XCTAssertEqual(WordLookupModel.crownValue(snapping: .nan, wordCount: 5), 0)
+        XCTAssertEqual(WordLookupModel.crownValue(snapping: 1, wordCount: 1), 0)
+        XCTAssertEqual(WordLookupModel.crownValue(snapping: 3, wordCount: 0), 0)
+    }
+
+    func testResyncAfterFastAlternatingSpinsKeepsTheWord() {
+        let model = WordLookupModel(text: text, language: "en", provider: MockDictionaryProvider.sample)
+        // Fast back-and-forth spins leave the crown between detents or past the ends.
+        for value in [3.49, 2.51, 3.49, 2.51, 3.2] {
+            model.cursor = value
+            XCTAssertEqual(model.index, 3)
+        }
+        model.resyncCursor()
+        XCTAssertEqual(model.cursor, 3)
+        XCTAssertEqual(model.currentWord, "truth")
+        model.cursor = model.maxCursor + 12.7
+        model.resyncCursor()
+        XCTAssertEqual(model.cursor, model.maxCursor)
+        model.cursor = -4.2
+        model.resyncCursor()
+        XCTAssertEqual(model.cursor, 0)
+        XCTAssertTrue(model.step(1))
+        XCTAssertEqual(model.cursor, 1)
+    }
+
     func testCrownAndButtonsAgreeOnTheWord() {
         let model = WordLookupModel(text: text, language: "en", provider: MockDictionaryProvider.sample)
         model.cursor = 2 // crown on the third detent
