@@ -35,43 +35,90 @@ struct WordPickerView: View {
     /// The crown drives the word cursor, so it must hold the focus: a bare `.focusable()` view does not get
     /// it by itself, and the crown then went to the enclosing scroll view and scrolled the page instead.
     @FocusState private var cursorFocused: Bool
+    /// Whether the picker is on screen (not covered by the pushed definition), so it may take the crown.
+    @State private var isOnScreen = false
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        // A single page, no scroll view, so nothing competes with the cursor for the crown. The context gets
-        // fewer lines when the page does not fit (large text sizes); only past that, at the largest
-        // accessibility sizes, does the page scroll by touch, with the crown still on the cursor.
-        ViewThatFits(in: .vertical) {
-            page(contextLines: 6)
-            page(contextLines: 3)
-            ScrollView { page(contextLines: 3) }
+        // The controls row is pinned to the bottom and sized first; the word and its context take the space
+        // left above it, top-aligned, so the buttons stay put while the crown moves between words whatever
+        // the length of the context. `ViewThatFits` only chooses how much context fits in that space: fewer
+        // lines on small screens and at large text sizes, and only past one line, at the largest accessibility
+        // sizes, does the text scroll by touch, with the crown still on the focused cursor inside it. The
+        // controls never sit in a scroll view.
+        VStack(spacing: 6) {
+            ViewThatFits(in: .vertical) {
+                cursor(contextLines: 6)
+                cursor(contextLines: 3)
+                cursor(contextLines: 2)
+                cursor(contextLines: 1)
+                ScrollView { cursor(contextLines: 1) }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            controls
+                .layoutPriority(1)
         }
         .navigationTitle("Word")
         .navigationBarTitleDisplayMode(.inline)
         // Also on the way back from the definition, which took the focus for its own list.
-        .onAppear { cursorFocused = true }
+        .onAppear {
+            isOnScreen = true
+            reclaimCrown()
+        }
+        .onDisappear { isOnScreen = false }
+        // The page variant `ViewThatFits` shows depends on the selected word and its context, so a fast
+        // spin can swap it and replace the focused cursor view. Its focus is then dropped and nothing gave it
+        // back (the outer `onAppear` does not run again), which left the crown dead until the definition
+        // was opened and closed. Take it back whenever it is lost while the picker is on screen.
+        .onChange(of: cursorFocused) { focused in
+            if !focused { reclaimCrown() }
+        }
+        .onChange(of: scenePhase) { phase in
+            if phase == .active { reclaimCrown() }
+        }
     }
 
-    private func page(contextLines: Int) -> some View {
-        VStack(spacing: 6) {
-            cursor(contextLines: contextLines)
-            // One compact row (previous, Look Up, next) so the word and its context keep the screen
-            // on a 40-45 mm watch. At large text sizes the row does not fit and the buttons stack.
-            ViewThatFits(in: .horizontal) {
+    /// Gives the crown back to the cursor, re-synced onto the selected word's detent.
+    private func reclaimCrown() {
+        guard isOnScreen else { return }
+        model.resyncCursor()
+        cursorFocused = true
+    }
+
+    /// The word counter, then previous, Look Up and next, pinned below the text.
+    private var controls: some View {
+        VStack(spacing: 2) {
+            // Outside the flexible text area so it is never clipped. VoiceOver already reads the position
+            // in the cursor's value.
+            Text(model.positionText)
+                .font(.caption2).foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .accessibilityHidden(true)
+            buttons
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var buttons: some View {
+        // One compact row (previous, Look Up, next) so the word and its context keep the screen
+        // on a 40-45 mm watch. At large text sizes the row does not fit and the buttons stack.
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 4) {
+                arrow(-1)
+                lookUpButton.layoutPriority(1)
+                arrow(1)
+            }
+            VStack(spacing: 4) {
                 HStack(spacing: 4) {
                     arrow(-1)
-                    lookUpButton.layoutPriority(1)
+                    Spacer(minLength: 0)
                     arrow(1)
                 }
-                VStack(spacing: 4) {
-                    HStack(spacing: 4) {
-                        arrow(-1)
-                        Spacer(minLength: 0)
-                        arrow(1)
-                    }
-                    lookUpButton
-                }
+                lookUpButton
             }
         }
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private func arrow(_ delta: Int) -> some View {
@@ -123,12 +170,12 @@ struct WordPickerView: View {
                     .lineLimit(contextLines)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            Text(model.positionText)
-                .font(.caption2).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
         .focusable()
         .focused($cursorFocused)
+        // Each `ViewThatFits` variant has its own cursor view: when it switches to another one, focus it.
+        .onAppear { reclaimCrown() }
         // One detent (and haptic click) per word, stopping at the first and last word.
         .digitalCrownRotation($model.cursor, from: 0, through: model.maxCursor, by: 1,
                               sensitivity: .medium, isContinuous: false, isHapticFeedbackEnabled: true)

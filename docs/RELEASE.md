@@ -4,7 +4,7 @@
 
 Placeholders still in the repository (search for the bracketed text):
 
-* [x] `[CONTACT_EMAIL]`: `docs/site/{privacy,support}.html`, `docs/site/es/{privacy,support}.html`, `docs/appstore/REVIEW_NOTES.md`, `docs/appstore/LISTING.md` (support URLs). Filled: xlahuerta@protonmail.com.
+* [x] `[CONTACT_EMAIL]`: `docs/site/{privacy,support}.html`, `docs/site/es/{privacy,support}.html`, `docs/appstore/REVIEW_NOTES.md`, `docs/appstore/LISTING.md` (support URLs). Filled: hello@folito.app.
 * [x] `[DEVELOPER_NAME]`: `docs/site/privacy.html`, `docs/site/es/privacy.html` (responsible party), `docs/appstore/LISTING.md` (copyright). Filled: Xabier Lahuerta.
 * [x] `[DATE]`: "Last updated" in `docs/site/privacy.html` and `docs/site/es/privacy.html` set to 28 October 2026; update it whenever the policy changes.
 * [x] In-app links: `iOSApp/Support/AppLinks.swift` (PR #20) points to the GitHub Pages site (Spanish pages for Spanish speakers).

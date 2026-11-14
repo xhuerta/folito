@@ -63,4 +63,4 @@ You only sign once. If the check doesn't update, comment `recheck`.
 
 ## Contact
 
-Questions about licensing, the CLA or trademarks: xlahuerta@protonmail.com.
+Questions about licensing, the CLA or trademarks: hello@folito.app.
