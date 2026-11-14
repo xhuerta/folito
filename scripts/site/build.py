@@ -5,8 +5,10 @@ Every page in PAGES is rendered for every language in LANGUAGES from the shared 
 docs/site-src/templates/ and the strings in docs/site-src/i18n/<lang>.json. English goes to the
 site root; every other language to a folder named after its lower-cased code (es/, pt-br/, ...).
 docs/site/CNAME (the GitHub Pages custom domain) is written from SITE_URL, and so are robots.txt and
-sitemap.xml (every page in every language, with hreflang alternates). Static files (style.css, favicon.ico,
-assets/) live in docs/site/ directly and are not touched.
+sitemap.xml (every page in every language, with hreflang alternates). The home page's App Store screenshots
+are copied from docs/site-src/screenshots/<folder>/ to docs/site/assets/screenshots/<folder>/ (<folder> is the
+lower-cased language code, "en" included); their width and height attributes are read from the WebP files.
+Other static files (style.css, favicon.ico, the rest of assets/) live in docs/site/ directly and are not touched.
 
 Index pages are addressed by their folder (https://folito.app/, https://folito.app/es/), never by
 index.html: canonical and hreflang URLs, the sitemap and internal links all use that form, and GitHub Pages
@@ -19,8 +21,9 @@ trust anyway.
 Every build validates its own output (well-formed sitemap, every page listed, every canonical/hreflang
 target generated, robots.txt pointing at the sitemap); see validate(). Tests: scripts/site/test_build.py.
 
-Adding a language: copy docs/site-src/i18n/en.json to <code>.json, translate the values, and add
-the code to LANGUAGES below. Then run this script and commit docs/site/.
+Adding a language: copy docs/site-src/i18n/en.json to <code>.json, translate the values, add the
+screenshots to docs/site-src/screenshots/<lower-cased code>/, and add the code to LANGUAGES below. Then run
+this script and commit docs/site/.
 
 Usage:
     python3 scripts/site/build.py            # write docs/site/
@@ -54,6 +57,9 @@ LANGUAGES = [
 ]
 
 PAGES = ["index", "privacy", "support"]
+
+# The home page's App Store screenshots, in order; the alt text of SCREENSHOTS[i] is index.shot<i+1>_alt.
+SCREENSHOTS = ["01-hero", "02-lookup", "03-send", "04-typography", "05-progress"]
 SITE_URL = "https://folito.app/"
 DEVELOPER = "Xabier Lahuerta"
 SHARE_IMAGE = SITE_URL + "assets/icon-512.png"
@@ -190,6 +196,49 @@ def href(from_lang: str, to_lang: str, page: str) -> str:
     return target or "./"
 
 
+def shots_folder(lang: str) -> str:
+    """Folder of a language's screenshots, under docs/site-src/screenshots/ and docs/site/assets/screenshots/."""
+    return lang.lower()
+
+
+def webp_size(data: bytes) -> tuple[int, int]:
+    """Width and height of a WebP image (lossy VP8, lossless VP8L or extended VP8X)."""
+    if data[:4] != b"RIFF" or data[8:12] != b"WEBP":
+        raise ValueError("not a WebP file")
+    chunk = data[12:16]
+    if chunk == b"VP8 ":
+        return (int.from_bytes(data[26:28], "little") & 0x3FFF, int.from_bytes(data[28:30], "little") & 0x3FFF)
+    if chunk == b"VP8L":
+        bits = int.from_bytes(data[21:25], "little")
+        return ((bits & 0x3FFF) + 1, ((bits >> 14) & 0x3FFF) + 1)
+    if chunk == b"VP8X":
+        return (int.from_bytes(data[24:27], "little") + 1, int.from_bytes(data[27:30], "little") + 1)
+    raise ValueError(f"unknown WebP chunk {chunk!r}")
+
+
+def screenshot_files() -> dict[Path, bytes]:
+    """Every language's screenshots, keyed by their output path."""
+    files = {}
+    for lang in LANGUAGES:
+        for name in SCREENSHOTS:
+            source = SRC / "screenshots" / shots_folder(lang) / f"{name}.webp"
+            if not source.exists():
+                raise SystemExit(f"missing screenshot: {source.relative_to(REPO)}")
+            files[OUT / "assets" / "screenshots" / shots_folder(lang) / f"{name}.webp"] = source.read_bytes()
+    return files
+
+
+def screenshots(lang: str, s: dict[str, str], root: str, files: dict[Path, bytes]) -> str:
+    """The home page's strip of App Store screenshots in the page's language."""
+    items = []
+    for i, name in enumerate(SCREENSHOTS, 1):
+        path = f"assets/screenshots/{shots_folder(lang)}/{name}.webp"
+        width, height = webp_size(files[OUT / path])
+        items.append(f'<li><img src="{root}{path}" width="{width}" height="{height}" loading="lazy" '
+                     f'decoding="async" alt="{s[f"index.shot{i}_alt"]}"></li>')
+    return ('<ul class="shots" tabindex="0" aria-labelledby="shots">\n' + "\n".join(items) + "\n</ul>")
+
+
 def load_strings() -> dict[str, dict[str, str]]:
     strings = {}
     for lang in LANGUAGES:
@@ -280,7 +329,8 @@ def json_ld(lang: str, strings: dict[str, dict[str, str]]) -> str:
     return f'<script type="application/ld+json">\n{text}\n</script>'
 
 
-def build_page(lang: str, page: str, strings: dict[str, dict[str, str]], templates: dict[str, str]) -> str:
+def build_page(lang: str, page: str, strings: dict[str, dict[str, str]], templates: dict[str, str],
+               files: dict[Path, bytes]) -> str:
     s = strings[lang]
     url = page_url(lang, page)
     alternates = [f'<link rel="alternate" hreflang="{other}" href="{page_url(other, page)}">'
@@ -303,10 +353,11 @@ def build_page(lang: str, page: str, strings: dict[str, dict[str, str]], templat
                   for o in LANGUAGES[1:]}
         scripts.append(SUGGEST_SCRIPT % json.dumps(offers, ensure_ascii=False, separators=(",", ":")))
 
+    root = "../" if folder(lang) else ""
     values = dict(s)
     values.update({
         "lang": lang,
-        "root": "../" if folder(lang) else "",
+        "root": root,
         "title": s[f"meta.title_{page}"],
         "description": s[f"meta.description_{page}"],
         "home": href(lang, lang, "index"),
@@ -324,19 +375,23 @@ def build_page(lang: str, page: str, strings: dict[str, dict[str, str]], templat
         "privacy.note": f'<p class="translation-note">{note}</p>\n' if note else "",
         "scripts": "\n".join(scripts),
         "cta": call_to_action(s),
+        "screenshots": screenshots(lang, s, root, files),
     })
     values["content"] = render(templates[page].rstrip("\n"), values, f"{page}.html ({lang})")
     return render(templates["_layout"], values, f"_layout.html ({lang}, {page})")
 
 
-def build() -> dict[Path, str]:
+def build() -> dict[Path, str | bytes]:
     strings = load_strings()
     problems = check_keys(strings)
     if problems:
         raise SystemExit("\n".join(problems))
     templates = {p.stem: p.read_text(encoding="utf-8") for p in (SRC / "templates").glob("*.html")}
-    outputs = {OUT / folder(lang) / f"{page}.html": build_page(lang, page, strings, templates)
-               for lang in LANGUAGES for page in PAGES}
+    files = screenshot_files()
+    outputs: dict[Path, str | bytes] = {
+        OUT / folder(lang) / f"{page}.html": build_page(lang, page, strings, templates, files)
+        for lang in LANGUAGES for page in PAGES}
+    outputs.update(files)
     # GitHub Pages custom domain: the deploy copies docs/site/ as-is, so CNAME must always be there.
     outputs[OUT / "CNAME"] = SITE_URL.split("//", 1)[1].rstrip("/") + "\n"
     outputs[OUT / "robots.txt"] = robots()
@@ -381,7 +436,10 @@ LINK_TAG = re.compile(r"<link\b[^>]*>")
 ATTR = re.compile(r'(\w[\w:-]*)="([^"]*)"')
 
 
-def validate(outputs: dict[Path, str]) -> list[str]:
+IMG_TAG = re.compile(r"<img\b[^>]*>")
+
+
+def validate(outputs: dict[Path, str | bytes]) -> list[str]:
     """Problems with the generated robots.txt, sitemap.xml and the pages' canonical/hreflang links."""
     problems = []
     expected_hreflangs = set(LANGUAGES) | {"x-default"}
@@ -436,6 +494,10 @@ def validate(outputs: dict[Path, str]) -> list[str]:
         if path.suffix != ".html":
             continue
         where = str(path.relative_to(OUT))
+        for tag in IMG_TAG.findall(page_text):
+            src = dict(ATTR.findall(tag)).get("src", "")
+            if "assets/screenshots/" in src and (path.parent / src).resolve() not in outputs:
+                problems.append(f"{where}: image {src} is not generated")
         hreflangs = []
         for tag in LINK_TAG.findall(page_text):
             attrs = dict(ATTR.findall(tag))
@@ -449,15 +511,20 @@ def validate(outputs: dict[Path, str]) -> list[str]:
     return problems
 
 
+def read(path: Path, like: str | bytes) -> str | bytes:
+    """A file's current contents, as bytes or text like the generated value it is compared with."""
+    return path.read_bytes() if isinstance(like, bytes) else path.read_text(encoding="utf-8")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--check", action="store_true", help="fail if docs/site/ differs from the generated pages")
     args = parser.parse_args()
 
     outputs = build()
-    existing = {p for p in OUT.rglob("*.html")}
+    existing = set(OUT.rglob("*.html")) | set((OUT / "assets" / "screenshots").rglob("*.*"))
     if args.check:
-        stale = [p for p, text in outputs.items() if not p.exists() or p.read_text(encoding="utf-8") != text]
+        stale = [p for p, data in outputs.items() if not p.exists() or read(p, data) != data]
         orphans = sorted(existing - set(outputs))
         for p in stale:
             print(f"stale: {p.relative_to(REPO)}")
@@ -469,9 +536,12 @@ def main() -> int:
         print(f"docs/site/ is up to date ({len(outputs)} files, {len(LANGUAGES)} languages).")
         return 0
 
-    for path, text in outputs.items():
+    for path, data in outputs.items():
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8")
+        if isinstance(data, bytes):
+            path.write_bytes(data)
+        else:
+            path.write_text(data, encoding="utf-8")
     for orphan in sorted(existing - set(outputs)):
         orphan.unlink()
     print(f"Wrote {len(outputs)} files ({len(LANGUAGES)} languages) to {OUT.relative_to(REPO)}/")

@@ -274,6 +274,22 @@ strong { font-weight: 600; }
 .features { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; grid-template-columns: 1fr; }
 @media (min-width: 640px) { .features { grid-template-columns: 1fr 1fr; } }
 @media (min-width: 980px) { .features { grid-template-columns: repeat(3, 1fr); gap: 18px; } }
+
+/* App Store screenshots (#54): a scroll-snapping strip on narrow screens, five columns on wide ones. */
+.shots {
+  list-style: none; margin: 0; padding: 4px 0 14px; display: flex; gap: 14px;
+  overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.shots:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: var(--radius); }
+.shots li { flex: 0 0 min(62vw, 240px); scroll-snap-align: start; }
+.shots img {
+  display: block; width: 100%; height: auto; border-radius: var(--radius-lg);
+  background: var(--surface-2); box-shadow: var(--shadow);
+}
+@media (min-width: 980px) {
+  .shots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 18px; overflow: visible; padding-bottom: 0; }
+}
 .card { background: var(--surface); border-radius: var(--radius-lg); box-shadow: var(--shadow); }
 .feature { padding: 22px 22px 24px; }
 .feature h3 { font-size: 19px; line-height: 1.3; letter-spacing: -.02em; margin: 14px 0 6px; font-weight: 600; }
