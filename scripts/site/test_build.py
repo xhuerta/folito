@@ -16,6 +16,16 @@ import build  # noqa: E402
 OUT = build.OUT
 
 
+def build_with_app_store_id(app_id: str) -> dict:
+    """The site as built with the given APP_STORE_ID ("" is the state before launch)."""
+    original = build.APP_STORE_ID
+    try:
+        build.APP_STORE_ID = app_id
+        return build.build()
+    finally:
+        build.APP_STORE_ID = original
+
+
 class SiteBuildTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -74,30 +84,26 @@ class SiteBuildTests(unittest.TestCase):
             self.assertEqual(app["url"], build.page_url(lang, "index"))
             self.assertNotIn("aggregateRating", app)
             self.assertEqual(app["offers"], {"@type": "Offer", "price": "0", "priceCurrency": "USD"})
-            self.assertNotIn("downloadUrl", app)
+            if build.APP_STORE_ID:
+                self.assertEqual(app["downloadUrl"], build.app_store_url())
+            else:
+                self.assertNotIn("downloadUrl", app)
             self.assertTrue(any(item["@type"] == "Person" and item["name"] == "Xabier Lahuerta" for item in graph))
         self.assertNotIn("application/ld+json", self.outputs[OUT / "support.html"])
 
     def test_smart_app_banner_only_with_app_store_id(self) -> None:
-        self.assertNotIn("apple-itunes-app", self.outputs[OUT / "index.html"])
-        original = build.APP_STORE_ID
-        try:
-            build.APP_STORE_ID = "123456789"
-            outputs = build.build()
-        finally:
-            build.APP_STORE_ID = original
+        self.assertNotIn("apple-itunes-app", build_with_app_store_id("")[OUT / "index.html"])
+        outputs = build_with_app_store_id("123456789")
         self.assertIn('<meta name="apple-itunes-app" content="app-id=123456789">', outputs[OUT / "es" / "support.html"])
 
     def test_call_to_action_switches_with_app_store_id(self) -> None:
-        index = self.outputs[OUT / "index.html"]
-        self.assertIn('<p class="pill">', index)
-        self.assertNotIn('class="cta"', index)
-        original = build.APP_STORE_ID
-        try:
-            build.APP_STORE_ID = "123456789"
-            outputs = build.build()
-        finally:
-            build.APP_STORE_ID = original
+        before = build_with_app_store_id("")
+        for lang in build.LANGUAGES:
+            index = before[OUT / build.folder(lang) / "index.html"]
+            self.assertIn('<p class="pill">', index, lang)
+            self.assertNotIn('class="cta"', index, lang)
+            self.assertNotIn("downloadUrl", index, lang)
+        outputs = build_with_app_store_id("123456789")
         for lang in build.LANGUAGES:
             text = outputs[OUT / build.folder(lang) / "index.html"]
             self.assertIn('<a class="cta" href="https://apps.apple.com/app/id123456789">', text, lang)
@@ -128,6 +134,17 @@ class SiteBuildTests(unittest.TestCase):
         del outputs[OUT / "assets" / "screenshots" / "ja" / "03-send.webp"]
         self.assertIn("ja/index.html: image ../assets/screenshots/ja/03-send.webp is not generated",
                       build.validate(outputs))
+
+    def test_launch_app_store_id(self) -> None:
+        self.assertRegex(build.APP_STORE_ID, r"^\d{9,10}$")
+        url = "https://apps.apple.com/app/id" + build.APP_STORE_ID
+        for lang in build.LANGUAGES:
+            for page in build.PAGES:
+                text = self.outputs[OUT / build.folder(lang) / f"{page}.html"]
+                self.assertIn(f'<meta name="apple-itunes-app" content="app-id={build.APP_STORE_ID}">', text)
+            index = self.outputs[OUT / build.folder(lang) / "index.html"]
+            self.assertIn(f'<a class="cta" href="{url}">', index, lang)
+            self.assertIn(f'"downloadUrl": "{url}"', index, lang)
 
     def test_titles_and_descriptions(self) -> None:
         strings = build.load_strings()

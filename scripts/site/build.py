@@ -71,7 +71,7 @@ SHARE_IMAGE = SITE_URL + "assets/icon-512.png"
 #     button linking to app_store_url();
 #   - downloadUrl/installUrl in the landing pages' JSON-LD.
 # See docs/RELEASE.md, section 9.
-APP_STORE_ID = ""
+APP_STORE_ID = "6833670394"
 
 # Folito is free: every feature, no in-app purchases. Published as a schema.org Offer in the JSON-LD.
 PRICE = "0"
