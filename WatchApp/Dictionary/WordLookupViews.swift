@@ -43,14 +43,16 @@ struct WordPickerView: View {
         // The controls row is pinned to the bottom and sized first; the word and its context take the space
         // left above it, top-aligned, so the buttons stay put while the crown moves between words whatever
         // the length of the context. `ViewThatFits` only chooses how much context fits in that space: fewer
-        // lines at large text sizes, and only past that, at the largest accessibility sizes, does the text
-        // scroll by touch, with the crown still on the focused cursor inside it. The controls never sit in
-        // a scroll view.
+        // lines on small screens and at large text sizes, and only past one line, at the largest accessibility
+        // sizes, does the text scroll by touch, with the crown still on the focused cursor inside it. The
+        // controls never sit in a scroll view.
         VStack(spacing: 6) {
             ViewThatFits(in: .vertical) {
                 cursor(contextLines: 6)
                 cursor(contextLines: 3)
-                ScrollView { cursor(contextLines: 3) }
+                cursor(contextLines: 2)
+                cursor(contextLines: 1)
+                ScrollView { cursor(contextLines: 1) }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             controls
@@ -83,8 +85,22 @@ struct WordPickerView: View {
         cursorFocused = true
     }
 
-    /// Previous, Look Up and next, pinned below the text.
+    /// The word counter, then previous, Look Up and next, pinned below the text.
     private var controls: some View {
+        VStack(spacing: 2) {
+            // Outside the flexible text area so it is never clipped. VoiceOver already reads the position
+            // in the cursor's value.
+            Text(model.positionText)
+                .font(.caption2).foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .accessibilityHidden(true)
+            buttons
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var buttons: some View {
         // One compact row (previous, Look Up, next) so the word and its context keep the screen
         // on a 40-45 mm watch. At large text sizes the row does not fit and the buttons stack.
         ViewThatFits(in: .horizontal) {
@@ -154,8 +170,6 @@ struct WordPickerView: View {
                     .lineLimit(contextLines)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            Text(model.positionText)
-                .font(.caption2).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
         .focusable()
