@@ -45,6 +45,9 @@ def entry(word, pronunciation, pos, senses, forms=()):
 # Per language: the app's launch locale, the short title (spec 3.1), the other Library titles
 # (title, author, cover colour), the word to look up with a phrase of its definition the test waits for,
 # whether the sepia capture opens mid chapter 2 (else a later page of chapter 1), and the dictionary.
+# `tocFormat` (optional) words the table-of-contents label of a chapter whose heading is a bare numeral: a lone
+# "一" in the watch's chapter list or complication reads as a dash, so the TOC says "第一章" while the page
+# keeps the book's own heading.
 LOCALES = {
     "en": {
         "appleLanguage": "en", "appleLocale": "en_US", "shortTitle": "Pride and Prejudice",
@@ -155,7 +158,7 @@ LOCALES = {
         "library": [("坊っちゃん", "夏目漱石", 0x2F6F9F, None),
                     ("こころ", "夏目漱石", 0x8B3A3A, None),
                     ("羅生門", "芥川龍之介", 0x4B5D3A, None)],
-        "word": "猫", "probe": "ペット", "sepiaChapter2": False,
+        "word": "猫", "probe": "ペット", "sepiaChapter2": False, "tocFormat": "第{}章",
         "dictionary": [
             entry("猫", "ねこ", "名詞", [
                 ("ネコ科の哺乳類。古くからペットとして飼われる。", "吾輩は猫である。"),
@@ -170,7 +173,7 @@ LOCALES = {
         "library": [("阿Q正传", "鲁迅", 0x8C2D2D, None),
                     ("红楼梦", "曹雪芹", 0xA0522D, None),
                     ("西游记", "吴承恩", 0x2D6A8C, None)],
-        "word": "月光", "probe": "月亮", "sepiaChapter2": True,
+        "word": "月光", "probe": "月亮", "sepiaChapter2": True, "tocFormat": "第{}节",
         "dictionary": [
             entry("月光", "yuèguāng", "名词", [("月亮的光。", "今天晚上，很好的月光。")]),
             entry("晚上", "wǎnshang", "名词", ["太阳落山以后到深夜以前的时间；泛指夜里。"]),
@@ -234,6 +237,8 @@ def build(lang: str) -> dict:
         if text:
             book["text"] = text
         library.append(book)
+    if loc.get("tocFormat"):
+        chapters = [dict(ch, toc=loc["tocFormat"].format(ch["title"])) if ch["title"] else ch for ch in chapters]
     meta = src["meta"]
     return {
         "language": lang,
@@ -247,7 +252,7 @@ def build(lang: str) -> dict:
         "lookup": {"word": word, "chapter": c, "block": block_index(chapters[c], p), "probe": loc["probe"]},
         "dictionary": {"id": f"sample-{lang}", "language": lang.split("-")[0], "entries": loc["dictionary"]},
         "sepia": sepia,
-        "complication": {"chapterTitle": chapters[0]["title"] or ""},
+        "complication": {"chapterTitle": chapters[0].get("toc") or chapters[0]["title"] or ""},
     }
 
 

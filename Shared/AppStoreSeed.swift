@@ -9,6 +9,8 @@ import ReaderCore
 struct AppStoreSeed: Decodable {
     struct SeedChapter: Decodable {
         let title: String?
+        /// Table-of-contents label when it differs from the heading (a bare "一" reads as a dash in a list).
+        let toc: String?
         let paragraphs: [String]
     }
 
@@ -91,12 +93,16 @@ struct AppStoreSeed: Decodable {
     /// The sample book of the language, `times` times over (a Library book's stand-in text).
     func sampleBook(hash: String? = nil, title: String? = nil, author: String? = nil, times: Int = 1) -> ProcessedBook {
         var chapters: [Chapter] = []
+        var toc: [TOCEntry] = []
         var offset = 0
         for _ in 0..<max(times, 1) {
             for chapter in sample.chapters {
                 let n = chapters.count + 1
                 var blocks: [Block] = []
                 if let heading = chapter.title {
+                    // Like an EPUB nav entry: one per chapter, at its heading, so the watch lists the TOC.
+                    toc.append(TOCEntry(title: chapter.toc ?? heading, depth: 0,
+                                        position: BookPosition(chapterIndex: chapters.count, blockIndex: 0)))
                     blocks.append(Block(text: heading, style: .heading1, xpointer: "/body/DocFragment[\(n)]/body/h1",
                                         globalOffset: offset))
                     offset += heading.count
@@ -113,7 +119,8 @@ struct AppStoreSeed: Decodable {
         return ProcessedBook(metadata: BookMetadata(title: title ?? sample.title, authors: [author ?? sample.author],
                                                     language: sample.language),
                              documentHash: id, metaHash: id + "m",
-                             chapters: chapters, totalCharacters: offset)
+                             chapters: chapters, totalCharacters: offset,
+                             toc: toc.isEmpty ? nil : toc, tocSource: toc.isEmpty ? nil : .nav)
     }
 }
 #endif
