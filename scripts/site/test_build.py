@@ -104,6 +104,31 @@ class SiteBuildTests(unittest.TestCase):
             self.assertNotIn('<p class="pill">', text, lang)
         self.assertIn('"downloadUrl": "https://apps.apple.com/app/id123456789"', outputs[OUT / "index.html"])
 
+    def test_every_index_has_five_localized_screenshots(self) -> None:
+        for lang in build.LANGUAGES:
+            text = self.outputs[OUT / build.folder(lang) / "index.html"]
+            self.assertNotIn("TODO(#54)", text, lang)
+            strip = re.search(r'<ul class="shots"[^>]*>\n(.*?)\n</ul>', text, re.S)
+            self.assertIsNotNone(strip, lang)
+            images = re.findall(r"<img\b[^>]*>", strip.group(1))
+            self.assertEqual(len(images), 5, lang)
+            alts = set()
+            for tag in images:
+                attrs = dict(build.ATTR.findall(tag))
+                self.assertTrue(attrs.get("alt", "").strip(), (lang, tag))
+                alts.add(attrs["alt"])
+                self.assertEqual((attrs.get("width"), attrs.get("height")), ("600", "1304"), (lang, tag))
+                self.assertIn(f"assets/screenshots/{lang.lower()}/", attrs["src"], lang)
+                data = self.outputs[(OUT / build.folder(lang) / attrs["src"]).resolve()]
+                self.assertEqual(build.webp_size(data), (600, 1304), (lang, attrs["src"]))
+            self.assertEqual(len(alts), 5, f"{lang}: duplicate alt texts")
+
+    def test_validate_rejects_missing_screenshot(self) -> None:
+        outputs = dict(self.outputs)
+        del outputs[OUT / "assets" / "screenshots" / "ja" / "03-send.webp"]
+        self.assertIn("ja/index.html: image ../assets/screenshots/ja/03-send.webp is not generated",
+                      build.validate(outputs))
+
     def test_titles_and_descriptions(self) -> None:
         strings = build.load_strings()
         for lang, s in strings.items():

@@ -36,8 +36,13 @@
 </ul>
 </div>
 </section>
-<!-- TODO(#54): the localized App Store screenshots go here, as a section between "What it does" and
-     "Before you start" (one set per language, in docs/site/assets/screenshots/<lang>/). -->
+<section class="section" aria-labelledby="shots">
+<div class="wrap">
+<h2 class="section-title" id="shots">{{ index.shots_title }}</h2>
+<p class="section-lede">{{ index.shots_lede }}</p>
+{{ screenshots }}
+</div>
+</section>
 <section class="section" aria-labelledby="start">
 <div class="wrap">
 <h2 class="section-title" id="start">{{ index.start_title }}</h2>
