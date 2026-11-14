@@ -139,6 +139,29 @@ final class WordLookupModelTests: XCTestCase {
         XCTAssertEqual(model.context?.word, "wife")
     }
 
+    func testCrownValueMapsToTheNearestWordClamped() {
+        XCTAssertEqual(WordLookupModel.wordIndex(forCrownValue: 0, wordCount: 5), 0)
+        XCTAssertEqual(WordLookupModel.wordIndex(forCrownValue: 2.4, wordCount: 5), 2)
+        XCTAssertEqual(WordLookupModel.wordIndex(forCrownValue: 2.6, wordCount: 5), 3)
+        XCTAssertEqual(WordLookupModel.wordIndex(forCrownValue: -3, wordCount: 5), 0)
+        XCTAssertEqual(WordLookupModel.wordIndex(forCrownValue: 40, wordCount: 5), 4)
+        XCTAssertEqual(WordLookupModel.wordIndex(forCrownValue: 1, wordCount: 1), 0)
+        XCTAssertEqual(WordLookupModel.wordIndex(forCrownValue: 3, wordCount: 0), 0)
+        XCTAssertEqual(WordLookupModel.wordIndex(forCrownValue: .nan, wordCount: 5), 0)
+    }
+
+    func testCrownAndButtonsAgreeOnTheWord() {
+        let model = WordLookupModel(text: text, language: "en", provider: MockDictionaryProvider.sample)
+        model.cursor = 2 // crown on the third detent
+        XCTAssertEqual(model.positionText, String(localized: "Word \(3) of \(model.tokens.count)"))
+        XCTAssertTrue(model.step(1))
+        XCTAssertEqual(model.cursor, 3)
+        XCTAssertEqual(model.currentWord, "truth")
+        model.cursor = model.maxCursor
+        XCTAssertFalse(model.canStepForward)
+        XCTAssertFalse(model.step(1))
+    }
+
     func testStartsOnTheWordAtTheInitialOffset() {
         // Offset 9 is inside "truth" (the tapped word).
         let tapped = WordLookupModel(text: text, language: "en", provider: MockDictionaryProvider.sample,

@@ -34,14 +34,14 @@ struct TypographyEditorView: View {
                 Toggle("Bold Text", isOn: typography.binding(\.boldText))
                     .accessibilityLabel(Text("Bold Text"))
                 row(Text("Headings")) {
-                    Stepper(value: typography.binding(\.headingScale), in: ReaderTypography.headingScaleRange, step: 0.25) {
+                    CrownFreeStepper(value: typography.binding(\.headingScale), in: ReaderTypography.headingScaleRange, step: 0.25) {
                         SettingStepperValue(Text(verbatim: t.headingScale.formatted(.percent.precision(.fractionLength(0)))))
                     }
                     .accessibilityLabel(Text("Heading Size"))
                     .accessibilityValue(Text(t.headingScale.formatted(.percent.precision(.fractionLength(0)))))
                 }
                 row(Text("Letter Spacing")) {
-                    Stepper(value: typography.binding(\.tracking), in: ReaderTypography.trackingRange, step: 0.25) {
+                    CrownFreeStepper(value: typography.binding(\.tracking), in: ReaderTypography.trackingRange, step: 0.25) {
                         SettingStepperValue(Text(verbatim: Self.signed(t.tracking)))
                     }
                     .accessibilityLabel(Text("Letter Spacing"))
@@ -54,21 +54,21 @@ struct TypographyEditorView: View {
             }
             Section("Layout") {
                 row(Text("Line Spacing")) {
-                    Stepper(value: typography.binding(\.lineSpacing), in: ReaderTypography.lineSpacingRange, step: 1) {
+                    CrownFreeStepper(value: typography.binding(\.lineSpacing), in: ReaderTypography.lineSpacingRange, step: 1) {
                         SettingStepperValue(Text(verbatim: Self.points(t.lineSpacing)))
                     }
                     .accessibilityLabel(Text("Line Spacing"))
                     .accessibilityValue(Text("\(Int(t.lineSpacing)) points", comment: "VoiceOver value of a spacing in points"))
                 }
                 row(Text("Paragraph Spacing")) {
-                    Stepper(value: typography.binding(\.paragraphSpacing), in: ReaderTypography.paragraphSpacingRange, step: 2) {
+                    CrownFreeStepper(value: typography.binding(\.paragraphSpacing), in: ReaderTypography.paragraphSpacingRange, step: 2) {
                         SettingStepperValue(Text(verbatim: Self.points(t.paragraphSpacing)))
                     }
                     .accessibilityLabel(Text("Paragraph Spacing"))
                     .accessibilityValue(Text("\(Int(t.paragraphSpacing)) points", comment: "VoiceOver value of a spacing in points"))
                 }
                 row(Text("Margins")) {
-                    Stepper(value: typography.binding(\.horizontalMargin), in: ReaderTypography.horizontalMarginRange, step: 2) {
+                    CrownFreeStepper(value: typography.binding(\.horizontalMargin), in: ReaderTypography.horizontalMarginRange, step: 2) {
                         SettingStepperValue(Text(verbatim: Self.points(t.horizontalMargin)))
                     }
                     .accessibilityLabel(Text("Margins"))
