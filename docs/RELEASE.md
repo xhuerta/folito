@@ -91,6 +91,19 @@ Actions → **Release** → *Run workflow*.
 
 Apple requires uploads to be built with the current major Xcode/SDK (since 28 April 2026: Xcode 26 / iOS 26 and watchOS 26 SDKs); the workflow selects the newest stable Xcode on the runner.
 
+### Troubleshooting: certificate limit
+
+Symptom (step *Archive*): `Choose a certificate to revoke. Your account has reached the maximum number of certificates` followed by `No profiles for '<base>.watchkitapp' were found`.
+
+Cause: each run is on a fresh runner, and automatic signing during `archive` creates a new **Apple Development** certificate whose private key is lost with the runner. Distribution signing itself is cloud-managed and does not accumulate. The workflow now cleans up with `.github/release/asc_certs.py` (App Store Connect API, same key):
+
+* before the archive it revokes development certificates named *Created via API* (left by earlier CI runs) and records the list;
+* after the run (also on failure) it revokes any development certificate that appeared during the run.
+
+It only ever revokes `DEVELOPMENT`/`IOS_DEVELOPMENT` certificates, never Distribution ones, and problems are reported as `::warning::` without failing the release. Set the repository variable `RELEASE_CERT_CLEANUP=false` to turn it off. Revoking a development certificate does not affect builds already on TestFlight or the App Store.
+
+One-time manual cleanup (if the automatic step warns, or to clear the backlog by hand): <https://developer.apple.com/account> → **Certificates, IDs & Profiles** → **Certificates** → open each **Apple Development** certificate whose name says **Created via API** → **Revoke** → confirm. Keep your own "Apple Development: <your name>" certificates (used by Xcode on your Mac) and every **Apple Distribution** certificate. Then start a new run.
+
 ## 7. Install with TestFlight
 
 * **Internal testing** (up to 100 App Store Connect users, no review): App Store Connect → your app → **TestFlight** → *Internal Testing* → create a group, add yourself, assign the build. Install **TestFlight** from the App Store on your iPhone, sign in with the same Apple ID and install Folito.
@@ -140,7 +153,7 @@ Chosen: plain `xcodebuild archive` + `xcodebuild -exportArchive` with `-allowPro
 * **Fewer moving parts.** The project already builds with `xcodebuild` in CI; no Ruby/Bundler/gem pinning, no `Fastfile`, no extra dependency to maintain.
 * **No certificates or profiles to manage.** Cloud signing keeps the distribution certificate and key at Apple. fastlane's `cert`/`sigh` (or `match`) would create certificates and private keys that must live somewhere (a private git repo or the runner), and are subject to Apple's certificate limits and revocation hazards on ephemeral runners.
 * **Single credential.** One API key does signing and upload; fastlane `pilot` would need the same key anyway.
-* **Trade-offs**, honestly: it requires an Admin-role API key, error messages are terse, and automatic signing can create "Apple Development" certificates during `archive`. fastlane would add retry handling, changelog and metadata upload (`deliver`) and TestFlight group management; if you later want those, add them in a separate lane without replacing this one. `xcodebuild` flags are documented in Apple's `man xcodebuild`; the export option keys come from `xcodebuild -help` (see sources) and could not be verified on a Mac here, so **the first real run is the real test**; keep `dry_run` for everything before that.
+* **Trade-offs**, honestly: it requires an Admin-role API key, error messages are terse, and automatic signing creates an "Apple Development" certificate during every `archive` (revoked again by the workflow; see [Troubleshooting: certificate limit](#troubleshooting-certificate-limit)). fastlane would add retry handling, changelog and metadata upload (`deliver`) and TestFlight group management; if you later want those, add them in a separate lane without replacing this one. `xcodebuild` flags are documented in Apple's `man xcodebuild`; the export option keys come from `xcodebuild -help` (see sources) and could not be verified on a Mac here, so **the first real run is the real test**; keep `dry_run` for everything before that.
 
 ## Sources
 

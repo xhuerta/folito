@@ -86,6 +86,10 @@ jobs:
           done
 
       # ------------------------------------------------------------------ dry run (no secrets)
+      - name: Dry run - test certificate cleanup script (offline)
+        if: ${{ env.WR_DRY_RUN == 'true' }}
+        run: python3 .github/release/test_asc_certs.py
+
       - name: Dry run - unsigned Release archive
         if: ${{ env.WR_DRY_RUN == 'true' }}
         run: |
@@ -152,6 +156,22 @@ jobs:
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
         run: .github/release/write-key.sh
 
+      # Every run is on a fresh runner, so automatic signing during `archive` creates a new
+      # "Apple Development" certificate each time (its private key dies with the runner). Without
+      # cleanup the team hits Apple's certificate limit. Revoke API-created development certificates
+      # left by earlier runs, and snapshot the list so the certificate made by THIS run is revoked
+      # afterwards. Distribution certificates are never touched. Failures are warnings, not errors.
+      # Set the repository variable RELEASE_CERT_CLEANUP=false to disable. See docs/RELEASE.md.
+      - name: Revoke stale CI development certificates
+        if: ${{ env.WR_DRY_RUN != 'true' && vars.RELEASE_CERT_CLEANUP != 'false' }}
+        continue-on-error: true
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          python3 .github/release/asc_certs.py revoke-stale || echo "::warning::Stale development certificates could not be revoked; archive may hit the certificate limit (see docs/RELEASE.md, 'Certificate limit')."
+          python3 .github/release/asc_certs.py snapshot "$RUNNER_TEMP/dev-certs-before.json" || echo "::warning::Could not snapshot development certificates; this run's certificate will not be revoked automatically."
+
       - name: Archive (Release, automatic cloud signing)
         if: ${{ env.WR_DRY_RUN != 'true' }}
         env:
@@ -206,6 +226,20 @@ jobs:
             echo "- Version: $WR_VERSION (build $WR_BUILD)"
             echo "- Processing takes a few minutes; then the build appears under TestFlight in App Store Connect."
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Revoke the development certificate created by this run
+        if: ${{ always() && env.WR_DRY_RUN != 'true' && env.ASC_KEY_PATH != '' && vars.RELEASE_CERT_CLEANUP != 'false' }}
+        continue-on-error: true
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          snap="$RUNNER_TEMP/dev-certs-before.json"
+          if [ ! -f "$snap" ]; then
+            echo "::warning::No certificate snapshot from before the archive; skipping cleanup of this run's development certificate."
+            exit 0
+          fi
+          python3 .github/release/asc_certs.py revoke-new "$snap" || echo "::warning::This run's development certificate could not be revoked; revoke it by hand (docs/RELEASE.md, 'Certificate limit')."
 
       - name: Remove API key
         if: ${{ always() && env.ASC_KEY_PATH != '' }}
