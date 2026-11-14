@@ -5,7 +5,7 @@
 ## Before submitting (owner)
 
 1. Reviewers do not need to find an EPUB: the app bundles a short public-domain sample book per language (see docs/SAMPLE_BOOKS.md), added with **Add a Sample Book** on the welcome tour's "Try It Now" page or in the empty Library. Attaching an extra public-domain EPUB (or linking one, e.g. <https://www.gutenberg.org/ebooks/11.epub.noimages>) is optional, for reviewers who want to test the Files / share-sheet import too.
-2. Fill `xlahuerta@protonmail.com` below (and a phone number in the App Store Connect contact fields, which are not part of the notes).
+2. Fill `hello@folito.app` below (and a phone number in the App Store Connect contact fields, which are not part of the notes).
 
 ## Notes text
 
@@ -24,7 +24,7 @@ How to test:
 Optional progress sync: Settings > Progress Sync connects to a KOReader Sync ("kosync") server that the USER supplies (self-hosted or one they already use with KOReader). It is off by default, needs an existing account on that server, and can be turned off at any time ("Turn Off Sync and Remove Login" removes the login from the iPhone and the watch). It is not required to evaluate the app. Plain http:// is allowed only for the user's own local-network server (NSAllowsLocalNetworking); all internet traffic is HTTPS.
 
 No in-app purchases, no user-generated content shared with others, no analytics, no ads, no tracking. Dictionary lookups happen on the watch and send nothing; the only dictionary traffic is the file download from reader-dict.com that the user starts on the iPhone.
-Contact: xlahuerta@protonmail.com
+Contact: hello@folito.app
 ```
 
 For TestFlight external testing reuse the same text in "Beta App Review Information".

@@ -37,4 +37,4 @@ logo more prominent than your own project's name.
 ## Questions and permissions
 
 For anything not covered here, or to ask for permission, write to
-xlahuerta@protonmail.com.
+hello@folito.app.
