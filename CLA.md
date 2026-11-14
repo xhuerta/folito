@@ -136,4 +136,4 @@ respect.
 
 ---
 
-Questions about this Agreement: xlahuerta@protonmail.com
+Questions about this Agreement: hello@folito.app
