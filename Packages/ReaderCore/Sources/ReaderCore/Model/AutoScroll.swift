@@ -12,11 +12,15 @@ import Foundation
 /// skim. The level is one per user (not per book) and is changed with the Digital Crown while the text scrolls;
 /// the stored setting is the level (1...7), so a saved speed keeps its meaning as "level n".
 ///
+/// Motion model (#67): `Motion` is the distance scrolled as a function of time, linear
+/// between speed changes (each change starts a new piece where the last one ended, so the text never jumps).
+/// While it runs, the reader shows a `Window` of the laid-out blocks in a plain stack moved by an offset at
+/// display rate (about 30 `scrollTo` re-anchors a second stepped visibly on the watch).
+///
 /// Position model: a `Cursor` is the block at the reading line (the viewport's top edge) and how many points of
-/// it are above that line. Every tick moves it forward by `step(level:lineHeight:elapsed:)` points, across
-/// blocks with the distances measured between laid-out blocks, and `scrollTarget` turns it into a
-/// `ScrollViewProxy.scrollTo(_:anchor:)` call that puts that point at the reading line (the same anchor math as
-/// the in-block restore, `InBlockPosition.anchorY`).
+/// it are above that line. When auto-scroll pauses or stops, `scrollTarget` turns it into a
+/// `ScrollViewProxy.scrollTo(_:anchor:)` call that puts that point at the reading line of the scroll view
+/// again (the same anchor math as the in-block restore, `InBlockPosition.anchorY`).
 public enum AutoScroll {
     /// The speed levels, slowest first.
     public static let levels: ClosedRange<Int> = 1...7
@@ -29,12 +33,8 @@ public enum AutoScroll {
     /// Every level is at least this many times faster than the one below it, so a single crown detent is a
     /// visible change.
     public static let minLevelRatio = 1.3
-    /// How often the view moves the text: about 30 times a second, smooth on the watch at these speeds
-    /// (under 2 pt per tick at the fastest level, even at the largest text size).
-    public static let tickInterval: TimeInterval = 1.0 / 30.0
-    /// A longer gap between two ticks (the app was busy, a frame was dropped) moves the text by at most this
-    /// much time's worth, so the text never jumps.
-    public static let maxElapsed: TimeInterval = 0.25
+    /// While the text moves, the reading position is saved at most this often (and at once on pause and stop).
+    public static let commitInterval: TimeInterval = 3
     /// A block whose height is within this many points of the viewport's height cannot be used as the
     /// `scrollTo` anchor reference (the anchor math divides by the difference).
     public static let minAnchorSpan = 8.0
@@ -76,17 +76,58 @@ public enum AutoScroll {
         return lines * height / 60
     }
 
-    /// Points to move for `elapsed` seconds since the previous tick (0 for a negative or bad interval, at most
-    /// `maxElapsed` seconds' worth).
-    public static func step(level: Int, lineHeight: Double, elapsed: TimeInterval) -> Double {
-        guard elapsed.isFinite, elapsed > 0 else { return 0 }
-        return pointsPerSecond(level: level, lineHeight: lineHeight) * min(elapsed, maxElapsed)
+    /// Scrolling speed in text lines per second.
+    public static func linesPerSecond(level: Int) -> Double {
+        linesPerMinute[clampedLevel(level) - levels.lowerBound] / 60
     }
 
     /// Number of levels (the "7" of "speed 3 of 7").
     public static var levelCount: Int { levels.count }
 
     // MARK: Position
+
+    // MARK: Motion
+
+    /// Distance scrolled (in text lines) as a function of time: piecewise linear, one piece per speed. A speed
+    /// change (or a pause, speed 0) starts a new piece at the distance reached, so the motion is continuous.
+    public struct Motion: Equatable, Sendable {
+        public private(set) var anchorDate: Date
+        public private(set) var anchorLines: Double
+        /// Lines per second (0 while paused or stopped).
+        public private(set) var linesPerSecond: Double
+
+        /// Not moving, nothing scrolled.
+        public init() {
+            anchorDate = .distantPast
+            anchorLines = 0
+            linesPerSecond = 0
+        }
+
+        /// Starts from 0 at `date`.
+        public init(linesPerSecond: Double, at date: Date) {
+            anchorDate = date
+            anchorLines = 0
+            self.linesPerSecond = Self.valid(linesPerSecond)
+        }
+
+        /// Lines scrolled at `date` (never less than at the last speed change).
+        public func lines(at date: Date) -> Double {
+            let elapsed = date.timeIntervalSince(anchorDate)
+            guard elapsed.isFinite, elapsed > 0 else { return anchorLines }
+            return anchorLines + linesPerSecond * elapsed
+        }
+
+        /// From `date` on the text moves at `linesPerSecond` (0 pauses it), continuing from where it is.
+        public mutating func setSpeed(_ linesPerSecond: Double, at date: Date) {
+            anchorLines = lines(at: date)
+            anchorDate = max(date, anchorDate)
+            self.linesPerSecond = Self.valid(linesPerSecond)
+        }
+
+        private static func valid(_ speed: Double) -> Double {
+            speed.isFinite && speed > 0 ? speed : 0
+        }
+    }
 
     /// Vertical extent of a laid-out block in the scroll view's coordinate space.
     public struct Span: Equatable, Sendable {
@@ -182,5 +223,81 @@ public enum AutoScroll {
             return Target(index: candidate.index, anchorY: y)
         }
         return nil
+    }
+
+    // MARK: Window
+
+    /// The blocks the reader stacks and moves while auto-scroll runs: `first...last`, with the top of `first`
+    /// at `originY - shift` in the viewport (the scroll view's coordinate space), where `shift` is the
+    /// distance scrolled since the window was made. Blocks that scrolled off the top are dropped and new
+    /// ones added below as their heights become known; dropping one adds its height to `originY`, so the
+    /// text on screen does not move. It covers about one screen above and below the visible part, so it stays
+    /// small whatever the length of the chapter.
+    public struct Window: Equatable, Sendable {
+        public private(set) var first: Int
+        public private(set) var last: Int
+        public private(set) var originY: Double
+        /// `Motion` lines at the moment the window was made: `shift` is (lines now - this) * line height.
+        public let baseLines: Double
+
+        /// At most this many blocks at once (very short blocks: empty lines, headings).
+        public static let maxBlocks = 60
+
+        /// From the blocks laid out in the scroll view: the first one reaching onto the screen, down to the
+        /// last one starting on it. Nil while none is.
+        public init?(frames: [Int: Span], viewportHeight: Double, blockCount: Int, baseLines: Double) {
+            let onScreen = frames.filter { $0.key >= 0 && $0.key < blockCount && $0.value.maxY > 0
+                && $0.value.minY < max(viewportHeight, 1) }
+            guard let first = onScreen.keys.min(), let last = onScreen.keys.max(),
+                  let top = frames[first]?.minY, top.isFinite else { return nil }
+            self.first = first
+            self.last = last
+            self.originY = top
+            self.baseLines = baseLines
+        }
+
+        /// Top of each block of the window (at `shift`) while their heights are known, first to last.
+        public func spans(heights: [Int: Double], spacing: Double, shift: Double) -> [Int: Span] {
+            var result: [Int: Span] = [:]
+            var y = originY - shift
+            for index in first...last {
+                guard let height = heights[index], height.isFinite, height >= 0 else { break }
+                result[index] = Span(minY: y, maxY: y + height)
+                y += height + spacing
+            }
+            return result
+        }
+
+        /// The shift at which the bottom of the book reaches the bottom of the viewport, once the last block
+        /// is in the window and every height is known (nil before).
+        public func endShift(heights: [Int: Double], spacing: Double, viewportHeight: Double,
+                             blockCount: Int) -> Double? {
+            guard blockCount > 0, last == blockCount - 1 else { return nil }
+            let spans = spans(heights: heights, spacing: spacing, shift: 0)
+            guard let bottom = spans[last]?.maxY else { return nil }
+            return max(bottom - viewportHeight, 0)
+        }
+
+        /// Drops blocks that scrolled off the top (more than `margin` above it) and adds blocks below until
+        /// the window reaches `margin` past the bottom. Returns whether it changed.
+        @discardableResult
+        public mutating func update(heights: [Int: Double], spacing: Double, shift: Double,
+                                    viewportHeight: Double, blockCount: Int, margin: Double) -> Bool {
+            var changed = false
+            while first < last, let height = heights[first], height.isFinite,
+                  originY - shift + height < -margin {
+                originY += height + spacing
+                first += 1
+                changed = true
+            }
+            while last < blockCount - 1, last - first + 1 < Self.maxBlocks {
+                let spans = spans(heights: heights, spacing: spacing, shift: shift)
+                // Wait for the newest block to be measured before adding another.
+                guard let bottom = spans[last]?.maxY, bottom < viewportHeight + margin else { break }
+                last += 1
+                changed = true
+            }
+            return changed
+        }
     }
 }

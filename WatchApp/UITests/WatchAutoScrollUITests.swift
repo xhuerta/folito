@@ -64,6 +64,9 @@ final class WatchAutoScrollUITests: XCTestCase {
         // The text moves by itself (about 8 pt a second at the default speed and text size).
         sleep(2)
         guard let before = firstVisibleBlock(app) else { return WatchUI.fail("No text block on screen", in: app) }
+        // Reading mode: the top bar hides while it runs.
+        let options = WatchUI.element("readerOptionsButton", in: app)
+        XCTAssertFalse(options.exists && options.isHittable, "Running: the top bar should hide")
         sleep(5)
         if let after = minY(ofBlock: before.label, in: app) {
             XCTAssertLessThan(after, before.minY - 10, "The text should have scrolled up by itself")
@@ -87,8 +90,8 @@ final class WatchAutoScrollUITests: XCTestCase {
         shot.lifetime = .keepAlways
         add(shot)
 
-        // The top bar stays up while auto-scroll is on, so Reading Options stops it.
-        XCTAssertTrue(WatchUI.element("readerOptionsButton", in: app).isHittable, "The top bar should stay up")
+        // The top bar hides while auto-scroll runs and comes back when it pauses, so Reading Options stops it.
+        XCTAssertTrue(WatchUI.element("readerOptionsButton", in: app).isHittable, "Paused: the top bar should be back")
         tapAutoScrollButton(app, expecting: "Stop Auto-Scroll")
         let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"),
                                              object: WatchUI.element("autoScrollPaused", in: app))

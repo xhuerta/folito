@@ -65,6 +65,13 @@ final class ReaderViewModel: ObservableObject {
     private var restoreOffset = 0
     private var restoreAnchor: Double?
     private var inBlockAttempts = 0
+    /// Set when auto-scroll hands the text back (`handBackAutoScroll`): the exact points of `restoreTarget`
+    /// above the reading line, used instead of `restoreOffset`, and the block the jump is anchored to (the
+    /// next one when the target is about as tall as the viewport).
+    private var restorePoints: Double?
+    private var restoreJumpIndex: Int?
+    /// How close a hand-back must land (points): the text must not visibly move when the scroll view shows.
+    static let handBackTolerance = 0.5
     /// Latest frames reported by the view, kept while restoring to verify where the jump landed.
     private var lastFrames: [Int: BlockFrame] = [:]
     /// Top of the visible area in the scroll view's coordinate space (the inset under the navigation
@@ -195,10 +202,11 @@ final class ReaderViewModel: ObservableObject {
     /// Whether the speed badge also says "Turn the Digital Crown to change speed": only the first time
     /// auto-scroll is ever started (remembered in settings), until the badge goes or the speed changes.
     @Published private(set) var autoScrollShowsCrownHint = false
-    /// Where auto-scroll is in the text while it runs: the block at the reading line and the points of it above
-    /// that line. Nil until the next tick measures it from the laid-out blocks (after a start, a resume or a
-    /// restore), so the text always continues from where it actually is.
-    private(set) var autoScrollCursor: AutoScroll.Cursor?
+    /// How far auto-scroll has moved the text, in lines, as a function of time (`AutoScroll.Motion`). Not
+    /// published: the reader reads it on every frame while the text moves, and nothing else changes then.
+    private(set) var autoScrollMotion = AutoScroll.Motion()
+    /// When the reading position was last saved while the text moved by itself.
+    private var lastAutoScrollCommit: Date?
 
     var isAutoScrollActive: Bool { autoScroll != .off }
 
@@ -211,7 +219,8 @@ final class ReaderViewModel: ObservableObject {
             settings.set(true, forKey: ReaderSettings.autoScrollCrownHintShownKey)
             autoScrollShowsCrownHint = true
         }
-        autoScrollCursor = nil
+        autoScrollMotion = AutoScroll.Motion(linesPerSecond: AutoScroll.linesPerSecond(level: autoScrollLevel), at: now())
+        lastAutoScrollCommit = nil
         autoScroll = .running
         // Pages scrolled by auto-scroll are not timed (`learnSpeed`).
         pageTimer.reset(at: now())
@@ -220,14 +229,14 @@ final class ReaderViewModel: ObservableObject {
 
     func pauseAutoScroll() {
         guard autoScroll == .running else { return }
+        autoScrollMotion.setSpeed(0, at: now())
         autoScroll = .paused
-        autoScrollCursor = nil
         haptics.play(.autoScrollStopped)
     }
 
     func resumeAutoScroll() {
         guard autoScroll == .paused else { return }
-        autoScrollCursor = nil
+        autoScrollMotion.setSpeed(AutoScroll.linesPerSecond(level: autoScrollLevel), at: now())
         autoScroll = .running
         haptics.play(.autoScrollStarted)
     }
@@ -237,50 +246,59 @@ final class ReaderViewModel: ObservableObject {
         if autoScrollShowsCrownHint { autoScrollShowsCrownHint = false }
     }
 
-    /// What one auto-scroll tick asks the view to do.
-    enum AutoScrollTickResult: Equatable {
-        /// Nothing to move this time (not running, a restore settling, the position being measured).
-        case idle
-        /// `ScrollViewProxy.scrollTo(index, anchor: UnitPoint(x: 0, y: anchorY))`.
-        case scroll(AutoScroll.Target)
-        /// The end of the book is on screen: stop.
-        case reachedEnd
+    /// Lines auto-scroll has moved the text at `date` (frozen while paused).
+    func autoScrollLines(at date: Date) -> Double {
+        autoScrollMotion.lines(at: date)
     }
 
-    /// One auto-scroll tick, `elapsed` seconds after the previous one: the cursor moves forward by the
-    /// current speed level (read on every tick, so a crown change applies at once) and the scroll target
-    /// that puts it at the reading line is returned. While a restore or a jump settles it waits, then
-    /// measures the text again where it landed.
-    func autoScrollTick(elapsed: TimeInterval, lineHeight: Double) -> AutoScrollTickResult {
-        guard autoScroll == .running, !isRestoring else {
-            autoScrollCursor = nil
-            return .idle
+    /// While auto-scroll moves the text, the scroll view underneath stays where it was, so the reader reports
+    /// the line at the reading line itself: the block, the points of it above that line and its height. Saved
+    /// at most every `AutoScroll.commitInterval` seconds, or at once with `force` (pause, stop, leaving).
+    /// Returns whether it was saved.
+    @discardableResult
+    func autoScrollPositionChanged(_ cursor: AutoScroll.Cursor, blockHeight: Double, force: Bool = false) -> Bool {
+        guard !flat.isEmpty else { return false }
+        let date = now()
+        if !force, let last = lastAutoScrollCommit, date.timeIntervalSince(last) < AutoScroll.commitInterval {
+            return false
         }
-        let frames = lastFrames.mapValues { AutoScroll.Span(minY: Double($0.minY), maxY: Double($0.maxY)) }
-        let top = Double(viewportTop)
-        let height = Double(viewportHeight)
-        guard let current = autoScrollCursor ?? AutoScroll.cursor(frames: frames, viewportTop: top) else { return .idle }
-        if AutoScroll.isAtEnd(cursor: current, blockCount: flat.count, frames: frames,
-                              viewportTop: top, viewportHeight: height) {
-            return .reachedEnd
+        lastAutoScrollCommit = date
+        let index = flat.clamped(cursor.index)
+        let text = flat.blocks[index].text
+        let fraction = blockHeight > 0 && blockHeight.isFinite ? min(max(cursor.offset / blockHeight, 0), 1) : 0
+        let offset = InBlockPosition.characterOffset(forFraction: fraction, in: text)
+        guard index != currentIndex || offset != currentOffset else { return true }
+        // Resets the page timer: auto-scrolled pages never teach the reading speed.
+        learnSpeed(from: currentIndex, to: index)
+        currentIndex = index
+        currentOffset = offset
+        persistCurrent()
+        return true
+    }
+
+    /// Auto-scroll paused or stopped where `cursor` is (`frames`: the blocks as auto-scroll shows them, in
+    /// the scroll view's coordinate space): saves that line and brings the scroll view to exactly that point
+    /// (to the point, not to the start of a word as a restore by character offset would), checking where it
+    /// landed like any restore. The reader keeps showing the auto-scrolled text until `isRestoring` is false.
+    func handBackAutoScroll(at cursor: AutoScroll.Cursor, frames: [Int: AutoScroll.Span]) {
+        guard !flat.isEmpty, let frame = frames[cursor.index] else { return }
+        autoScrollPositionChanged(cursor, blockHeight: frame.height, force: true)
+        guard let target = AutoScroll.scrollTarget(cursor, frames: frames, viewportTop: Double(viewportTop),
+                                                   viewportHeight: Double(viewportHeight)) else {
+            reanchor()
+            return
         }
-        // The first tick only measures where the text is.
-        guard autoScrollCursor != nil else {
-            autoScrollCursor = current
-            return .idle
-        }
-        let distance = AutoScroll.step(level: autoScrollLevel, lineHeight: lineHeight, elapsed: elapsed)
-        let moved = AutoScroll.advance(current, by: distance, blockCount: flat.count, frames: frames)
-        autoScrollCursor = moved
-        guard let target = AutoScroll.scrollTarget(moved, frames: frames, viewportTop: top,
-                                                   viewportHeight: height) else { return .idle }
-        return .scroll(target)
+        beginRestore(target: cursor.index)
+        restorePoints = cursor.offset
+        restoreJumpIndex = target.index
+        restoreAnchor = target.anchorY
+        jumpRequest = JumpRequest(index: target.index, anchorY: target.anchorY)
     }
 
     func stopAutoScroll() {
         guard autoScroll != .off else { return }
+        autoScrollMotion.setSpeed(0, at: now())
         autoScroll = .off
-        autoScrollCursor = nil
         // Reading by hand starts a fresh page now: no sample spans the auto-scroll session.
         pageTimer.reset(at: now())
         haptics.play(.autoScrollStopped)
@@ -292,6 +310,10 @@ final class ReaderViewModel: ObservableObject {
         guard clamped != autoScrollLevel else { return }
         autoScrollLevel = clamped
         settings.set(clamped, forKey: ReaderSettings.autoScrollSpeedKey)
+        // A new slope from now on, continuing from the distance reached: the text does not jump.
+        if autoScroll == .running {
+            autoScrollMotion.setSpeed(AutoScroll.linesPerSecond(level: clamped), at: now())
+        }
         // Found the crown: the hint has done its job.
         dismissAutoScrollCrownHint()
     }
@@ -354,6 +376,9 @@ final class ReaderViewModel: ObservableObject {
     /// the part of it scrolled past that edge.
     func blockFramesChanged(_ frames: [Int: BlockFrame]) {
         lastFrames = frames
+        // While auto-scroll moves the text the scroll view underneath stands still (hidden): its frames say
+        // nothing about the reading position, which auto-scroll reports itself (`autoScrollPositionChanged`).
+        guard autoScroll != .running else { return }
         if !isRestoring { checkEnd(frames) }
         guard !isRestoring, let top = VisibleBlockResolver.topIndex(frames: frames, viewportTop: viewportTop),
               top < flat.count, let frame = frames[top] else { return }
@@ -511,6 +536,8 @@ final class ReaderViewModel: ObservableObject {
         restoreOffset = offset
         restoreAnchor = knownAnchor(target: target, offset: offset)
         inBlockAttempts = 0
+        restorePoints = nil
+        restoreJumpIndex = nil
         scheduleRestoreCheck()
     }
 
@@ -537,11 +564,19 @@ final class ReaderViewModel: ObservableObject {
            RestoreCheck.needsRetry(top: VisibleBlockResolver.topIndex(frames: lastFrames, viewportTop: viewportTop),
                                    target: target, attempts: restoreAttempts) {
             restoreAttempts += 1
-            jumpRequest = JumpRequest(index: target, anchorY: restoreAnchor)
+            jumpRequest = JumpRequest(index: restoreJumpIndex ?? target, anchorY: restoreAnchor)
             scheduleRestoreCheck()
             return
         }
-        if let target = restoreTarget, restoreOffset > 0, let frame = lastFrames[target],
+        if let target = restoreTarget, let points = restorePoints, let frame = lastFrames[target],
+           let anchor = handBackAnchor(target: target, points: points, frame: frame) {
+            inBlockAttempts += 1
+            restoreAnchor = anchor
+            jumpRequest = JumpRequest(index: restoreJumpIndex ?? target, anchorY: anchor)
+            scheduleRestoreCheck()
+            return
+        }
+        if let target = restoreTarget, restorePoints == nil, restoreOffset > 0, let frame = lastFrames[target],
            let anchor = inBlockAnchor(target: target, frame: frame) {
             inBlockAttempts += 1
             restoreAnchor = anchor
@@ -552,6 +587,20 @@ final class ReaderViewModel: ObservableObject {
         restoreTarget = nil
         isRestoring = false
         if !isPositioned { isPositioned = true }
+    }
+
+    /// The anchor for another hand-back jump, or nil when it landed within `handBackTolerance` (or retries ran
+    /// out). All blocks move together, so the error of the target block corrects the anchor of the jump block.
+    private func handBackAnchor(target: Int, points: Double, frame: BlockFrame) -> Double? {
+        let wanted = Double(viewportTop) - points
+        let error = Double(frame.minY) - wanted
+        guard RestoreCheck.needsInBlockRetry(landedMinY: Double(frame.minY), wantedMinY: wanted,
+                                             attempts: inBlockAttempts, tolerance: Self.handBackTolerance),
+              let jumpFrame = lastFrames[restoreJumpIndex ?? target] else { return nil }
+        let previous = restoreAnchor ?? 0
+        return InBlockPosition.correctedAnchorY(previous, error: error,
+                                                blockHeight: Double(jumpFrame.maxY - jumpFrame.minY),
+                                                viewportHeight: Double(viewportHeight))
     }
 
     /// The anchor for another in-block jump, or nil when the saved line is at the top (or retries ran out).
@@ -819,7 +868,7 @@ final class ReaderViewModel: ObservableObject {
     func leave() {
         restoreTask?.cancel()
         if autoScroll != .off { autoScroll = .off }
-        autoScrollCursor = nil
+        autoScrollMotion = AutoScroll.Motion()
         reportProgress(immediately: true)
         // Closing the book: always refresh the complications with the final position.
         publishComplication(force: true)

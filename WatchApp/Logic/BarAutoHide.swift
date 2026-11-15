@@ -96,6 +96,13 @@ struct BarAutoHide: Equatable {
         set(hidden: true, at: now, offset: lastOffset)
     }
 
+    /// Auto-scroll (#67) started or resumed (`running`): the bar hides, as while reading by hand, unless
+    /// VoiceOver is on. Paused or stopped: it shows, so Reading Options (where auto-scroll stops) is one tap
+    /// away. Programmatic-scroll state is set separately (`programmaticScroll`).
+    mutating func autoScroll(running: Bool, at now: Date, voiceOver: Bool) {
+        set(hidden: running && !voiceOver, at: now, offset: lastOffset)
+    }
+
     /// Shows the bar (VoiceOver turned on, a sheet opened).
     mutating func show(at now: Date) {
         set(hidden: false, at: now, offset: lastOffset)

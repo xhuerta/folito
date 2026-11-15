@@ -8,6 +8,8 @@ struct BlockFrame: Equatable {
     var maxY: CGFloat
     /// Width of the block (used to place a tap within a line for the word lookup).
     var width: CGFloat = 0
+    /// Left edge of the block (auto-scroll lines its own copy of the text up with it).
+    var minX: CGFloat = 0
 }
 
 /// Decides the reading position from block frames measured with a named coordinate space.

@@ -31,17 +31,21 @@ import ReaderCore
 /// saved line inside it (`ReaderViewModel.isPositioned`), so the book appears at that line without a
 /// visible move, and every programmatic scroll is announced to `BarAutoHide`, which then cannot hide the bar.
 ///
-/// Auto-scroll (#67): started from Reading Options, never by itself. While it runs, a tick about 30 times a
-/// second moves a cursor (block + points into it, `AutoScroll.Cursor`) at the chosen speed and puts it at the
-/// reading line with `ScrollViewProxy.scrollTo(_:anchor:)`, without animation (the same anchor math as the
-/// in-block restore, so it works on watchOS 10). A transparent layer over the text (only while it runs) takes
-/// the Digital Crown, which changes the speed level with one detent and haptic per level, and a tap, which
-/// pauses; a tap on the text resumes. The top bar stays up while auto-scroll is on (paused or running), so
-/// Reading Options, where it is stopped, is one tap away and the reading line never moves with the bar. It
-/// pauses when a sheet or an alert opens, when the wrist goes down (Always On) or the app leaves the
+/// Auto-scroll (#67): started from Reading Options, never by itself. While it runs, the reader shows the
+/// blocks around the reading line in a plain stack over the scroll view (an `AutoScroll.Window`, laid out at
+/// the same width so every line breaks the same) and moves it with an offset computed on every display frame
+/// from `AutoScroll.Motion` (a `TimelineView(.animation)`), so the text glides with sub-pixel steps; the
+/// scroll view underneath is hidden and stands still. Nothing is published per frame: the window changes
+/// only when a block scrolls off the top or one is added below, and the reading position is saved every few
+/// seconds. On pause or stop the scroll view is brought to the exact point shown (`handBackAutoScroll`) and
+/// the stack stays on screen until it has landed, so nothing visibly moves. A transparent layer over the text
+/// (only while it runs) holds the Digital Crown (speed, one detent and haptic per level, the badge shows
+/// "Speed N of 7" at each change) and pauses on a tap. The top bar hides while it runs, like reading by hand,
+/// and shows when it pauses, so Reading Options (where it stops) is one tap away; a tap on the text resumes.
+/// While paused the crown scrolls the text by hand, as when reading, and auto-scroll resumes from there.
+/// It pauses when a sheet or an alert opens, when the wrist goes down (Always On) or the app leaves the
 /// foreground, stops at the end of the book and on leaving it. It runs only while the screen is on: reading is
 /// not one of the session types `WKExtendedRuntimeSession` allows, so the app does not keep itself running.
-/// The position keeps being saved from the block frames, as for any scroll.
 struct ReaderView: View {
     @StateObject private var model: ReaderViewModel
     @EnvironmentObject private var sync: SyncCoordinator
@@ -63,10 +67,23 @@ struct ReaderView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Start auto-scroll once the menu is gone (its "Start Auto-Scroll" button).
     @State private var autoScrollAfterMenu = false
-    /// The auto-scroll layer holds the crown while auto-scroll runs (the scroll view has it otherwise).
-    @FocusState private var autoScrollFocused: Bool
-    /// The scroll view's crown focus, handed back once auto-scroll stops running.
-    @FocusState private var scrollFocused: Bool
+    /// What the Digital Crown drives: the text (scrolls it) or, while auto-scroll runs, its speed. One focus
+    /// value for both, so they can never both claim it (two separate focus states left the scroll view
+    /// focused, and the crown stopped changing the speed after the first re-render).
+    @FocusState private var crownFocus: CrownTarget?
+    /// While auto-scroll shows the text itself (running, and after a pause until the scroll view has landed
+    /// at the same point): which blocks, where.
+    @State private var autoScrollWindow: AutoScroll.Window?
+    /// Heights of the blocks in the auto-scroll window, measured there.
+    @State private var autoScrollHeights: [Int: Double] = [:]
+    /// Left edge and width of the text in the scroll view (every block fills the column's width), so the
+    /// auto-scroll window lays out every line exactly as the scroll view does.
+    @State private var autoScrollLeading: CGFloat = 0
+    @State private var autoScrollTextWidth: CGFloat = 0
+    /// Auto-scroll paused or stopped and the scroll view is being brought to the point shown.
+    @State private var autoScrollHandingBack = false
+    /// Line height and paragraph spacing the auto-scroll housekeeping runs with (set when it starts).
+    @State private var autoScrollMetrics: (lineHeight: Double, spacing: Double)?
     /// Auto-scroll stopped running while a sheet was up: give the crown back to the text once it is gone.
     @State private var crownReturnPending = false
     /// The crown's value on the auto-scroll layer: one detent per speed level.
@@ -76,6 +93,11 @@ struct ReaderView: View {
     @State private var speedBadgeToken = 0
     private var readerAccessibility = ReaderAccessibilityReader()
     private static let scrollSpace = "reader.scroll"
+
+    enum CrownTarget: Hashable {
+        case text
+        case autoScroll
+    }
 
     init(model: ReaderViewModel) {
         _model = StateObject(wrappedValue: model)
@@ -109,7 +131,8 @@ struct ReaderView: View {
                                 GeometryReader { geo in
                                     let f = geo.frame(in: .named(Self.scrollSpace))
                                     Color.clear.preference(key: BlockFramesKey.self,
-                                                           value: [index: BlockFrame(minY: f.minY, maxY: f.maxY, width: f.width)])
+                                                           value: [index: BlockFrame(minY: f.minY, maxY: f.maxY, width: f.width,
+                                                                                     minX: f.minX)])
                                 })
                     }
                     if model.flat.isEmpty {
@@ -125,13 +148,15 @@ struct ReaderView: View {
                 .accessibilityHidden(!model.isPositioned)
             }
             .coordinateSpace(name: Self.scrollSpace)
-            // Every auto-scroll step is a scroll, and the system shows the scroll indicator beside the crown
-            // for each one: about 30 flashes a second read as a flickering bar. Hidden while it runs; `.never`
-            // rather than `.hidden`, which a platform may override (watchOS 9+ API, so fine on watchOS 10).
-            .scrollIndicators(model.autoScroll == .running ? .never : .automatic)
-            // Only set when auto-scroll stops running (`returnCrownToText`), so the crown scrolls the text again
+            // While auto-scroll shows the text itself, the scroll view stays laid out (its frames place the
+            // hand-back) but is hidden, silent and untouchable, with no indicator flashing beside the crown.
+            .scrollIndicators(autoScrollWindow == nil ? .automatic : .never)
+            .opacity(autoScrollWindow == nil ? 1 : 0)
+            .accessibilityHidden(autoScrollWindow != nil)
+            .allowsHitTesting(autoScrollWindow == nil)
+            // Set when auto-scroll hands the text back (`returnCrownToText`), so the crown scrolls the text again
             // at once instead of staying with the auto-scroll layer that went away.
-            .focused($scrollFocused)
+            .focused($crownFocus, equals: .text)
             // How far the text is scrolled, for the bar auto-hide. Read from the scroll view itself where
             // available: the content-top preference below is not delivered reliably while scrolling on
             // watchOS (the text scrolled hundreds of points and the bar never hid).
@@ -160,7 +185,7 @@ struct ReaderView: View {
             .onPreferenceChange(BlockFramesKey.self) { model.blockFramesChanged($0) }
             // Restores and jumps are not reading: they must not hide the bar.
             .onChange(of: model.isRestoring) { restoring in
-                // Auto-scroll moves the text too: it never hides the bar either.
+                // Auto-scroll's own motion is not reading by hand either: offsets never toggle the bar then.
                 updateBar { $0.programmaticScroll(restoring || model.isAutoScrollActive) }
             }
             .onChange(of: model.jumpRequest) { request in
@@ -175,10 +200,17 @@ struct ReaderView: View {
                     }
                 }
             }
-            // Auto-scroll ticks while running; cancelled on pause, stop and leaving.
-            .task(id: model.autoScroll == .running) {
-                guard model.autoScroll == .running else { return }
-                await runAutoScroll(proxy, lineHeight: autoScrollLineHeight)
+            // The auto-scrolled text, over the (hidden) scroll view and in its coordinates.
+            .overlay(alignment: .topLeading) {
+                if let window = autoScrollWindow {
+                    autoScrollColumn(window, style: style, lineHeight: autoScrollLineHeight)
+                }
+            }
+            // Auto-scroll housekeeping a few times a second (never per frame): makes and updates the window,
+            // saves the position, stops at the end, finishes the hand-back. Restarted when the layout changes.
+            .task(id: "\(model.isAutoScrollActive || autoScrollWindow != nil)|\(style.layoutKey)") {
+                await maintainAutoScroll(lineHeight: autoScrollLineHeight,
+                                         spacing: Double(style.typography.paragraphSpacing))
             }
         }
         .background(style.background)
@@ -208,6 +240,8 @@ struct ReaderView: View {
         // Layout metrics changed: keep reading the same block. Colour-only changes (Always On,
         // Increase Contrast) keep the layout and need no re-anchoring.
         .onChange(of: style.layoutKey) { _ in
+            // A paused auto-scroll window was laid out for the old metrics: the scroll view takes over.
+            if autoScrollWindow != nil, model.autoScroll != .running { endAutoScrollWindow() }
             DispatchQueue.main.async { model.reanchor() }
         }
         .navigationTitle(model.title)
@@ -257,16 +291,17 @@ struct ReaderView: View {
         .onChange(of: model.autoScroll) { state in
             updateBar {
                 $0.programmaticScroll(state != .off || model.isRestoring)
-                if state != .off { $0.show(at: Date()) }
+                $0.autoScroll(running: state == .running, at: Date(), voiceOver: voiceOver)
             }
             if state == .running {
+                autoScrollHandingBack = false
                 crownValue = Double(model.autoScrollLevel)
                 // On every start and resume, a little longer than after a crown change (the sheet is still
                 // leaving), and longer still with the first-start crown hint.
                 flashSpeedBadge(for: model.autoScrollShowsCrownHint ? AutoScrollBadge.hintDuration
                                                                      : AutoScrollBadge.startDuration)
             } else {
-                returnCrownToText()
+                handTextBackToScrollView()
             }
         }
         .sheet(isPresented: $showMenu, onDismiss: {
@@ -275,10 +310,12 @@ struct ReaderView: View {
                 // From the menu: start on the word at the reading line.
                 model.beginLookup(at: model.currentIndex, characterOffset: model.currentOffset)
             }
-            model.reanchor()
+            // While auto-scroll shows the text, the hand-back already brings the scroll view to the exact point
+            // (a re-anchor goes to the start of a word); a layout change ends the window and re-anchors anyway.
+            if autoScrollWindow == nil { model.reanchor() }
             if autoScrollAfterMenu {
                 autoScrollAfterMenu = false
-                // Waits for the re-anchor to settle before the first move (`runAutoScroll`).
+                // Waits for the re-anchor to settle before the first move (`tendAutoScroll`).
                 model.startAutoScroll(reduceMotion: reduceMotion)
             }
         }) {
@@ -319,7 +356,10 @@ struct ReaderView: View {
             updateBar { $0.programmaticScroll(true) }
             model.restoreInitialPosition()
         }
-        .onDisappear { model.leave() }
+        .onDisappear {
+            commitAutoScrollPosition(force: true)
+            model.leave()
+        }
         .onChange(of: scenePhase) { phase in
             if phase != .active {
                 model.pauseAutoScroll()
@@ -415,36 +455,149 @@ extension ReaderView {
 
     // MARK: Auto-scroll (#67)
 
-    /// Moves the text while auto-scroll runs: every `AutoScroll.tickInterval` the view model advances its
-    /// cursor by the current speed times the time since the last tick (`ReaderViewModel.autoScrollTick`), and
-    /// `scrollTo` puts it at the reading line. Steps are instant: an animated `scrollTo` uses the system's
-    /// scroll curve rather than a linear one on watchOS, so back-to-back animated steps would pulse. Nothing is
-    /// published per tick, so the reader does not re-render; the scroll itself updates the block frames, from
-    /// which the position is saved as usual.
-    @MainActor
-    fileprivate func runAutoScroll(_ proxy: ScrollViewProxy, lineHeight: Double) async {
-        var lastTick = Date()
-        let tickNanoseconds = UInt64(AutoScroll.tickInterval * 1_000_000_000)
-        while !Task.isCancelled, model.autoScroll == .running {
-            try? await Task.sleep(nanoseconds: tickNanoseconds)
-            guard !Task.isCancelled, model.autoScroll == .running else { return }
-            let tickDate = Date()
-            let elapsed = tickDate.timeIntervalSince(lastTick)
-            lastTick = tickDate
-            switch model.autoScrollTick(elapsed: elapsed, lineHeight: lineHeight) {
-            case .idle:
-                continue
-            case .reachedEnd:
-                autoScrollReachedEnd()
-                return
-            case .scroll(let step):
-                var transaction = Transaction()
-                transaction.disablesAnimations = true
-                withTransaction(transaction) {
-                    proxy.scrollTo(step.index, anchor: UnitPoint(x: 0, y: step.anchorY))
-                }
+    /// The auto-scrolled text: the window's blocks in a plain stack, at the scroll view's width and in its
+    /// coordinates, moved up by the distance scrolled. The offset is computed on every display frame from the
+    /// view model's `Motion` (paused, it stops asking for frames); the stack itself only changes with the
+    /// window (`AutoScrollColumn` is equatable), so a frame costs one offset, not a layout.
+    fileprivate func autoScrollColumn(_ window: AutoScroll.Window, style: ReaderRenderStyle,
+                                      lineHeight: Double) -> some View {
+        let margin = CGFloat(style.typography.horizontalMargin)
+        return GeometryReader { geo in
+            // Where this overlay sits relative to the scroll view (it ignores the safe area, the text does not).
+            let origin = geo.frame(in: .global).origin
+            let dx = scrollOrigin.x - origin.x + (autoScrollLeading > 0 ? autoScrollLeading : margin)
+            let dy = scrollOrigin.y - origin.y
+            TimelineView(.animation(minimumInterval: nil, paused: model.autoScroll != .running)) { context in
+                AutoScrollColumn(blocks: model.flat.blocks, first: window.first, last: window.last, style: style,
+                                 width: autoScrollTextWidth > 0 ? autoScrollTextWidth : max(geo.size.width - 2 * margin, 0))
+                    .equatable()
+                    .offset(x: dx, y: dy + CGFloat(window.originY - autoScrollShift(window, at: context.date,
+                                                                                    lineHeight: lineHeight,
+                                                                                    spacing: Double(style.typography.paragraphSpacing))))
             }
         }
+        .ignoresSafeArea()
+        .clipped()
+        .contentShape(Rectangle())
+        // Paused (the scroll view is still landing underneath): a tap resumes, as on the text.
+        .onTapGesture {
+            if model.autoScroll == .paused { model.resumeAutoScroll() }
+        }
+        .onPreferenceChange(AutoScrollHeightsKey.self) { measured in
+            autoScrollHeights.merge(measured) { _, new in new }
+        }
+    }
+
+    /// Points the window has moved since it was made, at `date`: never past the end of the book.
+    fileprivate func autoScrollShift(_ window: AutoScroll.Window, at date: Date, lineHeight: Double,
+                                     spacing: Double) -> Double {
+        let raw = max(model.autoScrollLines(at: date) - window.baseLines, 0) * lineHeight
+        guard let end = window.endShift(heights: autoScrollHeights, spacing: spacing,
+                                        viewportHeight: Double(model.viewportHeight),
+                                        blockCount: model.flat.count) else { return raw }
+        return min(raw, end)
+    }
+
+    /// The line at the reading line in the window (and the window's blocks, where they are), or nil.
+    fileprivate func autoScrollCursor(at date: Date, lineHeight: Double, spacing: Double)
+        -> (cursor: AutoScroll.Cursor, frames: [Int: AutoScroll.Span])? {
+        guard let window = autoScrollWindow else { return nil }
+        let shift = autoScrollShift(window, at: date, lineHeight: lineHeight, spacing: spacing)
+        let frames = window.spans(heights: autoScrollHeights, spacing: spacing, shift: shift)
+        guard let cursor = AutoScroll.cursor(frames: frames, viewportTop: Double(model.viewportTop)) else { return nil }
+        return (cursor, frames)
+    }
+
+    /// Runs while auto-scroll is on or its window is shown, a few times a second.
+    @MainActor
+    fileprivate func maintainAutoScroll(lineHeight: Double, spacing: Double) async {
+        autoScrollMetrics = (lineHeight, spacing)
+        while !Task.isCancelled, model.isAutoScrollActive || autoScrollWindow != nil {
+            tendAutoScroll(lineHeight: lineHeight, spacing: spacing)
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
+    }
+
+    fileprivate func tendAutoScroll(lineHeight: Double, spacing: Double) {
+        let date = Date()
+        let viewportHeight = Double(model.viewportHeight)
+        if model.autoScroll == .running {
+            // The crown changes the speed at any moment while it runs (unless a sheet has it).
+            if crownFocus != .autoScroll, !coversReader { crownFocus = .autoScroll }
+            if autoScrollWindow == nil {
+                // Starts (or resumes) from exactly where the scroll view shows the text, once it settled.
+                guard !model.isRestoring else { return }
+                let frames = model.blockFrames.mapValues { AutoScroll.Span(minY: Double($0.minY), maxY: Double($0.maxY)) }
+                guard let window = AutoScroll.Window(frames: frames, viewportHeight: viewportHeight,
+                                                     blockCount: model.flat.count,
+                                                     baseLines: model.autoScrollLines(at: date)) else { return }
+                withoutAnimation {
+                    autoScrollHeights = frames.mapValues(\.height)
+                    autoScrollLeading = model.blockFrames[window.first]?.minX ?? 0
+                    autoScrollTextWidth = model.blockFrames[window.first]?.width ?? 0
+                    autoScrollWindow = window
+                }
+                return
+            }
+        }
+        guard var window = autoScrollWindow else { return }
+        guard model.autoScroll == .running else {
+            // Paused or stopped: once the scroll view has landed at the point shown, it takes over.
+            if !autoScrollHandingBack || !model.isRestoring { endAutoScrollWindow() }
+            return
+        }
+        let shift = autoScrollShift(window, at: date, lineHeight: lineHeight, spacing: spacing)
+        if let end = window.endShift(heights: autoScrollHeights, spacing: spacing, viewportHeight: viewportHeight,
+                                     blockCount: model.flat.count), shift >= end {
+            autoScrollReachedEnd()
+            return
+        }
+        if window.update(heights: autoScrollHeights, spacing: spacing, shift: shift, viewportHeight: viewportHeight,
+                         blockCount: model.flat.count, margin: max(viewportHeight, 100)) {
+            withoutAnimation { autoScrollWindow = window }
+        }
+        commitAutoScrollPosition(force: false)
+    }
+
+    /// Saves the line at the reading line (at most every `AutoScroll.commitInterval` s unless `force`).
+    fileprivate func commitAutoScrollPosition(force: Bool) {
+        guard let metrics = autoScrollMetrics,
+              let found = autoScrollCursor(at: Date(), lineHeight: metrics.lineHeight, spacing: metrics.spacing),
+              let frame = found.frames[found.cursor.index] else { return }
+        model.autoScrollPositionChanged(found.cursor, blockHeight: frame.height, force: force)
+    }
+
+    /// Paused or stopped: the scroll view is brought to the exact point shown, while the window stays on screen
+    /// (frozen) until it has landed. The crown is nobody's meanwhile, so it cannot scroll the hidden text.
+    fileprivate func handTextBackToScrollView() {
+        guard autoScrollWindow != nil else {
+            returnCrownToText()
+            return
+        }
+        if crownFocus == .autoScroll { crownFocus = nil }
+        guard let metrics = autoScrollMetrics,
+              let found = autoScrollCursor(at: Date(), lineHeight: metrics.lineHeight, spacing: metrics.spacing) else {
+            endAutoScrollWindow()
+            return
+        }
+        autoScrollHandingBack = true
+        model.handBackAutoScroll(at: found.cursor, frames: found.frames)
+    }
+
+    /// The scroll view shows the text again.
+    fileprivate func endAutoScrollWindow() {
+        withoutAnimation {
+            autoScrollWindow = nil
+            autoScrollHeights = [:]
+            autoScrollHandingBack = false
+        }
+        returnCrownToText()
+    }
+
+    fileprivate func withoutAnimation(_ change: () -> Void) {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction, change)
     }
 
     /// The end of the book is on screen: auto-scroll stops (with the stop haptic), and VoiceOver says so.
@@ -462,7 +615,7 @@ extension ReaderView {
         Color.clear
             .contentShape(Rectangle())
             .focusable()
-            .focused($autoScrollFocused)
+            .focused($crownFocus, equals: .autoScroll)
             .focusEffectDisabled()
             .digitalCrownRotation($crownValue,
                                   from: Double(AutoScroll.levels.lowerBound), through: Double(AutoScroll.levels.upperBound),
@@ -470,11 +623,12 @@ extension ReaderView {
             .onTapGesture { model.pauseAutoScroll() }
             .onAppear {
                 crownValue = Double(model.autoScrollLevel)
-                autoScrollFocused = true
+                crownFocus = .autoScroll
             }
-            // Keep the crown while running (a re-render can drop the focus, as in the word picker).
-            .onChange(of: autoScrollFocused) { focused in
-                if !focused, model.autoScroll == .running { autoScrollFocused = true }
+            // Keep the crown while running (a re-render can drop the focus, as in the word picker); the
+            // housekeeping task also checks it a few times a second.
+            .onChange(of: crownFocus) { focus in
+                if focus != .autoScroll, model.autoScroll == .running, !coversReader { crownFocus = .autoScroll }
             }
             .onChange(of: crownValue) { value in
                 changeAutoScrollSpeed(to: AutoScroll.level(forCrown: value))
@@ -505,11 +659,10 @@ extension ReaderView {
             return
         }
         crownReturnPending = false
-        autoScrollFocused = false
         // After the layer has left the view tree.
         DispatchQueue.main.async {
-            guard model.autoScroll != .running else { return }
-            scrollFocused = true
+            guard model.autoScroll != .running, autoScrollWindow == nil else { return }
+            crownFocus = .text
         }
     }
 
@@ -739,6 +892,45 @@ struct BlockFramesKey: PreferenceKey {
 struct ViewportTopKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+/// Heights of the blocks in the auto-scroll window, measured there.
+struct AutoScrollHeightsKey: PreferenceKey {
+    static var defaultValue: [Int: Double] = [:]
+    static func reduce(value: inout [Int: Double], nextValue: () -> [Int: Double]) {
+        value.merge(nextValue()) { _, new in new }
+    }
+}
+
+/// The blocks auto-scroll moves (#67, `AutoScroll.Window`): stacked like the reader's own list (same width,
+/// spacing and style, so every line breaks at the same word) and measured. Equatable on what changes its
+/// layout, so the offset applied on every frame never re-evaluates it. Each block keeps the reader's
+/// "readerBlock" identifier (the scroll view underneath is hidden from accessibility meanwhile).
+private struct AutoScrollColumn: View, Equatable {
+    let blocks: [Block]
+    let first: Int
+    let last: Int
+    let style: ReaderRenderStyle
+    let width: CGFloat
+
+    static func == (lhs: AutoScrollColumn, rhs: AutoScrollColumn) -> Bool {
+        lhs.first == rhs.first && lhs.last == rhs.last && lhs.width == rhs.width
+            && lhs.blocks.count == rhs.blocks.count && lhs.style == rhs.style
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: style.typography.paragraphSpacing) {
+            ForEach(first...max(first, min(last, blocks.count - 1)), id: \.self) { index in
+                BlockStyledText(block: blocks[index], style: style)
+                    .equatable()
+                    .accessibilityIdentifier("readerBlock")
+                    .background(GeometryReader { geo in
+                        Color.clear.preference(key: AutoScrollHeightsKey.self, value: [index: Double(geo.size.height)])
+                    })
+            }
+        }
+        .frame(width: width, alignment: .leading)
+    }
 }
 
 /// Origin of the reader's scroll view in global coordinates, to map edge-strip taps into the scroll view's space.
