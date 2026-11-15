@@ -168,7 +168,7 @@ public struct BookmarkList: Codable, Sendable, Equatable {
     /// Adds `bookmark` unless one at the same position exists.
     @discardableResult
     public mutating func add(_ bookmark: Bookmark) -> AddResult {
-        if let existing = bookmark(at: bookmark.position) { return .duplicate(existing) }
+        if let existing = self.bookmark(at: bookmark.position) { return .duplicate(existing) }
         items.removeAll { $0.id == bookmark.id }
         items.append(bookmark)
         items.sort(by: Self.newestFirst)
