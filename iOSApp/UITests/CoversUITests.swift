@@ -86,6 +86,22 @@ final class CoversUITests: XCTestCase {
         screenshot(app, "covers-7-detail-placeholder")
     }
 
+    /// Books on their way to the watch (`-UITestingSimulateTransfer`): the sample book sending at 45 %, *Emma*
+    /// waiting for the watch. VoiceOver reads the percentage with the row.
+    @MainActor
+    func testRowsMidTransfer() throws {
+        let app = launch(["-UITestingSimulateWatch", "-UITestingSimulateTransfer"])
+        // Newest first: Emma is above the sample book.
+        let emma = row(app, "Emma")
+        XCTAssertTrue(scrollTo(emma, in: app), "Emma missing")
+        XCTAssertTrue(emma.label.contains("Waiting for Apple Watch"), emma.label)
+        let alice = row(app, "Alice")
+        XCTAssertTrue(scrollTo(alice, in: app), "sample book missing")
+        XCTAssertTrue(alice.label.contains("Sending to Apple Watch, 45"), alice.label)
+        sleep(1)
+        screenshot(app, "covers-11-library-transfer")
+    }
+
     @MainActor
     func testCoversAtLargestTextSize() throws {
         let app = launch(["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])

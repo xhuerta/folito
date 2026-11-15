@@ -202,7 +202,9 @@ struct BookDetailView: View {
             row(Text("Time Remaining", comment: "Book detail label: estimated reading time left"),
                 value: DisplayFormat.timeLeft(seconds, style: .full))
         }
-        row(Text("Apple Watch", comment: "Book detail label: whether the book is on the watch"), value: state.text)
+        let transfer = state == .sending ? connectivity.bookTransfers[entry.documentHash] : nil
+        row(Text("Apple Watch", comment: "Book detail label: whether the book is on the watch"),
+            value: transfer?.text() ?? state.text)
         if let subjects = merged.subjects {
             row(Text("Subjects", comment: "Book detail label: the book's subjects or genres"),
                 value: subjects.value.joined(separator: ", "), online: subjects.source == .openLibrary)
@@ -239,7 +241,7 @@ struct BookDetailView: View {
     }
 
     private func watchState(_ entry: LibraryEntry) -> BookWatchState {
-        BookWatchState(entry, inFlight: connectivity.outstandingHashes.contains(entry.documentHash))
+        connectivity.bookState(for: entry)
     }
 
     @ViewBuilder

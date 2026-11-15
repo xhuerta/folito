@@ -20,6 +20,17 @@ Metadata keys:
 
 The watch should replace any existing book with the same `documentHash`.
 
+**Transfer progress (iPhone only).** While a book or dictionary transfer is outstanding, `PhoneConnectivity`
+reads `WCSessionFileTransfer.progress.fractionCompleted` of each one four times a second on the main queue (a
+timer that runs only while something is in flight) and publishes a row state only when it changes
+(`WatchTransferTracker`, `WatchTransferProgress`): *Sending… 45%* while the fraction grows, *Waiting for Apple
+Watch* (with "Keep your Apple Watch nearby and unlocked.") when it is still at 0 % while the watch is not
+reachable or after 4 s, or has not grown for 20 s. watchOS schedules transfers itself, so a waiting transfer is
+not an error. Transfers found in `outstandingFileTransfers` after a relaunch are tracked again. A transfer that
+ends with an error (not cancelled by the app) shows *Couldn’t Send to Apple Watch* until it is sent again.
+VoiceOver reads the percentage in 5 % steps. The watch cannot show incoming progress: watchOS hands a file to
+the app only once it has been received completely.
+
 **Covers of books already on the watch** (`WCSession.transferUserInfo`):
 `{ "type": "book_cover", "documentHash": "<hash>", "cover": <JPEG Data> }`. Sent once when a book imported before
 covers existed gains its cover on the phone (lazy fill from the kept EPUB). If it is lost, the next resend of the

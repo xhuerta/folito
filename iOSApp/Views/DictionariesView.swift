@@ -16,6 +16,7 @@ struct DictionariesView: View {
                                   watchState: DictionaryWatchState(id: descriptor.id, installed: manager.isInstalled(descriptor.id),
                                                                    onWatch: connectivity.watchDictionaries,
                                                                    sending: connectivity.outstandingDictionaries),
+                                  transfer: connectivity.dictionaryTransfers[descriptor.id],
                                   onDelete: { pendingDelete = descriptor })
                 }
             } footer: {
@@ -84,6 +85,8 @@ private struct DictionaryRow: View {
     let descriptor: DictionaryDescriptor
     @ObservedObject var manager: DictionaryManager
     let watchState: DictionaryWatchState
+    /// Progress of the transfer to the watch, shown while `watchState` is `.sending`.
+    let transfer: WatchTransferProgress?
     let onDelete: () -> Void
 
     var body: some View {
@@ -97,7 +100,12 @@ private struct DictionaryRow: View {
                     Text(DictionarySizes.text(download: descriptor.downloadSize,
                                               installed: manager.installedSize(descriptor.id) ?? descriptor.installedSize))
                         .font(.footnote).foregroundStyle(.secondaryText)
-                    if let status = watchState.text {
+                    if watchState == .sending, let transfer {
+                        Text(verbatim: transfer.text())
+                            .font(.footnote).foregroundStyle(.secondaryText)
+                            .monospacedDigit()
+                            .accessibilityLabel(Text(verbatim: transfer.accessibilityText()))
+                    } else if let status = watchState.text {
                         Text(status).font(.footnote).foregroundStyle(.secondaryText)
                     }
                 }
@@ -105,6 +113,9 @@ private struct DictionaryRow: View {
                 actions
             }
             progress
+            if watchState == .sending, let transfer {
+                TransferBar(transfer: transfer)
+            }
         }
         .padding(.vertical, 2)
     }

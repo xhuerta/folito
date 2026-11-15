@@ -10,6 +10,15 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
     @Published private(set) var isReachable = false
     /// documentHash of book transfers still in flight.
     @Published private(set) var outstandingHashes: Set<String> = []
+    /// Progress of each book transfer in flight, by documentHash (see `WatchTransferTracker`). Read from
+    /// `WCSessionFileTransfer.progress` at most `progressInterval` apart, and published only when what a row
+    /// shows changes. A book may be in `outstandingHashes` a moment before its first entry appears here.
+    @Published private(set) var bookTransfers: [String: WatchTransferProgress] = [:]
+    /// The same for dictionary transfers, by dictionary id.
+    @Published private(set) var dictionaryTransfers: [String: WatchTransferProgress] = [:]
+    /// Books whose last transfer failed (cleared when they are sent again). In memory only: after a relaunch the
+    /// book is sent again by `syncWatchState()` if it is not on the watch.
+    @Published private(set) var failedHashes: Set<String> = []
     /// Last connectivity error, for debugging only (never shown in the UI, so it is not localized).
     @Published private(set) var lastError: String?
 
@@ -62,6 +71,22 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
 
     private var session: WCSession? { WCSession.isSupported() ? WCSession.default : nil }
 
+    /// A file transfer whose progress is shown, with the movement seen so far.
+    private struct TrackedTransfer {
+        let transfer: WCSessionFileTransfer
+        var tracker: WatchTransferTracker
+    }
+    /// Main queue only, like every other property here (delegate callbacks hop to it first).
+    private var trackedBooks: [String: TrackedTransfer] = [:]
+    private var trackedDictionaries: [String: TrackedTransfer] = [:]
+    /// Book transfers cancelled on purpose: their `didFinish` error is not a failure.
+    private var cancelledHashes: Set<String> = []
+    /// Polls the tracked transfers' `progress` on the main run loop while any is in flight (4 times a second).
+    /// Polling instead of KVO: `fractionCompleted` changes on a background queue for every chunk sent, and a
+    /// fixed tick is both the throttle and the main-queue hop.
+    private var progressTimer: Timer?
+    static let progressInterval: TimeInterval = 0.25
+
     func activate() {
         #if DEBUG
         // App Store screenshots (`-UITestingSimulateWatch`, Debug builds only): show the Library as with a paired,
@@ -72,6 +97,10 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
             isWatchAppInstalled = true
             isReachable = true
             watchProgress = UITesting.simulatedWatchProgress
+            // `-UITestingSimulateTransfer`: rows mid-transfer (sending and waiting), for the UI tests only.
+            let transfers = UITesting.simulatedTransfers
+            outstandingHashes = Set(transfers.keys)
+            bookTransfers = transfers
             return
         }
         #endif
@@ -101,9 +130,12 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
         // Not installed yet: the book stays unsent and `syncWatchState()` sends it once the watch app appears.
         guard canSend else { return }
         guard !outstandingHashes.contains(entry.documentHash) else { return }
-        session.transferFile(fileURL, metadata: WatchSchema.bookMetadata(for: entry, formatVersion: formatVersion,
-                                                                        cover: coverProvider?(entry)))
+        let transfer = session.transferFile(fileURL, metadata: WatchSchema.bookMetadata(for: entry, formatVersion: formatVersion,
+                                                                                       cover: coverProvider?(entry)))
         outstandingHashes.insert(entry.documentHash)
+        failedHashes.remove(entry.documentHash)
+        trackedBooks[entry.documentHash] = TrackedTransfer(transfer: transfer, tracker: WatchTransferTracker(startedAt: Date()))
+        updateTransferProgress()
     }
 
     /// Sends the cover of a book the watch already has (it gained one after it was sent).
@@ -120,8 +152,10 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
         where (transfer.file.metadata?[WatchSchema.Key.dictionaryId] as? String) == id {
             transfer.cancel()
         }
-        session.transferFile(fileURL, metadata: WatchSchema.dictionaryMetadata(id: id, sha256: sha256, size: size))
+        let transfer = session.transferFile(fileURL, metadata: WatchSchema.dictionaryMetadata(id: id, sha256: sha256, size: size))
         outstandingDictionaries.insert(id)
+        trackedDictionaries[id] = TrackedTransfer(transfer: transfer, tracker: WatchTransferTracker(startedAt: Date()))
+        updateTransferProgress()
     }
 
     func sendDeleteDictionary(id: String) {
@@ -146,7 +180,10 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     func cancelTransfers() {
-        session?.outstandingFileTransfers.forEach { $0.cancel() }
+        for transfer in session?.outstandingFileTransfers ?? [] {
+            if let hash = transfer.file.metadata?[WatchSchema.Key.documentHash] as? String { cancelledHashes.insert(hash) }
+            transfer.cancel()
+        }
         refreshOutstanding()
     }
 
@@ -207,6 +244,60 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
         let transfers = session?.outstandingFileTransfers ?? []
         outstandingHashes = Set(transfers.compactMap { $0.file.metadata?[WatchSchema.Key.documentHash] as? String })
         outstandingDictionaries = Set(transfers.compactMap { $0.file.metadata?[WatchSchema.Key.dictionaryId] as? String })
+        // Transfers queued before a relaunch pick their progress up again; those no longer outstanding are dropped.
+        let now = Date()
+        var books: [String: TrackedTransfer] = [:]
+        var dictionaries: [String: TrackedTransfer] = [:]
+        for transfer in transfers {
+            if let hash = transfer.file.metadata?[WatchSchema.Key.documentHash] as? String {
+                books[hash] = TrackedTransfer(transfer: transfer,
+                                              tracker: trackedBooks[hash]?.tracker ?? WatchTransferTracker(startedAt: now))
+            } else if let id = transfer.file.metadata?[WatchSchema.Key.dictionaryId] as? String {
+                dictionaries[id] = TrackedTransfer(transfer: transfer,
+                                                   tracker: trackedDictionaries[id]?.tracker ?? WatchTransferTracker(startedAt: now))
+            }
+        }
+        trackedBooks = books
+        trackedDictionaries = dictionaries
+        updateTransferProgress()
+    }
+
+    /// Reads every tracked transfer's `fractionCompleted`, publishes what the rows show when it changed, and runs
+    /// the poll timer only while something is tracked. Main queue only.
+    private func updateTransferProgress(now: Date = Date()) {
+        let reachable = isReachable
+        func advance(_ tracked: inout [String: TrackedTransfer]) -> [String: WatchTransferProgress] {
+            var shown: [String: WatchTransferProgress] = [:]
+            for key in Array(tracked.keys) {
+                guard var item = tracked[key] else { continue }
+                item.tracker.record(item.transfer.progress.fractionCompleted, at: now)
+                tracked[key] = item
+                shown[key] = item.tracker.progress(at: now, watchReachable: reachable)
+            }
+            return shown
+        }
+        let books = advance(&trackedBooks)
+        let dictionaries = advance(&trackedDictionaries)
+        if books != bookTransfers { bookTransfers = books }
+        if dictionaries != dictionaryTransfers { dictionaryTransfers = dictionaries }
+
+        if trackedBooks.isEmpty && trackedDictionaries.isEmpty {
+            progressTimer?.invalidate()
+            progressTimer = nil
+        } else if progressTimer == nil {
+            let timer = Timer(timeInterval: Self.progressInterval, repeats: true) { [weak self] _ in
+                self?.updateTransferProgress()
+            }
+            timer.tolerance = Self.progressInterval / 5
+            RunLoop.main.add(timer, forMode: .common)
+            progressTimer = timer
+        }
+    }
+
+    /// What a library row shows for `entry`: in flight, failed, on the watch, waiting or removed there.
+    func bookState(for entry: LibraryEntry) -> BookWatchState {
+        BookWatchState(entry, inFlight: outstandingHashes.contains(entry.documentHash),
+                       failed: failedHashes.contains(entry.documentHash))
     }
 
     private func refreshFlags(_ s: WCSession) {
@@ -305,8 +396,16 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
         let hash = fileTransfer.file.metadata?[WatchSchema.Key.documentHash] as? String
         let dictionaryId = fileTransfer.file.metadata?[WatchSchema.Key.dictionaryId] as? String
         DispatchQueue.main.async {
-            if let hash { self.outstandingHashes.remove(hash) }
+            if let hash {
+                self.outstandingHashes.remove(hash)
+                self.trackedBooks[hash] = nil
+                self.bookTransfers[hash] = nil
+                let cancelled = self.cancelledHashes.remove(hash) != nil
+                if error != nil && !cancelled { self.failedHashes.insert(hash) }
+            }
             if let dictionaryId {
+                self.trackedDictionaries[dictionaryId] = nil
+                self.dictionaryTransfers[dictionaryId] = nil
                 // Delivered is not installed: the watch confirms by listing it in its library context.
                 self.outstandingDictionaries.remove(dictionaryId)
                 if error == nil { self.deliveredDictionaries[dictionaryId] = Date() }

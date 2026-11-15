@@ -15,6 +15,9 @@ import UIKit
 /// - `-UITestingSimulateWatch` (App Store screenshots only): the Library behaves as if a paired, reachable
 ///   Apple Watch with Folito installed were there (`PhoneConnectivity`); nothing is sent anywhere. With
 ///   `-UITestingSeedCovers` the seeded books are then shown as already on the watch.
+/// - `-UITestingSimulateTransfer` (with `-UITestingSimulateWatch -UITestingSeedCovers`): two of the seeded books
+///   show as being sent to the watch, the sample book moving at 45 % and *Emma* waiting for the watch at 0 %
+///   (`simulatedTransfers`). Not used by the App Store screenshots.
 /// - `UITESTING_BOOK_TEXTS` (environment, with `-UITestingSeedCovers`): a folder of full public-domain texts
 ///   (`AppStoreBooks` in the UI test bundle) that the seeded books are built from, so the Library shows the
 ///   sizes of real books.
@@ -36,6 +39,9 @@ enum UITesting {
     /// audit sees those rows at the top of the screen at every text size (docs/ACCESSIBILITY.md).
     static let settingsBookDetailsOnlyArgument = "-UITestingSettingsBookDetailsOnly"
     static let simulateWatchArgument = "-UITestingSimulateWatch"
+    static let simulateTransferArgument = "-UITestingSimulateTransfer"
+    /// The seeded *Emma* (`-UITestingSeedCovers`).
+    static let emmaHash = "00000000000000000000000000e00a01"
     static let bookTextsEnvironment = "UITESTING_BOOK_TEXTS"
 
     #if DEBUG
@@ -66,6 +72,13 @@ enum UITesting {
 
     /// True when the iPhone should act as if a paired, reachable watch with the app installed were there.
     static var simulatesWatch: Bool { ProcessInfo.processInfo.arguments.contains(simulateWatchArgument) }
+
+    /// Book transfers in flight on the simulated watch (`-UITestingSimulateTransfer`), by documentHash.
+    static var simulatedTransfers: [String: WatchTransferProgress] {
+        guard ProcessInfo.processInfo.arguments.contains(simulateTransferArgument) else { return [:] }
+        return [sampleBook.documentHash: WatchTransferProgress(percent: 45, isWaiting: false),
+                emmaHash: WatchTransferProgress(percent: 0, isWaiting: true)]
+    }
 
     /// The reading progress the simulated watch reports (`UITESTING_APPSTORE_SEED`): the Library books' progress
     /// as the watch Library shows it, and the sample book part-read, so its details show a synced position.
@@ -104,7 +117,7 @@ enum UITesting {
             alice = bookFromText(text, metadata: sampleBook.metadata, hash: sampleBook.documentHash)
         }
         try? store.addForUITesting(alice, fileName: "sample.epub", sentToWatch: onWatch)
-        let emma = book("00000000000000000000000000e00a01", "Emma", "Jane Austen", text: "emma") // i18n-ignore: UI-test fixture
+        let emma = book(emmaHash, "Emma", "Jane Austen", text: "emma") // i18n-ignore: UI-test fixture
         try? store.addForUITesting(emma, fileName: "emma.epub", coverPNG: generatedCover(.systemTeal),
                                    details: EPUBDetails(title: "Emma", creators: [BookCreator(name: "Jane Austen", role: "aut")], // i18n-ignore: UI-test fixture
                                                         publisher: "John Murray", year: 1815, language: "en"), // i18n-ignore: UI-test fixture

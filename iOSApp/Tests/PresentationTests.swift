@@ -121,6 +121,71 @@ final class PresentationTests: XCTestCase {
         XCTAssertEqual(Set([BookWatchState.onWatch, .sending, .waiting].map(\.text)).count, 3)
     }
 
+    func testFailedTransferState() {
+        XCTAssertEqual(BookWatchState(sentToWatch: false, inFlight: false, failed: true), .sendFailed)
+        XCTAssertEqual(BookWatchState(sentToWatch: true, inFlight: false, failed: true), .sendFailed)
+        // Sent again: in flight wins over the old failure.
+        XCTAssertEqual(BookWatchState(sentToWatch: false, inFlight: true, failed: true), .sending)
+        XCTAssertEqual(BookWatchState.sendFailed.text, "Couldn’t Send to Apple Watch")
+        XCTAssertEqual(BookWatchState.sendFailed.sendActionShortTitle, "Send Again")
+    }
+
+    // MARK: Transfer progress
+
+    func testTransferAtZeroWaitsAfterGraceOrWhenUnreachable() {
+        let start = Date(timeIntervalSinceReferenceDate: 1000)
+        let tracker = WatchTransferTracker(startedAt: start)
+        XCTAssertEqual(tracker.progress(at: start.addingTimeInterval(1), watchReachable: true),
+                       WatchTransferProgress(percent: 0, isWaiting: false))
+        XCTAssertTrue(tracker.progress(at: start.addingTimeInterval(WatchTransferTracker.startGrace), watchReachable: true).isWaiting)
+        XCTAssertTrue(tracker.progress(at: start, watchReachable: false).isWaiting)
+    }
+
+    func testTransferSendingStallAndResume() {
+        let start = Date(timeIntervalSinceReferenceDate: 1000)
+        var tracker = WatchTransferTracker(startedAt: start)
+        tracker.record(0.457, at: start.addingTimeInterval(2))
+        // Moving: sending, also while the watch app is not in the foreground.
+        XCTAssertEqual(tracker.progress(at: start.addingTimeInterval(3), watchReachable: false),
+                       WatchTransferProgress(percent: 45, isWaiting: false))
+        // No growth (same or lower readings) for the stall interval: waiting, keeping the percentage.
+        tracker.record(0.457, at: start.addingTimeInterval(10))
+        tracker.record(0.2, at: start.addingTimeInterval(12))
+        let stalled = tracker.progress(at: start.addingTimeInterval(2 + WatchTransferTracker.stallInterval), watchReachable: true)
+        XCTAssertEqual(stalled, WatchTransferProgress(percent: 45, isWaiting: true))
+        // Moves again: sending.
+        tracker.record(0.6, at: start.addingTimeInterval(40))
+        XCTAssertEqual(tracker.progress(at: start.addingTimeInterval(41), watchReachable: true),
+                       WatchTransferProgress(percent: 60, isWaiting: false))
+    }
+
+    func testTransferFractionIsClamped() {
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        var tracker = WatchTransferTracker(startedAt: start)
+        tracker.record(.nan, at: start)
+        XCTAssertEqual(tracker.fraction, 0)
+        tracker.record(1.7, at: start)
+        XCTAssertEqual(tracker.progress(at: start, watchReachable: true).percent, 100)
+        XCTAssertEqual(WatchTransferProgress(percent: -3, isWaiting: false).percent, 0)
+        XCTAssertEqual(WatchTransferProgress(percent: 250, isWaiting: false).fraction, 1)
+    }
+
+    func testTransferTexts() {
+        let sending = WatchTransferProgress(percent: 47, isWaiting: false)
+        XCTAssertEqual(sending.text(locale: enUS), "Sending… 47%")
+        // VoiceOver: in 5 % steps, so a focused row is not re-read on every change.
+        XCTAssertEqual(sending.spokenPercent, 45)
+        XCTAssertEqual(sending.accessibilityText(locale: enUS), "Sending to Apple Watch, 45%")
+        XCTAssertEqual(WatchTransferProgress(percent: 45, isWaiting: false).accessibilityText(locale: enUS),
+                       WatchTransferProgress(percent: 49, isWaiting: false).accessibilityText(locale: enUS))
+        let waiting = WatchTransferProgress(percent: 12, isWaiting: true)
+        XCTAssertEqual(waiting.text(locale: enUS), BookWatchState.waiting.text)
+        XCTAssertEqual(waiting.accessibilityText(locale: enUS), "Waiting for Apple Watch")
+        XCTAssertEqual(waiting.systemImage, "clock")
+        XCTAssertNotEqual(sending.systemImage, waiting.systemImage)
+        XCTAssertFalse(WatchTransferProgress.waitingHint.isEmpty)
+    }
+
     // MARK: About
 
     func testVersionString() {

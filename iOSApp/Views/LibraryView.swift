@@ -262,7 +262,7 @@ struct LibraryView: View {
     }
 
     private func row(_ entry: LibraryEntry, cloud: ReadestCloudBook?) -> some View {
-        let state = BookWatchState(entry, inFlight: connectivity.outstandingHashes.contains(entry.documentHash))
+        let state = connectivity.bookState(for: entry)
         // A book deleted on the watch always offers the send action: without a watch at hand it is sent once it can be.
         let canResend = state == .removedOnWatch || (connectivity.status.canSend && state != .sending)
         let readestOn = readest?.isAvailable == true
@@ -273,6 +273,7 @@ struct LibraryView: View {
         // context-menu and rotor actions stay on the row.
         return NavigationLink(value: BookDetailRoute(hash: entry.documentHash)) {
             BookRow(entry: entry, state: state,
+                    transfer: state == .sending ? connectivity.bookTransfers[entry.documentHash] : nil,
                     timeLeft: state == .onWatch ? connectivity.watchTimeRemaining[entry.documentHash] : nil,
                     inReadest: inReadest, isUploading: isUploading,
                     cover: entry.hasCover == true ? CoverImages.shared.cover(hash: entry.documentHash,
@@ -507,6 +508,8 @@ private struct ReadestFooter: View {
 private struct BookRow: View {
     let entry: LibraryEntry
     let state: BookWatchState
+    /// Progress of the transfer to the watch while `state` is `.sending` (nil until the first reading).
+    var transfer: WatchTransferProgress? = nil
     /// Reading time left as estimated by the watch; nil until the book has been opened there.
     var timeLeft: TimeInterval? = nil
     /// Also in the user's Readest library: a small `checkmark.icloud`, like a downloaded item in Files.
@@ -535,11 +538,15 @@ private struct BookRow: View {
                 // Not a `Label`: in a list, a label's icon column changes at accessibility sizes, and the Text
                 // clipped audit, which re-renders the screen at other sizes, flagged the state (docs/ACCESSIBILITY.md).
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Image(systemName: state.systemImage)
+                    Image(systemName: transfer?.systemImage ?? state.systemImage)
                         .foregroundStyle(state == .onWatch ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondaryText))
                         .accessibilityHidden(true)
-                    Text(verbatim: state.text)
+                    // The visible percentage follows every update; VoiceOver gets it in 5 % steps, so a
+                    // focused row is not re-read on every change.
+                    Text(verbatim: transfer?.text() ?? state.text)
+                        .monospacedDigit()
                         .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityLabel(Text(verbatim: transfer?.accessibilityText() ?? state.text))
                 }
                 if let timeLeft {
                     Text(DisplayFormat.timeLeft(timeLeft))
@@ -563,6 +570,33 @@ private struct BookRow: View {
             }
             .font(.footnote)
             .foregroundStyle(.secondaryText)
+            if let transfer {
+                TransferBar(transfer: transfer)
+            }
+        }
+    }
+}
+
+/// The determinate bar under a book or dictionary being sent to the watch, with the *Waiting for Apple Watch*
+/// hint while the transfer is not moving. The bar itself is hidden from VoiceOver: the row's text carries the
+/// percentage.
+struct TransferBar: View {
+    let transfer: WatchTransferProgress
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ProgressView(value: transfer.fraction)
+                .progressViewStyle(.linear)
+                .tint(transfer.isWaiting ? Color.secondary : Color.accentColor)
+                // Moves smoothly between two readings, which are `progressInterval` apart.
+                .animation(.linear(duration: PhoneConnectivity.progressInterval), value: transfer.fraction)
+                .accessibilityHidden(true)
+            if transfer.isWaiting {
+                Text(verbatim: WatchTransferProgress.waitingHint)
+                    .font(.footnote)
+                    .foregroundStyle(.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 }
