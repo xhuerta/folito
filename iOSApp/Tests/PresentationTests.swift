@@ -133,6 +133,7 @@ final class PresentationTests: XCTestCase {
     func testLinksAreHTTPS() {
         XCTAssertEqual(AppLinks.privacyPolicy.scheme, "https")
         XCTAssertEqual(AppLinks.support.scheme, "https")
+        XCTAssertEqual(AppLinks.writeReview.absoluteString, "https://apps.apple.com/app/id6833670394?action=write-review")
     }
 
     func testLinksPointAtTheSupportSiteInTheReadersLanguage() {

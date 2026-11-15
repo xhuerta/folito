@@ -15,6 +15,12 @@ enum AppLinks {
     /// the service *Find Details Online* asks (docs/ONLINE_METADATA.md). Open Library's own footer links here.
     static let internetArchivePrivacy = URL(string: "https://archive.org/about/terms")!
 
+    /// Folito's Apple ID on the App Store (App Store Connect › App Information). The only place it is written.
+    static let appStoreID = "6833670394"
+
+    /// The App Store page of Folito, opened at "Write a Review" (Settings › About › Rate Folito).
+    static var writeReview: URL { URL(string: "https://apps.apple.com/app/id\(appStoreID)?action=write-review")! }
+
     /// App Store Connect "Support URL".
     static var support: URL { page("support.html") }
 

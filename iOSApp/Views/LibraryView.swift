@@ -1,3 +1,4 @@
+import StoreKit
 import SwiftUI
 import UniformTypeIdentifiers
 import ReaderCore
@@ -6,6 +7,11 @@ struct LibraryView: View {
     @ObservedObject var library: LibraryStore
     @ObservedObject var connectivity: PhoneConnectivity
     var sendToWatch: (LibraryEntry) -> Void
+    /// Asks for an App Store rating when it is due (nil in previews).
+    var reviewPrompt: ReviewPromptModel? = nil
+    /// The welcome tour is open over the Library.
+    var isOnboardingShown = false
+    @Environment(\.requestReview) private var requestReview
     /// The Readest side of the library (nil in previews and when the app did not inject it).
     @Environment(ReadestLibraryModel.self) private var readest: ReadestLibraryModel?
     @State private var showImporter = false
@@ -44,6 +50,27 @@ struct LibraryView: View {
         )
         .modifier(BookDeletionDialogs(library: library, readest: readest, deletion: $deletion))
         .task { library.fillMissingCovers() }
+        .task {
+            // A calm moment: the Library has been on screen for a little while. Leaving it (opening a book,
+            // another tab) cancels this; the moment is checked after the pause.
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
+            reviewPrompt?.requestIfDue(moment: reviewMoment, requestReview: requestReview)
+        }
+    }
+
+    /// What the Library shows right now, for the rating prompt: never during the welcome tour, a transfer, an
+    /// error or sync problem, or while a sheet, dialog or the file picker is open.
+    private var reviewMoment: ReviewPromptMoment {
+        ReviewPromptMoment(
+            isOnboarding: isOnboardingShown,
+            isTransferring: library.isImporting || !connectivity.outstandingHashes.isEmpty
+                || !connectivity.outstandingDictionaries.isEmpty
+                || readest?.downloads.isEmpty == false || readest?.uploading.isEmpty == false,
+            showsError: library.importError != nil || readest?.alert != nil || readest?.refreshError != nil
+                || readest?.needsSignIn == true,
+            isPresentingModal: showImporter || showOtherSamples || deletion.entry != nil || deletion.choice != nil
+                || deletion.readestBook != nil)
     }
 
     private var bookList: some View {

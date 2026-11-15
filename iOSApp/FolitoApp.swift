@@ -17,13 +17,16 @@ struct FolitoApp: App {
     // Welcome tour: opens by itself on the first launch (UI-testing launches skip it unless asked; see
     // OnboardingPolicy) and from Settings › About.
     @StateObject private var onboarding = OnboardingModel()
+    // App Store rating prompt after real reading (ReviewPromptPolicy); the Library asks at a calm moment.
+    @StateObject private var reviewPrompt = ReviewPromptModel()
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
             TabView {
                 NavigationStack {
-                    LibraryView(library: library, connectivity: connectivity, sendToWatch: sendToWatchExplicitly)
+                    LibraryView(library: library, connectivity: connectivity, sendToWatch: sendToWatchExplicitly,
+                                reviewPrompt: reviewPrompt, isOnboardingShown: onboarding.isPresented)
                 }
                 .tabItem { Label("Library", systemImage: "books.vertical") }
                 NavigationStack { TypographySettingsView(typography: typography) }
@@ -45,6 +48,9 @@ struct FolitoApp: App {
                 if url.isFileURL { library.importEPUB(from: url) }
             }
             .onAppear(perform: wire)
+            .onChange(of: connectivity.watchProgress) { _, progress in
+                reviewPrompt.watchReported(progress: progress)
+            }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { connectivity.syncWatchState() }
             }

@@ -262,6 +262,8 @@ enum UITesting {
         isActive && ProcessInfo.processInfo.arguments.contains(settingsBookDetailsOnlyArgument)
     }
     #else
+    /// Release builds have no UI-testing launches.
+    static var isActive: Bool { false }
     static var settingsShowsOnlyBookDetails: Bool { false }
     @MainActor
     static func makeLibrary() -> LibraryStore { LibraryStore() }
