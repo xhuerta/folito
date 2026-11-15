@@ -36,6 +36,13 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
     var readStatusProvider: (() -> [String: ReadStatusMark])?
     /// The watch published its read status marks (merged by the owner, newer ones win).
     var onWatchReadStatus: (([String: ReadStatusMark]) -> Void)?
+    /// Per-book sync switches mirrored on the watch (#167, last writer wins per book). Read on the main queue.
+    var bookSyncProvider: (() -> [String: BookSyncSwitch])?
+    /// Books linked to a Readest row, or nil while unknown (Readest not active, library not loaded). Read on the
+    /// main queue.
+    var readestLinkedProvider: (() -> Set<String>?)?
+    /// The watch published its per-book sync switches (merged by the owner, newer ones win).
+    var onWatchBookSync: (([String: BookSyncSwitch]) -> Void)?
     /// Books not yet confirmed on the watch, with their payload files. Read on the main queue.
     var unsentBooksProvider: (() -> [(entry: LibraryEntry, fileURL: URL)])?
     /// The watch reported the books it currently stores (and those the user deleted there).
@@ -199,7 +206,9 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
         guard canSend, let session else { return }
         let cleared = settings == nil ? clearedStampProvider?() : nil
         let context = WatchSchema.settingsContext(clearedStamp: cleared, typography: typography,
-                                                  readStatus: readStatusProvider?() ?? [:])
+                                                  readStatus: readStatusProvider?() ?? [:],
+                                                  bookSync: bookSyncProvider?() ?? [:],
+                                                  readestLinked: readestLinkedProvider?() ?? nil)
         do { try session.updateApplicationContext(context) }
         catch { lastError = "Could not send settings: \(error.localizedDescription)" } // i18n-ignore
         sendCredentials(settings)
@@ -339,6 +348,9 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
                 if let marks = WatchSchema.libraryReadStatus(from: session.receivedApplicationContext) {
                     self.onWatchReadStatus?(marks)
                 }
+                if let switches = WatchSchema.libraryBookSync(from: session.receivedApplicationContext) {
+                    self.onWatchBookSync?(switches)
+                }
                 self.syncWatchState()
             }
         }
@@ -370,10 +382,12 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
         let progress = WatchSchema.libraryProgress(from: applicationContext)
         let settingsStamp = WatchSchema.librarySettingsStamp(from: applicationContext)
         let readStatus = WatchSchema.libraryReadStatus(from: applicationContext)
+        let bookSync = WatchSchema.libraryBookSync(from: applicationContext)
         guard report != nil || typography != nil || dictionaries != nil else { return }
         DispatchQueue.main.async {
             if let typography { self.onWatchTypography?(typography) }
             if let readStatus { self.onWatchReadStatus?(readStatus) }
+            if let bookSync { self.onWatchBookSync?(bookSync) }
             if let times { self.watchTimeRemaining = times }
             if let progress { self.watchProgress = progress }
             if let report { self.onWatchLibrary?(report) }

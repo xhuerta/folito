@@ -159,6 +159,20 @@ public actor SyncQueue {
         if items.count != before { persist() }
     }
 
+    /// Drops every pending entry `keep` rejects (books that can no longer sync: switched off, or not in the
+    /// Readest library; issue #167), so nothing about them is sent later. Returns the dropped book keys.
+    @discardableResult
+    public func prune(keeping keep: @Sendable (SyncEntry) -> Bool) -> [String] {
+        let dropped = items.filter { !keep($0.value.entry) }.map(\.key).sorted()
+        guard !dropped.isEmpty else { return [] }
+        for key in dropped {
+            items.removeValue(forKey: key)
+            lastSent[key] = nil
+        }
+        persist()
+        return dropped
+    }
+
     /// Starts delivery of anything restored from disk.
     public func resume() { if !items.isEmpty { startWorker(initialDelay: 0) } }
 

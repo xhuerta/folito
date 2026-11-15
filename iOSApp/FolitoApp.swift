@@ -36,6 +36,7 @@ struct FolitoApp: App {
             }
             .environment(\.showWelcomeTour, ShowWelcomeTourAction { onboarding.show() })
             .environment(readest)
+            .environment(\.activeSyncConnectorID, settings.activeConnectorID)
             .environmentObject(onlineMetadata)
             .environmentObject(library)
             .environmentObject(dictionaries)
@@ -116,6 +117,15 @@ struct FolitoApp: App {
                 Task { await readest.reconcileReadStatus(in: library) }
             }
         }
+        // Which books sync (#167): the per-book switch, mirrored on the watch (newer wins per book), and, with
+        // Readest, the books linked to a Readest row (only those sync there; an upload turns a book on).
+        connectivity.bookSyncProvider = { library.bookSyncSwitches }
+        connectivity.readestLinkedProvider = {
+            settings.isReadestActive ? readest.linkedHashes(in: library.entries) : nil
+        }
+        library.onBookSyncChanged = { connectivity.syncWatchState() }
+        connectivity.onWatchBookSync = { _ = library.mergeBookSyncSwitches($0) }
+        readest.onRowsChanged = { connectivity.syncWatchState() }
         // Dictionaries: a new or updated one is sent right away; missing ones whenever the watch reports.
         connectivity.dictionariesProvider = { dictionaries.transferList() }
         dictionaries.onInstalled = { id in

@@ -164,15 +164,29 @@ enum WatchSchema {
     /// Typography is present once the user has changed it anywhere (stamp > 0).
     /// `readStatus`: the read status of the library's books (`ReadStatusSync`, last writer wins per book on both
     /// sides); omitted while no book has one.
+    /// `bookSync`: the per-book "Sync Progress for This Book" switches (#167, last writer wins per book);
+    /// `readestLinked`: the books linked to a Readest row, nil (key omitted) while the iPhone does not know them,
+    /// which older watch apps and the watch read as "every book syncs".
     static func settingsContext(clearedStamp: Int? = nil, typography: ReaderTypography?,
-                                readStatus: [String: ReadStatusMark] = [:]) -> [String: Any] {
+                                readStatus: [String: ReadStatusMark] = [:],
+                                bookSync: [String: BookSyncSwitch] = [:],
+                                readestLinked: Set<String>? = nil) -> [String: Any] {
         var info: [String: Any] = [Key.type: MessageType.settings, Key.settingsVersion: SyncSettingsWire.version]
         if let clearedStamp, clearedStamp > 0 { info = clearedInfo(stamp: clearedStamp) }
         if let typography, typography.stamp > 0 {
             info.merge(TypographySync.context(for: typography)) { _, new in new }
         }
         info.merge(ReadStatusSync.context(for: readStatus)) { _, new in new }
+        info.merge(BookSyncWire.context(switches: bookSync)) { _, new in new }
+        info.merge(BookSyncWire.context(readestLinked: readestLinked)) { _, new in new }
         return info
+    }
+
+    /// The per-book sync switches the watch reports in its `library` context (nil for any other message, or when
+    /// it reports none: older watch apps).
+    static func libraryBookSync(from context: [String: Any]) -> [String: BookSyncSwitch]? {
+        guard (context[Key.type] as? String) == MessageType.library else { return nil }
+        return BookSyncWire.switches(from: context)
     }
 
     /// The read status marks the watch reports in its `library` context (nil for any other message, or when it

@@ -28,6 +28,9 @@ final class LibraryStore: ObservableObject {
     var onCoverRemoved: ((LibraryEntry) -> Void)?
     /// Called when a book's read status changed (here, from the watch or from Readest), so the watch gets it.
     var onReadStatusChanged: (() -> Void)?
+    /// Called when a book's "Sync Progress for This Book" switch changed (here or from the watch), so the watch
+    /// gets it (#167).
+    var onBookSyncChanged: (() -> Void)?
     private var isFillingCovers = false
 
     init(parser: EPUBParsing = EPUBParser(), rootDirectory: URL? = nil) {
@@ -91,6 +94,7 @@ final class LibraryStore: ObservableObject {
         relinked.onlineLookupAt = entry.onlineLookupAt
         relinked.removedOnWatch = entry.removedOnWatch
         relinked.readStatus = entry.readStatus
+        relinked.syncSwitch = entry.syncSwitch
         if entry.online?.hasCover == true {
             // The accepted Open Library cover lives next to the book under its id.
             let names: [(String) -> String] = [CoverStore.coverFileName(forHash:), CoverStore.watchFileName(forHash:)]
@@ -305,6 +309,10 @@ final class LibraryStore: ObservableObject {
         if entry.readStatus == nil {
             entry.readStatus = entries.first(where: { $0.documentHash == entry.documentHash })?.readStatus
         }
+        // ... and its sync switch (#167).
+        if entry.syncSwitch == nil {
+            entry.syncSwitch = entries.first(where: { $0.documentHash == entry.documentHash })?.syncSwitch
+        }
         entries.removeAll { $0.documentHash == entry.documentHash }
         entries.insert(entry, at: 0)
         save()
@@ -402,6 +410,39 @@ final class LibraryStore: ObservableObject {
         }
         save()
         onReadStatusChanged?()
+        return result.changed
+    }
+
+    // MARK: Per-book sync switch (#167)
+
+    /// The switches of every book that has one, for the watch (`BookSyncWire`).
+    var bookSyncSwitches: [String: BookSyncSwitch] {
+        var switches: [String: BookSyncSwitch] = [:]
+        for e in entries { if let value = e.syncSwitch { switches[e.documentHash] = value } }
+        return switches
+    }
+
+    /// "Sync Progress for This Book" in the book details: stamped newer than the current switch and sent to the
+    /// watch, which then fetches and pushes nothing for a book switched off.
+    func setSyncEnabled(_ isOn: Bool, hash: String, now: Date = Date()) {
+        guard let i = entries.firstIndex(where: { $0.documentHash == hash }), entries[i].syncsProgress != isOn else { return }
+        entries[i].syncSwitch = BookSyncSwitch.set(isOn, now: now, replacing: entries[i].syncSwitch)
+        save()
+        onBookSyncChanged?()
+    }
+
+    /// Takes the watch's switches where they are newer (last writer wins, `BookSyncSwitchMerge`). Returns the
+    /// hashes of the books that changed.
+    @discardableResult
+    func mergeBookSyncSwitches(_ incoming: [String: BookSyncSwitch]) -> Set<String> {
+        let known = Set(entries.map(\.documentHash))
+        let result = BookSyncSwitchMerge.merge(local: bookSyncSwitches, incoming: incoming.filter { known.contains($0.key) })
+        guard !result.changed.isEmpty else { return [] }
+        for i in entries.indices where result.changed.contains(entries[i].documentHash) {
+            entries[i].syncSwitch = result.switches[entries[i].documentHash]
+        }
+        save()
+        onBookSyncChanged?()
         return result.changed
     }
 

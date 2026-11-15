@@ -107,7 +107,8 @@ public struct ReadestConnectorFactory: SyncConnectorFactory {
         ],
         storageKeys: [Key.email, Key.session, Key.authRequired],
         staleCheckRequiresDeviceID: false,
-        hosts: ["vbsyxfusjjqdxkjqlysc.supabase.co", "web.readest.com"])
+        hosts: ["vbsyxfusjjqdxkjqlysc.supabase.co", "web.readest.com"],
+        requiresLibraryLink: true)
 
     public var descriptor: SyncConnectorDescriptor { Self.descriptorValue }
     let config: ReadestConfiguration

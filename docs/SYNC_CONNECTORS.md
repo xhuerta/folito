@@ -46,6 +46,42 @@ The **read status** ("Finished", issue #113) is not part of the connector model 
 `percentage`, `device`, `device_id`, `timestamp`), and Folito does not invent one: with KOReader Sync, or with no
 sync service, the status stays between the iPhone and the watch.
 
+### Which books sync (issue #167)
+
+Sync is set per connector, but not every book can sync with every service, and a reader may want to keep a
+book off the server. `BookSyncPolicy.decide(requiresLibraryLink:linked:switchedOn:)` (ReaderCore,
+`Sync/BookSyncPolicy.swift`, unit-tested in `BookSyncPolicyTests`) combines three things:
+
+| Connector (`SyncConnectorDescriptor.requiresLibraryLink`) | Linked to a library row | "Sync Progress for This Book" | Result |
+|---|---|---|---|
+| any | any | off | `.switchedOff` |
+| KOReader Sync (`false`: no library, any document may exist on another device) | n/a | on | `.sync` |
+| Readest (`true`) | yes | on | `.sync` |
+| Readest | no | on | `.notInLibrary` |
+| Readest | unknown (no report from the iPhone) | on | `.sync` (the behaviour of earlier versions) |
+
+- **Readest link.** A book syncs with Readest only when it is linked to a row of the user's Readest library: a
+  fetch can never return anything for another book, and a push would only create progress for a book Readest
+  does not show. Only the iPhone knows the library: it pairs each local book with its row
+  (`ReadestLibraryModel.linkedHashes(in:)`: by hash, or by metadata until the book is relinked, since the
+  progress lookup also matches `meta_hash`) and sends the linked hashes to the watch (`readestLinked`, see
+  docs/WATCH_CONNECTIVITY.md, "Per-book sync"). The key is sent only while the iPhone knows the listing (cached or
+  refreshed); without it the watch syncs every book. Uploading a book to Readest (or downloading one from it)
+  adds it to the list on the next settings update, so it starts syncing by itself.
+- **Per-book switch.** "Sync Progress for This Book" (default on) in the iPhone book details and in the watch
+  reader menu, for both connectors: a `BookSyncSwitch` (`on` + stamp in ms) per book, synced iPhone <-> watch with
+  last writer wins (`BookSyncSwitchMerge`, the same rule as the read status). When it is off nothing about the
+  book is sent to any service: no fetch, no push, no background refresh, and the iPhone does not write the book's
+  read status to Readest either.
+- **On the watch** (`SyncCoordinator`): `decisionOnOpen`, `refreshSynced` (launch, foreground, background
+  refresh), `syncedPosition` and `report` make no request for a book that does not sync; the background refresh
+  is not scheduled for one; the reader shows no sync glyph for it; the reader menu replaces *Go to Synced
+  Position* with a short explanation. When a book stops syncing (switch turned off, link reported missing, a
+  switch of service) its queued positions are dropped (`SyncQueue.prune(keeping:)`).
+- **Quieter glyph.** The watch shows the syncing glyph only for a request still running after about a second
+  (`SlowRequestIndicator`, injectable clock), so a quick answer never flashes it. Offline and error states are
+  shown as before.
+
 ### Staleness and conflicts
 
 - Entries that waited more than `staleCheckAge` (60 s) are compared with the server first: when another

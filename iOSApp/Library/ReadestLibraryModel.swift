@@ -117,6 +117,12 @@ final class ReadestLibraryModel {
     @ObservationIgnored private var isReconcilingStatus = false
 
     var isAvailable: Bool { service != nil }
+    /// Whether the account's rows are known (from the offline cache or a refresh), so the books linked to a Readest
+    /// row can be told apart from the others (#167). Until then the watch syncs every book, as before.
+    private(set) var hasListing = false
+    /// Called when the rows changed (refresh, upload, deletion, sign-out), so the watch learns which books are in
+    /// Readest (#167).
+    @ObservationIgnored var onRowsChanged: (() -> Void)?
 
     /// `fixedService` (UI tests) ignores later `configure` calls.
     init(defaults: UserDefaults = .standard, rootDirectory: URL? = nil, fixedService: ReadestLibraryService? = nil,
@@ -147,6 +153,7 @@ final class ReadestLibraryModel {
             lastRefresh = nil
         } else {
             service = nil
+            hasListing = false
             cloudBooks = []
             covers = [:]
             usage = nil
@@ -155,6 +162,7 @@ final class ReadestLibraryModel {
             try? FileManager.default.removeItem(at: coverDirectory)
             try? FileManager.default.createDirectory(at: coverDirectory, withIntermediateDirectories: true)
         }
+        onRowsChanged?()
     }
 
     func cloudBook(hash: String) -> ReadestCloudBook? {
@@ -170,6 +178,14 @@ final class ReadestLibraryModel {
     /// The Readest row of a local book, the same one the Library pairs it with.
     func cloudBook(for entry: LibraryEntry, in entries: [LibraryEntry]) -> ReadestCloudBook? {
         merged(entries).first { $0.local?.documentHash == entry.documentHash }?.cloud
+    }
+
+    /// The local books linked to a Readest row (by hash, or by metadata until `relinkDownloadedBooks` gives them the
+    /// row's id; Readest's progress lookup matches `meta_hash` too), or nil while that is not known: no library
+    /// session, or no listing yet (#167). Only these books sync their position with Readest.
+    func linkedHashes(in entries: [LibraryEntry]) -> Set<String>? {
+        guard isAvailable, hasListing else { return nil }
+        return Set(merged(entries).compactMap { item in item.cloud != nil ? item.local?.documentHash : nil })
     }
 
     /// Books the Library could pair with their Readest row only by metadata (downloaded before downloads kept the
@@ -207,6 +223,8 @@ final class ReadestLibraryModel {
             case .adoptRemote(let remote):
                 library.setReadStatus(remote, hash: entry.documentHash)
             case .pushLocal(let local):
+                // "Sync Progress for This Book" off: nothing about the book is sent to Readest (#167).
+                guard entry.syncsProgress else { continue }
                 do {
                     let kept = try await service.setReadingStatus(local, for: row)
                     replace(kept)
@@ -265,7 +283,9 @@ final class ReadestLibraryModel {
             cloudBooks = try await service.fetchBooks()
             refreshError = nil
             lastRefresh = Date()
+            hasListing = true
             saveCache()
+            onRowsChanged?()
         } catch {
             refreshError = UserFacingError.readestLibraryMessage(for: error)
             return
@@ -374,6 +394,7 @@ final class ReadestLibraryModel {
     private func replace(_ book: ReadestCloudBook) {
         if let i = cloudBooks.firstIndex(where: { $0.hash == book.hash }) { cloudBooks[i] = book } else { cloudBooks.insert(book, at: 0) }
         saveCache()
+        onRowsChanged?()
     }
 
     // MARK: Offline cache and network
@@ -382,6 +403,7 @@ final class ReadestLibraryModel {
         guard let data = try? Data(contentsOf: cacheURL),
               let books = try? JSONDecoder().decode([ReadestCloudBook].self, from: data) else { return }
         cloudBooks = books
+        hasListing = true
         for b in books where b.isAvailable {
             if let image = UIImage(contentsOfFile: coverDirectory.appendingPathComponent("\(b.hash).png").path) {
                 covers[b.hash] = image

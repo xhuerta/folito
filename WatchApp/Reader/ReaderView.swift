@@ -339,9 +339,11 @@ struct ReaderView: View {
 
 extension ReaderView {
     /// The sync status to show, if any: only with sync on and configured, never while the wrist is down
-    /// (Always On shows just the page), and nothing while idle.
+    /// (Always On shows just the page), and nothing while idle. Never for a book that does not sync (switched
+    /// off, or not in the Readest library: #167).
     fileprivate var visibleSyncStatus: SyncStatus? {
-        guard showSyncInfo, sync.isConfigured, !isLuminanceReduced, sync.status != .idle else { return nil }
+        guard showSyncInfo, sync.isConfigured, !isLuminanceReduced, sync.status != .idle,
+              sync.syncs(model.documentHash) else { return nil }
         return sync.status
     }
 

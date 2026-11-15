@@ -96,6 +96,8 @@ final class SyncObserver: @unchecked Sendable {
 @MainActor
 final class SyncCoordinator: ObservableObject {
     static let queueKey = "sync.queue.v1"
+    /// Which books sync (#167): the per-book switches and the Readest links the iPhone reported.
+    static let bookSyncKey = "sync.bookSettings.v1"
     /// Open-check diagnostics (Console.app, category "sync"): the service's row next to what the watch made
     /// of it, so a wrong offer can be traced to the row's fields.
     private static let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Folito", category: "sync")
@@ -105,6 +107,13 @@ final class SyncCoordinator: ObservableObject {
     @Published private(set) var failure: SyncFailure?
     @Published private(set) var isConfigured: Bool = false
     @Published private(set) var pendingCount: Int = 0
+    /// The per-book switches ("Sync Progress for This Book") and the books the iPhone reports as linked to a
+    /// Readest row (#167). Persisted; the switches are synced with the iPhone (last writer wins per book).
+    @Published private(set) var bookSync: BookSyncSettings {
+        didSet { persistBookSync() }
+    }
+    /// Called after a local switch change, so the iPhone is told (library context).
+    var onBookSyncChanged: (() -> Void)?
 
     let device: DeviceIdentity
     let queue: SyncQueue
@@ -114,6 +123,9 @@ final class SyncCoordinator: ObservableObject {
     let remoteMemory: SyncedProgressStore
     private let policy: SyncConflictPolicy
     private let connector: @Sendable () -> SyncConnector?
+    private let defaults: UserDefaults
+    /// Shows `.syncing` only for a request still running after about a second (#167).
+    private let slowRequest: SlowRequestIndicator
     private var chain: Task<Void, Never>?
     /// The remote position as the service returned it (CFI not yet placed) for each book with an open
     /// offer, so declining remembers exactly that row.
@@ -124,10 +136,15 @@ final class SyncCoordinator: ObservableObject {
          policy: SyncConflictPolicy = DefaultSyncConflictPolicy(),
          config: SyncQueue.Config = SyncQueue.Config(),
          clock: SyncClock = SystemSyncClock(),
+         indicatorClock: SyncClock = SystemSyncClock(),
          connector: @escaping @Sendable () -> SyncConnector? = { CredentialsStore.activeConnector() }) {
         self.device = device
         self.policy = policy
         self.connector = connector
+        self.defaults = defaults
+        self.bookSync = defaults.data(forKey: Self.bookSyncKey)
+            .flatMap { try? JSONDecoder().decode(BookSyncSettings.self, from: $0) } ?? BookSyncSettings()
+        self.slowRequest = SlowRequestIndicator(clock: indicatorClock)
         let observer = SyncObserver()
         let ownProgress = OwnProgressLog(defaults: defaults)
         self.ownProgress = ownProgress
@@ -150,6 +167,9 @@ final class SyncCoordinator: ObservableObject {
                 self.record(error)
             },
             onPending: { [weak self] count in self?.pendingCount = count })
+        slowRequest.onChange = { [weak self] showing in
+            if showing { self?.status = .syncing }
+        }
 
         let queue = self.queue
         let activeID = active?.descriptor.id
@@ -196,6 +216,8 @@ final class SyncCoordinator: ObservableObject {
             await queue.retainOnly(connectorID: id)
             await queue.resume()
         }
+        // A switch to Readest makes the books outside its library unsyncable.
+        pruneUnsyncable()
     }
 
     /// Restarts delivery of queued progress (entries still honour their backoff). Called on foreground
@@ -224,9 +246,15 @@ final class SyncCoordinator: ObservableObject {
         // The background refresh asks for the book the complications show with this identity (#132).
         remoteMemory.setIdentity(book)
         guard let connector = connector() else { return .keepLocal }
-        status = .syncing
+        // Not for this book (switched off, or not in the Readest library): no request at all (#167).
+        guard bookSync.decision(for: book.key, connector: connector.descriptor)?.syncs == true else {
+            remoteMemory.clearSynced(for: book.key)
+            return .keepLocal
+        }
+        let request = slowRequest.begin()
         do {
             let raw = try await connector.fetchProgress(for: book)
+            slowRequest.end(request)
             status = .idle
             // The book is open: what the refresh found is answered by the offer below (or is stale).
             remoteMemory.clearSynced(for: book.key)
@@ -245,6 +273,7 @@ final class SyncCoordinator: ObservableObject {
             if case .offerRemote = decision { offered[book.key] = raw }
             return decision
         } catch {
+            slowRequest.end(request)
             record(error)
             return .keepLocal
         }
@@ -290,6 +319,11 @@ final class SyncCoordinator: ObservableObject {
             remoteMemory.clearAllSynced()
             return .off
         }
+        // A book that does not sync is never asked for; the local position is shown (#167).
+        guard bookSync.decision(for: book.key, connector: connector.descriptor)?.syncs == true else {
+            remoteMemory.clearSynced(for: book.key)
+            return .nothing
+        }
         let raw: ReadingPosition?
         do {
             raw = try await connector.fetchProgress(for: book)
@@ -329,12 +363,17 @@ final class SyncCoordinator: ObservableObject {
     func syncedPosition(book: BookIdentity,
                         resolveRemote: (ReadingPosition) -> ReadingPosition = { $0 }) async -> SyncedPosition {
         guard let connector = connector() else { isConfigured = false; return .notConfigured }
-        status = .syncing
+        guard bookSync.decision(for: book.key, connector: connector.descriptor)?.syncs == true else {
+            return .notConfigured
+        }
+        let request = slowRequest.begin()
         do {
             let remote = try await connector.fetchProgress(for: book).map(resolveRemote)
+            slowRequest.end(request)
             status = .idle
             return remote.map { SyncedPosition.position($0) } ?? .missing
         } catch {
+            slowRequest.end(request)
             record(error)
             return .failed
         }
@@ -359,6 +398,8 @@ final class SyncCoordinator: ObservableObject {
         // local position). When credentials arrive later the open-time check + conflict policy apply.
         guard let active = connector() else { isConfigured = false; return }
         isConfigured = true
+        // Nothing about a book that does not sync goes to the service (#167).
+        guard bookSync.decision(for: book.key, connector: active.descriptor)?.syncs == true else { return }
         let entry = SyncEntry(
             connectorID: active.descriptor.id, book: book,
             position: ReadingPosition(xpointer: xpointer, percentage: min(max(percentage, 0), 1),
@@ -396,6 +437,75 @@ final class SyncCoordinator: ObservableObject {
         remoteMemory.remove(bookKey: document)
     }
 
+    // MARK: Which books sync (#167)
+
+    /// Whether `bookKey` syncs with the active service; nil while sync is off.
+    func syncDecision(for bookKey: String) -> BookSyncDecision? {
+        bookSync.decision(for: bookKey, connector: connector()?.descriptor)
+    }
+
+    /// Whether the active service syncs `bookKey` (false while sync is off).
+    func syncs(_ bookKey: String) -> Bool { syncDecision(for: bookKey)?.syncs == true }
+
+    /// The book's "Sync Progress for This Book" switch (on unless turned off here or on the iPhone).
+    func isSwitchedOn(_ bookKey: String) -> Bool { bookSync.isSwitchedOn(bookKey) }
+
+    /// "Sync Progress for This Book" in the reader menu: stamped newer than the current switch, queued
+    /// progress of a book switched off is dropped, and the iPhone is told.
+    func setSyncEnabled(_ isOn: Bool, bookKey: String, now: Date = Date()) {
+        guard !bookKey.isEmpty, isSwitchedOn(bookKey) != isOn else { return }
+        var settings = bookSync
+        settings.switches[bookKey] = BookSyncSwitch.set(isOn, now: now, replacing: settings.switches[bookKey])
+        bookSync = settings
+        if !isOn {
+            offered.removeValue(forKey: bookKey)
+            remoteMemory.clearSynced(for: bookKey)
+        }
+        pruneUnsyncable()
+        onBookSyncChanged?()
+    }
+
+    /// What the iPhone sent in its settings context: its switches (merged, newer wins per book) and the books
+    /// linked to a Readest row (replaced; nil = the iPhone does not know, every book syncs as before).
+    /// Returns whether a switch changed (the watch then reports its copy back).
+    @discardableResult
+    func applyRemote(switches incoming: [String: BookSyncSwitch]?, readestLinked: Set<String>?) -> Bool {
+        var settings = bookSync
+        var switchesChanged = false
+        if let incoming {
+            let merged = BookSyncSwitchMerge.merge(local: settings.switches, incoming: incoming)
+            settings.switches = merged.switches
+            switchesChanged = !merged.changed.isEmpty
+        }
+        settings.readestLinked = readestLinked
+        guard settings != bookSync else { return false }
+        bookSync = settings
+        pruneUnsyncable()
+        return switchesChanged
+    }
+
+    /// The switches to report to the iPhone (library context), for the books stored here.
+    func switches(for bookKeys: Set<String>) -> [String: BookSyncSwitch] {
+        bookSync.switches.filter { bookKeys.contains($0.key) }
+    }
+
+    /// Drops queued progress of books that can no longer sync (#167).
+    private func pruneUnsyncable() {
+        guard let active = connector() else { return }
+        let settings = bookSync
+        let requiresLink = active.descriptor.requiresLibraryLink
+        let queue = self.queue
+        let previous = chain
+        chain = Task {
+            await previous?.value
+            await queue.prune { settings.decision(for: $0.book.key, requiresLibraryLink: requiresLink).syncs }
+        }
+    }
+
+    private func persistBookSync() {
+        if let data = try? JSONEncoder().encode(bookSync) { defaults.set(data, forKey: Self.bookSyncKey) }
+    }
+
     var hasPending: Bool { pendingCount > 0 }
 
     // MARK: Settings screen
@@ -415,12 +525,14 @@ final class SyncCoordinator: ObservableObject {
 
     func testConnection() async -> ConnectionResult {
         guard let connector = connector() else { return .notConfigured }
-        status = .syncing
+        let request = slowRequest.begin()
         do {
             try await connector.authorize()
+            slowRequest.end(request)
             status = .idle
             return .ok
         } catch {
+            slowRequest.end(request)
             record(error)
             if SyncErrors.isUnauthorized(error) {
                 return connector.descriptor.usesSession ? .signInAgain : .unauthorized

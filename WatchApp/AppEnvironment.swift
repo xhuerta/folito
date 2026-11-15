@@ -88,9 +88,11 @@ final class AppEnvironment: ObservableObject {
         scheduleBackgroundRefresh()
     }
 
-    /// One pending background refresh at a time, only while sync is on and a book is on the complications.
+    /// One pending background refresh at a time, only while sync is on and the book on the complications syncs
+    /// (not switched off, and in the Readest library when that is the service: #167).
     func scheduleBackgroundRefresh() {
-        guard !UITesting.isActive, sync.isConfigured, complications.current != nil else { return }
+        guard !UITesting.isActive, sync.isConfigured, let shown = complications.current,
+              sync.syncs(shown.bookID) else { return }
         WKApplication.shared().scheduleBackgroundRefresh(
             withPreferredDate: Date(timeIntervalSinceNow: SyncedProgressRefresher.backgroundInterval),
             userInfo: SyncedProgressRefresher.taskID as NSString) { _ in }
@@ -111,8 +113,12 @@ final class AppEnvironment: ObservableObject {
                                             onDictionariesChanged: { [weak self] in self?.dictionariesChanged() },
                                             typography: { typography.value },
                                             onTypography: { typography.applyRemote($0) },
-                                            onSettingsChanged: { sync.configurationChanged() })
+                                            onSettingsChanged: { sync.configurationChanged() },
+                                            bookSyncSwitches: { sync.switches(for: $0) },
+                                            onBookSync: { sync.applyRemote(switches: $0, readestLinked: $1) })
         typography.onLocalChange = { [weak receiver] _ in receiver?.publishLibrary() }
+        // A per-book sync switch changed in the reader menu: the iPhone gets it with the library report (#167).
+        sync.onBookSyncChanged = { [weak receiver] in receiver?.publishLibrary() }
         let complications = self.complications
         library.onBookDeleted = { sync.discard(document: $0); complications.bookRemoved($0) }
         library.onUserDeletedBook = { [weak receiver] in receiver?.reportUserRemoval(of: $0) }
