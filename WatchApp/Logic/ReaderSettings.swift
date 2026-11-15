@@ -11,6 +11,8 @@ enum ReaderSettings {
     static let showCoversKey = "settings.showCovers"
     /// Auto-scroll speed level (`AutoScroll.levels`; unset means `AutoScroll.defaultLevel`). Per user, not per book.
     static let autoScrollSpeedKey = "settings.autoScrollSpeed"
+    /// Whether "Turn the Digital Crown to change speed" was shown (the first time auto-scroll started).
+    static let autoScrollCrownHintShownKey = "settings.autoScrollCrownHintShown"
 
     static let minFontSize = 12.0
     static let maxFontSize = 28.0
@@ -27,5 +29,6 @@ enum ReaderSettings {
         defaults.removeObject(forKey: showTimeRemainingKey)
         defaults.removeObject(forKey: showCoversKey)
         defaults.removeObject(forKey: autoScrollSpeedKey)
+        defaults.removeObject(forKey: autoScrollCrownHintShownKey)
     }
 }

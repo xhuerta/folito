@@ -125,6 +125,10 @@ struct ReaderView: View {
                 .accessibilityHidden(!model.isPositioned)
             }
             .coordinateSpace(name: Self.scrollSpace)
+            // Every auto-scroll step is a scroll, and the system shows the scroll indicator beside the crown
+            // for each one: about 30 flashes a second read as a flickering bar. Hidden while it runs; `.never`
+            // rather than `.hidden`, which a platform may override (watchOS 9+ API, so fine on watchOS 10).
+            .scrollIndicators(model.autoScroll == .running ? .never : .automatic)
             // Only set when auto-scroll stops running (`returnCrownToText`), so the crown scrolls the text again
             // at once instead of staying with the auto-scroll layer that went away.
             .focused($scrollFocused)
@@ -195,7 +199,8 @@ struct ReaderView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            AutoScrollBadge(state: model.autoScroll, level: model.autoScrollLevel, showsSpeed: showSpeedBadge)
+            AutoScrollBadge(state: model.autoScroll, level: model.autoScrollLevel, showsSpeed: showSpeedBadge,
+                            showsCrownHint: model.autoScrollShowsCrownHint)
                 .padding(.bottom, 4)
         }
         .tint(style.accentColor)
@@ -256,7 +261,10 @@ struct ReaderView: View {
             }
             if state == .running {
                 crownValue = Double(model.autoScrollLevel)
-                flashSpeedBadge()
+                // On every start and resume, a little longer than after a crown change (the sheet is still
+                // leaving), and longer still with the first-start crown hint.
+                flashSpeedBadge(for: model.autoScrollShowsCrownHint ? AutoScrollBadge.hintDuration
+                                                                     : AutoScrollBadge.startDuration)
             } else {
                 returnCrownToText()
             }
@@ -404,49 +412,34 @@ extension ReaderView {
 
     // MARK: Auto-scroll (#67)
 
-    /// Moves the text while auto-scroll runs: every `AutoScroll.tickInterval` the cursor advances by the
-    /// speed times the time since the last tick, and `scrollTo` puts it at the reading line. Nothing is
+    /// Moves the text while auto-scroll runs: every `AutoScroll.tickInterval` the view model advances its
+    /// cursor by the current speed times the time since the last tick (`ReaderViewModel.autoScrollTick`), and
+    /// `scrollTo` puts it at the reading line. Steps are instant: an animated `scrollTo` uses the system's
+    /// scroll curve rather than a linear one on watchOS, so back-to-back animated steps would pulse. Nothing is
     /// published per tick, so the reader does not re-render; the scroll itself updates the block frames, from
-    /// which the position is saved as usual. While a restore or a jump settles, it waits and then starts again
-    /// from where the text landed.
+    /// which the position is saved as usual.
     @MainActor
     fileprivate func runAutoScroll(_ proxy: ScrollViewProxy, lineHeight: Double) async {
-        var cursor: AutoScroll.Cursor?
         var lastTick = Date()
-        let tick = UInt64(AutoScroll.tickInterval * 1_000_000_000)
+        let tickNanoseconds = UInt64(AutoScroll.tickInterval * 1_000_000_000)
         while !Task.isCancelled, model.autoScroll == .running {
-            try? await Task.sleep(nanoseconds: tick)
+            try? await Task.sleep(nanoseconds: tickNanoseconds)
             guard !Task.isCancelled, model.autoScroll == .running else { return }
-            let now = Date()
-            let elapsed = now.timeIntervalSince(lastTick)
-            lastTick = now
-            guard !model.isRestoring else {
-                cursor = nil
+            let tickDate = Date()
+            let elapsed = tickDate.timeIntervalSince(lastTick)
+            lastTick = tickDate
+            switch model.autoScrollTick(elapsed: elapsed, lineHeight: lineHeight) {
+            case .idle:
                 continue
-            }
-            let frames = model.blockFrames.mapValues { AutoScroll.Span(minY: Double($0.minY), maxY: Double($0.maxY)) }
-            let top = Double(model.viewportTop)
-            let height = Double(model.viewportHeight)
-            guard let current = cursor ?? AutoScroll.cursor(frames: frames, viewportTop: top) else { continue }
-            if AutoScroll.isAtEnd(cursor: current, blockCount: model.flat.count, frames: frames,
-                                  viewportTop: top, viewportHeight: height) {
+            case .reachedEnd:
                 autoScrollReachedEnd()
                 return
-            }
-            // The first tick only measures where the text is.
-            guard cursor != nil else {
-                cursor = current
-                continue
-            }
-            let distance = AutoScroll.step(level: model.autoScrollLevel, lineHeight: lineHeight, elapsed: elapsed)
-            let moved = AutoScroll.advance(current, by: distance, blockCount: model.flat.count, frames: frames)
-            cursor = moved
-            guard let target = AutoScroll.scrollTarget(moved, frames: frames, viewportTop: top,
-                                                       viewportHeight: height) else { continue }
-            var transaction = Transaction()
-            transaction.disablesAnimations = true
-            withTransaction(transaction) {
-                proxy.scrollTo(target.index, anchor: UnitPoint(x: 0, y: target.anchorY))
+            case .scroll(let step):
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    proxy.scrollTo(step.index, anchor: UnitPoint(x: 0, y: step.anchorY))
+                }
             }
         }
     }
@@ -520,17 +513,19 @@ extension ReaderView {
     fileprivate func changeAutoScrollSpeed(to level: Int) {
         guard AutoScroll.clampedLevel(level) != model.autoScrollLevel else { return }
         model.setAutoScrollLevel(level)
-        flashSpeedBadge()
+        flashSpeedBadge(for: AutoScrollBadge.speedDuration)
     }
 
-    /// Shows the speed badge for a moment. It fades in and out, or with Reduce Motion simply appears and goes.
-    fileprivate func flashSpeedBadge() {
+    /// Shows the speed badge for `duration` seconds. It fades in and out, or with Reduce Motion simply appears
+    /// and goes. The first-start crown hint goes with it.
+    fileprivate func flashSpeedBadge(for duration: TimeInterval) {
         speedBadgeToken &+= 1
         let token = speedBadgeToken
         setSpeedBadge(true)
-        DispatchQueue.main.asyncAfter(deadline: .now() + AutoScrollBadge.speedDuration) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
             guard token == speedBadgeToken else { return }
             setSpeedBadge(false)
+            model.dismissAutoScrollCrownHint()
         }
     }
 
@@ -550,14 +545,22 @@ extension ReaderView {
 }
 
 /// The small badge at the bottom of the reader for auto-scroll (#67): the speed ("Speed 3 of 7" and a row of
-/// dots) for a moment after it changes, and "Auto-Scroll Paused" while paused. Transparent to taps. The speed
-/// is hidden from VoiceOver (the auto-scroll control's value says it); the paused badge is readable.
+/// dots) for a moment after it starts or changes, the first time also with "Turn the Digital Crown to change
+/// speed", and "Paused – Tap to Continue" while paused (also after the screen went dark: the wrist went down).
+/// Transparent to taps. The speed is hidden from VoiceOver (the auto-scroll control's value and hint say it);
+/// the paused badge is readable.
 private struct AutoScrollBadge: View {
     let state: ReaderViewModel.AutoScrollState
     let level: Int
     let showsSpeed: Bool
+    let showsCrownHint: Bool
 
+    /// After a crown change.
     static let speedDuration: TimeInterval = 1.5
+    /// On start and resume.
+    static let startDuration: TimeInterval = 2.5
+    /// The first start, with the crown hint to read.
+    static let hintDuration: TimeInterval = 4
 
     static func speedText(_ level: Int) -> Text {
         Text("Speed \(level) of \(AutoScroll.levelCount)",
@@ -568,12 +571,16 @@ private struct AutoScrollBadge: View {
         if state == .paused {
             pill {
                 Label {
-                    Text("Auto-Scroll Paused", comment: "Badge at the bottom of the reader while auto-scroll is paused")
+                    Text("Paused – Tap to Continue",
+                         comment: "Badge at the bottom of the reader while auto-scroll is paused (a tap on the text resumes it)")
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
                 } icon: {
                     Image(systemName: "pause.fill")
                 }
             }
-            .accessibilityElement(children: .combine)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text("Auto-Scroll Paused", comment: "Badge at the bottom of the reader while auto-scroll is paused"))
             .accessibilityHint(Text("Tap the text to resume.", comment: "VoiceOver hint of the paused auto-scroll badge"))
             .accessibilityIdentifier("autoScrollPaused")
         } else if state == .running, showsSpeed {
@@ -586,6 +593,14 @@ private struct AutoScrollBadge: View {
                                 .fill(dot <= level ? HierarchicalShapeStyle.primary : HierarchicalShapeStyle.tertiary)
                                 .frame(width: 4, height: 4)
                         }
+                    }
+                    if showsCrownHint {
+                        Text("Turn the Digital Crown to change speed",
+                             comment: "Hint under the auto-scroll speed badge, shown the first time auto-scroll starts")
+                        .font(.caption2)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }

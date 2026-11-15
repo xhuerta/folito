@@ -312,8 +312,8 @@ behind a `confirmationDialog`.
   bookmark." and the action *Delete Bookmark* next to swipe to delete; all of it wraps at large text sizes.
 - Auto-scroll (*Options › Auto-Scroll*, #67): never starts by itself. *Start Auto-Scroll* has the value
   "Speed 3 of 7" and a hint. While it runs, the text is covered by one element, "Auto-Scroll, Speed 3 of 7",
-  adjustable with swipe up / down (the speed), whose double-tap pauses; while paused, the badge "Auto-Scroll
-  Paused" (hint "Tap the text to resume.") is readable and a double-tap on any paragraph resumes. VoiceOver
+  adjustable with swipe up / down (the speed), whose double-tap pauses; while paused, the badge (shown as
+  "Paused – Tap to Continue", read as "Auto-Scroll Paused", hint "Tap the text to resume.") is readable and a double-tap on any paragraph resumes. VoiceOver
   announces "End of book. Auto-scroll stopped." at the end. The speed is in lines per minute, so it reads
   the same at every text size.
 - Reader: every block (paragraph, heading, quote, list item) is one element; headings carry `.isHeader`

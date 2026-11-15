@@ -61,7 +61,7 @@ final class WatchAutoScrollUITests: XCTestCase {
         XCTAssertEqual(control.label, "Auto-Scroll")
         XCTAssertTrue(control.value as? String == "Speed 3 of 7", "VoiceOver value: \(String(describing: control.value))")
 
-        // The text moves by itself (about 9 pt a second at the default speed and text size).
+        // The text moves by itself (about 8 pt a second at the default speed and text size).
         sleep(2)
         guard let before = firstVisibleBlock(app) else { return WatchUI.fail("No text block on screen", in: app) }
         sleep(5)

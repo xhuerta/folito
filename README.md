@@ -265,12 +265,15 @@ and are removed with the book or by *Settings › Reset*. They are not synced to
 ## Auto-scroll
 
 On the watch, *Reading Options › Auto-Scroll › Start Auto-Scroll* scrolls the text by itself. Turn the Digital
-Crown to change the speed (seven levels, in lines per minute so the pace is the same at every text size; the
-default, level 3, is 28 lines or about 150 words a minute), tap the text to pause and again to resume, and stop
-it from the same menu row. The speed is remembered for every book. It pauses when the wrist goes down, the app
-leaves the screen or a sheet opens, and stops at the end of the book. It runs only while the screen is on:
-watchOS lets apps keep running with the screen off only for workouts, mindfulness, alarms and similar sessions
-(`WKExtendedRuntimeSession`), and reading is not one of them.
+Crown to change the speed (seven levels from 12 to 90 lines a minute, each about 1.4 times the one before, in
+lines so the pace is the same at every text size; the default, level 3, is 24 lines or about 130 words a minute;
+the first start says so under the speed badge), tap the text to pause and again to resume, and stop it from the
+same menu row. The speed is remembered for every book. The scroll indicator is hidden while it runs. It pauses
+when the wrist goes down (the screen dims), the app leaves the screen or a sheet opens, and shows
+"Paused – Tap to Continue" at the same line when you look again; it stops at the end of the book. It runs only
+while the screen is on: watchOS lets apps keep running with the screen off only for workouts, mindfulness,
+alarms and similar sessions (`WKExtendedRuntimeSession`), and reading is not one of them. How long the screen
+stays on after a tap is the watch's *Settings › Display & Brightness › Wake Duration*.
 
 ## Footnotes and endnotes
 

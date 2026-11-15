@@ -13,6 +13,24 @@ final class AutoScrollTests: XCTestCase {
         XCTAssertEqual(AutoScroll.linesPerMinute, AutoScroll.linesPerMinute.sorted(), "slowest first")
     }
 
+    /// Each crown detent must be a change the reader sees (#67: level 3 to 4 was 28 to 35 lines a minute and
+    /// looked like nothing happened): roughly geometric, about 10 to 90 lines a minute over the seven levels.
+    func testLevelsAreClearlyDifferent() {
+        let lines = AutoScroll.linesPerMinute
+        XCTAssertEqual(lines, [12, 17, 24, 33, 46, 64, 90])
+        for i in 1..<lines.count {
+            let ratio = lines[i] / lines[i - 1]
+            XCTAssertGreaterThanOrEqual(ratio, AutoScroll.minLevelRatio, "level \(i) to \(i + 1)")
+            XCTAssertLessThan(ratio, 1.6, "level \(i) to \(i + 1) is not a jump")
+        }
+        XCTAssertGreaterThanOrEqual(lines.last! / lines.first!, 7, "a wide range from slow to skimming")
+        XCTAssertGreaterThanOrEqual(lines.first!, 10)
+        XCTAssertLessThanOrEqual(lines.last!, 90)
+        // The default is a relaxed pace in the middle-low part of the range, as before.
+        XCTAssertEqual(AutoScroll.defaultLevel, 3)
+        XCTAssertEqual(lines[AutoScroll.defaultLevel - 1], 24)
+    }
+
     func testClampingAndStoredLevel() {
         XCTAssertEqual(AutoScroll.clampedLevel(0), 1)
         XCTAssertEqual(AutoScroll.clampedLevel(-4), 1)
@@ -52,7 +70,7 @@ final class AutoScrollTests: XCTestCase {
 
     func testPointsPerSecondFollowsLevelAndTextSize() {
         let line = 19.2
-        XCTAssertEqual(AutoScroll.pointsPerSecond(level: 3, lineHeight: line), 28 * line / 60, accuracy: 1e-9)
+        XCTAssertEqual(AutoScroll.pointsPerSecond(level: 3, lineHeight: line), 24 * line / 60, accuracy: 1e-9)
         for level in 1..<7 {
             XCTAssertLessThan(AutoScroll.pointsPerSecond(level: level, lineHeight: line),
                               AutoScroll.pointsPerSecond(level: level + 1, lineHeight: line))
@@ -70,6 +88,9 @@ final class AutoScrollTests: XCTestCase {
         let tick = AutoScroll.step(level: 7, lineHeight: line, elapsed: AutoScroll.tickInterval)
         XCTAssertGreaterThan(tick, 0)
         XCTAssertLessThan(tick, 2, "a tick at the fastest level stays under 2 pt at the default size")
+        let largest = AutoScroll.step(level: 7, lineHeight: AutoScroll.lineHeight(pointSize: 28, lineSpacing: 0),
+                                      elapsed: AutoScroll.tickInterval)
+        XCTAssertLessThan(largest, 2, "and at the largest text size")
         XCTAssertEqual(AutoScroll.step(level: 3, lineHeight: line, elapsed: 0), 0)
         XCTAssertEqual(AutoScroll.step(level: 3, lineHeight: line, elapsed: -1), 0)
         XCTAssertEqual(AutoScroll.step(level: 3, lineHeight: line, elapsed: .nan), 0)

@@ -4,10 +4,13 @@ import Foundation
 ///
 /// Speed model: a few levels (`levels`, 1...7), each a number of text lines per minute (`linesPerMinute`).
 /// Lines, not points, so a level reads at the same pace whatever the text size: the view turns lines into
-/// points with the body text's line height (`lineHeight(pointSize:lineSpacing:)`). With about five to six words
-/// per line on a 41-45 mm watch at the default 16 pt, level 1 is roughly 80-100 words per minute, the default
-/// level 3 roughly 150-170 and level 7 roughly 320-370. The level is one per user (not per book) and is changed
-/// with the Digital Crown while the text scrolls.
+/// points with the body text's line height (`lineHeight(pointSize:lineSpacing:)`). The levels are roughly
+/// geometric (each about 1.4 times the one before, 12 to 90 lines per minute), so one crown detent is a change
+/// the reader sees at once: the first table (16 to 64, about 1.25 times per level) made level 3 to 4 a change
+/// nobody noticed on the watch (#67). With about five to six words per line on a 41-45 mm watch at the default
+/// 16 pt, level 1 is roughly 60-70 words per minute, the default level 3 roughly 120-145 and level 7 a fast
+/// skim. The level is one per user (not per book) and is changed with the Digital Crown while the text scrolls;
+/// the stored setting is the level (1...7), so a saved speed keeps its meaning as "level n".
 ///
 /// Position model: a `Cursor` is the block at the reading line (the viewport's top edge) and how many points of
 /// it are above that line. Every tick moves it forward by `step(level:lineHeight:elapsed:)` points, across
@@ -21,10 +24,13 @@ public enum AutoScroll {
     public static let defaultLevel = 3
     /// With Reduce Motion on, auto-scroll starts no faster than this (the user can still turn it up).
     public static let reduceMotionMaxLevel = 3
-    /// Text lines per minute for each level (index 0 is level 1).
-    public static let linesPerMinute: [Double] = [16, 22, 28, 35, 43, 52, 64]
+    /// Text lines per minute for each level (index 0 is level 1): about 1.4 times per level.
+    public static let linesPerMinute: [Double] = [12, 17, 24, 33, 46, 64, 90]
+    /// Every level is at least this many times faster than the one below it, so a single crown detent is a
+    /// visible change.
+    public static let minLevelRatio = 1.3
     /// How often the view moves the text: about 30 times a second, smooth on the watch at these speeds
-    /// (well under 2 pt per tick at the fastest level and the default text size).
+    /// (under 2 pt per tick at the fastest level, even at the largest text size).
     public static let tickInterval: TimeInterval = 1.0 / 30.0
     /// A longer gap between two ticks (the app was busy, a frame was dropped) moves the text by at most this
     /// much time's worth, so the text never jumps.
