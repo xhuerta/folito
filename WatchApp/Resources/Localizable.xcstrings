@@ -2896,6 +2896,53 @@
         }
       }
     },
+    "Lists the book's chapters." : {
+      "comment" : "VoiceOver hint of the Chapters row in the reader menu, which opens the chapter list",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Listet die Kapitel des Buchs auf."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muestra los capítulos del libro."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Affiche les chapitres du livre."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra i capitoli del libro."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本の章を一覧表示します。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostra os capítulos do livro."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "列出本书的章节。"
+          }
+        }
+      }
+    },
     "Look Up" : {
       "comment" : "Button: show the dictionary definition of the selected word",
       "localizations" : {

@@ -131,11 +131,13 @@ final class WatchAccessibilityChecksTests: XCTestCase {
         WatchUI.openReaderMenu(app)
         assertTextSizeStepper(in: app)
         try assertInteractiveElementsAreLabelled(app, screen: "Reading Options")
+        // The chapters are on their own screen (#172), behind a row that reads "Chapters, <current chapter>".
+        guard WatchUI.openChapters(app) else { return }
         let chapter = WatchUI.element("chapterButton", in: app)
         XCTAssertTrue(WatchUI.scrollToHittable(chapter, in: app), "Chapter button not reachable")
         XCTAssertTrue(chapter.label.contains(WatchUI.sampleChapter), "Chapter label: \(chapter.label)")
-        XCTAssertTrue(chapter.isSelected, "The current chapter must carry the selected trait (the bookmark glyph is hidden)")
-        try assertInteractiveElementsAreLabelled(app, screen: "Reading Options (chapters)")
+        XCTAssertTrue(chapter.isSelected, "The current chapter must carry the selected trait (the checkmark is hidden)")
+        try assertInteractiveElementsAreLabelled(app, screen: "Chapters")
     }
 
     // MARK: Settings
@@ -206,9 +208,12 @@ final class WatchAccessibilityChecksTests: XCTestCase {
         let stepper = WatchUI.element("textSizeStepper", in: app)
         XCTAssertTrue(WatchUI.scrollToHittable(stepper, in: app), "Text size stepper not reachable at AX5")
         assertStepperSpansRow(stepper, in: app, screen: "Reading Options (AX5)")
+        // The Chapters row is the menu's last row (#172); the menu grew by the auto-scroll row (#67): a few more
+        // small drags at this size.
+        guard WatchUI.openChapters(app, maxSteps: 16) else { return }
         let chapter = WatchUI.element("chapterButton", in: app)
-        // The menu grew by the auto-scroll row (#67): a few more small drags at this size.
-        XCTAssertTrue(WatchUI.scrollToHittable(chapter, in: app, maxSteps: 16), "Chapter button not reachable at AX5")
+        XCTAssertTrue(WatchUI.scrollToHittable(chapter, in: app), "Chapter button not reachable at AX5")
+        XCTAssertTrue(chapter.isSelected, "The current chapter must carry the selected trait at AX5")
     }
 
     @MainActor

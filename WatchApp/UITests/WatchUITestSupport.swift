@@ -90,15 +90,51 @@ enum WatchUI {
         XCTFail("\(message). Tree:\n\(app.debugDescription)", file: file, line: line)
     }
 
-    /// Reader -> Reading Options sheet (text size, dictionary, chapters).
+    /// Reader -> Reading Options sheet (text size, dictionary, bookmarks, the Chapters row).
     static func openReaderMenu(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
         let button = element("readerOptionsButton", in: app)
         XCTAssertTrue(button.waitForExistence(timeout: 5), "Reading Options button missing", file: file, line: line)
         button.tap()
-        // The text size stepper is the sheet's first row; the chapter list is further down and, in a lazy
+        // The text size stepper is the sheet's first row; the Chapters row is further down and, in a lazy
         // List on a small watch, only enters the accessibility tree once scrolled into view.
         XCTAssertTrue(element("textSizeStepper", in: app).waitForExistence(timeout: 5),
                       "Reading Options did not open (no text size stepper)", file: file, line: line)
+    }
+
+    /// The Chapters row of Reading Options (#172), by identifier or by its label ("Chapters, <current chapter>"):
+    /// on watchOS a NavigationLink row may not carry the identifier set on it. English label: callers launch in
+    /// English.
+    static func chaptersLink(in app: XCUIApplication) -> XCUIElement {
+        let byID = element("chaptersLink", in: app)
+        if byID.exists { return byID }
+        return app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label BEGINSWITH %@", "Chapters")).element(boundBy: 0)
+    }
+
+    /// Reading Options -> chapter list (#172): scrolls to the Chapters row (up to `maxSteps` small drags), checks
+    /// that it reads the current chapter, taps it and waits for the list. Returns whether the list opened.
+    @discardableResult
+    static func openChapters(_ app: XCUIApplication, maxSteps: Int = 12,
+                             file: StaticString = #filePath, line: UInt = #line) -> Bool {
+        var steps = 0
+        while !(chaptersLink(in: app).exists && chaptersLink(in: app).isHittable) && steps < maxSteps {
+            nudgeUp(app)
+            steps += 1
+        }
+        let link = chaptersLink(in: app)
+        guard link.exists, link.isHittable else {
+            fail("Chapters row not reachable in Reading Options", in: app, file: file, line: line)
+            return false
+        }
+        XCTAssertTrue(link.label.contains("Chapters"), "Chapters row label: \(link.label)", file: file, line: line)
+        XCTAssertTrue(link.label.contains(sampleChapter),
+                      "The Chapters row should read the current chapter: \(link.label)", file: file, line: line)
+        link.tap()
+        guard element("chapterButton", in: app).waitForExistence(timeout: 5) else {
+            fail("The chapter list did not open (no chapter button)", in: app, file: file, line: line)
+            return false
+        }
+        return true
     }
 
     /// Settings or Reading Options -> Typography editor.

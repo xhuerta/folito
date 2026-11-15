@@ -304,8 +304,10 @@ behind a `confirmationDialog`.
   The cover keeps its size at every text size and the text wraps beside it; a cover-less book gets a tile in
   the colour the iPhone uses for its placeholder. Turning the setting off restores the text-only row exactly.
 - Icon-only buttons are `Label`s ("Settings", "Reading Options", "Previous Word", "Next Word"); decorative
-  icons (error glyphs, the current-chapter bookmark, list bullets) are hidden, and the current chapter in
-  the *Options* sheet has the *Selected* trait instead.
+  icons (error glyphs, the current-chapter checkmark, list bullets) are hidden, and the current chapter in
+  the chapter list has the *Selected* trait instead.
+- Chapters (*Options › Chapters*, #172): one row that reads "Chapters, <current chapter>" with the hint
+  "Lists the book's chapters."; it pushes the chapter list, which opens scrolled to the current chapter.
 - Bookmarks (*Options › Bookmarks*): *Add Bookmark* has a hint ("Bookmarks the line at the top of the
   screen."), VoiceOver announces "Bookmark added" and the button then reads *Bookmarked*, dimmed. Each row of
   *All Bookmarks* is one button (chapter, first words, percentage) with the hint "Opens the book at this
@@ -427,7 +429,7 @@ lists iOS 17, macOS 14, tvOS 17, visionOS 1 and **watchOS 10**; the `.dynamicTyp
 checks the audit does not make:
 
 - `WatchAccessibilityAuditTests`: the audit on the empty library, the library with one book, the reader,
-  *Reading Options*, Settings and Typography. Like on iOS it runs the types `.all` covers one at a time
+  *Reading Options*, its chapter list, Settings and Typography. Like on iOS it runs the types `.all` covers one at a time
   (a timed-out type is retried once) and prints every finding with its element in the CI log.
 - `WatchReaderTopBarTests`: the reader's top bar hides after scrolling down, a tap on the text shows it
   again without opening the word picker (the hidden-bar screenshot is attached to the result). The
@@ -436,14 +438,17 @@ checks the audit does not make:
   put, screenshot `watch-autoscroll-paused`) and *Stop Auto-Scroll* in the menu stops it.
 - `WatchBookmarksUITests`: *Add Bookmark* turns into *Bookmarked*, *All Bookmarks* lists the bookmark
   (screenshot `watch-bookmarks` attached to the result), and a tap on it closes the menu.
+- `WatchChaptersUITests`: *Reading Options* has one *Chapters* row reading the current chapter (#172); it
+  pushes the chapter list, which marks the current chapter as selected (screenshot `watch-chapters`), and a
+  tap on a chapter closes the menu.
 - `WatchAccessibilityChecksTests`, on the same screens:
   - every button, switch, stepper, slider and link has a non-empty label that does not look like a raw
     identifier: SF Symbol names (`list.bullet`, `gearshape`), file names (`sample.epub`), camelCase or
     snake_case identifiers, document hashes;
   - key elements: the book row is one actionable element whose label has title, author and progress; the
     toolbar buttons are labelled *Settings* / *Reading Options*; the text size stepper reads "Text Size" with
-    the value "n points"; the current chapter in *Reading Options* is *selected* (its bookmark glyph is
-    hidden); the typography preview is labelled "Text preview";
+    the value "n points"; the *Chapters* row of *Reading Options* reads the current chapter, and in the
+    chapter list it pushes the current chapter is *selected* (its checkmark is hidden); the typography preview is labelled "Text preview";
   - launched at the largest accessibility text size (`-UIPreferredContentSizeCategoryName
     UICTContentSizeCategoryAccessibilityXXXL`), the primary controls of each screen exist and are hittable
     (scrolling with swipes where a list is longer than the screen).
@@ -452,7 +457,7 @@ checks the audit does not make:
     has an empty label in the UI-test tree.
 
 Accessibility identifiers used by the tests: `libraryRow`, `settingsButton`, `readerBlock`,
-`readerOptionsButton`, `chapterButton`, `textSizeStepper`, `typographyLink`, `typographyPreview`,
+`readerOptionsButton`, `chaptersLink`, `chapterButton`, `textSizeStepper`, `typographyLink`, `typographyPreview`,
 `addBookmarkButton`, `bookmarksLink`, `bookmarkRow`.
 
 Launch arguments (handled only in Debug builds, see `WatchApp/Support/UITestingSupport.swift`; Release

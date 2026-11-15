@@ -1,8 +1,8 @@
 import XCTest
 
 /// Runs Xcode's automated accessibility audit (`XCUIApplication.performAccessibilityAudit`, watchOS 10+) on
-/// every main watch screen: empty library, library with one book, reader, Reading Options, Settings and
-/// Typography. The app is launched with `-UITesting` / `-UITestingSeedSampleBook` (Debug builds only; see
+/// every main watch screen: empty library, library with one book, reader, Reading Options, its chapter list,
+/// Settings and Typography. The app is launched with `-UITesting` / `-UITestingSeedSampleBook` (Debug builds only; see
 /// WatchApp/Support/UITestingSupport.swift).
 ///
 /// Consciously accepted findings are listed in `isAccepted(_:)` and in docs/ACCESSIBILITY.md
@@ -97,6 +97,15 @@ final class WatchAccessibilityAuditTests: XCTestCase {
         let app = WatchUI.launch(seedSampleBook: true)
         WatchUI.openReader(app)
         WatchUI.openReaderMenu(app)
+        try audit(app)
+    }
+
+    @MainActor
+    func testChaptersAudit() throws {
+        let app = WatchUI.launch(seedSampleBook: true)
+        WatchUI.openReader(app)
+        WatchUI.openReaderMenu(app)
+        guard WatchUI.openChapters(app) else { return }
         try audit(app)
     }
 
