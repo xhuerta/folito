@@ -7,12 +7,15 @@ enum HapticEvent: Equatable {
     case cursorMoved
     case lookupSucceeded
     case lookupFailed
+    /// A bookmark was added from the reader menu.
+    case bookmarkAdded
 
     var hapticType: WKHapticType {
         switch self {
         case .cursorMoved: return .click
         case .lookupSucceeded: return .success
         case .lookupFailed: return .failure
+        case .bookmarkAdded: return .success
         }
     }
 }

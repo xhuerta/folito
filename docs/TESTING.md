@@ -23,7 +23,7 @@ test targets.
 | Open Library live smoke test (`OpenLibraryLiveTests`: one Books API request by ISBN; skipped on network errors) | Linux (`swift:6.0` container), `openlibrary-smoke` job | `OPENLIBRARY_LIVE_TEST=1 swift test --filter OpenLibraryLiveTests` | 1 |
 | Sample books (`build_samples.py --check`; parsing in ReaderCore `SampleBooksTests`) | Linux | job `samples`; `test-core` | see docs/SAMPLE_BOOKS.md |
 | iOS accessibility audit (`FolitoUITests`) | macOS runner, iPhone simulator; **not on every PR** (see below) | `accessibility.yml`, `xcodebuild test -scheme Folito -only-testing:FolitoUITests/AccessibilityAuditTests`, in three parallel shards | 13 |
-| watchOS accessibility UI tests (`FolitoWatchUITests`: audit + label / trait / AX5 checks, reader top bar) | macOS runner, Apple Watch simulator; **not on every PR** (see below) | `accessibility.yml`, `xcodebuild test -scheme FolitoWatch -only-testing:FolitoWatchUITests` | 16 |
+| watchOS accessibility UI tests (`FolitoWatchUITests`: audit + label / trait / AX5 checks, reader top bar, bookmarks) | macOS runner, Apple Watch simulator; **not on every PR** (see below) | `accessibility.yml`, `xcodebuild test -scheme FolitoWatch -only-testing:FolitoWatchUITests` | 17 |
 
 ### CI: which workflow runs when
 

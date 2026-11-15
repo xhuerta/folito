@@ -306,6 +306,10 @@ behind a `confirmationDialog`.
 - Icon-only buttons are `Label`s ("Settings", "Reading Options", "Previous Word", "Next Word"); decorative
   icons (error glyphs, the current-chapter bookmark, list bullets) are hidden, and the current chapter in
   the *Options* sheet has the *Selected* trait instead.
+- Bookmarks (*Options › Bookmarks*): *Add Bookmark* has a hint ("Bookmarks the line at the top of the
+  screen."), VoiceOver announces "Bookmark added" and the button then reads *Bookmarked*, dimmed. Each row of
+  *All Bookmarks* is one button (chapter, first words, percentage) with the hint "Opens the book at this
+  bookmark." and the action *Delete Bookmark* next to swipe to delete; all of it wraps at large text sizes.
 - Reader: every block (paragraph, heading, quote, list item) is one element; headings carry `.isHeader`
   and their level (`accessibilityHeading(.h1…)`), so the rotor's *Headings* jumps between chapter titles.
   Every block also has the action *Look Up a Word*, even with *Tap Paragraph to Look Up* turned off.
@@ -419,6 +423,8 @@ checks the audit does not make:
 - `WatchReaderTopBarTests`: the reader's top bar hides after scrolling down, a tap on the text shows it
   again without opening the word picker (the hidden-bar screenshot is attached to the result). The
   left-edge swipe back does not work in the reader yet and is tracked in #118.
+- `WatchBookmarksUITests`: *Add Bookmark* turns into *Bookmarked*, *All Bookmarks* lists the bookmark
+  (screenshot `watch-bookmarks` attached to the result), and a tap on it closes the menu.
 - `WatchAccessibilityChecksTests`, on the same screens:
   - every button, switch, stepper, slider and link has a non-empty label that does not look like a raw
     identifier: SF Symbol names (`list.bullet`, `gearshape`), file names (`sample.epub`), camelCase or
@@ -435,7 +441,8 @@ checks the audit does not make:
     has an empty label in the UI-test tree.
 
 Accessibility identifiers used by the tests: `libraryRow`, `settingsButton`, `readerBlock`,
-`readerOptionsButton`, `chapterButton`, `textSizeStepper`, `typographyLink`, `typographyPreview`.
+`readerOptionsButton`, `chapterButton`, `textSizeStepper`, `typographyLink`, `typographyPreview`,
+`addBookmarkButton`, `bookmarksLink`, `bookmarkRow`.
 
 Launch arguments (handled only in Debug builds, see `WatchApp/Support/UITestingSupport.swift`; Release
 builds ignore them):

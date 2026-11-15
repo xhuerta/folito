@@ -66,6 +66,9 @@ final class ReaderViewModel: ObservableObject {
 
     private let positions: PositionStore
     private let sync: SyncCoordinator
+    /// The book's bookmarks (#65), newest first.
+    @Published private(set) var bookmarks: BookmarkList
+    private let bookmarkStore: BookmarkStore
     /// Word counts per block for the time-remaining estimate; built off the main actor after opening.
     @Published private(set) var lengths: BookLengthIndex?
     private let speeds: ReadingSpeedStore
@@ -105,6 +108,9 @@ final class ReaderViewModel: ObservableObject {
         self.positions = positions
         self.sync = sync
         self.resolver = resolver
+        let bookmarkStore = positions.bookmarks
+        self.bookmarkStore = bookmarkStore
+        self.bookmarks = bookmarkStore.load(documentHash: book.documentHash)
         let (start, startOffset) = Self.openPosition(saved: positions.load(book.documentHash), in: flat)
         self.startIndex = start
         self.startOffset = startOffset
@@ -383,6 +389,55 @@ final class ReaderViewModel: ObservableObject {
         currentOffset = offset
         persistCurrent()
         jumpRequest = JumpRequest(index: i, anchorY: restoreAnchor)
+    }
+
+    // MARK: Bookmarks
+
+    /// The position a new bookmark would mark: the line at the top of the screen.
+    private var bookmarkPosition: BookPosition? {
+        flat.position(at: currentIndex, characterOffset: currentOffset)
+    }
+
+    /// Whether the line at the top of the screen is bookmarked already (the menu then says "Bookmarked").
+    var isCurrentPositionBookmarked: Bool {
+        guard let position = bookmarkPosition else { return false }
+        return bookmarks.contains(position)
+    }
+
+    /// Bookmarks the line at the top of the screen. Nil for an empty book; `.duplicate` when that line is
+    /// bookmarked already (nothing changes).
+    @discardableResult
+    func addBookmark() -> BookmarkList.AddResult? {
+        guard let position = bookmarkPosition,
+              let bookmark = Bookmark.make(at: position, in: book,
+                                           chapterTitle: flat.chapterTitle(at: currentIndex, characterOffset: currentOffset),
+                                           createdAt: now()) else { return nil }
+        let result = bookmarks.add(bookmark)
+        if case .added = result { bookmarkStore.save(bookmarks, documentHash: documentHash) }
+        return result
+    }
+
+    func deleteBookmark(id: UUID) {
+        guard bookmarks.remove(id: id) else { return }
+        bookmarkStore.save(bookmarks, documentHash: documentHash)
+    }
+
+    /// Swipe to delete in the bookmark list (offsets into `bookmarks.items`).
+    func deleteBookmarks(atOffsets offsets: IndexSet) {
+        bookmarks.remove(atOffsets: offsets)
+        bookmarkStore.save(bookmarks, documentHash: documentHash)
+    }
+
+    /// Opens the book at `bookmark`: its XPointer found in this copy of the book, else its stored position,
+    /// else its percentage.
+    func jump(to bookmark: Bookmark) {
+        guard !flat.isEmpty else { return }
+        if let position = bookmark.resolvedPosition(in: book, resolver: resolver),
+           let index = flat.flatIndex(for: position) {
+            jump(to: index, characterOffset: position.characterOffset)
+        } else {
+            jump(to: flat.index(forPercentage: bookmark.percentage))
+        }
     }
 
     // MARK: Sync

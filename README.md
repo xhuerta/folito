@@ -253,6 +253,15 @@ pauses over 5 minutes and implausible speeds. The speed is stored only on the wa
 the time left in each book the watch has opened. `ReadingTimeStore` (ReaderCore) holds the latest estimate per
 book, and the rectangular complication and Smart Stack show the minutes left in the chapter.
 
+## Bookmarks
+
+On the watch, *Reading Options › Bookmarks › Add Bookmark* marks the line at the top of the screen (once
+it is marked the button reads *Bookmarked*). *All Bookmarks* lists the book's bookmarks, newest first, with
+the chapter, the first words at the mark and the percentage; tap one to jump there, swipe left (or use the
+VoiceOver action *Delete Bookmark*) to delete it. Bookmarks are stored per book on the watch only
+(`BookmarkStore` in ReaderCore, next to the reading position): they survive the iPhone sending the book again
+and are removed with the book or by *Settings › Reset*. They are not synced to the iPhone or Readest yet.
+
 ## Importing EPUBs
 
 - From the iPhone: open an `.epub` with "Open in Folito" (share sheet in Files, Safari, etc.) or use the import button in the app. The app transfers them to the watch.

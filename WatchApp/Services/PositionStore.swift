@@ -18,6 +18,8 @@ final class PositionStore: @unchecked Sendable {
     var readingTimes: ReadingTimeStore { ReadingTimeStore(defaults: defaults) }
     /// The reading speed learned on this watch.
     var readingSpeed: ReadingSpeedStore { ReadingSpeedStore(defaults: defaults) }
+    /// The reader's bookmarks per book (#65), kept next to the positions and removed with them.
+    var bookmarks: BookmarkStore { BookmarkStore(defaults: defaults) }
 
     func load(_ documentHash: String) -> StoredPosition? {
         guard let data = defaults.data(forKey: Self.prefix + documentHash) else { return nil }
@@ -32,6 +34,7 @@ final class PositionStore: @unchecked Sendable {
     func remove(_ documentHash: String) {
         defaults.removeObject(forKey: Self.prefix + documentHash)
         readingTimes.remove(documentHash: documentHash)
+        bookmarks.remove(documentHash: documentHash)
     }
 
     func removeAll() {
@@ -40,5 +43,6 @@ final class PositionStore: @unchecked Sendable {
         }
         readingTimes.removeAll()
         readingSpeed.reset()
+        bookmarks.removeAll()
     }
 }
