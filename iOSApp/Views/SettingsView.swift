@@ -62,6 +62,12 @@ struct SettingsView: View {
                     AboutRowLabel(Text("Support"), systemImage: "questionmark.circle")
                 }
                 .accessibilityHint("Opens in your web browser.")
+                Link(destination: AppLinks.writeReview) {
+                    AboutRowLabel(Text("Rate Folito", comment: "Settings › About: opens the App Store to rate and review the app"),
+                                  systemImage: "star")
+                }
+                .accessibilityHint(Text("Opens the App Store.", comment: "VoiceOver hint of Settings › About › Rate Folito"))
+                .accessibilityIdentifier("rateAppLink")
                 LabeledContent("Version") {
                     Text(verbatim: AppVersion.displayString()).foregroundStyle(.secondaryText)
                 }
