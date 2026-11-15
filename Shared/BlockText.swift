@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import ReaderCore
 
 /// Converts `StyleSpan` UTF-16 ranges into `AttributedString` runs and maps block styles to typography.
@@ -34,6 +35,35 @@ enum BlockText {
             attr[r].inlinePresentationIntent = intent
         }
         return attr
+    }
+
+    /// Valid, clamped ranges of the note markers (#66) in `text`; invalid ranges are dropped.
+    static func noteRanges(text: String, notes: [NoteReference]) -> [Range<String.Index>] {
+        let utf16Count = text.utf16.count
+        var result: [Range<String.Index>] = []
+        for note in notes where note.length > 0 {
+            let start = max(0, note.location)
+            let end = min(utf16Count, note.location + note.length)
+            guard start < end, let range = Range(NSRange(location: start, length: end - start), in: text) else { continue }
+            result.append(range)
+        }
+        return result
+    }
+
+    /// `attributed` with its note markers underlined in `color`, so they stand out from the text by shape as
+    /// well as colour. Returns `attributed` unchanged for a block without notes.
+    static func markingNotes(_ attributed: AttributedString, text: String, notes: [NoteReference],
+                             color: Color) -> AttributedString {
+        guard !notes.isEmpty else { return attributed }
+        var marked = attributed
+        for range in noteRanges(text: text, notes: notes) {
+            guard let r = Range<AttributedString.Index>(range, in: marked) else { continue }
+            // Typed values pick the SwiftUI attributes (UIKit's take UIColor / NSUnderlineStyle).
+            let underline: Text.LineStyle = Text.LineStyle(pattern: .solid, color: color)
+            marked[r].foregroundColor = color
+            marked[r].underlineStyle = underline
+        }
+        return marked
     }
 
     /// Font size multiplier relative to the user's base size (headings at default heading scale).

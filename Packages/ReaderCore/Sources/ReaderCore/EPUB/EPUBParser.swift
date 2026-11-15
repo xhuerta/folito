@@ -55,36 +55,62 @@ public struct EPUBParser: EPUBParsing {
         let titles = Self.chapterTitles(package: package, zip: zip)
         let navTOC = TOCBuilder.navEntries(package: package, zip: zip)
         let ncxTOC = TOCBuilder.ncxEntries(package: package, zip: zip)
-        let wantedIDs = TOCBuilder.wantedIDs(navTOC, ncxTOC)
 
-        var chapters: [Chapter] = []
-        var anchors: [[String: AnchorTarget]] = []
         var spineIndexByPath: [String: Int] = [:]
         for (i, item) in package.spine.enumerated() where spineIndexByPath[item.path] == nil {
             spineIndexByPath[item.path] = i + 1
         }
-        var offset = 0
+        // Every document is read first: a note reference may point at an endnote in a later document (#66).
+        var documents: [ExtractedDocument] = []
+        var documentSpineIndex: [Int] = []
         for (i, item) in package.spine.enumerated() {
-            let spineIndex = i + 1
             guard Self.isXHTML(item), zip.contains(item.path) else { continue }
             let data: Data
             do { data = try zip.data(at: item.path) }
             catch EPUBError.archiveTooLarge { throw EPUBError.archiveTooLarge }
             catch { continue }  // unreadable or oversized single chapter: skip it
-            let extracted = BlockExtractor.extract(from: data, wantedIDs: wantedIDs[item.path] ?? [])
-            let raw = extracted.blocks
-            guard !raw.isEmpty else { continue }
+            let extracted = BlockExtractor.extractLocatingAllIDs(from: data)
+            guard !extracted.blocks.isEmpty else { continue }
+            documents.append(ExtractedDocument(path: item.path, blocks: extracted.blocks, anchors: extracted.anchors))
+            documentSpineIndex.append(i + 1)
+        }
+        let resolution = NoteResolver.resolve(documents)
+
+        var chapters: [Chapter] = []
+        var anchors: [[String: AnchorTarget]] = []
+        var offset = 0
+        for (di, document) in documents.enumerated() {
+            let spineIndex = documentSpineIndex[di]
+            let raw = document.blocks
+            // Aside notes shown as popups leave the text flow, unless nothing else would remain.
+            var hidden = resolution.hidden[di]
+            if hidden.count >= raw.count { hidden = [] }
+            let noteRefs = resolution.notes[di]
             var blocks: [Block] = []
-            blocks.reserveCapacity(raw.count)
-            for r in raw {
+            blocks.reserveCapacity(raw.count - hidden.count)
+            // New index of every raw block (a hidden block maps to the next kept one), for the TOC anchors.
+            var keptIndex: [Int] = []
+            keptIndex.reserveCapacity(raw.count + 1)
+            for (bi, r) in raw.enumerated() {
+                keptIndex.append(blocks.count)
+                if hidden.contains(bi) { continue }
                 blocks.append(Block(text: r.text, style: r.style, spans: r.spans,
                                     xpointer: xpointers.xpointer(spineIndex: spineIndex, path: r.path, textOffset: 0),
-                                    globalOffset: offset))
+                                    globalOffset: offset, notes: noteRefs[bi]))
                 offset += r.text.count
             }
-            let title = titles[item.path] ?? blocks.first(where: { Self.isHeading($0.style) })?.text
+            keptIndex.append(blocks.count)
+            let title = titles[document.path] ?? blocks.first(where: { Self.isHeading($0.style) })?.text
             chapters.append(Chapter(spineIndex: spineIndex, title: title, blocks: blocks))
-            anchors.append(extracted.anchors)
+            if hidden.isEmpty {
+                anchors.append(document.anchors)
+            } else {
+                anchors.append(document.anchors.mapValues { a in
+                    let moved = hidden.contains(a.blockIndex)
+                    let index = keptIndex[min(max(a.blockIndex, 0), raw.count)]
+                    return AnchorTarget(blockIndex: index, characterOffset: moved ? 0 : a.characterOffset)
+                })
+            }
         }
         let toc = TOCBuilder.build(nav: navTOC, ncx: ncxTOC,
                                    context: .init(chapters: chapters, spineIndexByPath: spineIndexByPath, anchors: anchors))

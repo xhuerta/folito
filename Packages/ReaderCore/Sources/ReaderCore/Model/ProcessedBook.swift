@@ -23,6 +23,34 @@ public struct StyleSpan: Codable, Sendable, Equatable {
     }
 }
 
+/// Whether a note is printed at the foot of its page (`footnote`) or collected at the end of a chapter or
+/// of the book (`endnote`, EPUB `endnote` / `rearnote`).
+public enum NoteKind: String, Codable, Sendable, Equatable {
+    case footnote
+    case endnote
+}
+
+/// A note reference inside `Block.text` (the "1" of a footnote marker) with the note's text, kept with the
+/// reference so the watch can show the note without loading the chapter that holds it (#66).
+public struct NoteReference: Codable, Sendable, Equatable {
+    /// UTF-16 range of the marker in `Block.text`, like `StyleSpan`.
+    public var location: Int
+    public var length: Int
+    /// The marker without brackets ("1", "*", "iv"); empty when the marker is not a short label.
+    public var label: String
+    public var kind: NoteKind
+    /// Plain text of the note; paragraphs are separated by "\n".
+    public var text: String
+
+    public init(location: Int, length: Int, label: String, kind: NoteKind, text: String) {
+        self.location = location
+        self.length = length
+        self.label = label
+        self.kind = kind
+        self.text = text
+    }
+}
+
 /// A paragraph-level unit of text. The watch renders these directly.
 public struct Block: Codable, Sendable, Equatable {
     public var text: String
@@ -32,14 +60,19 @@ public struct Block: Codable, Sendable, Equatable {
     public var xpointer: String
     /// Number of characters (Swift `Character`s) in all preceding blocks of the whole book.
     public var globalOffset: Int
+    /// Note references in `text`, in text order (#66). Nil when there are none, and in books processed before
+    /// notes were detected: the key is optional, so those still decode, and older watch builds (which ignore
+    /// unknown keys) still read new books, so `ProcessedBook.formatVersion` stays 1.
+    public var notes: [NoteReference]?
 
     public init(text: String, style: BlockStyle = .paragraph, spans: [StyleSpan] = [],
-                xpointer: String, globalOffset: Int) {
+                xpointer: String, globalOffset: Int, notes: [NoteReference]? = nil) {
         self.text = text
         self.style = style
         self.spans = spans
         self.xpointer = xpointer
         self.globalOffset = globalOffset
+        self.notes = notes
     }
 }
 

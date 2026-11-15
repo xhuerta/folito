@@ -175,6 +175,24 @@ final class ReaderViewModel: ObservableObject {
         lookupBlockIndex = LookupTarget(index: flat.clamped(index), characterOffset: characterOffset)
     }
 
+    /// Note shown in the note sheet (#66). The sheet covers the reader without scrolling it, so closing it
+    /// returns to the same line.
+    @Published var openNote: OpenNote?
+
+    struct OpenNote: Identifiable, Equatable {
+        /// Flat index of the block holding the reference.
+        let blockIndex: Int
+        let note: NoteReference
+        var id: String { "\(blockIndex)|\(note.location)" }
+    }
+
+    func showNote(_ note: NoteReference, inBlock index: Int) {
+        guard !flat.isEmpty else { return }
+        // Time spent on a note is not reading time of the page.
+        pageTimer.reset(at: now())
+        openNote = OpenNote(blockIndex: flat.clamped(index), note: note)
+    }
+
     /// Last measured frame of a block, if it is laid out.
     func frame(ofBlock index: Int) -> BlockFrame? { lastFrames[index] }
 
