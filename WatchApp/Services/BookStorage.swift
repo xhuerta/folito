@@ -9,7 +9,11 @@ struct LibraryEntry: Codable, Identifiable, Equatable {
     var addedAt: Date
     /// A cover thumbnail from the iPhone is stored next to the book. Optional: older indexes decode unchanged.
     var hasCover: Bool? = nil
+    /// Read status ("Finished") with the time it was set, synced with the iPhone (last writer wins). Optional:
+    /// older indexes decode unchanged.
+    var readStatus: ReadStatusMark? = nil
     var id: String { documentHash }
+    var isFinished: Bool { readStatus?.isFinished == true }
 }
 
 enum BookStorageError: Error {

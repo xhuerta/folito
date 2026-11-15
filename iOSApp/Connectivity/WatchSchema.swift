@@ -162,13 +162,24 @@ enum WatchSchema {
     /// Phone -> watch settings context. It never carries credentials (see `credentialsMessage`).
     /// `clearedStamp` (set only while no credentials are saved) makes the watch drop its own credentials.
     /// Typography is present once the user has changed it anywhere (stamp > 0).
-    static func settingsContext(clearedStamp: Int? = nil, typography: ReaderTypography?) -> [String: Any] {
+    /// `readStatus`: the read status of the library's books (`ReadStatusSync`, last writer wins per book on both
+    /// sides); omitted while no book has one.
+    static func settingsContext(clearedStamp: Int? = nil, typography: ReaderTypography?,
+                                readStatus: [String: ReadStatusMark] = [:]) -> [String: Any] {
         var info: [String: Any] = [Key.type: MessageType.settings, Key.settingsVersion: SyncSettingsWire.version]
         if let clearedStamp, clearedStamp > 0 { info = clearedInfo(stamp: clearedStamp) }
         if let typography, typography.stamp > 0 {
             info.merge(TypographySync.context(for: typography)) { _, new in new }
         }
+        info.merge(ReadStatusSync.context(for: readStatus)) { _, new in new }
         return info
+    }
+
+    /// The read status marks the watch reports in its `library` context (nil for any other message, or when it
+    /// reports none: older watch apps).
+    static func libraryReadStatus(from context: [String: Any]) -> [String: ReadStatusMark]? {
+        guard (context[Key.type] as? String) == MessageType.library else { return nil }
+        return ReadStatusSync.decode(from: context)
     }
 
     /// Hashes the watch reports in its `library` context; nil for any other message.

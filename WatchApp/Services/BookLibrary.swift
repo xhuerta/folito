@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import UIKit
+import ReaderCore
 
 /// Observable library index. Heavy work (decompress/decode) happens off the main actor.
 @MainActor
@@ -55,7 +56,11 @@ final class BookLibrary: ObservableObject {
             if let cover { entry.hasCover = storage.saveCover(cover, documentHash: entry.documentHash) }
             return entry
         }.value
-        guard let entry = result else { return }
+        guard var entry = result else { return }
+        // A book sent again keeps its read status.
+        if entry.readStatus == nil {
+            entry.readStatus = entries.first(where: { $0.documentHash == entry.documentHash })?.readStatus
+        }
         covers.removeValue(forKey: entry.documentHash)
         entries.removeAll { $0.documentHash == entry.documentHash }
         entries.insert(entry, at: 0)
@@ -71,6 +76,46 @@ final class BookLibrary: ObservableObject {
         entries[i].hasCover = true
         covers.removeValue(forKey: documentHash)
         storage.saveIndex(entries)
+    }
+
+    // MARK: Read status
+
+    /// The Library order: newest first, finished books after the others.
+    var displayedEntries: [LibraryEntry] {
+        ReadStatusRules.finishedLast(entries) { $0.isFinished }
+    }
+
+    /// The marks of the books that have one, for the iPhone (`ReadStatusSync`).
+    var readStatusMarks: [String: ReadStatusMark] {
+        var marks: [String: ReadStatusMark] = [:]
+        for e in entries { if let mark = e.readStatus { marks[e.documentHash] = mark } }
+        return marks
+    }
+
+    func isFinished(_ documentHash: String) -> Bool {
+        entries.first { $0.documentHash == documentHash }?.isFinished == true
+    }
+
+    /// "Mark as Finished" (the offer at the end of a book, or the reader menu) / "Mark as Unread". Stamped newer
+    /// than the current mark and told to the iPhone, which writes it to Readest for books there.
+    func setReadStatus(_ status: ReadStatus, documentHash: String, now: Date = Date()) {
+        guard let i = entries.firstIndex(where: { $0.documentHash == documentHash }) else { return }
+        entries[i].readStatus = ReadStatusRules.mark(status, now: now, replacing: entries[i].readStatus)
+        storage.saveIndex(entries)
+        onLibraryChanged?()
+    }
+
+    /// Takes the iPhone's marks where they are newer (`ReadStatusMerge`). Returns whether any book changed.
+    @discardableResult
+    func applyRemoteReadStatus(_ incoming: [String: ReadStatusMark]) -> Bool {
+        let result = ReadStatusMerge.merge(local: readStatusMarks, incoming: incoming)
+        var changed = false
+        for i in entries.indices where result.changed.contains(entries[i].documentHash) {
+            entries[i].readStatus = result.marks[entries[i].documentHash]
+            changed = true
+        }
+        if changed { storage.saveIndex(entries) }
+        return changed
     }
 
     /// The cover of a book, or nil when it has none (the row then shows a plain coloured tile).

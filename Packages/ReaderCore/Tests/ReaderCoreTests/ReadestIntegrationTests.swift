@@ -77,6 +77,20 @@ final class ReadestIntegrationTests: XCTestCase {
             XCTAssertEqual(uploaded.hash, hash)
             let listed = try await client.fetchBooks().first { $0.hash == hash }
             XCTAssertEqual(listed?.isAvailable, true, "uploaded book should be listed with uploaded_at")
+            // Reading status (#113): "Mark as Finished" is stored with its timestamp; an older "unread" from
+            // another device does not overwrite it (field-level last writer wins on reading_status_updated_at).
+            if let listed {
+                let stamp = ReadStatusRules.millis(Date())
+                _ = try await client.setReadingStatus(ReadStatusMark(status: .finished, stamp: stamp), for: listed)
+                let finished = try await client.fetchBooks().first { $0.hash == hash }
+                XCTAssertEqual(finished?.readStatusMark?.status, .finished)
+                XCTAssertEqual(Double(finished?.readStatusMark?.stamp ?? 0), Double(stamp), accuracy: 1)
+                XCTAssertEqual(finished?.isAvailable, true, "a status push keeps the row as it was")
+                _ = try await client.setReadingStatus(ReadStatusMark(status: .unread, stamp: stamp - 60_000),
+                                                      for: finished ?? listed)
+                let still = try await client.fetchBooks().first { $0.hash == hash }
+                XCTAssertEqual(still?.readStatusMark?.status, .finished, "an older status must not win")
+            }
             let url = try await client.bookDownloadURL(hash: hash)
             XCTAssertNotNil(url)
             if let url {

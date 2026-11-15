@@ -20,6 +20,8 @@ import ReaderCore
 ///  - watch -> phone (applicationContext): `{ type: "library", hashes: [<documentHash>], dictionaries: [<id>],
 ///    settingsStamp (last applied; tells the phone whether to send the credentials), removed: [<documentHash>]
 ///    (deleted here by the user), watchID (this installation), typography?, typographyStamp? }`
+///  - read status, both directions: `readStatus` (JSON string `{<documentHash>: {s, t}}`) in the settings
+///    context (phone) and the library context (watch); newer stamp wins per book (`ReadStatusMerge`)
 ///  - watch -> phone: `{ type: "book_removed", documentHash, watchID }` when the user deletes a book here
 ///    (sendMessage when reachable, else transferUserInfo)
 /// WCSessionDelegate callbacks arrive on a background queue; all heavy work is hopped off the main actor.
@@ -150,7 +152,8 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
                                watchID: String? = nil,
                                typography: ReaderTypography? = nil,
                                timeRemaining: [String: ReadingTimeRemaining] = [:],
-                               progress: [String: Double] = [:]) -> [String: Any] {
+                               progress: [String: Double] = [:],
+                               readStatus: [String: ReadStatusMark] = [:]) -> [String: Any] {
         var context: [String: Any] = [typeKey: libraryType, hashesKey: hashes.sorted(),
                                       dictionariesKey: dictionaries.sorted(), stampKey: settingsStamp,
                                       removedKey: removed.sorted()]
@@ -166,6 +169,9 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
         }
         if !percents.isEmpty { context[progressKey] = percents }
         if let typography { context.merge(TypographySync.context(for: typography)) { _, new in new } }
+        // Read status of the books stored here (last writer wins per book on the phone).
+        let stored = Set(hashes)
+        context.merge(ReadStatusSync.context(for: readStatus.filter { stored.contains($0.key) })) { _, new in new }
         return context
     }
 
@@ -232,7 +238,8 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
                                                                       watchID: Self.watchID(in: defaults),
                                                                       typography: typography(),
                                                                       timeRemaining: library.positions.readingTimes.all(),
-                                                                      progress: library.progress))
+                                                                      progress: library.progress,
+                                                                      readStatus: library.readStatusMarks))
         }
     }
 
@@ -319,11 +326,13 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
             publishLibrary()
         }
         let incomingTypography = TypographySync.decode(from: info)
+        let incomingReadStatus = ReadStatusSync.decode(from: info)
         let library = self.library
         let notify = onSettingsChanged
         let applyTypography = onTypography
-        Task { @MainActor in
+        Task { @MainActor [weak self] in
             if let incomingTypography { applyTypography(incomingTypography) }
+            if let incomingReadStatus, library.applyRemoteReadStatus(incomingReadStatus) { self?.publishLibrary() }
             if changed { notify() }
             if let hash = deleteHash { library.delete(documentHash: hash) }
             if let bookCover { library.setCover(bookCover.cover, documentHash: bookCover.hash) }

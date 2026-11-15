@@ -26,6 +26,8 @@ final class LibraryStore: ObservableObject {
     var onRelinked: ((_ entry: LibraryEntry, _ wasOnWatch: Bool) -> Void)?
     /// Called when an Open Library cover was removed again (*Remove Online Details*), so the watch can drop it.
     var onCoverRemoved: ((LibraryEntry) -> Void)?
+    /// Called when a book's read status changed (here, from the watch or from Readest), so the watch gets it.
+    var onReadStatusChanged: (() -> Void)?
     private var isFillingCovers = false
 
     init(parser: EPUBParsing = EPUBParser(), rootDirectory: URL? = nil) {
@@ -88,6 +90,7 @@ final class LibraryStore: ObservableObject {
         relinked.online = entry.online
         relinked.onlineLookupAt = entry.onlineLookupAt
         relinked.removedOnWatch = entry.removedOnWatch
+        relinked.readStatus = entry.readStatus
         if entry.online?.hasCover == true {
             // The accepted Open Library cover lives next to the book under its id.
             let names: [(String) -> String] = [CoverStore.coverFileName(forHash:), CoverStore.watchFileName(forHash:)]
@@ -295,8 +298,13 @@ final class LibraryStore: ObservableObject {
         return try? Data(contentsOf: booksDirectory.appendingPathComponent(CoverStore.watchFileName(forHash: entry.documentHash)))
     }
 
-    private func finishImport(_ entry: LibraryEntry) {
+    private func finishImport(_ imported: LibraryEntry) {
         isImporting = false
+        var entry = imported
+        // The same book imported again keeps its read status.
+        if entry.readStatus == nil {
+            entry.readStatus = entries.first(where: { $0.documentHash == entry.documentHash })?.readStatus
+        }
         entries.removeAll { $0.documentHash == entry.documentHash }
         entries.insert(entry, at: 0)
         save()
@@ -358,6 +366,43 @@ final class LibraryStore: ObservableObject {
         entries.removeAll { $0.id == entry.id }
         save()
         onDeleted?(entry)
+    }
+
+    // MARK: Read status
+
+    /// The marks of every book that has one, for the watch (`ReadStatusSync`).
+    var readStatusMarks: [String: ReadStatusMark] {
+        var marks: [String: ReadStatusMark] = [:]
+        for e in entries { if let mark = e.readStatus { marks[e.documentHash] = mark } }
+        return marks
+    }
+
+    /// Sets a book's read status ("Mark as Finished" / "Mark as Unread", or a newer copy from Readest).
+    /// Returns false when the book is not in the library or already has that exact mark.
+    @discardableResult
+    func setReadStatus(_ newMark: ReadStatusMark, hash: String) -> Bool {
+        guard let i = entries.firstIndex(where: { $0.documentHash == hash }), entries[i].readStatus != newMark else {
+            return false
+        }
+        entries[i].readStatus = newMark
+        save()
+        onReadStatusChanged?()
+        return true
+    }
+
+    /// Takes the watch's marks where they are newer (last writer wins, `ReadStatusMerge`). Returns the hashes of
+    /// the books that changed.
+    @discardableResult
+    func mergeReadStatus(_ incoming: [String: ReadStatusMark]) -> Set<String> {
+        let known = Set(entries.map(\.documentHash))
+        let result = ReadStatusMerge.merge(local: readStatusMarks, incoming: incoming.filter { known.contains($0.key) })
+        guard !result.changed.isEmpty else { return [] }
+        for i in entries.indices where result.changed.contains(entries[i].documentHash) {
+            entries[i].readStatus = result.marks[entries[i].documentHash]
+        }
+        save()
+        onReadStatusChanged?()
+        return result.changed
     }
 
     func markSent(hash: String, sent: Bool = true) {

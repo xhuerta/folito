@@ -183,6 +183,33 @@ null. So Folito never pushes a partial row: it sends back every field it receive
 and changes only `uploadedAt`, `updatedAt` and `deletedAt`. A book Readest has never seen gets the koplugin's
 minimal row (`hash`, `metaHash`, `format: "EPUB"`, `title`, `author`, `createdAt`, `updatedAt`, `uploadedAt`).
 
+### Reading status ("Finished")
+
+Research date: 2026-11-15, against readest/readest `main` at `a60b7ee`.
+
+- **Values.** `ReadingStatus = 'unread' | 'reading' | 'finished' | 'abandoned'` (`src/types/book.ts`; the app shows
+  "Unread", "Finished", "On hold"), or null/absent for no status. `ReadStatus` in ReaderCore uses the same raw
+  values; an unknown value reads as "no status".
+- **Clock.** `reading_status_updated_at` (`readingStatusUpdatedAt`, ms on the wire) is bumped only when the status
+  changes. The server merges the status on that clock, field by field, whichever side wins the row by
+  `updated_at` (`resolveReadingStatusMerge` in `pages/api/sync.ts`: newer wins, ties to the client, null = 0;
+  issue #4634 there). When the server keeps its row but the client's status is newer, it grafts just the status
+  and leaves `updated_at` alone (`buildStatusPropagationRow`); peers pick it up through `synced_at`.
+- **What Folito sends.** Mark as Finished / Mark as Unread (the same two actions as the Readest book menu,
+  `withReadingStatus`) push the row exactly as received with only `readingStatus` and `readingStatusUpdatedAt`
+  changed (`ReadestLibraryClient.setReadingStatus`). Unlike the Readest app, Folito does **not** bump `updatedAt`:
+  the cached row may be older than the server's, and with an older `updatedAt` the server keeps its own row and
+  grafts only the status, so progress, tags or groups written meanwhile by another Readest client are never
+  overwritten. The answer is the authoritative row, which carries the server's status when another device set a
+  newer one.
+- **Merge on the iPhone** (`ReadStatusMerge.reconcile`, after every Library refresh and every status change): for a
+  local book paired with a row, the newer of the two marks wins. A newer Readest status is taken locally (and sent
+  to the watch); a newer local one (set on the iPhone or accepted on the watch) is pushed, only when it differs. A
+  newer Readest value is never overwritten. Offline, the push waits for the next refresh. A book only in Readest is
+  marked directly on its row (needs a connection).
+- **The watch** has no `books` client: a book marked finished there reaches Readest through the iPhone (library
+  context, docs/WATCH_CONNECTIVITY.md "Read status").
+
 ### Errors and quota
 
 | Answer | Meaning | Folito |

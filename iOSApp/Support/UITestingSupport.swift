@@ -343,6 +343,10 @@ struct MockReadestLibraryService: ReadestLibraryService {
     func storageUsage() async throws -> ReadestStorageUsage {
         ReadestStorageUsage(usage: 126_000_000, quota: 524_288_000)
     }
+
+    func setReadingStatus(_ newMark: ReadStatusMark, for book: ReadestCloudBook) async throws -> ReadestCloudBook {
+        book.withReadStatus(newMark)
+    }
 }
 
 /// Fixed Open Library answers for UI tests and screenshots: public-domain books, generated covers, no network.

@@ -220,6 +220,14 @@ struct ReaderView: View {
                                                        connectorID: model.syncConnectorID))
             }
         }
+        // At the end of the book: offered once per opening, never set automatically (#113).
+        .alert(Text("Mark as Finished?", comment: "Title of the offer shown on reaching the end of a book"),
+               isPresented: $model.showFinishOffer) {
+            Button("Mark as Finished") { model.setFinished(true) }
+            Button("Not Now", role: .cancel) {}
+        } message: {
+            Text("You’ve reached the end of the book.", comment: "Message of the offer to mark a book as finished")
+        }
         .onAppear {
             updateBar { $0.programmaticScroll(true) }
             model.restoreInitialPosition()

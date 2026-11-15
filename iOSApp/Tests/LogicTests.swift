@@ -157,6 +157,39 @@ final class LogicTests: XCTestCase {
     }
 
     @MainActor
+    func testReadStatusIsPersistedMergedFromTheWatchAndSentBack() throws {
+        let (store, dir) = try storeWithBooksOnWatch()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        var notified = 0
+        store.onReadStatusChanged = { notified += 1 }
+        XCTAssertTrue(store.readStatusMarks.isEmpty, "libraries saved before read status decode without it")
+        XCTAssertTrue(store.setReadStatus(ReadStatusMark(status: .finished, stamp: 10), hash: "a"))
+        XCTAssertFalse(store.setReadStatus(ReadStatusMark(status: .finished, stamp: 10), hash: "a"), "same mark")
+        XCTAssertFalse(store.setReadStatus(ReadStatusMark(status: .finished, stamp: 11), hash: "missing"))
+        XCTAssertEqual(notified, 1)
+        // The watch's marks: an older one for "a" is ignored, a newer one for "b" taken, unknown books dropped.
+        let changed = store.mergeReadStatus(["a": ReadStatusMark(status: .unread, stamp: 9),
+                                             "b": ReadStatusMark(status: .finished, stamp: 3),
+                                             "zzz": ReadStatusMark(status: .finished, stamp: 99)])
+        XCTAssertEqual(changed, ["b"])
+        XCTAssertEqual(notified, 2)
+        XCTAssertTrue(store.mergeReadStatus(["b": ReadStatusMark(status: .finished, stamp: 3)]).isEmpty, "resend")
+        XCTAssertEqual(store.entries.filter(\.isFinished).map(\.documentHash).sorted(), ["a", "b"])
+        // Survives a relaunch, and travels in the settings context the watch reads.
+        let reloaded = LibraryStore(rootDirectory: dir)
+        XCTAssertEqual(reloaded.readStatusMarks["a"], ReadStatusMark(status: .finished, stamp: 10))
+        let context = WatchSchema.settingsContext(typography: nil, readStatus: reloaded.readStatusMarks)
+        XCTAssertEqual(ReadStatusSync.decode(from: context), reloaded.readStatusMarks)
+        XCTAssertNil(WatchSchema.settingsContext(typography: nil)[ReadStatusSync.key], "no key without marks")
+        // The watch's report.
+        var report: [String: Any] = ["type": "library", "hashes": ["a"]]
+        XCTAssertNil(WatchSchema.libraryReadStatus(from: report), "older watch apps send none")
+        report.merge(ReadStatusSync.context(for: ["a": ReadStatusMark(status: .unread, stamp: 20)])) { _, new in new }
+        XCTAssertEqual(WatchSchema.libraryReadStatus(from: report)?["a"]?.status, .unread)
+        XCTAssertNil(WatchSchema.libraryReadStatus(from: ["type": "settings", ReadStatusSync.key: "{}"]))
+    }
+
+    @MainActor
     func testExplicitSendClearsRemovedOnWatch() throws {
         let (store, dir) = try storeWithBooksOnWatch()
         defer { try? FileManager.default.removeItem(at: dir) }

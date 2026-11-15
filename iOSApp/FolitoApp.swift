@@ -107,6 +107,15 @@ struct FolitoApp: App {
         connectivity.typographyProvider = { typography.value }
         connectivity.onWatchTypography = { typography.applyRemote($0) }
         typography.onLocalChange = { _ in connectivity.syncWatchState() }
+        // Read status (Finished): mirrored on the watch, newer mark wins per book; books in Readest also sync
+        // with the row's reading_status (ReadestLibraryModel.reconcileReadStatus).
+        connectivity.readStatusProvider = { library.readStatusMarks }
+        library.onReadStatusChanged = { connectivity.syncWatchState() }
+        connectivity.onWatchReadStatus = { marks in
+            if !library.mergeReadStatus(marks).isEmpty {
+                Task { await readest.reconcileReadStatus(in: library) }
+            }
+        }
         // Dictionaries: a new or updated one is sent right away; missing ones whenever the watch reports.
         connectivity.dictionariesProvider = { dictionaries.transferList() }
         dictionaries.onInstalled = { id in

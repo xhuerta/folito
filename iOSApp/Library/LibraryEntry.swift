@@ -36,8 +36,15 @@ struct LibraryEntry: Codable, Identifiable, Equatable, Sendable {
     var online: OnlineBookDetails? = nil
     /// When the background lookup (*Find Missing Details Online*) last tried this book, so it runs once per book.
     var onlineLookupAt: Date? = nil
+    /// Read status ("Finished", docs/WATCH_CONNECTIVITY.md "Read status") with the time it was set; nil = never set
+    /// on this iPhone. Synced with the watch and, for books in Readest, with the row's `reading_status`.
+    /// Optional, so libraries saved before it existed decode unchanged.
+    var readStatus: ReadStatusMark? = nil
 
     var isSample: Bool { sampleLanguage != nil }
+
+    /// Marked as finished (here, on the watch or in Readest).
+    var isFinished: Bool { readStatus?.isFinished == true }
 
     /// The user deleted this book on the watch (see `removedOnWatch`).
     var isRemovedOnWatch: Bool { removedOnWatch != nil }

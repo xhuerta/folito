@@ -392,6 +392,22 @@ final class MiscLogicTests: XCTestCase {
         XCTAssertNil(ConnectivityReceiver.libraryContext(hashes: ["a"])["progress"])
     }
 
+    func testLibraryContextCarriesReadStatusOfStoredBooks() throws {
+        let marks = ["a": ReadStatusMark(status: .finished, stamp: 5), "gone": ReadStatusMark(status: .finished, stamp: 6)]
+        let c = ConnectivityReceiver.libraryContext(hashes: ["a", "b"], readStatus: marks)
+        XCTAssertEqual(ReadStatusSync.decode(from: c), ["a": ReadStatusMark(status: .finished, stamp: 5)])
+        XCTAssertNil(ConnectivityReceiver.libraryContext(hashes: ["a"])[ReadStatusSync.key], "no key without marks")
+        // An index saved before read status existed decodes; a new one keeps the mark.
+        let old = try JSONDecoder().decode([LibraryEntry].self, from: Data(
+            #"[{"documentHash":"a","title":"T","author":"A","totalCharacters":3,"addedAt":0}]"#.utf8))
+        XCTAssertNil(old[0].readStatus)
+        XCTAssertFalse(old[0].isFinished)
+        var entry = old[0]
+        entry.readStatus = ReadStatusMark(status: .finished, stamp: 7)
+        let back = try JSONDecoder().decode([LibraryEntry].self, from: JSONEncoder().encode([entry]))
+        XCTAssertTrue(back[0].isFinished)
+    }
+
     func testBookCoverMessage() {
         let jpeg = Data([0xFF, 0xD8, 0xFF])
         let parsed = ConnectivityReceiver.bookCover(from: ["type": "book_cover", "documentHash": "h", "cover": jpeg])
