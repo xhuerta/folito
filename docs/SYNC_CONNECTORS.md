@@ -40,6 +40,12 @@ nothing else about the book (no title, no file, no list). So there is no "in KOR
 Library: with KOSync every local book syncs its position, and the cloud symbols (`checkmark.icloud`,
 `icloud.and.arrow.down`) only ever mean Readest.
 
+The **read status** ("Finished", issue #113) is not part of the connector model either. Readest keeps it in the
+`books` row (`reading_status`), which the iPhone reads and writes through the library client (READEST_SYNC.md,
+"Reading status"). The KOSync protocol has no status field (a progress document is `document`, `progress`,
+`percentage`, `device`, `device_id`, `timestamp`), and Folito does not invent one: with KOReader Sync, or with no
+sync service, the status stays between the iPhone and the watch.
+
 ### Staleness and conflicts
 
 - Entries that waited more than `staleCheckAge` (60 s) are compared with the server first: when another

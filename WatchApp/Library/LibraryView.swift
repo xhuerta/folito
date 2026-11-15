@@ -22,7 +22,8 @@ struct LibraryView: View {
                     }
                 } else {
                     List {
-                        ForEach(library.entries) { entry in
+                        // Finished books after the others (newest first within each group).
+                        ForEach(library.displayedEntries) { entry in
                             NavigationLink(value: entry) {
                                 BookRow(entry: entry, fraction: library.progress[entry.documentHash] ?? 0,
                                         cover: showCovers ? library.cover(for: entry) : nil, showCover: showCovers)
@@ -137,11 +138,22 @@ struct BookRow: View {
                     .font(.footnote).foregroundStyle(.secondary)
                     .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
             }
-            Text(ReadingProgressFormat.read(fraction))
+            if entry.isFinished {
+                // A check mark and the word, never colour only.
+                HStack(alignment: .firstTextBaseline, spacing: 3) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .accessibilityHidden(true)
+                    Text("Finished", comment: "Library row: the book has been read to the end")
+                }
                 .font(.footnote).foregroundStyle(.tint)
+                .accessibilityIdentifier("finishedLabel")
+            } else {
+                Text(ReadingProgressFormat.read(fraction))
+                    .font(.footnote).foregroundStyle(.tint)
+            }
         }
         .padding(.vertical, 2)
-        // One VoiceOver element: "Title, Author, 43% read".
+        // One VoiceOver element: "Title, Author, 43% read" (or "…, Finished").
         .accessibilityElement(children: .combine)
     }
 }
@@ -219,8 +231,15 @@ struct ReaderLoaderView: View {
             guard model == nil else { return }
             do {
                 let box = try await library.loadBook(entry)
-                model = ReaderViewModel(book: box.book, positions: env.positions, sync: sync,
-                                        dictionary: env.dictionary, complications: env.complications)
+                let reader = ReaderViewModel(book: box.book, positions: env.positions, sync: sync,
+                                             dictionary: env.dictionary, complications: env.complications)
+                let hash = entry.documentHash
+                reader.isFinished = library.isFinished(hash)
+                let store = library
+                reader.onSetReadStatus = { [weak store] status in
+                    store?.setReadStatus(status, documentHash: hash)
+                }
+                model = reader
             } catch {
                 failure = WatchMessages.bookOpenFailure(error)
             }

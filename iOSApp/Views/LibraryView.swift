@@ -18,6 +18,8 @@ struct LibraryView: View {
     @State private var deletion = BookDeletion()
     @State private var showOtherSamples = false
     @AppStorage("library.filter") private var filterRaw = LibraryFilter.all.rawValue
+    /// Filter menu: leave finished books out of the list.
+    @AppStorage("library.hideFinished") private var hideFinished = false
 
     private static let epubType = UTType("org.idpf.epub-container") ?? UTType(filenameExtension: "epub") ?? .data
 
@@ -25,8 +27,25 @@ struct LibraryView: View {
         readest?.isAvailable == true ? (LibraryFilter(rawValue: filterRaw) ?? .all) : .all
     }
 
+    /// Finished books come after the others, each group in its usual order.
     private var items: [MergedLibraryItem<LibraryEntry>] {
-        readest?.merged(library.entries) ?? LibraryMerge.merge(local: library.entries, hash: \.documentHash, cloud: [])
+        let merged = readest?.merged(library.entries) ?? LibraryMerge.merge(local: library.entries, hash: \.documentHash, cloud: [])
+        return ReadStatusRules.finishedLast(merged) { isFinished($0) }
+    }
+
+    private func isFinished(_ item: MergedLibraryItem<LibraryEntry>) -> Bool {
+        readStatus(of: item)?.isFinished == true
+    }
+
+    private func readStatus(of item: MergedLibraryItem<LibraryEntry>) -> ReadStatusMark? {
+        if let readest { return readest.readStatus(of: item) }
+        return item.local?.readStatus
+    }
+
+    /// The filter menu is offered with Readest (where to show books from) or once a book is finished.
+    private var showsFilterMenu: Bool {
+        readest?.isAvailable == true || hideFinished || library.entries.contains(where: \.isFinished)
+            || readest?.cloudBooks.contains(where: { $0.isAvailable && $0.readStatusMark?.isFinished == true }) == true
     }
 
     var body: some View {
@@ -38,10 +57,12 @@ struct LibraryView: View {
                 connectivity.syncWatchState()
                 await readest?.refresh()
                 await readest?.relinkDownloadedBooks(in: library)
+                await readest?.reconcileReadStatus(in: library)
             }
             .task {
                 await readest?.refreshIfStale()
                 await readest?.relinkDownloadedBooks(in: library)
+                await readest?.reconcileReadStatus(in: library)
             }
             .toolbar { toolbarContent }
             .navigationDestination(for: BookDetailRoute.self) { route in
@@ -75,7 +96,7 @@ struct LibraryView: View {
 
     private var bookList: some View {
         let all = items
-        let shown = all.filter { filter.includes($0.availability) }
+        let shown = all.filter { filter.includes($0.availability) && !(hideFinished && isFinished($0)) }
         return List {
             WatchStatusSection(status: connectivity.status, compact: !all.isEmpty)
             if all.isEmpty {
@@ -124,13 +145,17 @@ struct LibraryView: View {
     private var emptyFilterSection: some View {
         Section {
             ContentUnavailableView {
-                if filter == .inReadest {
+                if hideFinished && items.contains(where: { filter.includes($0.availability) }) {
+                    Label("No Unfinished Books", systemImage: "checkmark.circle")
+                } else if filter == .inReadest {
                     Label("No Books in Readest", systemImage: "icloud")
                 } else {
                     Label("No Books on This iPhone", systemImage: "iphone")
                 }
             } description: {
-                if filter == .inReadest {
+                if hideFinished && items.contains(where: { filter.includes($0.availability) }) {
+                    Text("Every book here is finished. Turn off Hide Finished in the filter menu to see them.").foregroundStyle(.secondaryText)
+                } else if filter == .inReadest {
                     Text("Upload a book from its menu to keep it in your Readest library.").foregroundStyle(.secondaryText)
                 } else {
                     Text("Download a book from Readest, or import an EPUB file.").foregroundStyle(.secondaryText)
@@ -179,17 +204,23 @@ struct LibraryView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        if let readest, readest.isAvailable {
+        if showsFilterMenu {
             ToolbarItem(placement: .topBarLeading) {
                 Menu {
-                    Picker("Show", selection: $filterRaw) {
-                        Label("All", systemImage: "books.vertical").tag(LibraryFilter.all.rawValue)
-                        Label("On This iPhone", systemImage: "iphone").tag(LibraryFilter.onThisDevice.rawValue)
-                        Label("In Readest", systemImage: "icloud").tag(LibraryFilter.inReadest.rawValue)
+                    if readest?.isAvailable == true {
+                        Picker("Show", selection: $filterRaw) {
+                            Label("All", systemImage: "books.vertical").tag(LibraryFilter.all.rawValue)
+                            Label("On This iPhone", systemImage: "iphone").tag(LibraryFilter.onThisDevice.rawValue)
+                            Label("In Readest", systemImage: "icloud").tag(LibraryFilter.inReadest.rawValue)
+                        }
                     }
+                    Toggle(isOn: $hideFinished) {
+                        Label("Hide Finished", systemImage: "checkmark.circle")
+                    }
+                    .accessibilityIdentifier("libraryHideFinished")
                 } label: {
-                    Label("Filter", systemImage: filter == .all ? "line.3.horizontal.decrease.circle"
-                                                                : "line.3.horizontal.decrease.circle.fill")
+                    Label("Filter", systemImage: filter == .all && !hideFinished ? "line.3.horizontal.decrease.circle"
+                                                                                 : "line.3.horizontal.decrease.circle.fill")
                 }
                 .accessibilityValue(filterName)
                 .accessibilityIdentifier("libraryFilterMenu")
@@ -238,11 +269,15 @@ struct LibraryView: View {
     }
 
     private var filterName: String {
+        let name: String
         switch filter {
-        case .all: return String(localized: "All", comment: "Library filter: every book")
-        case .onThisDevice: return String(localized: "On This iPhone", comment: "Library filter")
-        case .inReadest: return String(localized: "In Readest", comment: "Library filter")
+        case .all: name = String(localized: "All", comment: "Library filter: every book")
+        case .onThisDevice: name = String(localized: "On This iPhone", comment: "Library filter")
+        case .inReadest: name = String(localized: "In Readest", comment: "Library filter")
         }
+        guard hideFinished else { return name }
+        return String(localized: "\(name), finished hidden",
+                      comment: "VoiceOver value of the Library filter menu while Hide Finished is on; the placeholder is the filter name (All, In Readest)")
     }
 
     private struct ShapedItem: Identifiable {
@@ -253,7 +288,7 @@ struct LibraryView: View {
     private func rowShapeID(_ item: MergedLibraryItem<LibraryEntry>) -> String {
         let uploading = readest?.uploading.contains(item.hash) == true
         let downloading = readest?.downloads[item.hash] != nil
-        return "\(item.hash)|\(item.availability)|\(uploading)|\(downloading)"
+        return "\(item.hash)|\(item.availability)|\(uploading)|\(downloading)|\(isFinished(item))"
     }
 
     /// Delete: a book that is also in Readest asks where to delete it from.
@@ -269,13 +304,15 @@ struct LibraryView: View {
         let inReadest = readestOn && cloud != nil
         let isUploading = readest?.uploading.contains(entry.documentHash) == true
         let canUpload = readestOn && !inReadest && !isUploading
+        let finished = ReadStatusActions.mark(of: entry, cloud: inReadest ? cloud : nil)?.isFinished == true
+        let toggleTitle = ReadStatusActions.toggleTitle(isFinished: finished)
         // Tapping the row opens the book's details (cover, description, series, actions); the swipe,
         // context-menu and rotor actions stay on the row.
         return NavigationLink(value: BookDetailRoute(hash: entry.documentHash)) {
             BookRow(entry: entry, state: state,
                     transfer: state == .sending ? connectivity.bookTransfers[entry.documentHash] : nil,
                     timeLeft: state == .onWatch ? connectivity.watchTimeRemaining[entry.documentHash] : nil,
-                    inReadest: inReadest, isUploading: isUploading,
+                    inReadest: inReadest, isUploading: isUploading, isFinished: finished,
                     cover: entry.hasCover == true ? CoverImages.shared.cover(hash: entry.documentHash,
                                                                             in: library.booksDirectory) : nil)
         }
@@ -290,6 +327,7 @@ struct LibraryView: View {
                 if canUpload {
                     Button("Upload to Readest") { upload(entry) }
                 }
+                Button(toggleTitle) { toggleFinished(entry, cloud: inReadest ? cloud : nil, finished: finished) }
                 if inReadest {
                     Button("Remove Download") { library.delete(entry) }
                 }
@@ -322,11 +360,22 @@ struct LibraryView: View {
                 if canUpload {
                     Button { upload(entry) } label: { Label("Upload to Readest", systemImage: "icloud.and.arrow.up") }
                 }
+                Button { toggleFinished(entry, cloud: inReadest ? cloud : nil, finished: finished) } label: {
+                    Label(toggleTitle, systemImage: ReadStatusActions.toggleImage(isFinished: finished))
+                }
                 if inReadest {
                     Button { library.delete(entry) } label: { Label("Remove Download", systemImage: "xmark.icloud") }
                 }
                 Button(role: .destructive) { requestDelete(entry, inReadest: inReadest) } label: { Label("Delete", systemImage: "trash") }
             }
+    }
+
+    private func toggleFinished(_ entry: LibraryEntry, cloud: ReadestCloudBook?, finished: Bool) {
+        ReadStatusActions.set(finished ? .unread : .finished, entry: entry, cloud: cloud, library: library, readest: readest)
+    }
+
+    private func toggleFinished(_ book: ReadestCloudBook, finished: Bool) {
+        Task { await readest?.setReadStatus(finished ? .unread : .finished, for: book) }
     }
 
     private func upload(_ entry: LibraryEntry) {
@@ -341,30 +390,39 @@ struct LibraryView: View {
     private func cloudRow(_ book: ReadestCloudBook) -> some View {
         let progress = readest?.downloads[book.hash]
         let offline = readest?.isOffline == true
+        let finished = book.readStatusMark?.isFinished == true
         let button = Button { download(book) } label: {
-            CloudBookRow(book: book, cover: readest?.covers[book.hash], progress: progress, offline: offline)
+            CloudBookRow(book: book, cover: readest?.covers[book.hash], progress: progress, offline: offline,
+                         isFinished: finished)
         }
         .disabled(progress != nil)
-        return cloudRowActions(cloudRowAccessibility(button, book: book, progress: progress, offline: offline),
-                               book: book, downloading: progress != nil)
+        return cloudRowActions(cloudRowAccessibility(button, book: book, progress: progress, offline: offline,
+                                                     finished: finished),
+                               book: book, downloading: progress != nil, finished: finished)
     }
 
     private func cloudRowAccessibility<Content: View>(_ content: Content, book: ReadestCloudBook,
-                                                      progress: Double?, offline: Bool) -> some View {
+                                                      progress: Double?, offline: Bool, finished: Bool) -> some View {
         let hint = progress == nil && !offline ? Text("Double-tap to download.") : Text(verbatim: "")
+        let status = cloudStatus(progress: progress, offline: offline)
         return content
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text(verbatim: "\(book.title), \(book.author)"))
-            .accessibilityValue(cloudStatus(progress: progress, offline: offline))
+            .accessibilityValue(finished ? String(localized: "Finished, \(status)",
+                                                  comment: "VoiceOver value of a finished book that is only in Readest; the placeholder is its download state")
+                                         : status)
             .accessibilityHint(hint)
             .accessibilityAddTraits(.isButton)
             .accessibilityIdentifier("libraryCloudRow")
     }
 
-    private func cloudRowActions<Content: View>(_ content: Content, book: ReadestCloudBook, downloading: Bool) -> some View {
-        content
+    private func cloudRowActions<Content: View>(_ content: Content, book: ReadestCloudBook, downloading: Bool,
+                                                finished: Bool) -> some View {
+        let toggleTitle = ReadStatusActions.toggleTitle(isFinished: finished)
+        return content
             .accessibilityActions {
                 if !downloading { Button("Download") { download(book) } }
+                Button(toggleTitle) { toggleFinished(book, finished: finished) }
                 Button("Delete from Readest") { deletion.readestBook = book }
             }
             .swipeActions(edge: .trailing) {
@@ -380,6 +438,9 @@ struct LibraryView: View {
             .contextMenu {
                 if !downloading {
                     Button { download(book) } label: { Label("Download", systemImage: "icloud.and.arrow.down") }
+                }
+                Button { toggleFinished(book, finished: finished) } label: {
+                    Label(toggleTitle, systemImage: ReadStatusActions.toggleImage(isFinished: finished))
                 }
                 Button(role: .destructive) { deletion.readestBook = book } label: {
                     Label("Delete from Readest", systemImage: "trash")
@@ -407,6 +468,7 @@ private struct CloudBookRow: View {
     let cover: UIImage?
     let progress: Double?
     let offline: Bool
+    var isFinished = false
 
     var body: some View {
         // The cover shows at every text size: a layout that switches at `isAccessibilitySize` is replaced under
@@ -433,6 +495,7 @@ private struct CloudBookRow: View {
                 }
                 .font(.footnote)
                 .foregroundStyle(.secondaryText)
+                if isFinished { FinishedBadge() }
             }
             Spacer(minLength: 8)
             Group {
@@ -515,6 +578,8 @@ private struct BookRow: View {
     /// Also in the user's Readest library: a small `checkmark.icloud`, like a downloaded item in Files.
     var inReadest = false
     var isUploading = false
+    /// Marked as finished (here, on the watch or in Readest): a check mark with the word "Finished".
+    var isFinished = false
     /// The stored cover; nil draws the placeholder.
     var cover: UIImage? = nil
 
@@ -560,6 +625,7 @@ private struct BookRow: View {
                             .accessibilityLabel(Text("In Readest"))
                     }
                 }
+                if isFinished { FinishedBadge() }
                 if entry.isSample { SampleBadge() }
                 if isUploading {
                     HStack(spacing: 4) {
@@ -574,6 +640,22 @@ private struct BookRow: View {
                 TransferBar(transfer: transfer)
             }
         }
+    }
+}
+
+/// The "Finished" mark of a Library row: a check mark and the word, so it is never colour only; VoiceOver reads
+/// "Finished" as part of the row.
+struct FinishedBadge: View {
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Image(systemName: "checkmark.circle.fill")
+                .accessibilityHidden(true)
+            Text("Finished", comment: "Library row and book details: the book has been read to the end")
+        }
+        .font(.footnote)
+        .foregroundStyle(.secondaryText)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("finishedBadge")
     }
 }
 

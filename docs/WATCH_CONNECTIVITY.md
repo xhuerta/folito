@@ -52,6 +52,7 @@ own message (next section).
 | `settingsStamp` | Int, time of the turn-off; only with `sync_cleared` |
 | `typography` | String, JSON-encoded `ReaderTypography` (optional, see "Typography") |
 | `typographyStamp` | Int, `ReaderTypography.stamp` (optional, same value as inside the JSON) |
+| `readStatus` | String, JSON object of read status marks per book (optional, see "Read status") |
 
 The phone always publishes a context (at least `type` + `settingsVersion`); each `updateApplicationContext`
 replaces the previous one.
@@ -207,6 +208,31 @@ edit uses `max(now, previousStamp + 1)`, so edits within the same second still o
   local copy. That makes the phone's periodic resends idempotent: after the phone adopts a newer watch copy
   it resends the same stamp, which the watch ignores. A "Reset" on either side is a normal edit (default
   look, new stamp) and therefore propagates.
+
+## Read status (both directions, last writer wins per book)
+
+Issue #113. Each book may carry a `ReadStatusMark` (ReaderCore): `{"s": "<status>", "t": <ms since 1970>}`, status
+`unread` / `reading` / `finished` / `abandoned` (Readest's values) or absent (no status). Both sides persist it in
+their `library.json` entries (optional key `readStatus`, so older libraries decode unchanged).
+
+Wire format: key `readStatus`, a JSON string `{"<documentHash>": {"s": …, "t": …}, …}` (`ReadStatusSync`).
+
+- Phone -> watch: in the `settings` context, the marks of every book in the iPhone library that has one.
+- Watch -> phone: in the `library` context, the marks of the books stored on the watch.
+- Absent while no book has a mark; older apps ignore the key.
+- Merge rule on both sides (`ReadStatusMerge.merge`): a book's incoming mark is taken only if its stamp is strictly
+  newer; a tie keeps the local one, so resends are idempotent. Every local change stamps
+  `max(now, previous + 1)` (`ReadStatusRules.nextStamp`).
+- The watch never marks a book by itself. When the bottom of the book's last block comes on screen while reading
+  (`ReadStatusRules.reachedEnd`; the reader saves the line at the top edge, so its percentage never reaches 100 %),
+  it asks once per opening "Mark as Finished?" (`shouldOfferFinish`: not when the book opens at its end, not when it
+  is already finished, not for books under `minimumOfferCharacters` = 10,000 characters, about ten screens:
+  samples and excerpts reach their end in a few swipes). The reader menu has Mark as Finished / Mark as Unread at
+  any time.
+- The watch Library lists finished books after the others ("Finished" with a check mark instead of the
+  percentage); the iPhone Library does the same and its filter menu can hide them.
+- For books in Readest the iPhone also syncs the mark with the row's `reading_status` (docs/READEST_SYNC.md,
+  "Reading status"). With KOReader Sync or no sync service the status stays between the two devices.
 
 ## Dictionary (watch only, no phone involvement)
 The watch queries the network itself (Wi-Fi, or through the paired iPhone). Nothing about it crosses

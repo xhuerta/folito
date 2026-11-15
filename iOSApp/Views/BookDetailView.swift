@@ -126,6 +126,9 @@ struct BookDetailView: View {
                     .foregroundStyle(.secondaryText)
                     .multilineTextAlignment(.center)
             }
+            if readStatusMark(entry)?.isFinished == true {
+                FinishedBadge()
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
@@ -240,6 +243,15 @@ struct BookDetailView: View {
                                                                             UITraitCollection(accessibilityContrast: .high)]))
     }
 
+    /// The Readest row the Library pairs this book with (nil without Readest).
+    private func cloudRow(_ entry: LibraryEntry) -> ReadestCloudBook? {
+        readest?.isAvailable == true ? readest?.cloudBook(for: entry, in: library.entries) : nil
+    }
+
+    private func readStatusMark(_ entry: LibraryEntry) -> ReadStatusMark? {
+        ReadStatusActions.mark(of: entry, cloud: cloudRow(entry))
+    }
+
     private func watchState(_ entry: LibraryEntry) -> BookWatchState {
         connectivity.bookState(for: entry)
     }
@@ -270,6 +282,16 @@ struct BookDetailView: View {
             }
             .buttonStyle(.borderless)
         }
+        let finished = readStatusMark(entry)?.isFinished == true
+        Button {
+            ReadStatusActions.set(finished ? .unread : .finished, entry: entry, cloud: cloudRow(entry),
+                                  library: library, readest: readest)
+        } label: {
+            Label(ReadStatusActions.toggleTitle(isFinished: finished),
+                  systemImage: ReadStatusActions.toggleImage(isFinished: finished)).modifier(ActionLabel())
+        }
+        .buttonStyle(.borderless)
+        .accessibilityIdentifier("bookDetailReadStatus")
         if !OnlineMetadataMerge.missing(details: entry.details, hasEPUBCover: entry.hasEPUBCover).isEmpty {
             // An explicit, one-off lookup: works whether or not Find Missing Details Online is on.
             Button { showOnlineLookup = true } label: {

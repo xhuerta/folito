@@ -32,6 +32,10 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
     var typographyProvider: (() -> ReaderTypography)?
     /// The watch published a typography copy (applied by the owner only if its stamp is newer).
     var onWatchTypography: ((ReaderTypography) -> Void)?
+    /// Read status of the library's books, mirrored on the watch (last writer wins per book). Read on the main queue.
+    var readStatusProvider: (() -> [String: ReadStatusMark])?
+    /// The watch published its read status marks (merged by the owner, newer ones win).
+    var onWatchReadStatus: (([String: ReadStatusMark]) -> Void)?
     /// Books not yet confirmed on the watch, with their payload files. Read on the main queue.
     var unsentBooksProvider: (() -> [(entry: LibraryEntry, fileURL: URL)])?
     /// The watch reported the books it currently stores (and those the user deleted there).
@@ -194,7 +198,9 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
     func sendSettings(_ settings: WatchSettings?, typography: ReaderTypography?) {
         guard canSend, let session else { return }
         let cleared = settings == nil ? clearedStampProvider?() : nil
-        do { try session.updateApplicationContext(WatchSchema.settingsContext(clearedStamp: cleared, typography: typography)) }
+        let context = WatchSchema.settingsContext(clearedStamp: cleared, typography: typography,
+                                                  readStatus: readStatusProvider?() ?? [:])
+        do { try session.updateApplicationContext(context) }
         catch { lastError = "Could not send settings: \(error.localizedDescription)" } // i18n-ignore
         sendCredentials(settings)
     }
@@ -330,6 +336,9 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
                 if let typography = TypographySync.decode(from: session.receivedApplicationContext) {
                     self.onWatchTypography?(typography)
                 }
+                if let marks = WatchSchema.libraryReadStatus(from: session.receivedApplicationContext) {
+                    self.onWatchReadStatus?(marks)
+                }
                 self.syncWatchState()
             }
         }
@@ -360,9 +369,11 @@ final class PhoneConnectivity: NSObject, ObservableObject, WCSessionDelegate {
         let times = WatchSchema.libraryTimeRemaining(from: applicationContext)
         let progress = WatchSchema.libraryProgress(from: applicationContext)
         let settingsStamp = WatchSchema.librarySettingsStamp(from: applicationContext)
+        let readStatus = WatchSchema.libraryReadStatus(from: applicationContext)
         guard report != nil || typography != nil || dictionaries != nil else { return }
         DispatchQueue.main.async {
             if let typography { self.onWatchTypography?(typography) }
+            if let readStatus { self.onWatchReadStatus?(readStatus) }
             if let times { self.watchTimeRemaining = times }
             if let progress { self.watchProgress = progress }
             if let report { self.onWatchLibrary?(report) }

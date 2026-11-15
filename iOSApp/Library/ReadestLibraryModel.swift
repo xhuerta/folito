@@ -15,6 +15,8 @@ protocol ReadestLibraryService: Sendable {
     func upload(epubAt url: URL, book: ReadestUploadBook, existing: ReadestCloudBook?) async throws -> ReadestCloudBook
     func delete(_ book: ReadestCloudBook) async throws
     func storageUsage() async throws -> ReadestStorageUsage
+    /// Writes the book's `reading_status` and returns the row the server keeps (its status may be newer).
+    func setReadingStatus(_ newMark: ReadStatusMark, for book: ReadestCloudBook) async throws -> ReadestCloudBook
 }
 
 /// Readest Cloud through `ReadestLibraryClient`, with the iPhone's own library session (see
@@ -61,6 +63,9 @@ struct LiveReadestLibraryService: ReadestLibraryService {
 
     func delete(_ book: ReadestCloudBook) async throws { try await client.deleteBook(book) }
     func storageUsage() async throws -> ReadestStorageUsage { try await client.storageUsage() }
+    func setReadingStatus(_ newMark: ReadStatusMark, for book: ReadestCloudBook) async throws -> ReadestCloudBook {
+        try await client.setReadingStatus(newMark, for: book)
+    }
 }
 
 /// Reports a download task's progress (task-specific delegate of `URLSession.download(for:delegate:)`).
@@ -109,6 +114,7 @@ final class ReadestLibraryModel {
     @ObservationIgnored private var lastRefresh: Date?
     private let isFixed: Bool
     @ObservationIgnored private var isRelinking = false
+    @ObservationIgnored private var isReconcilingStatus = false
 
     var isAvailable: Bool { service != nil }
 
@@ -176,6 +182,70 @@ final class ReadestLibraryModel {
             guard let entry = item.local, let row = item.cloud else { continue }
             await library.relink(entry, to: BookIdentityOverride(row))
         }
+    }
+
+    // MARK: Read status
+
+    /// What the Library shows for a book: the newer of the local mark and the Readest row's status.
+    func readStatus(of item: MergedLibraryItem<LibraryEntry>) -> ReadStatusMark? {
+        ReadStatusMerge.newer(item.local?.readStatus, isAvailable ? item.cloud?.readStatusMark : nil)
+    }
+
+    /// Brings the local books paired with a Readest row in line with it, per book, last writer wins: a newer
+    /// Readest status is taken locally (and so reaches the watch), a newer local one (set on this iPhone or the
+    /// watch) is written to Readest. A newer Readest value is never overwritten. Runs after each refresh and
+    /// after a status change; offline it waits for the next one.
+    func reconcileReadStatus(in library: LibraryStore) async {
+        guard let service, isAvailable, !isOffline, !isReconcilingStatus else { return }
+        isReconcilingStatus = true
+        defer { isReconcilingStatus = false }
+        for item in merged(library.entries) {
+            guard let entry = item.local, let row = item.cloud else { continue }
+            switch ReadStatusMerge.reconcile(local: entry.readStatus, remote: row.readStatusMark) {
+            case .inSync:
+                break
+            case .adoptRemote(let remote):
+                library.setReadStatus(remote, hash: entry.documentHash)
+            case .pushLocal(let local):
+                do {
+                    let kept = try await service.setReadingStatus(local, for: row)
+                    replace(kept)
+                    // The server keeps the newest status: if another device was quicker, take its value.
+                    if let remote = kept.readStatusMark, ReadStatusMerge.shouldApply(incoming: remote, local: local) {
+                        library.setReadStatus(remote, hash: entry.documentHash)
+                    }
+                } catch {
+                    // Kept locally; the next refresh tries again.
+                    continue
+                }
+            }
+        }
+    }
+
+    /// "Mark as Finished" / "Mark as Unread" on a book that is only in Readest (no local copy to keep it).
+    func setReadStatus(_ status: ReadStatus, for book: ReadestCloudBook) async {
+        guard let service else { return }
+        guard !isOffline else { alert = .readestOffline(); return }
+        let newMark = ReadStatusRules.mark(status, now: Date(), replacing: book.readStatusMark)
+        // Shown at once; replaced by the server's row (or put back on failure).
+        replace(book.withReadStatus(newMark))
+        do {
+            let kept = try await service.setReadingStatus(newMark, for: book)
+            replace(kept)
+            Announcer.announce(Self.statusAnnouncement(status, title: book.title))
+        } catch {
+            replace(book)
+            alert = .readestFailed(.status, title: book.title, error: error)
+        }
+    }
+
+    /// VoiceOver confirmation of a status change.
+    static func statusAnnouncement(_ status: ReadStatus, title: String) -> String {
+        status == .finished
+            ? String(localized: "Marked “\(title)” as finished.",
+                     comment: "VoiceOver announcement after Mark as Finished; the placeholder is the book title")
+            : String(localized: "Marked “\(title)” as unread.",
+                     comment: "VoiceOver announcement after Mark as Unread; the placeholder is the book title")
     }
 
     // MARK: Refresh
@@ -340,7 +410,7 @@ final class ReadestLibraryModel {
 }
 
 extension UserFacingError {
-    enum ReadestAction { case download, upload, delete }
+    enum ReadestAction { case download, upload, delete, status }
 
     /// Message for a failed Readest library request (quota, connection, session...).
     static func readestLibraryMessage(for error: Error) -> String {
@@ -372,6 +442,9 @@ extension UserFacingError {
             alertTitle = String(localized: "Couldn’t Upload “\(title)”", comment: "Alert title; the placeholder is a book title")
         case .delete:
             alertTitle = String(localized: "Couldn’t Delete “\(title)” from Readest", comment: "Alert title; the placeholder is a book title")
+        case .status:
+            alertTitle = String(localized: "Couldn’t Update “\(title)” in Readest",
+                                comment: "Alert title when marking a Readest book as finished or unread failed; the placeholder is a book title")
         }
         return UserFacingError(title: alertTitle, message: readestLibraryMessage(for: error))
     }

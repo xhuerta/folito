@@ -24,6 +24,17 @@ final class ReaderViewModel: ObservableObject {
 
     @Published var jumpRequest: JumpRequest?
     @Published var showRemoteOffer = false
+    /// "Mark as Finished?": the reader just arrived at the end of the book (`ReadStatusRules.shouldOfferFinish`).
+    @Published var showFinishOffer = false
+    /// The book is marked finished (set by the loader from the library; updated by `setFinished`).
+    @Published var isFinished = false
+    /// Stores a status the user chose here (the library, which tells the iPhone). Nil in previews and tests.
+    var onSetReadStatus: (@MainActor (ReadStatus) -> Void)?
+    /// Whether the end of the book was on screen at the last frame report (nil before the first one after the
+    /// opening restore, so a book that opens at its end is not offered).
+    private var wasAtEnd: Bool?
+    /// The finish offer was shown during this opening (answered or not): never twice.
+    private var finishOffered = false
     @Published private(set) var remoteOffer: ReadingPosition?
     @Published private(set) var currentIndex: Int
     /// Character offset inside `currentIndex` of the line at the top edge (not published: it changes on
@@ -217,6 +228,7 @@ final class ReaderViewModel: ObservableObject {
     /// the part of it scrolled past that edge.
     func blockFramesChanged(_ frames: [Int: BlockFrame]) {
         lastFrames = frames
+        if !isRestoring { checkEnd(frames) }
         guard !isRestoring, let top = VisibleBlockResolver.topIndex(frames: frames, viewportTop: viewportTop),
               top < flat.count, let frame = frames[top] else { return }
         let text = flat.blocks[top].text
@@ -239,6 +251,29 @@ final class ReaderViewModel: ObservableObject {
         currentIndex = top
         currentOffset = InBlockPosition.characterOffset(forFraction: fraction, in: text)
         persistCurrent()
+    }
+
+    // MARK: Read status
+
+    /// Offers "Mark as Finished?" when the bottom of the last block comes on screen while reading. Never marks
+    /// the book by itself: readers jump to the end for the notes or an epilogue.
+    private func checkEnd(_ frames: [Int: BlockFrame]) {
+        guard !flat.isEmpty else { return }
+        let atEnd = ReadStatusRules.reachedEnd(lastBlockMaxY: frames[flat.count - 1].map { Double($0.maxY) },
+                                               viewportBottom: Double(viewportHeight))
+        defer { wasAtEnd = atEnd }
+        guard let before = wasAtEnd else { return }
+        if ReadStatusRules.shouldOfferFinish(wasAtEnd: before, isAtEnd: atEnd, isFinished: isFinished,
+                                             alreadyOffered: finishOffered, bookCharacters: book.totalCharacters) {
+            finishOffered = true
+            showFinishOffer = true
+        }
+    }
+
+    /// "Mark as Finished" / "Mark as Unread" (the offer at the end, or the reader menu).
+    func setFinished(_ finished: Bool) {
+        isFinished = finished
+        onSetReadStatus?(finished ? .finished : .unread)
     }
 
     /// Scrolling forward past blocks feeds the page timer; going back starts a new page without a sample.
