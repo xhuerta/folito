@@ -86,10 +86,22 @@ public struct ReadingTimeRemaining: Codable, Sendable, Equatable {
 
 public enum ReadingTimeEstimator {
     /// Time left in the chapter and the book from the start of block `index`, at `speed`.
-    public static func estimate(_ index: BookLengthIndex, atBlock block: Int,
-                                speed: ReadingSpeed) -> (chapter: TimeInterval, book: TimeInterval) {
+    ///
+    /// `endOnScreen`: the bottom of the book's last block is on screen (`ReadStatusRules.reachedEnd`, the rule
+    /// of the finish offer). Nothing is left to scroll to then, so both are 0 instead of counting the last
+    /// screenful from its top block as unread (#169).
+    public static func estimate(_ index: BookLengthIndex, atBlock block: Int, speed: ReadingSpeed,
+                                endOnScreen: Bool = false) -> (chapter: TimeInterval, book: TimeInterval) {
+        guard !endOnScreen else { return (0, 0) }
         let left = index.remaining(fromBlock: block)
         return (speed.seconds(for: left.chapter), speed.seconds(for: left.book))
+    }
+
+    /// The time left to show ("… left"), or nil to show none: for a book marked Finished, and when nothing is
+    /// left (`displayMinutes` rounds it to 0, e.g. the end of the book is on screen) (#169).
+    public static func shownTimeLeft(_ seconds: TimeInterval?, isFinished: Bool) -> TimeInterval? {
+        guard !isFinished, let seconds, displayMinutes(seconds) > 0 else { return nil }
+        return seconds
     }
 
     /// Whole minutes to show for `seconds`: rounded up, so anything left shows at least one minute, and to

@@ -20,6 +20,8 @@ final class BookLibrary: ObservableObject {
     var onUserDeletedBook: ((String) -> Void)?
     /// Called whenever the set of stored books changed (import / delete) so the phone can be told.
     var onLibraryChanged: (() -> Void)?
+    /// Called with the hash of a book that became Finished (here or from the iPhone), before `onLibraryChanged`.
+    var onBookFinished: ((String) -> Void)?
     /// A newer position the sync service holds for a book (#132, `SyncedProgressStore`); the row shows it
     /// when it is further than the local one.
     var syncedFraction: ((String) -> Double?)? {
@@ -102,6 +104,7 @@ final class BookLibrary: ObservableObject {
         guard let i = entries.firstIndex(where: { $0.documentHash == documentHash }) else { return }
         entries[i].readStatus = ReadStatusRules.mark(status, now: now, replacing: entries[i].readStatus)
         storage.saveIndex(entries)
+        if entries[i].isFinished { onBookFinished?(documentHash) }
         onLibraryChanged?()
     }
 
@@ -113,6 +116,7 @@ final class BookLibrary: ObservableObject {
         for i in entries.indices where result.changed.contains(entries[i].documentHash) {
             entries[i].readStatus = result.marks[entries[i].documentHash]
             changed = true
+            if entries[i].isFinished { onBookFinished?(entries[i].documentHash) }
         }
         if changed { storage.saveIndex(entries) }
         return changed

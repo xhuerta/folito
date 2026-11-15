@@ -144,6 +144,34 @@ final class ReadingTimeTests: XCTestCase {
         XCTAssertEqual(e.book, 150, accuracy: 0.001) // 400 words at 200 wpm + 250 characters at 500 cpm
     }
 
+    /// #169: with the end of the book on screen nothing is left, even though the last screenful starts above
+    /// the last block (and back matter follows the top block).
+    func testEstimateIsZeroWithTheEndOnScreen() {
+        let index = sampleIndex()
+        let last = ReadingTimeEstimator.estimate(index, atBlock: 3, speed: .default)
+        XCTAssertGreaterThan(last.book, 0, "the top of the last block alone still counts the whole block")
+        for block in [2, 3] {
+            let e = ReadingTimeEstimator.estimate(index, atBlock: block, speed: .default, endOnScreen: true)
+            XCTAssertEqual(e.chapter, 0)
+            XCTAssertEqual(e.book, 0)
+        }
+        let value = ReadingTimeRemaining(documentHash: "h", bookTitle: "T", chapterSeconds: 0, bookSeconds: 0,
+                                         fractionRead: 1, updatedAt: Date())
+        XCTAssertEqual(ReadingTimeEstimator.displayMinutes(value.bookSeconds), 0)
+        XCTAssertNil(ReadingTimeEstimator.shownTimeLeft(value.bookSeconds, isFinished: false))
+    }
+
+    /// #169: a book marked Finished shows no "… left", whatever the last estimate was.
+    func testShownTimeLeftHidesFinishedBooks() {
+        XCTAssertEqual(ReadingTimeEstimator.shownTimeLeft(600, isFinished: false), 600)
+        XCTAssertEqual(ReadingTimeEstimator.shownTimeLeft(5, isFinished: false), 5, "under a minute still shows")
+        XCTAssertNil(ReadingTimeEstimator.shownTimeLeft(600, isFinished: true))
+        XCTAssertNil(ReadingTimeEstimator.shownTimeLeft(60, isFinished: true))
+        XCTAssertNil(ReadingTimeEstimator.shownTimeLeft(nil, isFinished: false))
+        XCTAssertNil(ReadingTimeEstimator.shownTimeLeft(0, isFinished: false))
+        XCTAssertNil(ReadingTimeEstimator.shownTimeLeft(.nan, isFinished: false))
+    }
+
     func testIndexFromProcessedBookMatchesReadingOrder() {
         func block(_ t: String) -> Block { Block(text: t, xpointer: "", globalOffset: 0) }
         let book = ProcessedBook(metadata: BookMetadata(title: "T", authors: []), documentHash: "h", metaHash: "",
