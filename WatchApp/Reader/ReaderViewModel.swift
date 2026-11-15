@@ -195,6 +195,8 @@ final class ReaderViewModel: ObservableObject {
         autoScrollLevel = AutoScroll.startLevel(saved: settings.integer(forKey: ReaderSettings.autoScrollSpeedKey),
                                                 reduceMotion: reduceMotion)
         autoScroll = .running
+        // Pages scrolled by auto-scroll are not timed (`learnSpeed`).
+        pageTimer.reset(at: now())
         haptics.play(.autoScrollStarted)
     }
 
@@ -213,6 +215,8 @@ final class ReaderViewModel: ObservableObject {
     func stopAutoScroll() {
         guard autoScroll != .off else { return }
         autoScroll = .off
+        // Reading by hand starts a fresh page now: no sample spans the auto-scroll session.
+        pageTimer.reset(at: now())
         haptics.play(.autoScrollStopped)
     }
 
@@ -333,7 +337,9 @@ final class ReaderViewModel: ObservableObject {
     /// Scrolling forward past blocks feeds the page timer; going back starts a new page without a sample.
     private func learnSpeed(from old: Int, to new: Int) {
         let date = now()
-        guard new > old, let lengths else { pageTimer.reset(at: date); return }
+        // While auto-scroll is on (running or paused) it sets the pace, so its pages say nothing about the
+        // reader's own speed (#67): no samples, and each block starts a new page.
+        guard new > old, let lengths, autoScroll == .off else { pageTimer.reset(at: date); return }
         if let learned = pageTimer.advance(by: lengths.length(from: old, to: new), at: date, speed: speed) {
             speed = learned
             speeds.save(learned)

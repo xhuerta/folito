@@ -65,6 +65,10 @@ struct ReaderView: View {
     @State private var autoScrollAfterMenu = false
     /// The auto-scroll layer holds the crown while auto-scroll runs (the scroll view has it otherwise).
     @FocusState private var autoScrollFocused: Bool
+    /// The scroll view's crown focus, handed back once auto-scroll stops running.
+    @FocusState private var scrollFocused: Bool
+    /// Auto-scroll stopped running while a sheet was up: give the crown back to the text once it is gone.
+    @State private var crownReturnPending = false
     /// The crown's value on the auto-scroll layer: one detent per speed level.
     @State private var crownValue = Double(AutoScroll.defaultLevel)
     /// The speed badge, shown for a moment after a speed change.
@@ -121,6 +125,9 @@ struct ReaderView: View {
                 .accessibilityHidden(!model.isPositioned)
             }
             .coordinateSpace(name: Self.scrollSpace)
+            // Only set when auto-scroll stops running (`returnCrownToText`), so the crown scrolls the text again
+            // at once instead of staying with the auto-scroll layer that went away.
+            .focused($scrollFocused)
             // How far the text is scrolled, for the bar auto-hide. Read from the scroll view itself where
             // available: the content-top preference below is not delivered reliably while scrolling on
             // watchOS (the text scrolled hundreds of points and the bar never hid).
@@ -233,7 +240,11 @@ struct ReaderView: View {
         }
         // Anything over the text pauses auto-scroll; it resumes only on a tap.
         .onChange(of: coversReader) { covered in
-            if covered { model.pauseAutoScroll() }
+            if covered {
+                model.pauseAutoScroll()
+            } else if crownReturnPending {
+                returnCrownToText()
+            }
         }
         .onChange(of: isLuminanceReduced) { dimmed in
             if dimmed { model.pauseAutoScroll() }
@@ -246,6 +257,8 @@ struct ReaderView: View {
             if state == .running {
                 crownValue = Double(model.autoScrollLevel)
                 flashSpeedBadge()
+            } else {
+                returnCrownToText()
             }
         }
         .sheet(isPresented: $showMenu, onDismiss: {
@@ -486,6 +499,22 @@ extension ReaderView {
                 crownValue = Double(model.autoScrollLevel)
             }
             .accessibilityIdentifier("autoScrollControl")
+    }
+
+    /// The auto-scroll layer is gone (paused, stopped, end of the book): the crown goes back to the scroll view.
+    /// Not while a sheet is up (it would take the crown from the sheet): then once the sheet is gone.
+    fileprivate func returnCrownToText() {
+        guard !coversReader else {
+            crownReturnPending = true
+            return
+        }
+        crownReturnPending = false
+        autoScrollFocused = false
+        // After the layer has left the view tree.
+        DispatchQueue.main.async {
+            guard model.autoScroll != .running else { return }
+            scrollFocused = true
+        }
     }
 
     fileprivate func changeAutoScrollSpeed(to level: Int) {
