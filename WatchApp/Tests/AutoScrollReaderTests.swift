@@ -147,4 +147,114 @@ final class AutoScrollReaderTests: XCTestCase {
         XCTAssertGreaterThan(speeds.load().wordsPerMinute, ReadingSpeed.defaultWordsPerMinute)
         XCTAssertLessThan(speeds.load().wordsPerMinute, 240)
     }
+    // MARK: Ticks (#67 feedback: the crown changed the level but the text did not visibly speed up)
+
+    /// A reader whose restore has settled, with the two 1000 pt blocks of `book()` laid out from the reading line.
+    private func settledReader(_ d: UserDefaults) async throws -> ReaderViewModel {
+        let model = reader(d)
+        model.openSettleDelay = 10_000_000
+        model.settleDelay = 10_000_000
+        model.viewportTop = 0
+        model.viewportHeight = 200
+        model.restoreInitialPosition()
+        model.blockFramesChanged([0: BlockFrame(minY: 0, maxY: 1000), 1: BlockFrame(minY: 1010, maxY: 2010)])
+        for _ in 0..<200 where model.isRestoring {
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertFalse(model.isRestoring)
+        return model
+    }
+
+    private let line = AutoScroll.lineHeight(pointSize: 16, lineSpacing: 0)
+
+    func testTicksMoveByTheCurrentLevelAndASpeedChangeAppliesAtOnce() async throws {
+        let d = defaults()
+        let model = try await settledReader(d)
+        XCTAssertEqual(model.autoScrollTick(elapsed: 0.1, lineHeight: line), .idle, "not running: nothing moves")
+
+        model.startAutoScroll(reduceMotion: false)
+        XCTAssertEqual(model.autoScrollLevel, AutoScroll.defaultLevel)
+        // The first tick measures where the text is.
+        XCTAssertEqual(model.autoScrollTick(elapsed: 0.1, lineHeight: line), .idle)
+        XCTAssertEqual(model.autoScrollCursor, AutoScroll.Cursor(index: 0, offset: 0))
+
+        guard case .scroll(let first) = model.autoScrollTick(elapsed: 0.1, lineHeight: line) else {
+            return XCTFail("a running tick scrolls")
+        }
+        XCTAssertEqual(first.index, 0)
+        let slow = try XCTUnwrap(model.autoScrollCursor).offset
+        XCTAssertEqual(slow, AutoScroll.step(level: AutoScroll.defaultLevel, lineHeight: line, elapsed: 0.1), accuracy: 1e-9)
+
+        // The crown turns it up one detent while it runs: the very next tick uses the new level.
+        model.setAutoScrollLevel(AutoScroll.defaultLevel + 1)
+        guard case .scroll = model.autoScrollTick(elapsed: 0.1, lineHeight: line) else {
+            return XCTFail("still scrolling after a speed change")
+        }
+        let faster = try XCTUnwrap(model.autoScrollCursor).offset - slow
+        XCTAssertEqual(faster, AutoScroll.step(level: AutoScroll.defaultLevel + 1, lineHeight: line, elapsed: 0.1),
+                       accuracy: 1e-9)
+        XCTAssertGreaterThanOrEqual(faster / slow, AutoScroll.minLevelRatio - 1e-9, "one detent is a visible change")
+
+        // All the way up: several times the default pace.
+        model.setAutoScrollLevel(AutoScroll.levels.upperBound)
+        let before = try XCTUnwrap(model.autoScrollCursor).offset
+        _ = model.autoScrollTick(elapsed: 0.1, lineHeight: line)
+        let fastest = try XCTUnwrap(model.autoScrollCursor).offset - before
+        XCTAssertGreaterThan(fastest / slow, 3)
+        XCTAssertEqual(d.integer(forKey: ReaderSettings.autoScrollSpeedKey), AutoScroll.levels.upperBound)
+    }
+
+    /// The screen going dark (wrist down, Always On) pauses auto-scroll; nothing moves while paused, and resuming
+    /// measures the text again where it is instead of jumping to where the old cursor was.
+    func testPauseStopsTheTicksAndResumeContinuesFromTheText() async throws {
+        let model = try await settledReader(defaults())
+        model.startAutoScroll(reduceMotion: false)
+        _ = model.autoScrollTick(elapsed: 0.1, lineHeight: line)
+        _ = model.autoScrollTick(elapsed: 0.1, lineHeight: line)
+        XCTAssertNotNil(model.autoScrollCursor)
+
+        model.pauseAutoScroll()
+        XCTAssertEqual(model.autoScroll, .paused)
+        XCTAssertNil(model.autoScrollCursor)
+        XCTAssertEqual(model.autoScrollTick(elapsed: 0.1, lineHeight: line), .idle, "paused: the text stays put")
+
+        // Meanwhile the text sits 40 pt into block 0 (the last scroll before the pause landed there).
+        model.blockFramesChanged([0: BlockFrame(minY: -40, maxY: 960), 1: BlockFrame(minY: 970, maxY: 1970)])
+        model.resumeAutoScroll()
+        XCTAssertEqual(model.autoScrollTick(elapsed: 5, lineHeight: line), .idle, "the first tick only measures")
+        XCTAssertEqual(model.autoScrollCursor, AutoScroll.Cursor(index: 0, offset: 40))
+        _ = model.autoScrollTick(elapsed: 0.1, lineHeight: line)
+        XCTAssertEqual(try XCTUnwrap(model.autoScrollCursor).offset,
+                       40 + AutoScroll.step(level: model.autoScrollLevel, lineHeight: line, elapsed: 0.1), accuracy: 1e-9)
+    }
+
+    func testCrownHintOnlyTheFirstTime() {
+        let d = defaults()
+        let model = reader(d)
+        XCTAssertFalse(model.autoScrollShowsCrownHint)
+        model.startAutoScroll(reduceMotion: false)
+        XCTAssertTrue(model.autoScrollShowsCrownHint, "first start: say how to change the speed")
+        model.dismissAutoScrollCrownHint()
+        XCTAssertFalse(model.autoScrollShowsCrownHint)
+        model.stopAutoScroll()
+        model.startAutoScroll(reduceMotion: false)
+        XCTAssertFalse(model.autoScrollShowsCrownHint, "once")
+        // In another book too.
+        let other = reader(d, hash: "other")
+        other.startAutoScroll(reduceMotion: false)
+        XCTAssertFalse(other.autoScrollShowsCrownHint)
+
+        // Turning the crown while the hint is up: it has done its job.
+        let fresh = reader(defaults())
+        fresh.startAutoScroll(reduceMotion: false)
+        XCTAssertTrue(fresh.autoScrollShowsCrownHint)
+        fresh.setAutoScrollLevel(AutoScroll.defaultLevel + 1)
+        XCTAssertFalse(fresh.autoScrollShowsCrownHint)
+
+        // Reset Preferences shows it again.
+        ReaderSettings.resetPreferences(d)
+        let reset = reader(d)
+        reset.startAutoScroll(reduceMotion: false)
+        XCTAssertTrue(reset.autoScrollShowsCrownHint)
+    }
 }
