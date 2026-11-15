@@ -11,8 +11,9 @@ import ReaderCore
 ///
 /// Accessibility: each block is one VoiceOver element and headings carry the header trait (rotor
 /// "Headings"); the text follows Bold Text, Increase Contrast and, with "Match System Text Size", Dynamic
-/// Type (see `ReaderAccessibilityReader`). Programmatic jumps (restore, chapters, remote position) are never
-/// animated, so Reduce Motion needs no special case. With the wrist down (Always On, reduced luminance)
+/// Type (see `ReaderAccessibilityReader`). Programmatic jumps (restore, chapters, remote position) never
+/// animate the scroll; the cover over a far jump lifts with a cross-fade, which Reduce Motion turns into an
+/// instant reveal. With the wrist down (Always On, reduced luminance)
 /// the page switches to a dim black palette and the sync glyph is hidden.
 ///
 /// Top bar (#106): the navigation bar hides while scrolling down through the text and comes back when
@@ -30,6 +31,13 @@ import ReaderCore
 /// Opening (#125): the text stays transparent until the view model has scrolled to the saved block and the
 /// saved line inside it (`ReaderViewModel.isPositioned`), so the book appears at that line without a
 /// visible move, and every programmatic scroll is announced to `BarAutoHide`, which then cannot hide the bar.
+///
+/// Far jumps (#174: a chapter, a bookmark, the synced position) work the same way: a jump to a block that is not
+/// laid out yet covers the text (`ReaderViewModel.isSettling`, see `JumpSettling`) while the lazy stack's
+/// estimated landing is corrected, and reveals it once the target line is at the top edge, so the reader sees
+/// the old place and then the new one, never the hops in between. The cover is the page colour; after a moment
+/// it shows a small progress indicator (also while a book opens). It lifts with a short cross-fade, or at once
+/// with Reduce Motion, and VoiceOver then announces the chapter arrived at, once.
 ///
 /// Auto-scroll (#67): started from Reading Options, never by itself. While it runs, the reader shows the
 /// blocks around the reading line in a plain stack over the scroll view (an `AutoScroll.Window`, laid out at
@@ -143,9 +151,10 @@ struct ReaderView: View {
                 .background(GeometryReader { geo in
                     Color.clear.preference(key: ContentTopKey.self, value: geo.frame(in: .named(Self.scrollSpace)).minY)
                 })
-                // Laid out and scrolled as usual, but not shown until the saved line is at the top edge.
-                .opacity(model.isPositioned ? 1 : 0)
-                .accessibilityHidden(!model.isPositioned)
+                // Laid out and scrolled as usual, but not shown until the saved line (or a far jump's
+                // target line) is at the top edge.
+                .opacity(model.coversText ? 0 : 1)
+                .accessibilityHidden(model.coversText)
             }
             .coordinateSpace(name: Self.scrollSpace)
             // While auto-scroll shows the text itself, the scroll view stays laid out (its frames place the
@@ -205,6 +214,11 @@ struct ReaderView: View {
                 if let window = autoScrollWindow {
                     autoScrollColumn(window, style: style, lineHeight: autoScrollLineHeight)
                 }
+            }
+            // Over the text (and a paused auto-scroll window) while the book opens or a far jump settles (#174).
+            .overlay {
+                SettlingCover(covers: model.coversText, showsIndicator: model.showsSettlingIndicator,
+                              color: style.background, textColor: style.secondaryColor, reduceMotion: reduceMotion)
             }
             // Auto-scroll housekeeping a few times a second (never per frame): makes and updates the window,
             // saves the position, stops at the end, finishes the hand-back. Restarted when the layout changes.
@@ -352,6 +366,11 @@ struct ReaderView: View {
         } message: {
             Text("You’ve reached the end of the book.", comment: "Message of the offer to mark a book as finished")
         }
+        // A far jump has landed and the text is revealed: VoiceOver says where, once (#174).
+        .onChange(of: model.arrival) { arrival in
+            guard let arrival, voiceOver else { return }
+            AccessibilityNotification.Announcement(arrival.announcement).post()
+        }
         .onAppear {
             updateBar { $0.programmaticScroll(true) }
             model.restoreInitialPosition()
@@ -409,6 +428,8 @@ extension ReaderView {
     /// A tap in the left-edge strip (#118), in global coordinates: handled as a tap on the block under it (in
     /// that block's own coordinates), or, over no block, like a tap on empty reader space (shows a hidden bar).
     fileprivate func edgeTapped(at point: CGPoint, style: ReaderRenderStyle) {
+        // The text under the strip is covered while a far jump settles (#174).
+        guard !model.coversText else { return }
         if model.autoScroll == .paused {
             model.resumeAutoScroll()
             return
@@ -774,6 +795,45 @@ private struct AutoScrollBadge: View {
             .padding(.vertical, 3)
             .background(Capsule().fill(.regularMaterial))
             .allowsHitTesting(false)
+    }
+}
+
+/// The page-coloured cover over the text while a book opens or a far jump settles (#174, `JumpSettling`). It
+/// appears at once (a fade-in would let the hops show through) and lifts with a short cross-fade, or at once
+/// with Reduce Motion. After `JumpSettling.indicatorDelay` it shows a small progress indicator. It takes the
+/// taps meant for the hidden text and is hidden from VoiceOver, which announces the destination once revealed.
+private struct SettlingCover: View {
+    let covers: Bool
+    let showsIndicator: Bool
+    let color: Color
+    let textColor: Color
+    let reduceMotion: Bool
+
+    var body: some View {
+        ZStack {
+            if covers {
+                ZStack {
+                    color
+                    if showsIndicator {
+                        VStack(spacing: 4) {
+                            ProgressView()
+                            Text("Opening\u{2026}")
+                                .font(.footnote)
+                                .foregroundStyle(textColor)
+                        }
+                        .transition(.opacity)
+                    }
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {}
+                .transition(reduceMotion ? AnyTransition.identity
+                                          : AnyTransition.asymmetric(insertion: .identity, removal: .opacity))
+            }
+        }
+        .animation(reduceMotion ? nil : Animation.easeOut(duration: 0.2), value: covers)
+        .animation(reduceMotion ? nil : Animation.easeIn(duration: 0.15), value: showsIndicator)
+        .allowsHitTesting(covers)
+        .accessibilityHidden(true)
     }
 }
 

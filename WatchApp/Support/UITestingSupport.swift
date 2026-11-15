@@ -31,6 +31,9 @@ enum UITesting {
     /// `-UITestingSimulateSync`: a progress sync service counts as set up (an in-memory client that has no
     /// position for any book; nothing leaves the simulator), so the reader menu offers "Go to Synced Position".
     static let simulateSyncArgument = "-UITestingSimulateSync"
+    /// `-UITestingSeedLongBook` (with `-UITestingSeedSampleBook`): the seeded book is `longBook` instead of the
+    /// one-chapter sample, so a jump to a late chapter is a far jump in the lazy reader (#174).
+    static let seedLongBookArgument = "-UITestingSeedLongBook"
 
     #if DEBUG
     static let isActive: Bool = {
@@ -71,7 +74,8 @@ enum UITesting {
             .appendingPathComponent("UITesting-\(UUID().uuidString)", isDirectory: true)
         let storage = BookStorage(root: root)
         if ProcessInfo.processInfo.arguments.contains(seedSampleBookArgument) {
-            seed(sampleBook, into: storage, scratch: root)
+            let seedsLongBook = ProcessInfo.processInfo.arguments.contains(seedLongBookArgument)
+            seed(seedsLongBook ? longBook : sampleBook, into: storage, scratch: root)
         }
         // The toggle is an @AppStorage in the standard defaults: set it for this launch either way.
         if ProcessInfo.processInfo.arguments.contains(coversOffArgument) {
@@ -389,6 +393,32 @@ enum UITesting {
                              metaHash: "00000000000000000000000000a11ce1",
                              chapters: [Chapter(spineIndex: 0, title: "Down the Rabbit-Hole", blocks: blocks)],
                              totalCharacters: 20 + text.count)
+    }()
+
+    /// A long generated book (#174): `longBookChapters` chapters titled "Chapter 1" ... "Chapter N", each a
+    /// heading and `longBookParagraphs` paragraphs, so the last chapters are thousands of points below the start.
+    static let longBookChapters = 10
+    static let longBookParagraphs = 30
+    static let longBook: ProcessedBook = {
+        let filler = "The quick brown fox jumps over the lazy dog while the reader waits for the next chapter to arrive." // i18n-ignore: UI-test fixture (Debug only)
+        var chapters: [Chapter] = []
+        var offset = 0
+        for c in 1...longBookChapters {
+            let title = "Chapter \(c)" // i18n-ignore: UI-test fixture
+            var blocks = [Block(text: title, style: .heading1, xpointer: "/body/DocFragment[\(c)]/body/h1",
+                                globalOffset: offset)]
+            offset += title.count
+            for p in 1...longBookParagraphs {
+                let text = "\(title), paragraph \(p). \(filler)" // i18n-ignore: UI-test fixture
+                blocks.append(Block(text: text, xpointer: "/body/DocFragment[\(c)]/body/p[\(p)]", globalOffset: offset))
+                offset += text.count
+            }
+            chapters.append(Chapter(spineIndex: c, title: title, blocks: blocks))
+        }
+        return ProcessedBook(metadata: BookMetadata(title: "A Long Book", authors: ["Folito Tests"], language: "en"), // i18n-ignore: UI-test fixture
+                             documentHash: "0000000000000000000000000010b0c0",
+                             metaHash: "0000000000000000000000000010b0c1",
+                             chapters: chapters, totalCharacters: offset)
     }()
 
     /// The opening of *Pride and Prejudice* (Jane Austen, 1813; public domain), the iPhone app's English sample
