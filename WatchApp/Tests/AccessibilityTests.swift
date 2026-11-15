@@ -189,6 +189,8 @@ final class WordCursorAccessibilityTests: XCTestCase {
         XCTAssertEqual(HapticEvent.lookupSucceeded.hapticType, .success)
         XCTAssertEqual(HapticEvent.lookupFailed.hapticType, .failure)
         XCTAssertEqual(HapticEvent.bookmarkAdded.hapticType, .success)
+        XCTAssertEqual(HapticEvent.autoScrollStarted.hapticType, .start)
+        XCTAssertEqual(HapticEvent.autoScrollStopped.hapticType, .stop)
     }
 }
 

@@ -134,6 +134,7 @@ final class ReaderViewModel: ObservableObject {
         // Counting the words of a whole book takes a moment on the watch: do it off the main actor.
         // With a TOC, "chapter" in the time left is the chapter-level TOC section the menu marks.
         let toc = flat.toc
+        self.autoScrollLevel = AutoScroll.storedLevel(settings.integer(forKey: ReaderSettings.autoScrollSpeedKey))
         Task.detached(priority: .utility) { [weak self] in
             let index = FlatBook.lengthIndex(for: book, toc: toc)
             await self?.lengthsReady(index)
@@ -169,6 +170,63 @@ final class ReaderViewModel: ObservableObject {
     var title: String { book.metadata.title }
     /// BCP-47 language of the book (dictionary language); nil when the EPUB does not declare one.
     var bookLanguage: String? { book.metadata.language }
+
+    // MARK: Auto-scroll (#67)
+
+    /// Auto-scroll: off, moving the text, or paused (by a tap, a sheet, the wrist going down). Never started
+    /// by itself: only from Reading Options, and only resumed by a tap on the text.
+    enum AutoScrollState: Equatable {
+        case off
+        case running
+        case paused
+    }
+
+    @Published private(set) var autoScroll: AutoScrollState = .off
+    /// Speed level (`AutoScroll.levels`). One for the user, not per book: stored in settings.
+    @Published private(set) var autoScrollLevel = AutoScroll.defaultLevel
+    /// Plays the start / stop haptics (silent in tests).
+    var haptics: HapticPlaying = NoHaptics()
+
+    var isAutoScrollActive: Bool { autoScroll != .off }
+
+    /// Starts auto-scroll at the saved speed; with Reduce Motion at a gentle one (`AutoScroll.startLevel`).
+    func startAutoScroll(reduceMotion: Bool) {
+        guard !flat.isEmpty, autoScroll == .off else { return }
+        autoScrollLevel = AutoScroll.startLevel(saved: settings.integer(forKey: ReaderSettings.autoScrollSpeedKey),
+                                                reduceMotion: reduceMotion)
+        autoScroll = .running
+        // Pages scrolled by auto-scroll are not timed (`learnSpeed`).
+        pageTimer.reset(at: now())
+        haptics.play(.autoScrollStarted)
+    }
+
+    func pauseAutoScroll() {
+        guard autoScroll == .running else { return }
+        autoScroll = .paused
+        haptics.play(.autoScrollStopped)
+    }
+
+    func resumeAutoScroll() {
+        guard autoScroll == .paused else { return }
+        autoScroll = .running
+        haptics.play(.autoScrollStarted)
+    }
+
+    func stopAutoScroll() {
+        guard autoScroll != .off else { return }
+        autoScroll = .off
+        // Reading by hand starts a fresh page now: no sample spans the auto-scroll session.
+        pageTimer.reset(at: now())
+        haptics.play(.autoScrollStopped)
+    }
+
+    /// A new speed (the Digital Crown, VoiceOver adjust), clamped and remembered for the next time.
+    func setAutoScrollLevel(_ level: Int) {
+        let clamped = AutoScroll.clampedLevel(level)
+        guard clamped != autoScrollLevel else { return }
+        autoScrollLevel = clamped
+        settings.set(clamped, forKey: ReaderSettings.autoScrollSpeedKey)
+    }
 
     /// Block shown in the word-lookup sheet.
     @Published var lookupBlockIndex: LookupTarget?
@@ -279,7 +337,9 @@ final class ReaderViewModel: ObservableObject {
     /// Scrolling forward past blocks feeds the page timer; going back starts a new page without a sample.
     private func learnSpeed(from old: Int, to new: Int) {
         let date = now()
-        guard new > old, let lengths else { pageTimer.reset(at: date); return }
+        // While auto-scroll is on (running or paused) it sets the pace, so its pages say nothing about the
+        // reader's own speed (#67): no samples, and each block starts a new page.
+        guard new > old, let lengths, autoScroll == .off else { pageTimer.reset(at: date); return }
         if let learned = pageTimer.advance(by: lengths.length(from: old, to: new), at: date, speed: speed) {
             speed = learned
             speeds.save(learned)
@@ -644,6 +704,7 @@ final class ReaderViewModel: ObservableObject {
 
     func leave() {
         restoreTask?.cancel()
+        if autoScroll != .off { autoScroll = .off }
         reportProgress(immediately: true)
         // Closing the book: always refresh the complications with the final position.
         publishComplication(force: true)

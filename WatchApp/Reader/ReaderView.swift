@@ -1,4 +1,5 @@
 import SwiftUI
+import Accessibility
 import ReaderCore
 
 /// Scrolling reader.
@@ -29,6 +30,18 @@ import ReaderCore
 /// Opening (#125): the text stays transparent until the view model has scrolled to the saved block and the
 /// saved line inside it (`ReaderViewModel.isPositioned`), so the book appears at that line without a
 /// visible move, and every programmatic scroll is announced to `BarAutoHide`, which then cannot hide the bar.
+///
+/// Auto-scroll (#67): started from Reading Options, never by itself. While it runs, a tick about 30 times a
+/// second moves a cursor (block + points into it, `AutoScroll.Cursor`) at the chosen speed and puts it at the
+/// reading line with `ScrollViewProxy.scrollTo(_:anchor:)`, without animation (the same anchor math as the
+/// in-block restore, so it works on watchOS 10). A transparent layer over the text (only while it runs) takes
+/// the Digital Crown, which changes the speed level with one detent and haptic per level, and a tap, which
+/// pauses; a tap on the text resumes. The top bar stays up while auto-scroll is on (paused or running), so
+/// Reading Options, where it is stopped, is one tap away and the reading line never moves with the bar. It
+/// pauses when a sheet or an alert opens, when the wrist goes down (Always On) or the app leaves the
+/// foreground, stops at the end of the book and on leaving it. It runs only while the screen is on: reading is
+/// not one of the session types `WKExtendedRuntimeSession` allows, so the app does not keep itself running.
+/// The position keeps being saved from the block frames, as for any scroll.
 struct ReaderView: View {
     @StateObject private var model: ReaderViewModel
     @EnvironmentObject private var sync: SyncCoordinator
@@ -47,6 +60,20 @@ struct ReaderView: View {
     @State private var scrollOrigin: CGPoint = .zero
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
     @Environment(\.isLuminanceReduced) private var isLuminanceReduced
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Start auto-scroll once the menu is gone (its "Start Auto-Scroll" button).
+    @State private var autoScrollAfterMenu = false
+    /// The auto-scroll layer holds the crown while auto-scroll runs (the scroll view has it otherwise).
+    @FocusState private var autoScrollFocused: Bool
+    /// The scroll view's crown focus, handed back once auto-scroll stops running.
+    @FocusState private var scrollFocused: Bool
+    /// Auto-scroll stopped running while a sheet was up: give the crown back to the text once it is gone.
+    @State private var crownReturnPending = false
+    /// The crown's value on the auto-scroll layer: one detent per speed level.
+    @State private var crownValue = Double(AutoScroll.defaultLevel)
+    /// The speed badge, shown for a moment after a speed change.
+    @State private var showSpeedBadge = false
+    @State private var speedBadgeToken = 0
     private var readerAccessibility = ReaderAccessibilityReader()
     private static let scrollSpace = "reader.scroll"
 
@@ -57,6 +84,9 @@ struct ReaderView: View {
     var body: some View {
         // Fonts and colours are resolved once per typography / accessibility change, not per block per render.
         let style = typography.style(for: readerAccessibility.value)
+        // Auto-scroll speeds are in lines: one line of body text in points.
+        let autoScrollLineHeight = AutoScroll.lineHeight(pointSize: style.spec(for: .paragraph).pointSize,
+                                                         lineSpacing: style.typography.lineSpacing)
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: style.typography.paragraphSpacing) {
@@ -95,6 +125,9 @@ struct ReaderView: View {
                 .accessibilityHidden(!model.isPositioned)
             }
             .coordinateSpace(name: Self.scrollSpace)
+            // Only set when auto-scroll stops running (`returnCrownToText`), so the crown scrolls the text again
+            // at once instead of staying with the auto-scroll layer that went away.
+            .focused($scrollFocused)
             // How far the text is scrolled, for the bar auto-hide. Read from the scroll view itself where
             // available: the content-top preference below is not delivered reliably while scrolling on
             // watchOS (the text scrolled hundreds of points and the bar never hid).
@@ -123,7 +156,8 @@ struct ReaderView: View {
             .onPreferenceChange(BlockFramesKey.self) { model.blockFramesChanged($0) }
             // Restores and jumps are not reading: they must not hide the bar.
             .onChange(of: model.isRestoring) { restoring in
-                updateBar { $0.programmaticScroll(restoring) }
+                // Auto-scroll moves the text too: it never hides the bar either.
+                updateBar { $0.programmaticScroll(restoring || model.isAutoScrollActive) }
             }
             .onChange(of: model.jumpRequest) { request in
                 guard let request else { return }
@@ -137,6 +171,11 @@ struct ReaderView: View {
                     }
                 }
             }
+            // Auto-scroll ticks while running; cancelled on pause, stop and leaving.
+            .task(id: model.autoScroll == .running) {
+                guard model.autoScroll == .running else { return }
+                await runAutoScroll(proxy, lineHeight: autoScrollLineHeight)
+            }
         }
         .background(style.background)
         // Covers the system time while the bar is hidden (#125). On the root, outside the scroll view.
@@ -148,6 +187,16 @@ struct ReaderView: View {
         // drag gesture on the scroll view or an ancestor: even a simultaneous one stops the scroll view panning.
         .overlay(alignment: .leading) {
             EdgeSwipeBackStrip(onBack: { dismiss() }, onTap: { edgeTapped(at: $0, style: style) })
+        }
+        // Only while auto-scroll runs: with it off (or paused) nothing covers the text and its taps.
+        .overlay {
+            if model.autoScroll == .running {
+                autoScrollLayer
+            }
+        }
+        .overlay(alignment: .bottom) {
+            AutoScrollBadge(state: model.autoScroll, level: model.autoScrollLevel, showsSpeed: showSpeedBadge)
+                .padding(.bottom, 4)
         }
         .tint(style.accentColor)
         .preferredColorScheme(style.isLightPage ? .light : .dark)
@@ -189,6 +238,29 @@ struct ReaderView: View {
         .onChange(of: showMenu) { shown in
             if shown { updateBar { $0.show(at: Date()) } }
         }
+        // Anything over the text pauses auto-scroll; it resumes only on a tap.
+        .onChange(of: coversReader) { covered in
+            if covered {
+                model.pauseAutoScroll()
+            } else if crownReturnPending {
+                returnCrownToText()
+            }
+        }
+        .onChange(of: isLuminanceReduced) { dimmed in
+            if dimmed { model.pauseAutoScroll() }
+        }
+        .onChange(of: model.autoScroll) { state in
+            updateBar {
+                $0.programmaticScroll(state != .off || model.isRestoring)
+                if state != .off { $0.show(at: Date()) }
+            }
+            if state == .running {
+                crownValue = Double(model.autoScrollLevel)
+                flashSpeedBadge()
+            } else {
+                returnCrownToText()
+            }
+        }
         .sheet(isPresented: $showMenu, onDismiss: {
             if lookupAfterMenu {
                 lookupAfterMenu = false
@@ -196,10 +268,16 @@ struct ReaderView: View {
                 model.beginLookup(at: model.currentIndex, characterOffset: model.currentOffset)
             }
             model.reanchor()
+            if autoScrollAfterMenu {
+                autoScrollAfterMenu = false
+                // Waits for the re-anchor to settle before the first move (`runAutoScroll`).
+                model.startAutoScroll(reduceMotion: reduceMotion)
+            }
         }) {
             ReaderMenuView(model: model,
                            syncNote: visibleSyncStatus.flatMap { WatchMessages.syncExplanation($0, failure: sync.failure) },
-                           onLookup: { lookupAfterMenu = true })
+                           onLookup: { lookupAfterMenu = true },
+                           onAutoScroll: { autoScrollAfterMenu = true })
                 .environmentObject(typography)
         }
         .sheet(item: $model.openNote) { target in
@@ -234,7 +312,10 @@ struct ReaderView: View {
         }
         .onDisappear { model.leave() }
         .onChange(of: scenePhase) { phase in
-            if phase != .active { model.reportProgress(immediately: true) }
+            if phase != .active {
+                model.pauseAutoScroll()
+                model.reportProgress(immediately: true)
+            }
         }
         .task { await model.syncOnOpen() }
         .task {
@@ -259,6 +340,11 @@ extension ReaderView {
     /// is on. Any other tap on the text shows the hidden bar (then hides it again after a few seconds); with the
     /// bar visible it opens the word lookup on the word under the finger (estimated, see `TapPosition`).
     fileprivate func tapped(block index: Int, at location: CGPoint, style: ReaderRenderStyle) {
+        // Paused auto-scroll: a tap anywhere on the text resumes it.
+        if model.autoScroll == .paused {
+            model.resumeAutoScroll()
+            return
+        }
         if index < model.flat.count, model.flat.blocks[index].notes?.isEmpty == false,
            let offset = tappedCharacterOffset(block: index, at: location, style: style),
            let note = model.flat.blocks[index].noteReference(nearCharacterOffset: offset) {
@@ -272,6 +358,10 @@ extension ReaderView {
     /// A tap in the left-edge strip (#118), in global coordinates: handled as a tap on the block under it (in
     /// that block's own coordinates), or, over no block, like a tap on empty reader space (shows a hidden bar).
     fileprivate func edgeTapped(at point: CGPoint, style: ReaderRenderStyle) {
+        if model.autoScroll == .paused {
+            model.resumeAutoScroll()
+            return
+        }
         guard let target = EdgeSwipeBack.tapTarget(at: point, scrollOrigin: scrollOrigin,
                                                    contentMinX: CGFloat(style.typography.horizontalMargin),
                                                    frames: model.blockFrames) else {
@@ -307,10 +397,212 @@ extension ReaderView {
                                            layout: layout, characterCount: block.text.count)
     }
 
+    /// A sheet or an alert covers the text (the menu, a note, the word lookup, a sync or finish offer).
+    fileprivate var coversReader: Bool {
+        showMenu || model.openNote != nil || model.lookupBlockIndex != nil || model.showRemoteOffer || model.showFinishOffer
+    }
+
+    // MARK: Auto-scroll (#67)
+
+    /// Moves the text while auto-scroll runs: every `AutoScroll.tickInterval` the cursor advances by the
+    /// speed times the time since the last tick, and `scrollTo` puts it at the reading line. Nothing is
+    /// published per tick, so the reader does not re-render; the scroll itself updates the block frames, from
+    /// which the position is saved as usual. While a restore or a jump settles, it waits and then starts again
+    /// from where the text landed.
+    @MainActor
+    fileprivate func runAutoScroll(_ proxy: ScrollViewProxy, lineHeight: Double) async {
+        var cursor: AutoScroll.Cursor?
+        var lastTick = Date()
+        let tick = UInt64(AutoScroll.tickInterval * 1_000_000_000)
+        while !Task.isCancelled, model.autoScroll == .running {
+            try? await Task.sleep(nanoseconds: tick)
+            guard !Task.isCancelled, model.autoScroll == .running else { return }
+            let now = Date()
+            let elapsed = now.timeIntervalSince(lastTick)
+            lastTick = now
+            guard !model.isRestoring else {
+                cursor = nil
+                continue
+            }
+            let frames = model.blockFrames.mapValues { AutoScroll.Span(minY: Double($0.minY), maxY: Double($0.maxY)) }
+            let top = Double(model.viewportTop)
+            let height = Double(model.viewportHeight)
+            guard let current = cursor ?? AutoScroll.cursor(frames: frames, viewportTop: top) else { continue }
+            if AutoScroll.isAtEnd(cursor: current, blockCount: model.flat.count, frames: frames,
+                                  viewportTop: top, viewportHeight: height) {
+                autoScrollReachedEnd()
+                return
+            }
+            // The first tick only measures where the text is.
+            guard cursor != nil else {
+                cursor = current
+                continue
+            }
+            let distance = AutoScroll.step(level: model.autoScrollLevel, lineHeight: lineHeight, elapsed: elapsed)
+            let moved = AutoScroll.advance(current, by: distance, blockCount: model.flat.count, frames: frames)
+            cursor = moved
+            guard let target = AutoScroll.scrollTarget(moved, frames: frames, viewportTop: top,
+                                                       viewportHeight: height) else { continue }
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                proxy.scrollTo(target.index, anchor: UnitPoint(x: 0, y: target.anchorY))
+            }
+        }
+    }
+
+    /// The end of the book is on screen: auto-scroll stops (with the stop haptic), and VoiceOver says so.
+    fileprivate func autoScrollReachedEnd() {
+        model.stopAutoScroll()
+        AccessibilityNotification.Announcement(String(localized: "End of book. Auto-scroll stopped.",
+                                                      comment: "VoiceOver announcement when auto-scroll reaches the end of the book"))
+            .post()
+    }
+
+    /// Over the text while auto-scroll runs: holds the Digital Crown (speed, one detent and haptic per level)
+    /// and pauses on a tap. One VoiceOver element: "Auto-Scroll, speed 3 of 7", adjustable with swipe up /
+    /// down, double-tap pauses.
+    fileprivate var autoScrollLayer: some View {
+        Color.clear
+            .contentShape(Rectangle())
+            .focusable()
+            .focused($autoScrollFocused)
+            .focusEffectDisabled()
+            .digitalCrownRotation($crownValue,
+                                  from: Double(AutoScroll.levels.lowerBound), through: Double(AutoScroll.levels.upperBound),
+                                  by: 1, sensitivity: .low, isContinuous: false, isHapticFeedbackEnabled: true)
+            .onTapGesture { model.pauseAutoScroll() }
+            .onAppear {
+                crownValue = Double(model.autoScrollLevel)
+                autoScrollFocused = true
+            }
+            // Keep the crown while running (a re-render can drop the focus, as in the word picker).
+            .onChange(of: autoScrollFocused) { focused in
+                if !focused, model.autoScroll == .running { autoScrollFocused = true }
+            }
+            .onChange(of: crownValue) { value in
+                changeAutoScrollSpeed(to: AutoScroll.level(forCrown: value))
+            }
+            .accessibilityElement()
+            .accessibilityLabel(Text("Auto-Scroll"))
+            .accessibilityValue(AutoScrollBadge.speedText(model.autoScrollLevel))
+            .accessibilityHint(Text("Double-tap to pause. Swipe up or down to change the speed.",
+                                    comment: "VoiceOver hint of the auto-scroll control over the reader text"))
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { model.pauseAutoScroll() }
+            .accessibilityAdjustableAction { direction in
+                switch direction {
+                case .increment: changeAutoScrollSpeed(to: model.autoScrollLevel + 1)
+                case .decrement: changeAutoScrollSpeed(to: model.autoScrollLevel - 1)
+                @unknown default: break
+                }
+                crownValue = Double(model.autoScrollLevel)
+            }
+            .accessibilityIdentifier("autoScrollControl")
+    }
+
+    /// The auto-scroll layer is gone (paused, stopped, end of the book): the crown goes back to the scroll view.
+    /// Not while a sheet is up (it would take the crown from the sheet): then once the sheet is gone.
+    fileprivate func returnCrownToText() {
+        guard !coversReader else {
+            crownReturnPending = true
+            return
+        }
+        crownReturnPending = false
+        autoScrollFocused = false
+        // After the layer has left the view tree.
+        DispatchQueue.main.async {
+            guard model.autoScroll != .running else { return }
+            scrollFocused = true
+        }
+    }
+
+    fileprivate func changeAutoScrollSpeed(to level: Int) {
+        guard AutoScroll.clampedLevel(level) != model.autoScrollLevel else { return }
+        model.setAutoScrollLevel(level)
+        flashSpeedBadge()
+    }
+
+    /// Shows the speed badge for a moment. It fades in and out, or with Reduce Motion simply appears and goes.
+    fileprivate func flashSpeedBadge() {
+        speedBadgeToken &+= 1
+        let token = speedBadgeToken
+        setSpeedBadge(true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + AutoScrollBadge.speedDuration) {
+            guard token == speedBadgeToken else { return }
+            setSpeedBadge(false)
+        }
+    }
+
+    fileprivate func setSpeedBadge(_ visible: Bool) {
+        if reduceMotion {
+            showSpeedBadge = visible
+        } else {
+            withAnimation(.easeInOut(duration: 0.25)) { showSpeedBadge = visible }
+        }
+    }
+
     fileprivate func updateBar(_ change: (inout BarAutoHide) -> Void) {
         change(&autoHide.state)
         guard autoHide.state.isHidden != barHidden else { return }
         withAnimation(.easeInOut(duration: 0.2)) { barHidden = autoHide.state.isHidden }
+    }
+}
+
+/// The small badge at the bottom of the reader for auto-scroll (#67): the speed ("Speed 3 of 7" and a row of
+/// dots) for a moment after it changes, and "Auto-Scroll Paused" while paused. Transparent to taps. The speed
+/// is hidden from VoiceOver (the auto-scroll control's value says it); the paused badge is readable.
+private struct AutoScrollBadge: View {
+    let state: ReaderViewModel.AutoScrollState
+    let level: Int
+    let showsSpeed: Bool
+
+    static let speedDuration: TimeInterval = 1.5
+
+    static func speedText(_ level: Int) -> Text {
+        Text("Speed \(level) of \(AutoScroll.levelCount)",
+             comment: "Auto-scroll speed level, e.g. 'Speed 3 of 7' (badge and VoiceOver value)")
+    }
+
+    var body: some View {
+        if state == .paused {
+            pill {
+                Label {
+                    Text("Auto-Scroll Paused", comment: "Badge at the bottom of the reader while auto-scroll is paused")
+                } icon: {
+                    Image(systemName: "pause.fill")
+                }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityHint(Text("Tap the text to resume.", comment: "VoiceOver hint of the paused auto-scroll badge"))
+            .accessibilityIdentifier("autoScrollPaused")
+        } else if state == .running, showsSpeed {
+            pill {
+                VStack(spacing: 2) {
+                    Self.speedText(level)
+                    HStack(spacing: 3) {
+                        ForEach(AutoScroll.levels, id: \.self) { dot in
+                            Circle()
+                                .fill(dot <= level ? HierarchicalShapeStyle.primary : HierarchicalShapeStyle.tertiary)
+                                .frame(width: 4, height: 4)
+                        }
+                    }
+                }
+            }
+            .accessibilityHidden(true)
+            .transition(.opacity)
+        }
+    }
+
+    private func pill<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        content()
+            .font(.caption2.weight(.semibold))
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(Capsule().fill(.regularMaterial))
+            .allowsHitTesting(false)
     }
 }
 

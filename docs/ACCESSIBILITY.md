@@ -310,6 +310,12 @@ behind a `confirmationDialog`.
   screen."), VoiceOver announces "Bookmark added" and the button then reads *Bookmarked*, dimmed. Each row of
   *All Bookmarks* is one button (chapter, first words, percentage) with the hint "Opens the book at this
   bookmark." and the action *Delete Bookmark* next to swipe to delete; all of it wraps at large text sizes.
+- Auto-scroll (*Options › Auto-Scroll*, #67): never starts by itself. *Start Auto-Scroll* has the value
+  "Speed 3 of 7" and a hint. While it runs, the text is covered by one element, "Auto-Scroll, Speed 3 of 7",
+  adjustable with swipe up / down (the speed), whose double-tap pauses; while paused, the badge "Auto-Scroll
+  Paused" (hint "Tap the text to resume.") is readable and a double-tap on any paragraph resumes. VoiceOver
+  announces "End of book. Auto-scroll stopped." at the end. The speed is in lines per minute, so it reads
+  the same at every text size.
 - Reader: every block (paragraph, heading, quote, list item) is one element; headings carry `.isHeader`
   and their level (`accessibilityHeading(.h1…)`), so the rotor's *Headings* jumps between chapter titles.
   Every block also has the action *Look Up a Word*, even with *Tap Paragraph to Look Up* turned off.
@@ -366,7 +372,10 @@ sepia, so the page doesn't light up the screen) and hides the sync glyph. Changi
 the reading position (`ReaderRenderStyle.layoutKey`).
 
 **Motion.** There are no custom animations. Jumps (restoring the position, chapters, the other device's
-position) scroll without animation, so Reduce Motion needs nothing extra.
+position) scroll without animation, so Reduce Motion needs nothing extra. Auto-scroll moves the text
+continuously by design, so with Reduce Motion it is still offered but starts no faster than the default
+speed (`AutoScroll.reduceMotionMaxLevel`; the user can turn it up), and its speed badge appears and goes
+without fading.
 
 **Digital Crown.** The reader is a plain `ScrollView`, so the crown scrolls it with the system's
 momentum and detents, like other system apps. In the word picker the crown moves the word cursor
@@ -423,6 +432,8 @@ checks the audit does not make:
 - `WatchReaderTopBarTests`: the reader's top bar hides after scrolling down, a tap on the text shows it
   again without opening the word picker (the hidden-bar screenshot is attached to the result). The
   left-edge swipe back does not work in the reader yet and is tracked in #118.
+- `WatchAutoScrollUITests`: *Start Auto-Scroll* moves the text by itself, a tap pauses it (the text stays
+  put, screenshot `watch-autoscroll-paused`) and *Stop Auto-Scroll* in the menu stops it.
 - `WatchBookmarksUITests`: *Add Bookmark* turns into *Bookmarked*, *All Bookmarks* lists the bookmark
   (screenshot `watch-bookmarks` attached to the result), and a tap on it closes the menu.
 - `WatchAccessibilityChecksTests`, on the same screens:

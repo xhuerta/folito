@@ -207,7 +207,8 @@ final class WatchAccessibilityChecksTests: XCTestCase {
         XCTAssertTrue(WatchUI.scrollToHittable(stepper, in: app), "Text size stepper not reachable at AX5")
         assertStepperSpansRow(stepper, in: app, screen: "Reading Options (AX5)")
         let chapter = WatchUI.element("chapterButton", in: app)
-        XCTAssertTrue(WatchUI.scrollToHittable(chapter, in: app), "Chapter button not reachable at AX5")
+        // The menu grew by the auto-scroll row (#67): a few more small drags at this size.
+        XCTAssertTrue(WatchUI.scrollToHittable(chapter, in: app, maxSteps: 16), "Chapter button not reachable at AX5")
     }
 
     @MainActor

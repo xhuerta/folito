@@ -9,6 +9,10 @@ enum HapticEvent: Equatable {
     case lookupFailed
     /// A bookmark was added from the reader menu.
     case bookmarkAdded
+    /// Auto-scroll started or resumed (the crown's speed changes play the crown's own detents).
+    case autoScrollStarted
+    /// Auto-scroll paused, stopped or reached the end of the book.
+    case autoScrollStopped
 
     var hapticType: WKHapticType {
         switch self {
@@ -16,6 +20,8 @@ enum HapticEvent: Equatable {
         case .lookupSucceeded: return .success
         case .lookupFailed: return .failure
         case .bookmarkAdded: return .success
+        case .autoScrollStarted: return .start
+        case .autoScrollStopped: return .stop
         }
     }
 }
