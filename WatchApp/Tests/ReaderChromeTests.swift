@@ -117,6 +117,30 @@ final class ReaderChromeTests: XCTestCase {
 
     /// Hiding the bar shrinks the measured top inset to 0; the reading line (and with it the saved position
     /// and the restore anchors of #116) must stay at the bottom edge of the bar.
+    /// Auto-scroll (#67): the bar hides while it runs, like reading by hand, and shows when it pauses or stops
+    /// (Reading Options is then one tap away); never hidden with VoiceOver.
+    func testAutoScrollHidesTheBarWhileRunning() {
+        var bar = BarAutoHide()
+        bar.programmaticScroll(true)
+        bar.autoScroll(running: true, at: at(0), voiceOver: false)
+        XCTAssertTrue(bar.isHidden, "running: reading mode")
+        // The text moving underneath never brings it back.
+        bar.scrolled(to: 500, at: at(2), voiceOver: false)
+        XCTAssertTrue(bar.isHidden)
+        bar.autoScroll(running: false, at: at(3), voiceOver: false)
+        XCTAssertFalse(bar.isHidden, "paused: the bar shows")
+        bar.autoScroll(running: true, at: at(4), voiceOver: false)
+        XCTAssertTrue(bar.isHidden, "resumed: hidden again")
+        // Stopped: shown, then the usual scrolling rules apply.
+        bar.autoScroll(running: false, at: at(5), voiceOver: false)
+        bar.programmaticScroll(false)
+        XCTAssertFalse(bar.isHidden)
+
+        var spoken = BarAutoHide()
+        spoken.autoScroll(running: true, at: at(0), voiceOver: true)
+        XCTAssertFalse(spoken.isHidden, "never hidden with VoiceOver")
+    }
+
     func testReadingLineIgnoresTheHiddenBar() {
         var line: CGFloat = 0
         line = ReadingLine.updated(current: line, measured: 44, barShown: true)

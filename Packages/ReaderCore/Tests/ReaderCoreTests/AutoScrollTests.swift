@@ -83,20 +83,101 @@ final class AutoScrollTests: XCTestCase {
                        AutoScroll.pointsPerSecond(level: 7, lineHeight: line))
     }
 
-    func testStepsAreSmallAndBounded() {
-        let line = 19.2
-        let tick = AutoScroll.step(level: 7, lineHeight: line, elapsed: AutoScroll.tickInterval)
-        XCTAssertGreaterThan(tick, 0)
-        XCTAssertLessThan(tick, 2, "a tick at the fastest level stays under 2 pt at the default size")
-        let largest = AutoScroll.step(level: 7, lineHeight: AutoScroll.lineHeight(pointSize: 28, lineSpacing: 0),
-                                      elapsed: AutoScroll.tickInterval)
-        XCTAssertLessThan(largest, 2, "and at the largest text size")
-        XCTAssertEqual(AutoScroll.step(level: 3, lineHeight: line, elapsed: 0), 0)
-        XCTAssertEqual(AutoScroll.step(level: 3, lineHeight: line, elapsed: -1), 0)
-        XCTAssertEqual(AutoScroll.step(level: 3, lineHeight: line, elapsed: .nan), 0)
-        // A long stall moves the text by at most `maxElapsed` seconds' worth.
-        XCTAssertEqual(AutoScroll.step(level: 3, lineHeight: line, elapsed: 5),
-                       AutoScroll.pointsPerSecond(level: 3, lineHeight: line) * AutoScroll.maxElapsed, accuracy: 1e-9)
+    func testLinesPerSecond() {
+        XCTAssertEqual(AutoScroll.linesPerSecond(level: 3), 24.0 / 60, accuracy: 1e-12)
+        XCTAssertEqual(AutoScroll.linesPerSecond(level: 99), 90.0 / 60, accuracy: 1e-12)
+    }
+
+    // MARK: motion
+
+    func testMotionIsLinearAndContinuousAcrossSpeedChanges() {
+        let t0 = Date(timeIntervalSinceReferenceDate: 1_000)
+        var motion = AutoScroll.Motion(linesPerSecond: 0.4, at: t0)
+        XCTAssertEqual(motion.lines(at: t0), 0)
+        XCTAssertEqual(motion.lines(at: t0 + 10), 4, accuracy: 1e-9)
+        // Before the start (a clock read a moment early): no negative distance.
+        XCTAssertEqual(motion.lines(at: t0 - 1), 0)
+
+        // Faster at t0 + 10: no jump at the change, the new slope after it.
+        motion.setSpeed(1.5, at: t0 + 10)
+        XCTAssertEqual(motion.lines(at: t0 + 10), 4, accuracy: 1e-9)
+        XCTAssertEqual(motion.lines(at: t0 + 12), 7, accuracy: 1e-9)
+
+        // Paused: stays where it is.
+        motion.setSpeed(0, at: t0 + 12)
+        XCTAssertEqual(motion.lines(at: t0 + 100), 7, accuracy: 1e-9)
+        // Resumed: continues from there.
+        motion.setSpeed(0.4, at: t0 + 100)
+        XCTAssertEqual(motion.lines(at: t0 + 105), 9, accuracy: 1e-9)
+        // Bad speeds stop it rather than move it backwards or to infinity.
+        motion.setSpeed(-3, at: t0 + 105)
+        XCTAssertEqual(motion.lines(at: t0 + 200), 9, accuracy: 1e-9)
+        motion.setSpeed(.nan, at: t0 + 200)
+        XCTAssertEqual(motion.lines(at: t0 + 300), 9, accuracy: 1e-9)
+        XCTAssertEqual(AutoScroll.Motion().lines(at: t0), 0)
+    }
+
+    // MARK: window
+
+    func testWindowFromLaidOutBlocksAndItsSpans() throws {
+        // Viewport 200 pt; block 0 is scrolled away above, 1 reaches onto the screen, 4 starts below it.
+        let laidOut: [Int: AutoScroll.Span] = [
+            0: .init(minY: -150, maxY: -60), 1: .init(minY: -50, maxY: 50), 2: .init(minY: 60, maxY: 160),
+            3: .init(minY: 170, maxY: 270), 4: .init(minY: 280, maxY: 380),
+        ]
+        let window = try XCTUnwrap(AutoScroll.Window(frames: laidOut, viewportHeight: 200, blockCount: 10, baseLines: 2))
+        XCTAssertEqual(window.first, 1)
+        XCTAssertEqual(window.last, 3)
+        XCTAssertEqual(window.originY, -50)
+        XCTAssertEqual(window.baseLines, 2)
+        let heights: [Int: Double] = [1: 100, 2: 100, 3: 100]
+        // Same places as in the scroll view, then moved up by the shift.
+        XCTAssertEqual(window.spans(heights: heights, spacing: 10, shift: 0)[2], .init(minY: 60, maxY: 160))
+        XCTAssertEqual(window.spans(heights: heights, spacing: 10, shift: 25)[3], .init(minY: 145, maxY: 245))
+        // A block whose height is not known yet ends the spans.
+        XCTAssertNil(window.spans(heights: [1: 100], spacing: 10, shift: 0)[2])
+        XCTAssertNil(AutoScroll.Window(frames: [:], viewportHeight: 200, blockCount: 10, baseLines: 0))
+    }
+
+    func testWindowDropsAndAddsBlocksWithoutMovingTheText() throws {
+        let laidOut: [Int: AutoScroll.Span] = [0: .init(minY: 0, maxY: 100), 1: .init(minY: 110, maxY: 210)]
+        var window = try XCTUnwrap(AutoScroll.Window(frames: laidOut, viewportHeight: 200, blockCount: 6, baseLines: 0))
+        let heights: [Int: Double] = Dictionary(uniqueKeysWithValues: (0..<6).map { ($0, 100.0) })
+        // Fills below the screen (margin 50: down to 250).
+        XCTAssertTrue(window.update(heights: heights, spacing: 10, shift: 0, viewportHeight: 200, blockCount: 6, margin: 50))
+        XCTAssertEqual(window.first, 0)
+        XCTAssertEqual(window.last, 2)
+        let before = window.spans(heights: heights, spacing: 10, shift: 180)[2]
+
+        // Scrolled 180 pt: block 0 (bottom at -80) is more than 50 pt above the screen and goes; block 1 stays.
+        XCTAssertTrue(window.update(heights: heights, spacing: 10, shift: 180, viewportHeight: 200, blockCount: 6, margin: 50))
+        XCTAssertEqual(window.first, 1)
+        XCTAssertEqual(window.originY, 110)
+        // Block 2 is exactly where it was: dropping block 0 did not move the text.
+        XCTAssertEqual(window.spans(heights: heights, spacing: 10, shift: 180)[2], before)
+        XCTAssertEqual(window.last, 3, "block 3 ends at 250: the margin is reached")
+
+        // Nothing to do: no change.
+        XCTAssertFalse(window.update(heights: heights, spacing: 10, shift: 180, viewportHeight: 200, blockCount: 6, margin: 50))
+        // A block not measured yet is not followed by another.
+        var waiting = try XCTUnwrap(AutoScroll.Window(frames: laidOut, viewportHeight: 200, blockCount: 6, baseLines: 0))
+        waiting.update(heights: [0: 100, 1: 100], spacing: 10, shift: 0, viewportHeight: 200, blockCount: 6, margin: 50)
+        XCTAssertEqual(waiting.last, 2)
+        waiting.update(heights: [0: 100, 1: 100], spacing: 10, shift: 0, viewportHeight: 200, blockCount: 6, margin: 50)
+        XCTAssertEqual(waiting.last, 2, "waits for block 2's height")
+    }
+
+    func testWindowEndShift() throws {
+        let laidOut: [Int: AutoScroll.Span] = [0: .init(minY: 0, maxY: 100), 1: .init(minY: 110, maxY: 210)]
+        var window = try XCTUnwrap(AutoScroll.Window(frames: laidOut, viewportHeight: 200, blockCount: 3, baseLines: 0))
+        let heights: [Int: Double] = [0: 100, 1: 100, 2: 100]
+        XCTAssertNil(window.endShift(heights: heights, spacing: 10, viewportHeight: 200, blockCount: 3), "last block not in it")
+        window.update(heights: heights, spacing: 10, shift: 0, viewportHeight: 200, blockCount: 3, margin: 50)
+        XCTAssertEqual(window.last, 2)
+        // The book ends at 320: the end is reached after 120 pt.
+        XCTAssertEqual(try XCTUnwrap(window.endShift(heights: heights, spacing: 10, viewportHeight: 200, blockCount: 3)),
+                       120, accuracy: 1e-9)
+        XCTAssertNil(window.endShift(heights: [0: 100, 1: 100], spacing: 10, viewportHeight: 200, blockCount: 3))
     }
 
     // MARK: cursor

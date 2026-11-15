@@ -122,18 +122,22 @@ final class AutoScrollReaderTests: XCTestCase {
         XCTAssertNotNil(model.lengths, "the words are counted")
         XCTAssertFalse(model.isRestoring)
 
-        // Running: a 60-word page in 20 s (180 wpm, a plausible sample) is not learned.
+        // Running: a 60-word page in 20 s (180 wpm, a plausible sample) is not learned. Auto-scroll reports the
+        // position itself; the scroll view underneath stands still and its frames are ignored meanwhile.
         model.startAutoScroll(reduceMotion: false)
         clock += 20
-        model.blockFramesChanged(frames(top: 1))
+        model.autoScrollPositionChanged(.init(index: 1, offset: 0), blockHeight: 100, force: true)
         XCTAssertEqual(model.currentIndex, 1)
+        model.blockFramesChanged(frames(top: 6))
+        XCTAssertEqual(model.currentIndex, 1, "the hidden scroll view does not move the position")
         // Paused but still on: not learned either.
         model.pauseAutoScroll()
         clock += 20
         model.blockFramesChanged(frames(top: 2))
+        XCTAssertEqual(model.currentIndex, 2, "paused: the crown scrolls by hand and the position follows")
         model.resumeAutoScroll()
         clock += 20
-        model.blockFramesChanged(frames(top: 3))
+        model.autoScrollPositionChanged(.init(index: 3, offset: 0), blockHeight: 100, force: true)
         XCTAssertEqual(model.currentIndex, 3)
         XCTAssertNil(d.data(forKey: ReadingSpeedStore.key), "nothing learned while auto-scroll was on")
 
@@ -147,85 +151,136 @@ final class AutoScrollReaderTests: XCTestCase {
         XCTAssertGreaterThan(speeds.load().wordsPerMinute, ReadingSpeed.defaultWordsPerMinute)
         XCTAssertLessThan(speeds.load().wordsPerMinute, 240)
     }
-    // MARK: Ticks (#67 feedback: the crown changed the level but the text did not visibly speed up)
+    // MARK: Motion, position and hand-back (#67, build 45 feedback)
 
-    /// A reader whose restore has settled, with the two 1000 pt blocks of `book()` laid out from the reading line.
-    private func settledReader(_ d: UserDefaults) async throws -> ReaderViewModel {
-        let model = reader(d)
+    private final class Clock {
+        var date = Date(timeIntervalSinceReferenceDate: 2_000_000)
+    }
+
+    /// A reader on `clock` whose opening restore has settled, the two 1000 pt blocks of `book()` laid out from
+    /// the reading line (viewport 0...200).
+    private func settledReader(_ d: UserDefaults, clock: Clock) async throws -> ReaderViewModel {
+        let model = ReaderViewModel(book: book(), positions: PositionStore(defaults: d),
+                                    sync: SyncCoordinator(defaults: d, credentials: { nil }),
+                                    now: { clock.date }, settings: d)
         model.openSettleDelay = 10_000_000
         model.settleDelay = 10_000_000
         model.viewportTop = 0
         model.viewportHeight = 200
         model.restoreInitialPosition()
         model.blockFramesChanged([0: BlockFrame(minY: 0, maxY: 1000), 1: BlockFrame(minY: 1010, maxY: 2010)])
-        for _ in 0..<200 where model.isRestoring {
-            try await Task.sleep(nanoseconds: 10_000_000)
-        }
-        XCTAssertFalse(model.isRestoring)
+        try await settle(model)
         return model
     }
 
-    private let line = AutoScroll.lineHeight(pointSize: 16, lineSpacing: 0)
-
-    func testTicksMoveByTheCurrentLevelAndASpeedChangeAppliesAtOnce() async throws {
-        let d = defaults()
-        let model = try await settledReader(d)
-        XCTAssertEqual(model.autoScrollTick(elapsed: 0.1, lineHeight: line), .idle, "not running: nothing moves")
-
-        model.startAutoScroll(reduceMotion: false)
-        XCTAssertEqual(model.autoScrollLevel, AutoScroll.defaultLevel)
-        // The first tick measures where the text is.
-        XCTAssertEqual(model.autoScrollTick(elapsed: 0.1, lineHeight: line), .idle)
-        XCTAssertEqual(model.autoScrollCursor, AutoScroll.Cursor(index: 0, offset: 0))
-
-        guard case .scroll(let first) = model.autoScrollTick(elapsed: 0.1, lineHeight: line) else {
-            return XCTFail("a running tick scrolls")
+    private func settle(_ model: ReaderViewModel) async throws {
+        for _ in 0..<300 where model.isRestoring {
+            try await Task.sleep(nanoseconds: 10_000_000)
         }
-        XCTAssertEqual(first.index, 0)
-        let slow = try XCTUnwrap(model.autoScrollCursor).offset
-        XCTAssertEqual(slow, AutoScroll.step(level: AutoScroll.defaultLevel, lineHeight: line, elapsed: 0.1), accuracy: 1e-9)
-
-        // The crown turns it up one detent while it runs: the very next tick uses the new level.
-        model.setAutoScrollLevel(AutoScroll.defaultLevel + 1)
-        guard case .scroll = model.autoScrollTick(elapsed: 0.1, lineHeight: line) else {
-            return XCTFail("still scrolling after a speed change")
-        }
-        let faster = try XCTUnwrap(model.autoScrollCursor).offset - slow
-        XCTAssertEqual(faster, AutoScroll.step(level: AutoScroll.defaultLevel + 1, lineHeight: line, elapsed: 0.1),
-                       accuracy: 1e-9)
-        XCTAssertGreaterThanOrEqual(faster / slow, AutoScroll.minLevelRatio - 1e-9, "one detent is a visible change")
-
-        // All the way up: several times the default pace.
-        model.setAutoScrollLevel(AutoScroll.levels.upperBound)
-        let before = try XCTUnwrap(model.autoScrollCursor).offset
-        _ = model.autoScrollTick(elapsed: 0.1, lineHeight: line)
-        let fastest = try XCTUnwrap(model.autoScrollCursor).offset - before
-        XCTAssertGreaterThan(fastest / slow, 3)
-        XCTAssertEqual(d.integer(forKey: ReaderSettings.autoScrollSpeedKey), AutoScroll.levels.upperBound)
+        XCTAssertFalse(model.isRestoring)
     }
 
-    /// The screen going dark (wrist down, Always On) pauses auto-scroll; nothing moves while paused, and resuming
-    /// measures the text again where it is instead of jumping to where the old cursor was.
-    func testPauseStopsTheTicksAndResumeContinuesFromTheText() async throws {
-        let model = try await settledReader(defaults())
+    /// The crown changes the speed of the running text at any moment: the distance goes on from where it was
+    /// (no jump) at the new slope, and pausing freezes it.
+    func testSpeedChangeWhileRunningContinuesSmoothly() async throws {
+        let clock = Clock()
+        let model = try await settledReader(defaults(), clock: clock)
+        XCTAssertEqual(model.autoScrollLines(at: clock.date), 0, "off: nothing moves")
+
         model.startAutoScroll(reduceMotion: false)
-        _ = model.autoScrollTick(elapsed: 0.1, lineHeight: line)
-        _ = model.autoScrollTick(elapsed: 0.1, lineHeight: line)
-        XCTAssertNotNil(model.autoScrollCursor)
+        let start = clock.date
+        clock.date += 10
+        let slow = AutoScroll.linesPerSecond(level: AutoScroll.defaultLevel)
+        XCTAssertEqual(model.autoScrollLines(at: clock.date), 10 * slow, accuracy: 1e-9)
 
+        // One detent up after 10 s, then 10 s more: continuous at the change, faster after it.
+        model.setAutoScrollLevel(AutoScroll.defaultLevel + 1)
+        XCTAssertEqual(model.autoScrollLines(at: clock.date), 10 * slow, accuracy: 1e-9, "no jump")
+        let fast = AutoScroll.linesPerSecond(level: AutoScroll.defaultLevel + 1)
+        XCTAssertEqual(model.autoScrollLines(at: clock.date + 10), 10 * slow + 10 * fast, accuracy: 1e-9)
+        XCTAssertGreaterThanOrEqual(fast / slow, AutoScroll.minLevelRatio)
+
+        // Turned up again later (any time, not only at the start).
+        clock.date += 10
+        model.setAutoScrollLevel(AutoScroll.levels.upperBound)
+        let top = AutoScroll.linesPerSecond(level: AutoScroll.levels.upperBound)
+        XCTAssertEqual(model.autoScrollLines(at: clock.date + 5), 10 * slow + 10 * fast + 5 * top, accuracy: 1e-9)
+
+        // Paused: frozen; resumed: on from there.
+        clock.date += 5
         model.pauseAutoScroll()
-        XCTAssertEqual(model.autoScroll, .paused)
-        XCTAssertNil(model.autoScrollCursor)
-        XCTAssertEqual(model.autoScrollTick(elapsed: 0.1, lineHeight: line), .idle, "paused: the text stays put")
-
-        // Meanwhile the text sits 40 pt into block 0 (the last scroll before the pause landed there).
-        model.blockFramesChanged([0: BlockFrame(minY: -40, maxY: 960), 1: BlockFrame(minY: 970, maxY: 1970)])
+        let frozen = model.autoScrollLines(at: clock.date)
+        XCTAssertEqual(model.autoScrollLines(at: clock.date + 60), frozen, accuracy: 1e-9)
+        clock.date += 60
         model.resumeAutoScroll()
-        XCTAssertEqual(model.autoScrollTick(elapsed: 5, lineHeight: line), .idle, "the first tick only measures")
-        XCTAssertEqual(model.autoScrollCursor, AutoScroll.Cursor(index: 0, offset: 40))
-        _ = model.autoScrollTick(elapsed: 0.1, lineHeight: line)
-        XCTAssertEqual(try XCTUnwrap(model.autoScrollCursor).offset,
-                       40 + AutoScroll.step(level: model.autoScrollLevel, lineHeight: line, elapsed: 0.1), accuracy: 1e-9)
+        XCTAssertEqual(model.autoScrollLines(at: clock.date + 2), frozen + 2 * top, accuracy: 1e-9)
+        // A speed change while paused does not move it.
+        model.pauseAutoScroll()
+        model.setAutoScrollLevel(1)
+        XCTAssertEqual(model.autoScrollLines(at: clock.date + 100), model.autoScrollLines(at: clock.date), accuracy: 1e-9)
+        XCTAssertGreaterThan(clock.date, start)
+    }
+
+    /// While the text moves, the position is saved every `AutoScroll.commitInterval` seconds, not per frame,
+    /// and at once when forced (pause, stop, leaving).
+    func testPositionIsCommittedAtALowRate() async throws {
+        let clock = Clock()
+        let d = defaults()
+        let model = try await settledReader(d, clock: clock)
+        model.startAutoScroll(reduceMotion: false)
+
+        XCTAssertTrue(model.autoScrollPositionChanged(.init(index: 0, offset: 100), blockHeight: 1000))
+        let first = model.currentOffset
+        XCTAssertGreaterThan(first, 0, "10% into the block")
+        clock.date += 1
+        XCTAssertFalse(model.autoScrollPositionChanged(.init(index: 0, offset: 300), blockHeight: 1000),
+                       "1 s later: not yet")
+        XCTAssertEqual(model.currentOffset, first)
+        clock.date += AutoScroll.commitInterval
+        XCTAssertTrue(model.autoScrollPositionChanged(.init(index: 1, offset: 0), blockHeight: 1000))
+        XCTAssertEqual(model.currentIndex, 1)
+        XCTAssertEqual(model.currentOffset, 0)
+        clock.date += 0.1
+        XCTAssertTrue(model.autoScrollPositionChanged(.init(index: 1, offset: 500), blockHeight: 1000, force: true),
+                      "forced: at once")
+        XCTAssertGreaterThan(model.currentOffset, 0)
+        // Saved for the next opening.
+        XCTAssertEqual(PositionStore(defaults: d).load("autoscroll")?.position.blockIndex,
+                       model.flat.position(at: 1)?.blockIndex)
+    }
+
+    /// On pause the scroll view is brought to the exact point auto-scroll showed: the jump is anchored with
+    /// the scrollTo math, re-issued until it lands within half a point, and only then is the restore over.
+    func testHandBackLandsOnTheExactPoint() async throws {
+        let clock = Clock()
+        let model = try await settledReader(defaults(), clock: clock)
+        model.startAutoScroll(reduceMotion: false)
+        clock.date += 30
+        model.pauseAutoScroll()
+
+        // Auto-scroll showed block 1 with 137.25 pt of it above the reading line.
+        let shown: [Int: AutoScroll.Span] = [0: .init(minY: -1147.25, maxY: -147.25), 1: .init(minY: -137.25, maxY: 862.75)]
+        model.handBackAutoScroll(at: .init(index: 1, offset: 137.25), frames: shown)
+        XCTAssertTrue(model.isRestoring)
+        let jump = try XCTUnwrap(model.jumpRequest)
+        XCTAssertEqual(jump.index, 1)
+        let expected = try XCTUnwrap(AutoScroll.scrollTarget(.init(index: 1, offset: 137.25), frames: shown,
+                                                             viewportTop: 0, viewportHeight: 200))
+        XCTAssertEqual(try XCTUnwrap(jump.anchorY), expected.anchorY, accuracy: 1e-9)
+        XCTAssertEqual(model.currentIndex, 1, "the position is saved at once")
+
+        // The scroll view lands 3 pt off: the jump is corrected (a word-start restore would accept 8 pt).
+        model.blockFramesChanged([1: BlockFrame(minY: -134.25, maxY: 865.75), 2: BlockFrame(minY: 870, maxY: 900)])
+        for _ in 0..<300 where model.jumpRequest?.token == jump.token {
+            try await Task.sleep(nanoseconds: 5_000_000)
+        }
+        let correction = try XCTUnwrap(model.jumpRequest)
+        XCTAssertNotEqual(correction.token, jump.token, "re-issued")
+        XCTAssertTrue(model.isRestoring, "not over while off")
+        // Lands exactly: done.
+        model.blockFramesChanged([1: BlockFrame(minY: -137.25, maxY: 862.75)])
+        try await settle(model)
+        XCTAssertEqual(model.currentIndex, 1)
     }
 
     func testCrownHintOnlyTheFirstTime() {
