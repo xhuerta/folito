@@ -2,7 +2,7 @@ import SwiftUI
 import Accessibility
 import ReaderCore
 
-/// Sheet shown from the reader: text size, dictionary and chapter index.
+/// Sheet shown from the reader: text size, dictionary, bookmarks and the way to the chapter list.
 struct ReaderMenuView: View {
     @ObservedObject var model: ReaderViewModel
     @Environment(\.dismiss) private var dismiss
@@ -22,152 +22,156 @@ struct ReaderMenuView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollViewReader { proxy in
-                List {
-                    // Top of the menu, not over the page: the reading view keeps every point for the text.
-                    // The percentage always shows; the time left joins it when it is on and known.
+            List {
+                // Top of the menu, not over the page: the reading view keeps every point for the text.
+                // The percentage always shows; the time left joins it when it is on and known.
+                Section {
+                    VStack(alignment: .leading, spacing: 2) {
+                        ReadingProgressLine(text: model.progressText())
+                        if showTimeRemaining, let remaining = model.timeRemaining {
+                            TimeRemainingLine(value: remaining)
+                        }
+                    }
+                    .listRowBackground(Color.clear)
+                }
+                if let syncNote {
                     Section {
-                        VStack(alignment: .leading, spacing: 2) {
-                            ReadingProgressLine(text: model.progressText())
-                            if showTimeRemaining, let remaining = model.timeRemaining {
-                                TimeRemainingLine(value: remaining)
-                            }
+                        Label {
+                            Text(syncNote).font(.footnote)
+                        } icon: {
+                            Image(systemName: "exclamationmark.arrow.triangle.2.circlepath").foregroundStyle(.tint)
                         }
-                        .listRowBackground(Color.clear)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("syncNote")
                     }
-                    if let syncNote {
-                        Section {
-                            Label {
-                                Text(syncNote).font(.footnote)
-                            } icon: {
-                                Image(systemName: "exclamationmark.arrow.triangle.2.circlepath").foregroundStyle(.tint)
-                            }
-                            .accessibilityElement(children: .combine)
-                            .accessibilityIdentifier("syncNote")
-                        }
+                }
+                Section("Text") {
+                    TextSizeStepper()
+                    NavigationLink("Typography", value: SettingsRoute.typography)
+                        .accessibilityIdentifier("typographyLink")
+                }
+                Section("Dictionary") {
+                    Button {
+                        onLookup()
+                        dismiss()
+                    } label: {
+                        Label("Look Up a Word", systemImage: "character.book.closed")
                     }
-                    Section("Text") {
-                        TextSizeStepper()
-                        NavigationLink("Typography", value: SettingsRoute.typography)
-                            .accessibilityIdentifier("typographyLink")
+                }
+                // Sync is forward only, like Readest and KOReader (#112): the open-time prompt only offers a
+                // position that is ahead. This is the way back to one that is behind. Hidden while sync is off;
+                // a book that does not sync (#167) gets a short explanation instead.
+                if let blocker = model.bookSyncBlocker {
+                    Section("Sync") {
+                        BookSyncExplanation(decision: blocker)
                     }
-                    Section("Dictionary") {
+                } else if model.canGoToSyncedPosition {
+                    Section("Sync") {
                         Button {
-                            onLookup()
-                            dismiss()
+                            goToSyncedPosition()
                         } label: {
-                            Label("Look Up a Word", systemImage: "character.book.closed")
+                            Label("Go to Synced Position", systemImage: "arrow.triangle.2.circlepath")
+                        }
+                        .disabled(fetchingSyncedPosition)
+                        .accessibilityLabel(Text("Go to Synced Position"))
+                        .accessibilityHint(Text("Jumps to the position saved on the sync service, even if it is earlier in the book.",
+                                                comment: "VoiceOver hint of 'Go to Synced Position' in the reader menu"))
+                        .accessibilityIdentifier("goToSyncedPositionButton")
+                        if let syncedPositionNote {
+                            syncedPositionNote
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityIdentifier("syncedPositionNote")
                         }
                     }
-                    // Sync is forward only, like Readest and KOReader (#112): the open-time prompt only offers a
-                    // position that is ahead. This is the way back to one that is behind. Hidden while sync is off;
-                    // a book that does not sync (#167) gets a short explanation instead.
-                    if let blocker = model.bookSyncBlocker {
-                        Section("Sync") {
-                            BookSyncExplanation(decision: blocker)
-                        }
-                    } else if model.canGoToSyncedPosition {
-                        Section("Sync") {
-                            Button {
-                                goToSyncedPosition()
-                            } label: {
-                                Label("Go to Synced Position", systemImage: "arrow.triangle.2.circlepath")
-                            }
-                            .disabled(fetchingSyncedPosition)
-                            .accessibilityLabel(Text("Go to Synced Position"))
-                            .accessibilityHint(Text("Jumps to the position saved on the sync service, even if it is earlier in the book.",
-                                                    comment: "VoiceOver hint of 'Go to Synced Position' in the reader menu"))
-                            .accessibilityIdentifier("goToSyncedPositionButton")
-                            if let syncedPositionNote {
-                                syncedPositionNote
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                    .accessibilityIdentifier("syncedPositionNote")
-                            }
-                        }
+                }
+                // Next to the chapters (#65): mark the line at the top of the screen, and the book's list.
+                Section("Bookmarks") {
+                    AddBookmarkButton(isBookmarked: model.isCurrentPositionBookmarked) {
+                        if case .added? = model.addBookmark() { bookmarkAdded() }
                     }
-                    // Next to the chapters (#65): mark the line at the top of the screen, and the book's list.
-                    Section("Bookmarks") {
-                        AddBookmarkButton(isBookmarked: model.isCurrentPositionBookmarked) {
-                            if case .added? = model.addBookmark() { bookmarkAdded() }
-                        }
-                        if !model.bookmarks.isEmpty {
-                            NavigationLink {
-                                BookmarksView(model: model) { bookmark in
-                                    model.jump(to: bookmark)
-                                    dismiss()
-                                }
-                            } label: {
-                                BookmarksLinkLabel(count: model.bookmarks.count)
+                    if !model.bookmarks.isEmpty {
+                        NavigationLink {
+                            BookmarksView(model: model) { bookmark in
+                                model.jump(to: bookmark)
+                                dismiss()
                             }
-                            .accessibilityIdentifier("bookmarksLink")
-                        }
-                    }
-                    // Auto-scroll (#67), below the bookmarks: the text size stays the sheet's first row. Starts once the
-                    // sheet is gone; while it is on (running or paused) the same row stops it.
-                    Section("Auto-Scroll") {
-                        Button {
-                            if model.isAutoScrollActive {
-                                model.stopAutoScroll()
-                            } else {
-                                onAutoScroll()
-                            }
-                            dismiss()
                         } label: {
-                            if model.isAutoScrollActive {
-                                Label("Stop Auto-Scroll", systemImage: "stop.circle")
-                            } else {
-                                Label("Start Auto-Scroll", systemImage: "play.circle")
-                            }
+                            BookmarksLinkLabel(count: model.bookmarks.count)
                         }
-                        .accessibilityValue(Text("Speed \(model.autoScrollLevel) of \(AutoScroll.levelCount)",
-                                                 comment: "Auto-scroll speed level, e.g. 'Speed 3 of 7' (badge and VoiceOver value)"))
-                        .accessibilityHint(model.isAutoScrollActive ? Text("") :
-                                            Text("Scrolls the text by itself. Turn the Digital Crown to change the speed, tap to pause.",
-                                                 comment: "VoiceOver hint of 'Start Auto-Scroll' in the reader menu"))
-                        .accessibilityIdentifier("autoScrollButton")
+                        .accessibilityIdentifier("bookmarksLink")
                     }
-                    // Read status (#113): the same choice as the offer at the end of the book. Below the text size, which the
-                    // sheet keeps as its first row.
+                }
+                // Auto-scroll (#67), below the bookmarks: the text size stays the sheet's first row. Starts once the
+                // sheet is gone; while it is on (running or paused) the same row stops it.
+                Section("Auto-Scroll") {
+                    Button {
+                        if model.isAutoScrollActive {
+                            model.stopAutoScroll()
+                        } else {
+                            onAutoScroll()
+                        }
+                        dismiss()
+                    } label: {
+                        if model.isAutoScrollActive {
+                            Label("Stop Auto-Scroll", systemImage: "stop.circle")
+                        } else {
+                            Label("Start Auto-Scroll", systemImage: "play.circle")
+                        }
+                    }
+                    .accessibilityValue(Text("Speed \(model.autoScrollLevel) of \(AutoScroll.levelCount)",
+                                             comment: "Auto-scroll speed level, e.g. 'Speed 3 of 7' (badge and VoiceOver value)"))
+                    .accessibilityHint(model.isAutoScrollActive ? Text("") :
+                                        Text("Scrolls the text by itself. Turn the Digital Crown to change the speed, tap to pause.",
+                                             comment: "VoiceOver hint of 'Start Auto-Scroll' in the reader menu"))
+                    .accessibilityIdentifier("autoScrollButton")
+                }
+                // Read status (#113): the same choice as the offer at the end of the book. Below the text size, which the
+                // sheet keeps as its first row.
+                Section {
+                    Button {
+                        model.setFinished(!model.isFinished)
+                    } label: {
+                        if model.isFinished {
+                            Label("Mark as Unread", systemImage: "circle")
+                        } else {
+                            Label("Mark as Finished", systemImage: "checkmark.circle")
+                        }
+                    }
+                    .accessibilityIdentifier("readStatusButton")
+                }
+                // Per-book sync switch (#167), only while a sync service is set up. Below the existing rows, so
+                // the text size stays the sheet's first row and the Sync section keeps its place.
+                if model.isSyncConfigured {
                     Section {
-                        Button {
-                            model.setFinished(!model.isFinished)
-                        } label: {
-                            if model.isFinished {
-                                Label("Mark as Unread", systemImage: "circle")
-                            } else {
-                                Label("Mark as Finished", systemImage: "checkmark.circle")
-                            }
+                        Toggle(isOn: Binding(get: { model.isSyncSwitchedOn },
+                                             set: { model.setSyncSwitchedOn($0) })) {
+                            Text("Sync Progress for This Book",
+                                 comment: "Per-book switch in the watch reader menu: whether this book's reading position syncs with the sync service")
                         }
-                        .accessibilityIdentifier("readStatusButton")
+                        .accessibilityIdentifier("bookSyncToggle")
                     }
-                    // Per-book sync switch (#167), only while a sync service is set up. Below the existing rows, so
-                    // the text size stays the sheet's first row and the Sync section keeps its place.
-                    if model.isSyncConfigured {
-                        Section {
-                            Toggle(isOn: Binding(get: { model.isSyncSwitchedOn },
-                                                 set: { model.setSyncSwitchedOn($0) })) {
-                                Text("Sync Progress for This Book",
-                                     comment: "Per-book switch in the watch reader menu: whether this book's reading position syncs with the sync service")
-                            }
-                            .accessibilityIdentifier("bookSyncToggle")
-                        }
-                    }
-                    Section("Chapters") {
-                        let current = currentRow
-                        ForEach(Array(model.flat.contents.enumerated()), id: \.offset) { offset, row in
-                            ContentsRowView(row: row, isCurrent: offset == current) {
+                }
+                // One row instead of the whole chapter list (#172), so a long book keeps the sheet short. It pushes
+                // the list, which opens on the current chapter; a tap there jumps and closes the sheet.
+                if !model.flat.contents.isEmpty {
+                    Section {
+                        NavigationLink {
+                            ChaptersView(model: model) { row in
                                 if let start = row.startIndex {
                                     model.jump(to: start, characterOffset: row.characterOffset)
                                     dismiss()
                                 }
                             }
-                            .id(offset)
+                        } label: {
+                            ChaptersLinkLabel(currentTitle: model.currentContentsTitle)
                         }
+                        .accessibilityHint(Text("Lists the book's chapters.",
+                                                comment: "VoiceOver hint of the Chapters row in the reader menu, which opens the chapter list"))
+                        .accessibilityIdentifier("chaptersLink")
                     }
                 }
-                .onAppear { scrollToCurrentChapter(proxy) }
             }
             // "Options", not "Contents": the sheet holds the text size, typography, the dictionary and the bookmarks
             // as well as the chapters, and it is opened from the Reading Options button.
@@ -175,21 +179,6 @@ struct ReaderMenuView: View {
             .navigationDestination(for: SettingsRoute.self) { $0.destination }
         }
     }
-
-    /// Row of the chapter list marked as the current one (nil in front matter before the first TOC entry).
-    private var currentRow: Int? {
-        model.flat.currentContentsRow(at: model.currentIndex, characterOffset: model.currentOffset)
-    }
-
-    /// With a TOC (books can list hundreds of entries), the list opens on the current entry. Not while it is one
-    /// of the first rows, which a short scroll reaches: the sheet then opens at its top, with the progress and the
-    /// text size in view. Books without a TOC open at the top as before.
-    private func scrollToCurrentChapter(_ proxy: ScrollViewProxy) {
-        guard model.flat.toc != nil, let row = currentRow, row >= Self.autoScrollMinimumRow else { return }
-        proxy.scrollTo(row, anchor: .center)
-    }
-
-    static let autoScrollMinimumRow = 3
 
     /// Confirms a new bookmark: a success haptic, and VoiceOver says so (the button's label changes too).
     private func bookmarkAdded() {
@@ -247,62 +236,6 @@ struct BookSyncExplanation: View {
     }
 }
 
-/// A row of the chapter list: a chapter (marked with the bookmark glyph when it is the current one), or a group
-/// header above the chapters ("Part One") in a TOC. VoiceOver reads the group with an indented chapter
-/// ("Chapter 3, in Part One") and says "selected" for the current row.
-struct ContentsRowView: View {
-    let row: FlatBook.ContentsRow
-    let isCurrent: Bool
-    let action: () -> Void
-
-    var body: some View {
-        if row.kind == .group, row.startIndex == nil {
-            label
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(spokenTitle)
-                .accessibilityAddTraits(.isHeader)
-                .accessibilityIdentifier("chapterGroup")
-        } else {
-            Button(action: action) { label }
-                .accessibilityLabel(spokenTitle)
-                // The bookmark glyph is visual only: VoiceOver says "selected" instead.
-                .accessibilityAddTraits(isCurrent ? .isSelected : [])
-                .accessibilityAddTraits(row.kind == .group ? .isHeader : [])
-                .accessibilityIdentifier(row.kind == .group ? "chapterGroup" : "chapterButton")
-        }
-    }
-
-    private var label: some View {
-        HStack {
-            title
-            if isCurrent {
-                Spacer()
-                Image(systemName: "bookmark.fill")
-                    .foregroundStyle(.tint)
-                    .accessibilityHidden(true)
-            }
-        }
-        .padding(.leading, row.isIndented ? 8 : 0)
-    }
-
-    @ViewBuilder private var title: some View {
-        if row.kind == .group {
-            Text(row.title)
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .lineLimit(3)
-        } else {
-            Text(row.title).lineLimit(3)
-        }
-    }
-
-    private var spokenTitle: Text {
-        guard row.isIndented, let group = row.groupTitle else { return Text(row.title) }
-        return Text("\(row.title), in \(group)",
-                    comment: "VoiceOver label of a chapter in the reader's chapter list, with the part it belongs to, e.g. 'Chapter 3, in Part One'")
-    }
-}
-
 /// "43% read": how far into the book the reader is, worded as in the book's Library row. VoiceOver reads it
 /// as it is ("43 percent read"), as its own element above the time left.
 struct ReadingProgressLine: View {
@@ -354,8 +287,8 @@ struct TextSizeStepper: View {
 
 /// A − value + control that looks like the watch Stepper but never takes the Digital Crown.
 ///
-/// The system Stepper is crown-focusable: while the crown scrolled a List past it (the reader menu on the way
-/// to the chapters, Settings, Typography), the Stepper grabbed the crown and changed the value instead. Here
+/// The system Stepper is crown-focusable: while the crown scrolled a List past it (the reader menu, Settings,
+/// Typography), the Stepper grabbed the crown and changed the value instead. Here
 /// the − and + are plain buttons, which the crown ignores, so the crown only scrolls the list. VoiceOver still
 /// gets a real, adjustable Stepper through `accessibilityRepresentation` (swipe up / down), so its label,
 /// value, identifier and element type are unchanged.

@@ -96,4 +96,23 @@ final class ContentsTests: XCTestCase {
         XCTAssertEqual(flat.contents.map(\.isIndented), [false, false])
         XCTAssertEqual(flat.currentContentsRow(at: 5), 0)
     }
+
+    /// The reader menu's Chapters row (#172) reads the row the chapter list marks: nothing in front matter, the
+    /// part on its half-title, then the chapter.
+    @MainActor
+    func testChaptersRowValueFollowsTheMarkedRow() {
+        let defaults = UserDefaults(suiteName: "ContentsTests.\(UUID().uuidString)")!
+        let model = ReaderViewModel(book: makeBook(toc: toc), positions: PositionStore(defaults: defaults),
+                                    sync: SyncCoordinator(defaults: defaults, credentials: { nil }), settings: defaults)
+        model.jump(to: 0)
+        XCTAssertNil(model.currentContentsRow)
+        XCTAssertNil(model.currentContentsTitle, "front matter: the row reads just \"Chapters\"")
+        model.jump(to: 1)
+        XCTAssertEqual(model.currentContentsTitle, "Part One")
+        model.jump(to: 4)
+        XCTAssertEqual(model.currentContentsRow, 1)
+        XCTAssertEqual(model.currentContentsTitle, "Chapter 1", "a hidden section shows its chapter")
+        model.jump(to: 6)
+        XCTAssertEqual(model.currentContentsTitle, "Chapter 2", "trimmed")
+    }
 }
