@@ -573,6 +573,50 @@ final class ReopenPositionTests: XCTestCase {
         XCTAssertEqual(remote.page, 120)
     }
 
+    /// #167: with Readest, a book the iPhone does not report as linked to a Readest row is neither fetched nor
+    /// pushed, and a book switched off is not either; an unknown link (older iPhone) keeps syncing every book.
+    @MainActor
+    func testUnlinkedOrSwitchedOffBooksDoNotSync() async throws {
+        let (defaults, name) = suite()
+        defer { defaults.removePersistentDomain(forName: name) }
+        let service = EchoService()
+        let sync = SyncCoordinator(defaults: defaults, connector: { service })
+        let ahead = ReadingPosition(xpointer: "/body/p[50]", percentage: 0.5, page: 50, pageCount: 100)
+        service.lock.withLock { service.stored = ahead }
+        let local = ReadingPosition(xpointer: "/body/p[1]", percentage: 0, page: 1, pageCount: 100)
+        let book = BookIdentity(partialMD5: "h")
+        // Unknown link: as before.
+        XCTAssertTrue(sync.syncs("h"))
+        guard case .offerRemote = await sync.decisionOnOpen(book: book, local: local) else {
+            return XCTFail("a book syncs while the iPhone has not reported its Readest links")
+        }
+        // The iPhone reports the links: "h" is not in the Readest library.
+        sync.applyRemote(switches: nil, readestLinked: ["other"])
+        XCTAssertEqual(sync.syncDecision(for: "h"), .notInLibrary)
+        let unlinked = await sync.decisionOnOpen(book: book, local: local)
+        XCTAssertEqual(unlinked, .keepLocal)
+        sync.report(book: book, xpointer: "/body/p[2]", percentage: 0.01, page: 2, pageCount: 100, immediately: true)
+        try await Task.sleep(nanoseconds: 300_000_000)
+        XCTAssertEqual(service.lock.withLock { service.stored }, ahead, "nothing may be pushed for an unlinked book")
+        XCTAssertEqual(sync.status, .idle)
+        // Uploaded to Readest: linked, syncs again.
+        sync.applyRemote(switches: nil, readestLinked: ["h"])
+        XCTAssertTrue(sync.syncs("h"))
+        // Switched off in the reader menu: no sync whatever the link, and the switch survives a relaunch.
+        sync.setSyncEnabled(false, bookKey: "h")
+        XCTAssertEqual(sync.syncDecision(for: "h"), .switchedOff)
+        let off = await sync.decisionOnOpen(book: book, local: local)
+        XCTAssertEqual(off, .keepLocal)
+        XCTAssertEqual(SyncCoordinator(defaults: defaults, connector: { service }).syncDecision(for: "h"), .switchedOff)
+        // A newer switch from the iPhone wins; an older one does not.
+        let older = BookSyncSwitch(isOn: true, stamp: 1)
+        XCTAssertFalse(sync.applyRemote(switches: ["h": older], readestLinked: ["h"]))
+        XCTAssertFalse(sync.isSwitchedOn("h"))
+        let newer = BookSyncSwitch(isOn: true, stamp: Int64.max / 2)
+        XCTAssertTrue(sync.applyRemote(switches: ["h": newer], readestLinked: ["h"]))
+        XCTAssertTrue(sync.syncs("h"))
+    }
+
     // MARK: Forward-only sync (#112)
 
     @MainActor

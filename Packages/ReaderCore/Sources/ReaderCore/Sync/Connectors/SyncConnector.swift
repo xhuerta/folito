@@ -164,10 +164,14 @@ public struct SyncConnectorDescriptor: Sendable, Equatable {
     public var staleCheckRequiresDeviceID: Bool
     /// Host names the connector talks to (privacy docs / App Privacy).
     public var hosts: [String]
+    /// Whether the service keeps a library and syncs only the books in it (Readest: a book must be linked to a
+    /// row of the user's Readest library). KOReader Sync has no library: any document may exist on another
+    /// device, so every book syncs (`BookSyncPolicy`, issue #167).
+    public var requiresLibraryLink: Bool
 
     public init(id: String, displayName: String, summary: String, capabilities: SyncCapabilities,
                 authKind: SyncAuthKind, credentialFields: [CredentialField], storageKeys: [String],
-                staleCheckRequiresDeviceID: Bool, hosts: [String] = []) {
+                staleCheckRequiresDeviceID: Bool, hosts: [String] = [], requiresLibraryLink: Bool = false) {
         self.id = id
         self.displayName = displayName
         self.summary = summary
@@ -177,6 +181,7 @@ public struct SyncConnectorDescriptor: Sendable, Equatable {
         self.storageKeys = storageKeys
         self.staleCheckRequiresDeviceID = staleCheckRequiresDeviceID
         self.hosts = hosts
+        self.requiresLibraryLink = requiresLibraryLink
     }
 
     /// Whether "Test Connection" can run from stored credentials without a session that only one device

@@ -22,6 +22,9 @@ import ReaderCore
 ///    (deleted here by the user), watchID (this installation), typography?, typographyStamp? }`
 ///  - read status, both directions: `readStatus` (JSON string `{<documentHash>: {s, t}}`) in the settings
 ///    context (phone) and the library context (watch); newer stamp wins per book (`ReadStatusMerge`)
+///  - per-book sync (#167): `bookSync` (JSON string `{<documentHash>: {on, t}}`, the "Sync Progress for This
+///    Book" switches) both ways, newer stamp wins per book (`BookSyncSwitchMerge`); `readestLinked` (array of
+///    hashes linked to a Readest row) phone -> watch only, absent = unknown (every book syncs, as before)
 ///  - watch -> phone: `{ type: "book_removed", documentHash, watchID }` when the user deletes a book here
 ///    (sendMessage when reachable, else transferUserInfo)
 /// WCSessionDelegate callbacks arrive on a background queue; all heavy work is hopped off the main actor.
@@ -153,7 +156,8 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
                                typography: ReaderTypography? = nil,
                                timeRemaining: [String: ReadingTimeRemaining] = [:],
                                progress: [String: Double] = [:],
-                               readStatus: [String: ReadStatusMark] = [:]) -> [String: Any] {
+                               readStatus: [String: ReadStatusMark] = [:],
+                               bookSync: [String: BookSyncSwitch] = [:]) -> [String: Any] {
         var context: [String: Any] = [typeKey: libraryType, hashesKey: hashes.sorted(),
                                       dictionariesKey: dictionaries.sorted(), stampKey: settingsStamp,
                                       removedKey: removed.sorted()]
@@ -172,6 +176,8 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
         // Read status of the books stored here (last writer wins per book on the phone).
         let stored = Set(hashes)
         context.merge(ReadStatusSync.context(for: readStatus.filter { stored.contains($0.key) })) { _, new in new }
+        // Per-book sync switches of the books stored here (#167, last writer wins per book on the phone).
+        context.merge(BookSyncWire.context(switches: bookSync.filter { stored.contains($0.key) })) { _, new in new }
         return context
     }
 
@@ -181,19 +187,27 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
     private let typography: @MainActor () -> ReaderTypography
     private let onTypography: @MainActor (ReaderTypography) -> Void
     private let onSettingsChanged: @MainActor () -> Void
+    /// The per-book sync switches to report for the given books (#167).
+    private let bookSyncSwitches: @MainActor (Set<String>) -> [String: BookSyncSwitch]
+    /// The iPhone's switches and Readest links arrived; returns whether a switch changed here.
+    private let onBookSync: @MainActor ([String: BookSyncSwitch]?, Set<String>?) -> Bool
 
     init(library: BookLibrary,
          dictionaries: InstalledDictionaries,
          onDictionariesChanged: @escaping @MainActor () -> Void,
          typography: @escaping @MainActor () -> ReaderTypography,
          onTypography: @escaping @MainActor (ReaderTypography) -> Void,
-         onSettingsChanged: @escaping @MainActor () -> Void) {
+         onSettingsChanged: @escaping @MainActor () -> Void,
+         bookSyncSwitches: @escaping @MainActor (Set<String>) -> [String: BookSyncSwitch] = { _ in [:] },
+         onBookSync: @escaping @MainActor ([String: BookSyncSwitch]?, Set<String>?) -> Bool = { _, _ in false }) {
         self.library = library
         self.dictionaries = dictionaries
         self.onDictionariesChanged = onDictionariesChanged
         self.typography = typography
         self.onTypography = onTypography
         self.onSettingsChanged = onSettingsChanged
+        self.bookSyncSwitches = bookSyncSwitches
+        self.onBookSync = onBookSync
         super.init()
     }
 
@@ -223,6 +237,7 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
     func publishLibrary() {
         let library = self.library
         let typography = self.typography
+        let switches = self.bookSyncSwitches
         let dictionaryIds = dictionaries.infos.map(\.id)
         Task { @MainActor in
             let session = WCSession.default
@@ -239,7 +254,8 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
                                                                       typography: typography(),
                                                                       timeRemaining: library.positions.readingTimes.all(),
                                                                       progress: library.progress,
-                                                                      readStatus: library.readStatusMarks))
+                                                                      readStatus: library.readStatusMarks,
+                                                                      bookSync: switches(Set(hashes))))
         }
     }
 
@@ -327,12 +343,18 @@ final class ConnectivityReceiver: NSObject, WCSessionDelegate {
         }
         let incomingTypography = TypographySync.decode(from: info)
         let incomingReadStatus = ReadStatusSync.decode(from: info)
+        // Only the settings context carries them: any other message says nothing about the links (#167).
+        let isSettings = (info[Self.typeKey] as? String) == Self.settingsType
+        let incomingSwitches = isSettings ? BookSyncWire.switches(from: info) : nil
+        let incomingLinks = isSettings ? BookSyncWire.readestLinked(from: info) : nil
+        let applyBookSync = onBookSync
         let library = self.library
         let notify = onSettingsChanged
         let applyTypography = onTypography
         Task { @MainActor [weak self] in
             if let incomingTypography { applyTypography(incomingTypography) }
             if let incomingReadStatus, library.applyRemoteReadStatus(incomingReadStatus) { self?.publishLibrary() }
+            if isSettings, applyBookSync(incomingSwitches, incomingLinks) { self?.publishLibrary() }
             if changed { notify() }
             if let hash = deleteHash { library.delete(documentHash: hash) }
             if let bookCover { library.setCover(bookCover.cover, documentHash: bookCover.hash) }

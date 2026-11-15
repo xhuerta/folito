@@ -20,6 +20,8 @@ struct BookDetailView: View {
     @State private var showOnlineLookup = false
     @Environment(ReadestLibraryModel.self) private var readest: ReadestLibraryModel?
     @Environment(\.dismiss) private var dismiss
+    /// The active sync service (nil = sync off): the Sync card is shown only while one is set up (#167).
+    @Environment(\.activeSyncConnectorID) private var activeSyncConnectorID
     @State private var deletion = BookDeletion()
     @State private var showFullDescription = false
 
@@ -66,6 +68,12 @@ struct BookDetailView: View {
                     information(entry)
                 }
                 section(nil) { actions(entry) }
+                // Last, below the actions: the per-book sync switch (#167), only while a sync service is set up.
+                if activeSyncConnectorID != nil {
+                    section(Text("Sync", comment: "Book detail section: the per-book sync switch")) {
+                        bookSync(entry)
+                    }
+                }
                 if let online = entry.online {
                     OpenLibraryCredit(pageURL: online.sourceURL)
                         .padding(.horizontal, 4)
@@ -234,6 +242,42 @@ struct BookDetailView: View {
             .font(.footnote)
             .foregroundStyle(.secondaryText)
             .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: Sync (#167)
+
+    @ViewBuilder
+    private func bookSync(_ entry: LibraryEntry) -> some View {
+        Toggle(isOn: Binding(get: { entry.syncsProgress },
+                             set: { library.setSyncEnabled($0, hash: entry.documentHash) })) {
+            Text("Sync Progress for This Book",
+                 comment: "Per-book switch in the book details: whether this book's reading position syncs with the sync service")
+                .font(.body)
+        }
+        .frame(minHeight: 44)
+        .accessibilityIdentifier("bookDetailSyncToggle")
+        if let note = bookSyncNote(entry) {
+            note
+                .font(.footnote)
+                .foregroundStyle(.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("bookDetailSyncNote")
+        }
+    }
+
+    /// Why the book's progress does not sync, if it does not: its switch is off, or (Readest) it is not in the
+    /// Readest library.
+    private func bookSyncNote(_ entry: LibraryEntry) -> Text? {
+        if !entry.syncsProgress {
+            return Text("Nothing about this book is sent to the sync service. Its progress stays on your iPhone and Apple Watch.",
+                        comment: "Book details: shown under 'Sync Progress for This Book' when it is off")
+        }
+        if activeSyncConnectorID == ReadestConnectorFactory.id, let readest,
+           let linked = readest.linkedHashes(in: library.entries), !linked.contains(entry.documentHash) {
+            return Text("This book isn’t in your Readest library, so its progress doesn’t sync. Upload it to Readest to sync it.",
+                        comment: "Book details: shown under 'Sync Progress for This Book' when the book is not in the user's Readest library")
+        }
+        return nil
     }
 
     // MARK: Actions
@@ -463,5 +507,17 @@ struct BookDeletionDialogs: ViewModifier {
     private var readestDeleteTitle: String {
         guard let book = deletion.readestBook else { return "" }
         return String(localized: "Delete “\(book.title)” from Readest?", comment: "Confirmation title; the placeholder is the book title")
+    }
+}
+
+/// The active sync service's id (`SyncConnectorDescriptor.id`), nil while sync is off. Set by the app.
+private struct ActiveSyncConnectorIDKey: EnvironmentKey {
+    static let defaultValue: String? = nil
+}
+
+extension EnvironmentValues {
+    var activeSyncConnectorID: String? {
+        get { self[ActiveSyncConnectorIDKey.self] }
+        set { self[ActiveSyncConnectorIDKey.self] = newValue }
     }
 }

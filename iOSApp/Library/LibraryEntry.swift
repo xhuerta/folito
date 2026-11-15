@@ -40,8 +40,14 @@ struct LibraryEntry: Codable, Identifiable, Equatable, Sendable {
     /// on this iPhone. Synced with the watch and, for books in Readest, with the row's `reading_status`.
     /// Optional, so libraries saved before it existed decode unchanged.
     var readStatus: ReadStatusMark? = nil
+    /// "Sync Progress for This Book" (#167) with the time it was set; nil = never changed (on). Synced with the
+    /// watch, last writer wins. Optional, so libraries saved before it existed decode unchanged.
+    var syncSwitch: BookSyncSwitch? = nil
 
     var isSample: Bool { sampleLanguage != nil }
+
+    /// Whether the book's progress may sync at all (its switch; on by default).
+    var syncsProgress: Bool { syncSwitch?.isOn ?? true }
 
     /// Marked as finished (here, on the watch or in Readest).
     var isFinished: Bool { readStatus?.isFinished == true }

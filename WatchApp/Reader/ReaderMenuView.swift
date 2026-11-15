@@ -60,8 +60,13 @@ struct ReaderMenuView: View {
                         }
                     }
                     // Sync is forward only, like Readest and KOReader (#112): the open-time prompt only offers a
-                    // position that is ahead. This is the way back to one that is behind. Hidden while sync is off.
-                    if model.canGoToSyncedPosition {
+                    // position that is ahead. This is the way back to one that is behind. Hidden while sync is off;
+                    // a book that does not sync (#167) gets a short explanation instead.
+                    if let blocker = model.bookSyncBlocker {
+                        Section("Sync") {
+                            BookSyncExplanation(decision: blocker)
+                        }
+                    } else if model.canGoToSyncedPosition {
                         Section("Sync") {
                             Button {
                                 goToSyncedPosition()
@@ -137,6 +142,18 @@ struct ReaderMenuView: View {
                         }
                         .accessibilityIdentifier("readStatusButton")
                     }
+                    // Per-book sync switch (#167), only while a sync service is set up. Below the existing rows, so
+                    // the text size stays the sheet's first row and the Sync section keeps its place.
+                    if model.isSyncConfigured {
+                        Section {
+                            Toggle(isOn: Binding(get: { model.isSyncSwitchedOn },
+                                                 set: { model.setSyncSwitchedOn($0) })) {
+                                Text("Sync Progress for This Book",
+                                     comment: "Per-book switch in the watch reader menu: whether this book's reading position syncs with the sync service")
+                            }
+                            .accessibilityIdentifier("bookSyncToggle")
+                        }
+                    }
                     Section("Chapters") {
                         let current = currentRow
                         ForEach(Array(model.flat.contents.enumerated()), id: \.offset) { offset, row in
@@ -201,6 +218,31 @@ struct ReaderMenuView: View {
                 syncedPositionNote = Text("Couldn't reach the sync service. Try again later.",
                                           comment: "Shown under 'Go to Synced Position' when fetching the position failed")
             }
+        }
+    }
+}
+
+/// Why the open book does not sync (#167): its switch is off, or it is not in the Readest library.
+struct BookSyncExplanation: View {
+    let decision: BookSyncDecision
+
+    var body: some View {
+        text
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .listRowBackground(Color.clear)
+            .accessibilityIdentifier("bookSyncNote")
+    }
+
+    private var text: Text {
+        switch decision {
+        case .notInLibrary:
+            return Text("This book isn’t in your Readest library, so its progress isn’t synced. Upload it from the iPhone to sync it.",
+                        comment: "Watch reader menu: the open book is not in the user's Readest library, so its position does not sync")
+        case .switchedOff, .sync:
+            return Text("Sync is off for this book. Its progress stays on this Apple Watch.",
+                        comment: "Watch reader menu: the user turned off Sync Progress for This Book")
         }
     }
 }

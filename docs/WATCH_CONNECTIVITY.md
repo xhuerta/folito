@@ -53,6 +53,8 @@ own message (next section).
 | `typography` | String, JSON-encoded `ReaderTypography` (optional, see "Typography") |
 | `typographyStamp` | Int, `ReaderTypography.stamp` (optional, same value as inside the JSON) |
 | `readStatus` | String, JSON object of read status marks per book (optional, see "Read status") |
+| `bookSync` | String, JSON object of per-book sync switches (optional, see "Per-book sync") |
+| `readestLinked` | [String], document hashes linked to a Readest row (optional, see "Per-book sync") |
 
 The phone always publishes a context (at least `type` + `settingsVersion`); each `updateApplicationContext`
 replaces the previous one.
@@ -186,6 +188,8 @@ left in each book it has opened (`ReadingTimeRemaining.bookSeconds`, rounded to 
 iPhone library row. Absent until a book has been opened; the phone ignores invalid values. The watch also
 publishes the report when the library list reappears (back from the reader).
 
+Optional key `bookSync`: the per-book sync switches of the books stored on the watch (see "Per-book sync").
+
 Optional key `progress`: `{ "<documentHash>": <Int percent 0...100>, ... }`, the percentage read of each book with a
 reading position on the watch (whole percent, so small moves do not produce a new context), shown in the iPhone's
 book details.
@@ -233,6 +237,28 @@ Wire format: key `readStatus`, a JSON string `{"<documentHash>": {"s": …, "t":
   percentage); the iPhone Library does the same and its filter menu can hide them.
 - For books in Readest the iPhone also syncs the mark with the row's `reading_status` (docs/READEST_SYNC.md,
   "Reading status"). With KOReader Sync or no sync service the status stays between the two devices.
+
+## Per-book sync (issue #167)
+
+Which books sync with the active service (rules in docs/SYNC_CONNECTORS.md, "Which books sync").
+
+- `bookSync`, both directions, last writer wins per book: a JSON string `{"<documentHash>": {"on": false, "t": <ms
+  since 1970>}, …}` (`BookSyncWire`, `BookSyncSwitch`), the "Sync Progress for This Book" switches. Phone -> watch
+  in the `settings` context (every book in the iPhone library that has one, persisted in `library.json` as
+  `syncSwitch`); watch -> phone in the `library` context (books stored on the watch; persisted in the watch's
+  `UserDefaults`, `sync.bookSettings.v1`). Merge: `BookSyncSwitchMerge.merge`, a book's incoming switch is taken
+  only if its stamp is strictly newer; every local change stamps `max(now, previous + 1)`. Absent while no book
+  has one; a book without a switch is on. A missing or invalid value decodes as on.
+- `readestLinked`, phone -> watch only, in the `settings` context: the document hashes of the local books linked
+  to a Readest row. Present (possibly empty) only while Readest is the active service on the iPhone and its
+  library listing is known (cache or refresh); the watch then skips every other book while Readest is active.
+  **Absent means unknown**: the watch syncs every book, which is also how an older iPhone app behaves. The watch
+  replaces its stored list with each settings context (only the settings context carries it; other messages do
+  not touch it).
+- The phone republishes the context after a refresh, upload or deletion in the Readest library, after a switch
+  change and on every usual trigger (`syncWatchState()`); the watch publishes its library report after a switch
+  change in the reader menu.
+- When a book stops syncing, the watch drops its queued positions.
 
 ## Dictionary (watch only, no phone involvement)
 The watch queries the network itself (Wi-Fi, or through the paired iPhone). Nothing about it crosses

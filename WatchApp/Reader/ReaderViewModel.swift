@@ -675,8 +675,35 @@ final class ReaderViewModel: ObservableObject {
     /// The active sync service (`SyncConnectorDescriptor.id`), for the offer's wording.
     var syncConnectorID: String? { sync.activeConnectorID }
 
-    /// Whether the reader menu offers "Go to Synced Position": only while a sync service is set up.
-    var canGoToSyncedPosition: Bool { sync.isConfigured }
+    /// Whether the reader menu offers "Go to Synced Position": only while a sync service is set up and this
+    /// book syncs with it (#167).
+    var canGoToSyncedPosition: Bool { sync.isConfigured && syncsThisBook }
+
+    /// Whether a sync service is set up (the reader menu then shows the per-book switch).
+    var isSyncConfigured: Bool { sync.isConfigured }
+
+    /// Whether this book syncs with the active service (false while sync is off). When it does not, nothing is
+    /// fetched or pushed for it and the reader shows no sync glyph (#167).
+    var syncsThisBook: Bool { sync.syncs(documentHash) }
+
+    /// Why this book does not sync with the active service; nil when it does or sync is off.
+    var bookSyncBlocker: BookSyncDecision? {
+        guard let decision = sync.syncDecision(for: documentHash), !decision.syncs else { return nil }
+        return decision
+    }
+
+    /// "Sync Progress for This Book" in the reader menu (default on; synced with the iPhone).
+    var isSyncSwitchedOn: Bool { sync.isSwitchedOn(documentHash) }
+
+    func setSyncSwitchedOn(_ isOn: Bool) {
+        sync.setSyncEnabled(isOn, bookKey: documentHash)
+        if !isOn {
+            // An offer from the service is no longer relevant: the book now stays on this watch.
+            remoteOffer = nil
+            showRemoteOffer = false
+        }
+        objectWillChange.send()
+    }
 
     /// What "Go to Synced Position" did.
     enum SyncedJump: Equatable {

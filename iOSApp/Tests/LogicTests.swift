@@ -189,6 +189,42 @@ final class LogicTests: XCTestCase {
         XCTAssertNil(WatchSchema.libraryReadStatus(from: ["type": "settings", ReadStatusSync.key: "{}"]))
     }
 
+    /// #167: the per-book sync switch is persisted, merged with the watch's copy (newer wins) and sent in the
+    /// settings context with the Readest links; without links the key is absent (the watch syncs every book).
+    @MainActor
+    func testBookSyncSwitchIsPersistedMergedAndSent() throws {
+        let (store, dir) = try storeWithBooksOnWatch()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        var notified = 0
+        store.onBookSyncChanged = { notified += 1 }
+        XCTAssertTrue(store.bookSyncSwitches.isEmpty, "libraries saved before the switch decode without it")
+        XCTAssertTrue(store.entries.allSatisfy(\.syncsProgress), "on by default")
+        store.setSyncEnabled(false, hash: "a", now: Date(timeIntervalSince1970: 100))
+        store.setSyncEnabled(false, hash: "a")
+        XCTAssertEqual(notified, 1, "unchanged switch: nothing to send")
+        XCTAssertEqual(store.entries.first { $0.documentHash == "a" }?.syncsProgress, false)
+        // The watch's copy: older for "a" ignored, newer for "b" taken, unknown books dropped.
+        let changed = store.mergeBookSyncSwitches(["a": BookSyncSwitch(isOn: true, stamp: 5),
+                                                   "b": BookSyncSwitch(isOn: false, stamp: 7),
+                                                   "zzz": BookSyncSwitch(isOn: false, stamp: 9)])
+        XCTAssertEqual(changed, ["b"])
+        XCTAssertEqual(notified, 2)
+        let reloaded = LibraryStore(rootDirectory: dir)
+        XCTAssertEqual(reloaded.bookSyncSwitches.keys.sorted(), ["a", "b"])
+        let context = WatchSchema.settingsContext(typography: nil, bookSync: reloaded.bookSyncSwitches,
+                                                  readestLinked: ["b"])
+        XCTAssertEqual(BookSyncWire.switches(from: context), reloaded.bookSyncSwitches)
+        XCTAssertEqual(BookSyncWire.readestLinked(from: context), ["b"])
+        let plain = WatchSchema.settingsContext(typography: nil)
+        XCTAssertNil(plain[BookSyncWire.switchesKey])
+        XCTAssertNil(plain[BookSyncWire.readestLinkedKey], "links unknown: no key, every book syncs")
+        // The watch's report.
+        var report: [String: Any] = ["type": "library", "hashes": ["a"]]
+        XCTAssertNil(WatchSchema.libraryBookSync(from: report), "older watch apps send none")
+        report.merge(BookSyncWire.context(switches: ["a": BookSyncSwitch(isOn: true, stamp: 20)])) { _, new in new }
+        XCTAssertEqual(WatchSchema.libraryBookSync(from: report)?["a"]?.isOn, true)
+    }
+
     @MainActor
     func testExplicitSendClearsRemovedOnWatch() throws {
         let (store, dir) = try storeWithBooksOnWatch()

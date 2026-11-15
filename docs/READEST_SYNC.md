@@ -264,6 +264,18 @@ signed in before this feature have no library session: the Library asks them to 
 - **Remove Download** deletes the iPhone and watch copies only; nothing is sent to Readest.
 - **Delete from Readest** = list + delete files + tombstone, after an explicit confirmation.
 
+### Only books in the library sync (issue #167)
+
+The watch syncs a book's position with Readest only while the book is linked to a row of the user's Readest
+library (by hash, or by `meta_hash` / title and author until it is relinked). The iPhone sends the linked hashes to
+the watch in its settings context (`readestLinked`, docs/WATCH_CONNECTIVITY.md); for any other book the watch makes
+no `GET` or `POST /api/sync` at all and shows no sync glyph, and the reader menu says the book is not in the
+Readest library. *Upload to Readest* (or the opt-in automatic upload, or a download from Readest) adds the book to
+the list, so it syncs from the next settings update on. While the iPhone has no listing yet (no library session,
+or never refreshed) the key is absent and every book syncs, as before. Independently, "Sync Progress for This
+Book" (iPhone book details, watch reader menu) keeps a book off Readest entirely: no position, and no read status
+written to its row. See docs/SYNC_CONNECTORS.md, "Which books sync".
+
 ### Terms
 
 The Terms of Service and Privacy Policy (re-read 2026-11-04) have no clause against third-party clients using
