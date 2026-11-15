@@ -1,4 +1,5 @@
 import XCTest
+import SwiftUI
 import ReaderCore
 @testable import FolitoWatch
 
@@ -97,6 +98,19 @@ final class BlockTextTests: XCTestCase {
         let attr = BlockText.attributed(text: "ab", spans: [StyleSpan(location: 0, length: 1, bold: true, italic: true)])
         let first = attr.runs.first
         XCTAssertEqual(first?.inlinePresentationIntent, [.stronglyEmphasized, .emphasized])
+    }
+
+    func testNoteMarkerRangesAreClamped() {
+        // "a😀b1": the marker "1" is at UTF-16 location 4; out-of-range notes are dropped.
+        let text = "a😀b1"
+        let notes = [NoteReference(location: 4, length: 1, label: "1", kind: .footnote, text: "N"),
+                     NoteReference(location: 9, length: 1, label: "2", kind: .footnote, text: "M")]
+        let ranges = BlockText.noteRanges(text: text, notes: notes)
+        XCTAssertEqual(ranges.count, 1)
+        XCTAssertEqual(String(text[ranges[0]]), "1")
+        let plain = AttributedString(text)
+        XCTAssertEqual(BlockText.markingNotes(plain, text: text, notes: [], color: .red), plain)
+        XCTAssertNotEqual(BlockText.markingNotes(plain, text: text, notes: notes, color: .red), plain)
     }
 }
 

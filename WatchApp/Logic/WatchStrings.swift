@@ -141,3 +141,19 @@ enum TimeRemainingFormat {
                       comment: "VoiceOver: chapter and book reading time left, two sentences, e.g. '12 minutes left in chapter. 3 hours left in book.'")
     }
 }
+
+extension NoteReference {
+    /// "Footnote 3" / "Endnote 3" (#66): the note sheet's title and the name of the VoiceOver action that opens it.
+    var localizedTitle: String {
+        switch kind {
+        case .footnote:
+            return label.isEmpty
+                ? String(localized: "Footnote", comment: "Title of the sheet showing a footnote whose marker has no number")
+                : String(localized: "Footnote \(label)", comment: "Title of the sheet showing a footnote, and VoiceOver action that opens it; the argument is the note's marker (1, *, iv)")
+        case .endnote:
+            return label.isEmpty
+                ? String(localized: "Endnote", comment: "Title of the sheet showing an endnote whose marker has no number")
+                : String(localized: "Endnote \(label)", comment: "Title of the sheet showing an endnote (a note collected at the end of the chapter or book), and VoiceOver action that opens it; the argument is the note's marker (1, *, iv)")
+        }
+    }
+}

@@ -144,7 +144,9 @@ struct BlockStyledText: View, Equatable {
     var body: some View {
         let spec = style.spec(for: block.style)
         let font = style.font(for: block.style)
-        let base = Text(AttributedBlockCache.shared.attributed(for: block))
+        // Note markers (#66) take the accent colour, which depends on the style: applied here, not cached.
+        let base = Text(BlockText.markingNotes(AttributedBlockCache.shared.attributed(for: block), text: block.text,
+                                               notes: block.notes ?? [], color: style.accentColor))
             .tracking(style.typography.tracking)
         let content = Group {
             if spec.showsBullet {

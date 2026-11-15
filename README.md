@@ -262,6 +262,17 @@ VoiceOver action *Delete Bookmark*) to delete it. Bookmarks are stored per book 
 (`BookmarkStore` in ReaderCore, next to the reading position): they survive the iPhone sending the book again
 and are removed with the book or by *Settings › Reset*. They are not synced to the iPhone or Readest yet.
 
+## Footnotes and endnotes
+
+Note references are shown underlined in the accent colour; tapping one opens the note in a sheet, and closing
+the sheet returns to the same line (VoiceOver: the actions rotor of the paragraph lists *Footnote 1*,
+*Endnote 2*, ...). The iPhone finds the notes while it prepares the book (`NoteResolver` in ReaderCore) and
+keeps each note's text with its reference, so the watch never loads the chapter that holds an endnote. It
+recognises EPUB 3 `noteref` links and `footnote` / `endnote` / `rearnote` targets, and, for EPUB 2 books, a
+short superscript or bracketed marker ("1", "[2]", "*") pointing to the start of a short paragraph that
+begins with the same marker or links back. Referenced `<aside>` footnotes leave the text flow; endnote
+sections stay readable as chapters. Books imported before this need to be imported again to get their notes.
+
 ## Importing EPUBs
 
 - From the iPhone: open an `.epub` with "Open in Folito" (share sheet in Files, Safari, etc.) or use the import button in the app. The app transfers them to the watch.

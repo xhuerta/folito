@@ -67,6 +67,10 @@ struct ReaderView: View {
                             .onTapGesture { location in tapped(block: index, at: location, style: style) }
                             // Available from the VoiceOver actions rotor even with tap-to-look-up off.
                             .accessibilityAction(named: Text("Look Up a Word")) { model.beginLookup(at: index) }
+                            // One action per note reference in the block ("Footnote 3"), opening the note (#66).
+                            .modifier(NoteAccessibilityActions(notes: model.flat.blocks[index].notes ?? []) { note in
+                                model.showNote(note, inBlock: index)
+                            })
                             // VoiceOver's two-finger scrub leaves the book from any paragraph (#118).
                             .accessibilityAction(.escape) { dismiss() }
                             .accessibilityIdentifier("readerBlock")
@@ -198,6 +202,9 @@ struct ReaderView: View {
                            onLookup: { lookupAfterMenu = true })
                 .environmentObject(typography)
         }
+        .sheet(item: $model.openNote) { target in
+            NoteSheet(note: target.note)
+        }
         .sheet(item: $model.lookupBlockIndex) { target in
             WordLookupSheet(text: model.flat.blocks[target.index].text,
                             language: model.bookLanguage, provider: model.dictionary,
@@ -240,9 +247,16 @@ extension ReaderView {
         return sync.status
     }
 
-    /// A tap on the text shows the hidden bar (then hides it again after a few seconds); with the bar
-    /// visible it opens the word lookup on the word under the finger (estimated, see `TapPosition`).
+    /// A tap on a note marker (#66) opens the note, with the bar shown or hidden and whether or not tap to look up
+    /// is on. Any other tap on the text shows the hidden bar (then hides it again after a few seconds); with the
+    /// bar visible it opens the word lookup on the word under the finger (estimated, see `TapPosition`).
     fileprivate func tapped(block index: Int, at location: CGPoint, style: ReaderRenderStyle) {
+        if index < model.flat.count, model.flat.blocks[index].notes?.isEmpty == false,
+           let offset = tappedCharacterOffset(block: index, at: location, style: style),
+           let note = model.flat.blocks[index].noteReference(nearCharacterOffset: offset) {
+            model.showNote(note, inBlock: index)
+            return
+        }
         guard !revealBarOnTap(), tapToLookUp else { return }
         model.beginLookup(at: index, characterOffset: tappedCharacterOffset(block: index, at: location, style: style))
     }
