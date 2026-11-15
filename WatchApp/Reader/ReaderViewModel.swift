@@ -56,6 +56,27 @@ final class ReaderViewModel: ObservableObject {
     /// text transparent until then, so the book appears already at the saved line instead of first at the
     /// top of the saved block and, a moment later, at the line inside it (#125).
     @Published private(set) var isPositioned = false
+    /// A far jump (chapter, bookmark, synced position) is settling under a cover (#174, `JumpSettling`): the
+    /// view hides the text until the target line is at the top edge, so the corrections are never seen.
+    @Published private(set) var isSettling = false
+    /// The text has been covered (opening or a far jump) for `settlingIndicatorDelay`: the cover shows a
+    /// small progress indicator.
+    @Published private(set) var showsSettlingIndicator = false
+    /// When the indicator shows (injectable for tests).
+    var settlingIndicatorDelay: UInt64 = JumpSettling.indicatorDelay
+    private var settlingIndicatorTask: Task<Void, Never>?
+    /// Where a covered jump landed, for VoiceOver to announce once when the text is revealed (a new value per
+    /// jump).
+    @Published private(set) var arrival: Arrival?
+
+    struct Arrival: Equatable {
+        let token = UUID()
+        /// The chapter title at the new position, or the progress ("43% read") when it has none.
+        let announcement: String
+    }
+
+    /// The text is hidden: the book is opening or a far jump is settling.
+    var coversText: Bool { !isPositioned || isSettling }
     private var restoreTask: Task<Void, Never>?
     /// Block the current restore / jump must bring to the top, and how many times it was re-issued.
     private var restoreTarget: Int?
@@ -551,7 +572,8 @@ final class ReaderViewModel: ObservableObject {
 
     private func scheduleRestoreCheck() {
         restoreTask?.cancel()
-        let delay = isPositioned ? settleDelay : openSettleDelay
+        let delay = JumpSettling.checkDelay(isPositioned: isPositioned, isSettling: isSettling,
+                                            settleDelay: settleDelay, openSettleDelay: openSettleDelay)
         restoreTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: delay)
             guard !Task.isCancelled else { return }
@@ -586,7 +608,40 @@ final class ReaderViewModel: ObservableObject {
         }
         restoreTarget = nil
         isRestoring = false
+        let jumped = isSettling
+        endSettlingCover()
         if !isPositioned { isPositioned = true }
+        if jumped { arrival = Arrival(announcement: arrivalAnnouncement) }
+    }
+
+    /// Covers the text until the jump has landed (`restoreSettled`), with the indicator after a moment.
+    private func beginSettlingCover() {
+        if !isSettling { isSettling = true }
+        scheduleSettlingIndicator()
+    }
+
+    /// Shows the progress indicator if the text is still covered after `settlingIndicatorDelay`.
+    private func scheduleSettlingIndicator() {
+        guard settlingIndicatorTask == nil, !showsSettlingIndicator else { return }
+        let delay = settlingIndicatorDelay
+        settlingIndicatorTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: delay)
+            guard !Task.isCancelled, let self else { return }
+            self.settlingIndicatorTask = nil
+            if self.coversText, !self.showsSettlingIndicator { self.showsSettlingIndicator = true }
+        }
+    }
+
+    private func endSettlingCover() {
+        settlingIndicatorTask?.cancel()
+        settlingIndicatorTask = nil
+        if isSettling { isSettling = false }
+        if showsSettlingIndicator { showsSettlingIndicator = false }
+    }
+
+    /// What VoiceOver says when a covered jump is revealed: the chapter there, else the progress.
+    private var arrivalAnnouncement: String {
+        flat.chapterTitle(at: currentIndex, characterOffset: currentOffset) ?? progressText()
     }
 
     /// The anchor for another hand-back jump, or nil when it landed within `handBackTolerance` (or retries ran
@@ -624,6 +679,8 @@ final class ReaderViewModel: ObservableObject {
     func restoreInitialPosition() {
         if flat.isEmpty { isPositioned = true }
         beginRestore(target: startIndex, offset: startOffset)
+        // A long opening shows the same indicator as a far jump.
+        if !isPositioned { scheduleSettlingIndicator() }
         jumpRequest = JumpRequest(index: startIndex, anchorY: restoreAnchor)
         // The opened book becomes the one the complications show.
         publishComplication(force: false)
@@ -632,6 +689,10 @@ final class ReaderViewModel: ObservableObject {
     func jump(to index: Int, characterOffset: Int = 0) {
         let i = flat.clamped(index)
         let offset = flat.clampedOffset(characterOffset, in: i)
+        // Before `beginRestore`, so its checks already run at the covered pace.
+        if JumpSettling.covers(isPositioned: isPositioned, targetLaidOut: lastFrames[i] != nil) {
+            beginSettlingCover()
+        }
         beginRestore(target: i, offset: offset)
         pageTimer.reset(at: now())
         currentIndex = i
@@ -867,6 +928,8 @@ final class ReaderViewModel: ObservableObject {
 
     func leave() {
         restoreTask?.cancel()
+        settlingIndicatorTask?.cancel()
+        settlingIndicatorTask = nil
         if autoScroll != .off { autoScroll = .off }
         autoScrollMotion = AutoScroll.Motion()
         reportProgress(immediately: true)

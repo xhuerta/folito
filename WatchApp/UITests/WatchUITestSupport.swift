@@ -114,7 +114,7 @@ enum WatchUI {
     /// Reading Options -> chapter list (#172): scrolls to the Chapters row (up to `maxSteps` small drags), checks
     /// that it reads the current chapter, taps it and waits for the list. Returns whether the list opened.
     @discardableResult
-    static func openChapters(_ app: XCUIApplication, maxSteps: Int = 12,
+    static func openChapters(_ app: XCUIApplication, currentChapter: String = sampleChapter, maxSteps: Int = 12,
                              file: StaticString = #filePath, line: UInt = #line) -> Bool {
         var steps = 0
         while !(chaptersLink(in: app).exists && chaptersLink(in: app).isHittable) && steps < maxSteps {
@@ -127,7 +127,7 @@ enum WatchUI {
             return false
         }
         XCTAssertTrue(link.label.contains("Chapters"), "Chapters row label: \(link.label)", file: file, line: line)
-        XCTAssertTrue(link.label.contains(sampleChapter),
+        XCTAssertTrue(link.label.contains(currentChapter),
                       "The Chapters row should read the current chapter: \(link.label)", file: file, line: line)
         link.tap()
         guard element("chapterButton", in: app).waitForExistence(timeout: 5) else {

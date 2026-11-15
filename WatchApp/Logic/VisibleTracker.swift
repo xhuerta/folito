@@ -45,3 +45,30 @@ enum RestoreCheck {
         attempts < maxRetries && abs(landedMinY - wantedMinY) > tolerance
     }
 }
+
+/// The cover over the text while a far jump settles (#174).
+///
+/// A `LazyVStack` places far-away blocks with estimated heights, so `scrollTo` to a block that is not laid out
+/// lands a little off and the restore loop (`RestoreCheck`) corrects it once the real blocks are measured.
+/// Each correction would be a visible hop. Instead the text is covered from the jump until the target is at the
+/// top edge, then revealed at once (a short cross-fade, none with Reduce Motion): the reader sees the old place,
+/// then the new one. A jump to a block that is already laid out lands exactly in one scroll (its in-block anchor
+/// is known up front) and is not covered.
+enum JumpSettling {
+    /// After this long under the cover, a small progress indicator shows (most far jumps land before it).
+    static let indicatorDelay: UInt64 = 150_000_000
+
+    /// Whether a jump to a block must be covered: the reader is already showing text (while the book opens it
+    /// is hidden anyway) and the target block is not laid out, so the first scroll cannot land exactly.
+    static func covers(isPositioned: Bool, targetLaidOut: Bool) -> Bool {
+        isPositioned && !targetLaidOut
+    }
+
+    /// Pause before checking where a scroll landed. Under a cover (opening or a far jump) nobody sees a
+    /// re-issued scroll, so checks come at the short opening pace and the cover lifts sooner; uncovered
+    /// corrections wait for the lazy layout to settle (`settleDelay`).
+    static func checkDelay(isPositioned: Bool, isSettling: Bool, settleDelay: UInt64, openSettleDelay: UInt64) -> UInt64 {
+        if !isPositioned { return openSettleDelay }
+        return isSettling ? min(settleDelay, openSettleDelay) : settleDelay
+    }
+}

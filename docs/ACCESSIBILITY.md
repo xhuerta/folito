@@ -440,7 +440,8 @@ checks the audit does not make:
   (screenshot `watch-bookmarks` attached to the result), and a tap on it closes the menu.
 - `WatchChaptersUITests`: *Reading Options* has one *Chapters* row reading the current chapter (#172); it
   pushes the chapter list, which marks the current chapter as selected (screenshot `watch-chapters`), and a
-  tap on a chapter closes the menu.
+  tap on a chapter closes the menu. In a long book (`-UITestingSeedLongBook`) a jump to the last chapter lands
+  with its heading at the top of the screen and does not move afterwards (#174, screenshot `watch-chapter-jump`).
 - `WatchAccessibilityChecksTests`, on the same screens:
   - every button, switch, stepper, slider and link has a non-empty label that does not look like a raw
     identifier: SF Symbol names (`list.bullet`, `gearshape`), file names (`sample.epub`), camelCase or
