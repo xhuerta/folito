@@ -338,14 +338,39 @@ public struct ReadestLibraryClient: Sendable {
             ReadestCloudBook(hash: book.hash, title: book.title, uploadedAt: now())
     }
 
-    /// Writes the book's reading status ("Mark as Finished" / "Mark as Unread"): the row as received, with only
-    /// `readingStatus` and `readingStatusUpdatedAt` changed. `updatedAt` is left as it was, so the server keeps its
-    /// own row (and the Readest apps' newer progress, tags or groups) and only grafts the status, which it resolves
-    /// by `reading_status_updated_at` (newer wins, ties to the client); a newer status from another device is never
-    /// overwritten. Returns the authoritative row the server answers with (its status may be the newer one).
+    /// The account's current row for one book (`GET /api/sync?since=0&type=books&book=<hash>`, sync.ts
+    /// `queryTables` filters on `book_hash`); nil when the account has none. The placeholder row a server returns
+    /// for an empty result is skipped.
+    public func fetchBook(hash: String) async throws -> ReadestCloudBook? {
+        let data = try await send("GET", "sync", query: ["since": "0", "type": "books", "book": hash])
+        guard let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+            throw ReadestError.invalidResponse
+        }
+        let rows = ((obj["books"] as? [[String: Any]]) ?? []).compactMap(ReadestCloudBook.parse)
+        return rows.filter { $0.hash == hash }.max { ($0.updatedAt ?? .distantPast) < ($1.updatedAt ?? .distantPast) }
+    }
+
+    /// Writes the book's reading status ("Mark as Finished" / "Mark as Unread") without ever overwriting a newer
+    /// one, and without regressing any other field:
+    ///
+    /// 1. The current row is fetched first (`fetchBook`; `book` is the fallback when the account has none).
+    /// 2. `ReadStatusMerge.reconcile` decides: the mark is pushed only when its stamp is strictly newer than the
+    ///    row's `reading_status_updated_at` **and** its status differs. Otherwise nothing is sent and the row is
+    ///    returned (its status is the one to keep). A same-value push would be a no-op on the server anyway
+    ///    (sync.ts only rewrites a row whose resolved status *value* changed), leaving the older timestamp.
+    /// 3. The pushed row is that freshly fetched row with only `readingStatus` and `readingStatusUpdatedAt`
+    ///    changed. `updatedAt` stays the server's own, so the server keeps its row and grafts only the status
+    ///    (`resolveReadingStatusMerge`, newer `reading_status_updated_at` wins), and every other field (progress,
+    ///    tags, groups, metadata) is the server's current value.
+    ///
+    /// Returns the authoritative row (the server's answer, or the fetched row when nothing was sent).
     @discardableResult
     public func setReadingStatus(_ newMark: ReadStatusMark, for book: ReadestCloudBook) async throws -> ReadestCloudBook {
-        let updated = book.withReadStatus(newMark)
+        let current = try await fetchBook(hash: book.hash) ?? book
+        guard case .pushLocal(_) = ReadStatusMerge.reconcile(local: newMark, remote: current.readStatusMark) else {
+            return current
+        }
+        let updated = current.withReadStatus(newMark)
         let answer = try await pushBooks([updated.wireRow()])
         return answer.first { $0.hash == book.hash } ?? updated
     }

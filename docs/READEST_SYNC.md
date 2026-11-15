@@ -193,15 +193,25 @@ Research date: 2026-11-15, against readest/readest `main` at `a60b7ee`.
 - **Clock.** `reading_status_updated_at` (`readingStatusUpdatedAt`, ms on the wire) is bumped only when the status
   changes. The server merges the status on that clock, field by field, whichever side wins the row by
   `updated_at` (`resolveReadingStatusMerge` in `pages/api/sync.ts`: newer wins, ties to the client, null = 0;
-  issue #4634 there). When the server keeps its row but the client's status is newer, it grafts just the status
-  and leaves `updated_at` alone (`buildStatusPropagationRow`); peers pick it up through `synced_at`.
-- **What Folito sends.** Mark as Finished / Mark as Unread (the same two actions as the Readest book menu,
-  `withReadingStatus`) push the row exactly as received with only `readingStatus` and `readingStatusUpdatedAt`
-  changed (`ReadestLibraryClient.setReadingStatus`). Unlike the Readest app, Folito does **not** bump `updatedAt`:
-  the cached row may be older than the server's, and with an older `updatedAt` the server keeps its own row and
-  grafts only the status, so progress, tags or groups written meanwhile by another Readest client are never
-  overwritten. The answer is the authoritative row, which carries the server's status when another device set a
-  newer one.
+  issue #4634 there). When the server keeps its row (the client's `updated_at` is not newer) it rewrites the row
+  only if a resolved field **value** differs (`readingStatusChanged`): it then grafts the status and its timestamp
+  and leaves `updated_at` alone (`buildStatusPropagationRow`); peers pick it up through `synced_at`. A push of the
+  status the row already has, with a newer timestamp, is a no-op: the stored timestamp stays the old one. Seen
+  live (PR #157): a row whose tombstone kept `finished` from an earlier run ignored a newer "finished", and a later
+  "unread" with a timestamp between the two then won, correctly by the stored clock.
+- **What Folito sends** (`ReadestLibraryClient.setReadingStatus`). Mark as Finished / Mark as Unread (the same two
+  actions as the Readest book menu, `withReadingStatus`):
+  1. fetch the book's current row (`GET /api/sync?since=0&type=books&book=<hash>`);
+  2. push only when the local mark is strictly newer than the row's `reading_status_updated_at` and its status
+     differs (`ReadStatusMerge.reconcile`); otherwise send nothing and keep the row's status;
+  3. push that freshly fetched row with only `readingStatus` and `readingStatusUpdatedAt` changed. Unlike the
+     Readest app, Folito does **not** bump `updatedAt`: the server keeps its own row and grafts only the status, so
+     the row's other fields (progress, tags, groups, metadata) are never replaced, and they are the server's
+     current values anyway. Readest clients see the change through `synced_at` and merge the status by its own
+     clock (`pickFresherReadingStatus`), so not bumping `updatedAt` does not hide it; it only keeps the
+     date-sorted library from reordering.
+  The answer is the authoritative row. The server's own merge stays the second guard against a race with another
+  device between the fetch and the push.
 - **Merge on the iPhone** (`ReadStatusMerge.reconcile`, after every Library refresh and every status change): for a
   local book paired with a row, the newer of the two marks wins. A newer Readest status is taken locally (and sent
   to the watch); a newer local one (set on the iPhone or accepted on the watch) is pushed, only when it differs. A

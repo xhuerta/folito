@@ -209,46 +209,87 @@ final class ReadStatusTests: XCTestCase {
         return ReadestLibraryClient(session: session, auth: ReadestAuth(session: session, store: store), now: { Self.t0 })
     }
 
-    func testSetReadingStatusPushesTheWholeRowWithOnlyTheStatusChanged() async throws {
-        var answer = ReadestLibraryTests.row()
-        answer["reading_status"] = "finished"
-        answer["reading_status_updated_at"] = "2026-09-21T20:53:20.123+00:00"
-        let c = client { _ in
-            (200, try! JSONSerialization.data(withJSONObject: ["books": [answer]]))
-        }
-        let book = try XCTUnwrap(ReadestCloudBook.parse(ReadestLibraryTests.row()))
-        let result = try await c.setReadingStatus(ReadStatusMark(status: .finished, stamp: Self.ms0 + 123), for: book)
-        XCTAssertEqual(result.readStatusMark?.status, .finished)
+    private var captured: [MockURLProtocol.Captured] {
+        MockURLProtocol.lock.lock(); defer { MockURLProtocol.lock.unlock() }; return MockURLProtocol.captured
+    }
 
-        MockURLProtocol.lock.lock()
-        let captured = MockURLProtocol.captured
-        MockURLProtocol.lock.unlock()
-        XCTAssertEqual(captured.count, 1)
-        XCTAssertEqual(captured[0].method, "POST")
-        XCTAssertEqual(captured[0].url.absoluteString, "https://web.readest.com/api/sync")
-        let body = (captured[0].body.flatMap { try? JSONSerialization.jsonObject(with: $0) } as? [String: Any]) ?? [:]
+    private func data(_ obj: Any) -> Data { try! JSONSerialization.data(withJSONObject: obj) }
+
+    /// The server's current row (fetched first) has other fields than the cached copy: the push is built from it.
+    func testSetReadingStatusFetchesTheRowThenPushesItWithOnlyTheStatusChanged() async throws {
+        var current = ReadestLibraryTests.row(updated: "2026-11-01T10:00:00.000+00:00")
+        current["tags"] = ["fav", "new-from-another-device"]
+        current["progress"] = [40, 300]
+        var answer = current
+        answer["reading_status"] = "finished"
+        answer["reading_status_updated_at"] = "2026-09-21T14:13:20.123+00:00"
+        let c = client { r in
+            r.method == "GET" ? (200, self.data(["books": [current]])) : (200, self.data(["books": [answer]]))
+        }
+        let cached = try XCTUnwrap(ReadestCloudBook.parse(ReadestLibraryTests.row()))
+        let result = try await c.setReadingStatus(ReadStatusMark(status: .finished, stamp: Self.ms0 + 123), for: cached)
+        XCTAssertEqual(result.readStatusMark, ReadStatusMark(status: .finished, stamp: Self.ms0 + 123))
+
+        let r = captured
+        XCTAssertEqual(r.map(\.method), ["GET", "POST"])
+        XCTAssertEqual(r[0].url.absoluteString,
+                       "https://web.readest.com/api/sync?book=\(ReadestLibraryTests.hash)&since=0&type=books")
+        XCTAssertEqual(r[1].url.absoluteString, "https://web.readest.com/api/sync")
+        let body = (r[1].body.flatMap { try? JSONSerialization.jsonObject(with: $0) } as? [String: Any]) ?? [:]
         let row = (body["books"] as? [[String: Any]])?.first ?? [:]
         XCTAssertEqual(row["hash"] as? String, ReadestLibraryTests.hash)
         XCTAssertEqual(row["readingStatus"] as? String, "finished")
         XCTAssertEqual((row["readingStatusUpdatedAt"] as? NSNumber)?.int64Value, Self.ms0 + 123)
-        // updatedAt is the row's own (not bumped): the server keeps its row and grafts only the status.
-        XCTAssertEqual((row["updatedAt"] as? NSNumber)?.int64Value, 1_793_282_023_877)
-        XCTAssertEqual(row["title"] as? String, "Alice")
+        // Every other field is the server's current one, updatedAt included (not bumped): the server keeps its
+        // row and grafts only the status.
+        XCTAssertEqual((row["updatedAt"] as? NSNumber)?.int64Value, 1_793_527_200_000)
+        XCTAssertEqual(row["tags"] as? [String], ["fav", "new-from-another-device"])
+        XCTAssertEqual(row["progress"] as? [Int], [40, 300])
         XCTAssertEqual(row["groupId"] as? String, "g1")
         XCTAssertNotNil(row["uploadedAt"])
         XCTAssertNil(row["deletedAt"])
     }
 
-    func testSetReadingStatusReturnsTheServersNewerStatus() async throws {
+    /// A newer status on the server is never overwritten: nothing is pushed and the server's row comes back.
+    func testSetReadingStatusDoesNotPushOverANewerRemoteStatus() async throws {
+        var current = ReadestLibraryTests.row()
+        current["reading_status"] = "unread"
+        current["reading_status_updated_at"] = "2027-01-01T00:00:00+00:00"
+        let c = client { _ in (200, self.data(["books": [current]])) }
+        let cached = try XCTUnwrap(ReadestCloudBook.parse(ReadestLibraryTests.row()))
+        let result = try await c.setReadingStatus(ReadStatusMark(status: .finished, stamp: Self.ms0), for: cached)
+        XCTAssertEqual(result.readStatusMark?.status, .unread, "the newer remote status wins")
+        XCTAssertEqual(captured.map(\.method), ["GET"], "no write")
+    }
+
+    /// The same status with a newer stamp is not sent: the server would not store the timestamp anyway (it only
+    /// rewrites a row whose status value changed), so the remote copy is the one to keep.
+    func testSetReadingStatusSendsNothingWhenTheStatusIsAlreadySet() async throws {
+        var current = ReadestLibraryTests.row()
+        current["reading_status"] = "finished"
+        current["reading_status_updated_at"] = "2026-01-01T00:00:00+00:00"
+        let c = client { _ in (200, self.data(["books": [current]])) }
+        let cached = try XCTUnwrap(ReadestCloudBook.parse(ReadestLibraryTests.row()))
+        let result = try await c.setReadingStatus(ReadStatusMark(status: .finished, stamp: Self.ms0), for: cached)
+        XCTAssertEqual(result.readStatusMark?.status, .finished)
+        XCTAssertEqual(captured.map(\.method), ["GET"])
+    }
+
+    /// No row on the account (only the placeholder an empty pull returns): the given row is pushed.
+    func testSetReadingStatusFallsBackToTheGivenRowAndReturnsTheServersAnswer() async throws {
         var answer = ReadestLibraryTests.row()
         answer["reading_status"] = "unread"
         answer["reading_status_updated_at"] = "2027-01-01T00:00:00+00:00"
-        let c = client { _ in (200, try! JSONSerialization.data(withJSONObject: ["books": [answer]])) }
+        let placeholder = ReadestLibraryTests.row(hash: ReadestCloudBook.placeholderHash, deleted: true)
+        let c = client { r in
+            r.method == "GET" ? (200, self.data(["books": [placeholder]])) : (200, self.data(["books": [answer]]))
+        }
         let book = try XCTUnwrap(ReadestCloudBook.parse(ReadestLibraryTests.row()))
         let result = try await c.setReadingStatus(ReadStatusMark(status: .finished, stamp: Self.ms0), for: book)
-        XCTAssertEqual(result.readStatusMark?.status, .unread, "the server kept its newer status")
+        XCTAssertEqual(captured.map(\.method), ["GET", "POST"])
+        XCTAssertEqual(result.readStatusMark?.status, .unread, "the server's answer is authoritative")
         // An empty answer falls back to the row as sent.
-        let empty = client { _ in (200, try! JSONSerialization.data(withJSONObject: ["books": []])) }
+        let empty = client { _ in (200, self.data(["books": []])) }
         let sent = try await empty.setReadingStatus(ReadStatusMark(status: .finished, stamp: Self.ms0), for: book)
         XCTAssertEqual(sent.readStatusMark, ReadStatusMark(status: .finished, stamp: Self.ms0))
     }

@@ -77,18 +77,31 @@ final class ReadestIntegrationTests: XCTestCase {
             XCTAssertEqual(uploaded.hash, hash)
             let listed = try await client.fetchBooks().first { $0.hash == hash }
             XCTAssertEqual(listed?.isAvailable, true, "uploaded book should be listed with uploaded_at")
-            // Reading status (#113): "Mark as Finished" is stored with its timestamp; an older "unread" from
-            // another device does not overwrite it (field-level last writer wins on reading_status_updated_at).
+            // Reading status (#113). The test account's row may keep a status from an earlier run (a tombstone keeps
+            // its columns), and the server stores a status only when its value changes, so the test first moves it
+            // to a value it does not have, then to "finished".
             if let listed {
-                let stamp = ReadStatusRules.millis(Date())
-                _ = try await client.setReadingStatus(ReadStatusMark(status: .finished, stamp: stamp), for: listed)
-                let finished = try await client.fetchBooks().first { $0.hash == hash }
+                let start = ReadStatusRules.millis(Date())
+                let first: ReadStatus = listed.readStatusMark?.status == .unread ? .reading : .unread
+                _ = try await client.setReadingStatus(ReadStatusMark(status: first, stamp: start), for: listed)
+                let moved = try await client.fetchBook(hash: hash)
+                XCTAssertEqual(moved?.readStatusMark?.status, first)
+                XCTAssertEqual(Double(moved?.readStatusMark?.stamp ?? 0), Double(start), accuracy: 1)
+
+                let stamp = start + 1000
+                _ = try await client.setReadingStatus(ReadStatusMark(status: .finished, stamp: stamp), for: moved ?? listed)
+                let finished = try await client.fetchBook(hash: hash)
                 XCTAssertEqual(finished?.readStatusMark?.status, .finished)
                 XCTAssertEqual(Double(finished?.readStatusMark?.stamp ?? 0), Double(stamp), accuracy: 1)
                 XCTAssertEqual(finished?.isAvailable, true, "a status push keeps the row as it was")
-                _ = try await client.setReadingStatus(ReadStatusMark(status: .unread, stamp: stamp - 60_000),
-                                                      for: finished ?? listed)
-                let still = try await client.fetchBooks().first { $0.hash == hash }
+
+                // An older "unread" from another device does not win: the client does not send it ...
+                let older = ReadStatusMark(status: .unread, stamp: stamp - 60_000)
+                let kept = try await client.setReadingStatus(older, for: finished ?? listed)
+                XCTAssertEqual(kept.readStatusMark?.status, .finished, "the client keeps the newer remote status")
+                // ... and the server rejects it too when it is pushed anyway (field-level last writer wins).
+                if let finished { _ = try await client.pushBooks([finished.withReadStatus(older).wireRow()]) }
+                let still = try await client.fetchBook(hash: hash)
                 XCTAssertEqual(still?.readStatusMark?.status, .finished, "an older status must not win")
             }
             let url = try await client.bookDownloadURL(hash: hash)
