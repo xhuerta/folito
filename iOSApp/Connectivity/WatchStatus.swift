@@ -36,14 +36,17 @@ enum BookWatchState: Equatable {
     case waiting
     /// The user deleted it on the watch: it is not sent automatically, only with "Send to Apple Watch".
     case removedOnWatch
+    /// The last transfer failed; "Send Again" retries it (and so does the next automatic sync if the book is not
+    /// on the watch).
+    case sendFailed
 
-    init(sentToWatch: Bool, inFlight: Bool, removedOnWatch: Bool = false) {
-        if inFlight { self = .sending } else if sentToWatch { self = .onWatch }
+    init(sentToWatch: Bool, inFlight: Bool, removedOnWatch: Bool = false, failed: Bool = false) {
+        if inFlight { self = .sending } else if failed { self = .sendFailed } else if sentToWatch { self = .onWatch }
         else if removedOnWatch { self = .removedOnWatch } else { self = .waiting }
     }
 
-    init(_ entry: LibraryEntry, inFlight: Bool) {
-        self.init(sentToWatch: entry.sentToWatch, inFlight: inFlight, removedOnWatch: entry.isRemovedOnWatch)
+    init(_ entry: LibraryEntry, inFlight: Bool, failed: Bool = false) {
+        self.init(sentToWatch: entry.sentToWatch, inFlight: inFlight, removedOnWatch: entry.isRemovedOnWatch, failed: failed)
     }
 
     /// Title of the explicit send action: a book deleted on the watch is sent, any other one is sent again.
@@ -66,6 +69,7 @@ enum BookWatchState: Equatable {
         case .sending: return String(localized: "Sending to Apple Watch…", comment: "Library row: transfer in progress")
         case .waiting: return String(localized: "Waiting for Apple Watch", comment: "Library row: the book will be sent when the watch is available")
         case .removedOnWatch: return String(localized: "Removed on Apple Watch", comment: "Library row: the user deleted the book on the watch, so it is not sent automatically")
+        case .sendFailed: return String(localized: "Couldn’t Send to Apple Watch", comment: "Library row: the last transfer of the book to the watch failed; Send Again retries it")
         }
     }
 
@@ -75,6 +79,7 @@ enum BookWatchState: Equatable {
         case .sending: return "arrow.up.circle"
         case .waiting: return "clock"
         case .removedOnWatch: return "applewatch.slash"
+        case .sendFailed: return "exclamationmark.triangle"
         }
     }
 }
