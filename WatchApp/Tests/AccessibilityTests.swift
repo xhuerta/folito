@@ -228,6 +228,23 @@ final class AccessibleRenderStyleTests: XCTestCase {
         XCTAssertNotEqual(style.layoutKey, ReaderRenderStyle(matching).layoutKey)
     }
 
+    /// Notes (#66) are drawn in the reader's body font, not the system body font, and follow its accessibility
+    /// scaling the same way.
+    func testNoteSheetUsesReaderBodyFont() {
+        var serif = ReaderTypography.default
+        serif.fontFamily = .serif
+        serif.fontSize = 14
+        let style = ReaderRenderStyle(serif)
+        XCTAssertEqual(NoteSheet.bodyFont(in: style), style.font(for: .paragraph))
+        XCTAssertNotEqual(NoteSheet.bodyFont(in: style), Font.body)
+
+        var matching = serif
+        matching.matchSystemTextSize = true
+        let scaled = ReaderRenderStyle(matching, accessibility: ReaderAccessibility(textScale: 1.5))
+        XCTAssertEqual(NoteSheet.bodyFont(in: scaled), scaled.font(for: .paragraph))
+        XCTAssertNotEqual(NoteSheet.bodyFont(in: scaled), NoteSheet.bodyFont(in: ReaderRenderStyle(matching)))
+    }
+
     func testLightPageDetection() {
         var sepia = ReaderTypography.default
         sepia.theme = .sepia

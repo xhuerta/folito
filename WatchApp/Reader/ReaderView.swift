@@ -290,6 +290,7 @@ struct ReaderView: View {
         }
         .sheet(item: $model.openNote) { target in
             NoteSheet(note: target.note)
+                .environmentObject(typography)
         }
         .sheet(item: $model.lookupBlockIndex) { target in
             WordLookupSheet(text: model.flat.blocks[target.index].text,
