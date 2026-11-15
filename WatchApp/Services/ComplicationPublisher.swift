@@ -68,6 +68,18 @@ final class ComplicationPublisher {
                                updatedAt: synced.timestamp ?? local.updatedAt)
     }
 
+    /// `bookID` was marked Finished (here or on the iPhone): the complications stop showing minutes left for it
+    /// (#169). The reader publishes them again if the book is marked unread and read on.
+    func bookFinished(_ bookID: String) {
+        if var own = localStore.load(), own.bookID == bookID, own.minutesLeft != nil {
+            own.minutesLeft = nil
+            localStore.save(own)
+        }
+        guard var shown = store.load(), shown.bookID == bookID, shown.minutesLeft != nil else { return }
+        shown.minutesLeft = nil
+        show(shown, force: false)
+    }
+
     /// The book shown by the complications was deleted: back to the "Start reading" placeholder.
     func bookRemoved(_ bookID: String) {
         guard store.load()?.bookID == bookID else { return }

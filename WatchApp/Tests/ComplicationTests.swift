@@ -103,6 +103,37 @@ final class ReadingSnapshotTests: XCTestCase {
         defaults.set(false, forKey: ReaderSettings.showTimeRemainingKey)
         XCTAssertNil(model.minutesLeftInChapter(), "Show Time Remaining off hides minutes left")
         XCTAssertNil(model.complicationSnapshot.minutesLeft)
+        // #169: a book marked Finished shows no time left (reader menu, complications); unread brings it back.
+        defaults.set(true, forKey: ReaderSettings.showTimeRemainingKey)
+        XCTAssertEqual(model.minutesLeftInChapter(), 1)
+        model.setFinished(true)
+        XCTAssertNil(model.timeRemaining)
+        XCTAssertNil(model.minutesLeftInChapter())
+        XCTAssertNil(store.load()?.minutesLeft, "marking it finished republishes the snapshot without minutes")
+        model.setFinished(false)
+        XCTAssertNotNil(model.timeRemaining)
+        XCTAssertEqual(store.load()?.minutesLeft, 1)
+    }
+
+    /// #169: a book marked Finished elsewhere (the iPhone) loses its minutes left in the complications.
+    @MainActor
+    func testFinishedBookDropsMinutesLeft() {
+        let store = ReadingSnapshotStore(defaults: UserDefaults(suiteName: "ComplicationTests.\(UUID().uuidString)")!)
+        let localStore = ReadingSnapshotStore(defaults: UserDefaults(suiteName: "ComplicationTests.\(UUID().uuidString)")!)
+        var reloads = 0
+        let publisher = ComplicationPublisher(store: store, localStore: localStore, reload: { reloads += 1 })
+        publisher.publish(ReadingSnapshot(bookID: "a", title: "T", chapterTitle: "Ch", fraction: 0.99, minutesLeft: 1))
+        XCTAssertEqual(reloads, 1)
+        publisher.bookFinished("other")
+        XCTAssertEqual(store.load()?.minutesLeft, 1, "another book changes nothing")
+        XCTAssertEqual(reloads, 1)
+        publisher.bookFinished("a")
+        XCTAssertNil(store.load()?.minutesLeft)
+        XCTAssertNil(localStore.load()?.minutesLeft)
+        XCTAssertEqual(store.load()?.fraction ?? 0, 0.99, accuracy: 1e-9)
+        XCTAssertEqual(reloads, 2)
+        publisher.bookFinished("a")
+        XCTAssertEqual(reloads, 2, "nothing left to hide")
     }
 }
 
