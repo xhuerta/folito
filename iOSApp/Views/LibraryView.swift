@@ -311,7 +311,10 @@ struct LibraryView: View {
         return NavigationLink(value: BookDetailRoute(hash: entry.documentHash)) {
             BookRow(entry: entry, state: state,
                     transfer: state == .sending ? connectivity.bookTransfers[entry.documentHash] : nil,
-                    timeLeft: state == .onWatch ? connectivity.watchTimeRemaining[entry.documentHash] : nil,
+                    // No "… left" on a finished book (#169).
+                    timeLeft: ReadingTimeEstimator.shownTimeLeft(
+                        state == .onWatch ? connectivity.watchTimeRemaining[entry.documentHash] : nil,
+                        isFinished: finished),
                     inReadest: inReadest, isUploading: isUploading, isFinished: finished,
                     cover: entry.hasCover == true ? CoverImages.shared.cover(hash: entry.documentHash,
                                                                             in: library.booksDirectory) : nil)

@@ -209,7 +209,10 @@ struct BookDetailView: View {
                 value: String(localized: "\(DisplayFormat.percent(fraction)) read",
                               comment: "Book detail: reading progress on the watch; the placeholder is a percentage"))
         }
-        if state == .onWatch, let seconds = connectivity.watchTimeRemaining[entry.documentHash] {
+        // No "… left" on a finished book (#169).
+        if state == .onWatch,
+           let seconds = ReadingTimeEstimator.shownTimeLeft(connectivity.watchTimeRemaining[entry.documentHash],
+                                                            isFinished: readStatusMark(entry)?.isFinished == true) {
             row(Text("Time Remaining", comment: "Book detail label: estimated reading time left"),
                 value: DisplayFormat.timeLeft(seconds, style: .full))
         }

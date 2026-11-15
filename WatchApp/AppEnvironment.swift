@@ -51,6 +51,7 @@ final class AppEnvironment: ObservableObject {
             localStore: ReadingSnapshotStore(defaults: UITesting.isActive ? nil : .standard,
                                              key: "complication.localSnapshot"))
         self.complications = complications
+        library.onBookFinished = { complications.bookFinished($0) }
         library.syncedFraction = { sync.remoteMemory.synced(for: $0)?.percentage }
         let refresher = SyncedProgressRefresher(
             sync: sync, complications: complications, positions: positions,

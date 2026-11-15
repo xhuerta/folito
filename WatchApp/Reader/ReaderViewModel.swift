@@ -27,12 +27,17 @@ final class ReaderViewModel: ObservableObject {
     /// "Mark as Finished?": the reader just arrived at the end of the book (`ReadStatusRules.shouldOfferFinish`).
     @Published var showFinishOffer = false
     /// The book is marked finished (set by the loader from the library; updated by `setFinished`).
-    @Published var isFinished = false
+    @Published var isFinished = false {
+        // Finished books show no minutes left in the complications (#169); unmarking brings them back.
+        didSet { if isFinished != oldValue { publishComplication(force: false) } }
+    }
     /// Stores a status the user chose here (the library, which tells the iPhone). Nil in previews and tests.
     var onSetReadStatus: (@MainActor (ReadStatus) -> Void)?
     /// Whether the end of the book was on screen at the last frame report (nil before the first one after the
     /// opening restore, so a book that opens at its end is not offered).
     private var wasAtEnd: Bool?
+    /// The end of the book is on screen (same rule as the finish offer): nothing is left to read (#169).
+    private var endOnScreen = false
     /// The finish offer was shown during this opening (answered or not): never twice.
     private var finishOffered = false
     @Published private(set) var remoteOffer: ReadingPosition?
@@ -383,6 +388,11 @@ final class ReaderViewModel: ObservableObject {
         let atEnd = ReadStatusRules.reachedEnd(lastBlockMaxY: frames[flat.count - 1].map { Double($0.maxY) },
                                                viewportBottom: Double(viewportHeight))
         defer { wasAtEnd = atEnd }
+        if atEnd != endOnScreen {
+            endOnScreen = atEnd
+            saveTimeRemaining()
+            publishComplication(force: false)
+        }
         guard let before = wasAtEnd else { return }
         if ReadStatusRules.shouldOfferFinish(wasAtEnd: before, isAtEnd: atEnd, isFinished: isFinished,
                                              alreadyOffered: finishOffered, bookCharacters: book.totalCharacters) {
@@ -423,18 +433,29 @@ final class ReaderViewModel: ObservableObject {
 
     // MARK: Time remaining
 
-    /// Time left from the block at the top of the screen; nil until the words are counted or for an empty book.
-    var timeRemaining: ReadingTimeRemaining? {
+    /// Time left from the block at the top of the screen (0 with the end of the book on screen, #169); nil until
+    /// the words are counted or for an empty book. This is what is saved for the iPhone library.
+    private var estimatedTimeRemaining: ReadingTimeRemaining? {
         guard let lengths, !flat.isEmpty, lengths.blockCount == flat.count else { return nil }
-        let estimate = ReadingTimeEstimator.estimate(lengths, atBlock: currentIndex, speed: speed)
+        let estimate = ReadingTimeEstimator.estimate(lengths, atBlock: currentIndex, speed: speed,
+                                                     endOnScreen: endOnScreen)
         return ReadingTimeRemaining(documentHash: documentHash, bookTitle: title,
                                     chapterSeconds: estimate.chapter, bookSeconds: estimate.book,
                                     fractionRead: flat.percentage(at: currentIndex), updatedAt: now())
     }
 
-    /// Saved with the reading position, for the iPhone library (`ReadingTimeStore`).
+    /// The time left to show: nil (no "… left" line) while it is not known, for a book marked Finished and when
+    /// nothing is left to read (#169).
+    var timeRemaining: ReadingTimeRemaining? {
+        guard let value = estimatedTimeRemaining,
+              ReadingTimeEstimator.shownTimeLeft(value.bookSeconds, isFinished: isFinished) != nil else { return nil }
+        return value
+    }
+
+    /// Saved with the reading position, for the iPhone library (`ReadingTimeStore`). Saved even when nothing is
+    /// left, so the iPhone drops its earlier "1 min left".
     private func saveTimeRemaining() {
-        if let value = timeRemaining { times.save(value) }
+        if let value = estimatedTimeRemaining { times.save(value) }
     }
 
     // MARK: Complications
@@ -451,7 +472,8 @@ final class ReaderViewModel: ObservableObject {
     ///
     /// Same estimate as the reader's time-remaining line (`timeRemaining.chapterSeconds`, rounded with
     /// `ReadingTimeEstimator.displayMinutes`). Nil, which hides the line, while the words are still being
-    /// counted or when the user turned off *Show Time Remaining* in Settings.
+    /// counted, when the user turned off *Show Time Remaining* in Settings, for a book marked Finished and with
+    /// the end of the book on screen (#169).
     func minutesLeftInChapter() -> Int? {
         guard showsTimeRemaining, let remaining = timeRemaining else { return nil }
         // At least 1, like the reader's line ("1 min left"), so the end of a chapter never reads "0 min".
@@ -482,6 +504,8 @@ final class ReaderViewModel: ObservableObject {
     /// jump already lands on the line and no second, visible move follows (#125).
     private func beginRestore(target: Int, offset: Int = 0) {
         if !isRestoring { isRestoring = true }
+        // A jump elsewhere leaves the end; the next frame report after the restore says whether it is on screen.
+        if target != currentIndex { endOnScreen = false }
         restoreTarget = target
         restoreAttempts = 0
         restoreOffset = offset
