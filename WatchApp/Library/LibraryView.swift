@@ -235,6 +235,7 @@ struct ReaderLoaderView: View {
                                              dictionary: env.dictionary, complications: env.complications)
                 let hash = entry.documentHash
                 reader.isFinished = library.isFinished(hash)
+                reader.haptics = WatchHaptics()
                 let store = library
                 reader.onSetReadStatus = { [weak store] status in
                     store?.setReadStatus(status, documentHash: hash)

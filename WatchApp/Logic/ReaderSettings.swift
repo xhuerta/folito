@@ -9,6 +9,8 @@ enum ReaderSettings {
     static let showTimeRemainingKey = "settings.showTimeRemaining"
     /// Book covers next to the titles in the Library (on by default while covers are an experiment).
     static let showCoversKey = "settings.showCovers"
+    /// Auto-scroll speed level (`AutoScroll.levels`; unset means `AutoScroll.defaultLevel`). Per user, not per book.
+    static let autoScrollSpeedKey = "settings.autoScrollSpeed"
 
     static let minFontSize = 12.0
     static let maxFontSize = 28.0
@@ -24,5 +26,6 @@ enum ReaderSettings {
         defaults.removeObject(forKey: tapToLookUpKey)
         defaults.removeObject(forKey: showTimeRemainingKey)
         defaults.removeObject(forKey: showCoversKey)
+        defaults.removeObject(forKey: autoScrollSpeedKey)
     }
 }

@@ -701,6 +701,100 @@
         }
       }
     },
+    "Auto-Scroll" : {
+      "comment" : "Title of the auto-scroll section of the reader menu and VoiceOver label of the auto-scroll control",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatisch scrollen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desplazamiento automático"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Défilement automatique"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scorrimento automatico"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自動スクロール"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rolagem Automática"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动滚动"
+          }
+        }
+      }
+    },
+    "Auto-Scroll Paused" : {
+      "comment" : "Badge at the bottom of the reader while auto-scroll is paused",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatisches Scrollen angehalten"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desplazamiento automático en pausa"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Défilement automatique en pause"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scorrimento automatico in pausa"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自動スクロール一時停止中"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rolagem Automática Pausada"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动滚动已暂停"
+          }
+        }
+      }
+    },
     "Bold Text" : {
       "localizations" : {
         "de" : {
@@ -1818,6 +1912,100 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "暗淡"
+          }
+        }
+      }
+    },
+    "Double-tap to pause. Swipe up or down to change the speed." : {
+      "comment" : "VoiceOver hint of the auto-scroll control over the reader text",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zum Anhalten doppeltippen. Zum Ändern des Tempos nach oben oder unten streichen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toca dos veces para pausar. Desliza hacia arriba o hacia abajo para cambiar la velocidad."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Touchez deux fois pour mettre en pause. Balayez vers le haut ou le bas pour changer la vitesse."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tocca due volte per mettere in pausa. Scorri in alto o in basso per cambiare la velocità."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ダブルタップで一時停止します。上下にスワイプすると速度を変更できます。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toque duas vezes para pausar. Deslize para cima ou para baixo para mudar a velocidade."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连按两次可暂停。向上或向下轻扫可更改速度。"
+          }
+        }
+      }
+    },
+    "End of book. Auto-scroll stopped." : {
+      "comment" : "VoiceOver announcement when auto-scroll reaches the end of the book",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ende des Buchs. Automatisches Scrollen beendet."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fin del libro. Desplazamiento automático detenido."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fin du livre. Défilement automatique arrêté."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fine del libro. Scorrimento automatico interrotto."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本の最後です。自動スクロールを停止しました。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fim do livro. Rolagem automática parada."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已到书末。自动滚动已停止。"
           }
         }
       }
@@ -4426,6 +4614,53 @@
         }
       }
     },
+    "Scrolls the text by itself. Turn the Digital Crown to change the speed, tap to pause." : {
+      "comment" : "VoiceOver hint of 'Start Auto-Scroll' in the reader menu",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scrollt den Text von selbst. Drehe die Digital Crown, um das Tempo zu ändern, tippe zum Anhalten."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desplaza el texto por sí solo. Gira la Digital Crown para cambiar la velocidad y toca para pausar."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fait défiler le texte tout seul. Tournez la Digital Crown pour changer la vitesse, touchez pour mettre en pause."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scorre il testo da solo. Ruota la Digital Crown per cambiare la velocità, tocca per mettere in pausa."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "テキストを自動でスクロールします。Digital Crownを回すと速度を変更でき、タップすると一時停止します。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rola o texto sozinho. Gire a Digital Crown para mudar a velocidade e toque para pausar."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动滚动文本。转动数码表冠可更改速度，轻点可暂停。"
+          }
+        }
+      }
+    },
     "Selected word" : {
       "localizations" : {
         "de" : {
@@ -4797,6 +5032,53 @@
         }
       }
     },
+    "Speed %lld of %lld" : {
+      "comment" : "Auto-scroll speed level, e.g. 'Speed 3 of 7' (badge and VoiceOver value)",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tempo %lld von %lld"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Velocidad %lld de %lld"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vitesse %lld sur %lld"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Velocità %lld di %lld"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "速度 %lld/%lld"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Velocidade %lld de %lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "速度 %lld/%lld"
+          }
+        }
+      }
+    },
     "Standard" : {
       "comment" : "Typography preset",
       "localizations" : {
@@ -4844,6 +5126,53 @@
         }
       }
     },
+    "Start Auto-Scroll" : {
+      "comment" : "Reader menu button that starts auto-scroll",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatisch scrollen starten"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Iniciar desplazamiento automático"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lancer le défilement automatique"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avvia scorrimento automatico"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自動スクロールを開始"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Iniciar Rolagem Automática"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开始自动滚动"
+          }
+        }
+      }
+    },
     "Stay Here" : {
       "localizations" : {
         "de" : {
@@ -4886,6 +5215,53 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "留在此处"
+          }
+        }
+      }
+    },
+    "Stop Auto-Scroll" : {
+      "comment" : "Reader menu button that stops auto-scroll",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatisch scrollen beenden"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detener desplazamiento automático"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arrêter le défilement automatique"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interrompi scorrimento automatico"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自動スクロールを停止"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Parar Rolagem Automática"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止自动滚动"
           }
         }
       }
@@ -5260,6 +5636,53 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "轻点段落以查询"
+          }
+        }
+      }
+    },
+    "Tap the text to resume." : {
+      "comment" : "VoiceOver hint of the paused auto-scroll badge",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tippe auf den Text, um fortzufahren."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toca el texto para reanudar."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Touchez le texte pour reprendre."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tocca il testo per riprendere."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "テキストをタップすると再開します。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toque no texto para retomar."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轻点文本可继续。"
           }
         }
       }

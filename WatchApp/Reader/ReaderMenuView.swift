@@ -12,6 +12,8 @@ struct ReaderMenuView: View {
     var syncNote: String? = nil
     /// Asks the reader to open the word lookup for the block at the top of the screen once this sheet is gone.
     var onLookup: () -> Void = {}
+    /// Asks the reader to start auto-scroll once this sheet is gone (#67).
+    var onAutoScroll: () -> Void = {}
     @AppStorage(ReaderSettings.showTimeRemainingKey) private var showTimeRemaining = true
     /// True while "Go to Synced Position" is fetching the remote position.
     @State private var fetchingSyncedPosition = false
@@ -96,6 +98,30 @@ struct ReaderMenuView: View {
                             }
                             .accessibilityIdentifier("bookmarksLink")
                         }
+                    }
+                    // Auto-scroll (#67), below the bookmarks: the text size stays the sheet's first row. Starts once the
+                    // sheet is gone; while it is on (running or paused) the same row stops it.
+                    Section("Auto-Scroll") {
+                        Button {
+                            if model.isAutoScrollActive {
+                                model.stopAutoScroll()
+                            } else {
+                                onAutoScroll()
+                            }
+                            dismiss()
+                        } label: {
+                            if model.isAutoScrollActive {
+                                Label("Stop Auto-Scroll", systemImage: "stop.circle")
+                            } else {
+                                Label("Start Auto-Scroll", systemImage: "play.circle")
+                            }
+                        }
+                        .accessibilityValue(Text("Speed \(model.autoScrollLevel) of \(AutoScroll.levelCount)",
+                                                 comment: "Auto-scroll speed level, e.g. 'Speed 3 of 7' (badge and VoiceOver value)"))
+                        .accessibilityHint(model.isAutoScrollActive ? Text("") :
+                                            Text("Scrolls the text by itself. Turn the Digital Crown to change the speed, tap to pause.",
+                                                 comment: "VoiceOver hint of 'Start Auto-Scroll' in the reader menu"))
+                        .accessibilityIdentifier("autoScrollButton")
                     }
                     // Read status (#113): the same choice as the offer at the end of the book. Below the text size, which the
                     // sheet keeps as its first row.

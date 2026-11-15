@@ -262,6 +262,16 @@ VoiceOver action *Delete Bookmark*) to delete it. Bookmarks are stored per book 
 (`BookmarkStore` in ReaderCore, next to the reading position): they survive the iPhone sending the book again
 and are removed with the book or by *Settings › Reset*. They are not synced to the iPhone or Readest yet.
 
+## Auto-scroll
+
+On the watch, *Reading Options › Auto-Scroll › Start Auto-Scroll* scrolls the text by itself. Turn the Digital
+Crown to change the speed (seven levels, in lines per minute so the pace is the same at every text size; the
+default, level 3, is 28 lines or about 150 words a minute), tap the text to pause and again to resume, and stop
+it from the same menu row. The speed is remembered for every book. It pauses when the wrist goes down, the app
+leaves the screen or a sheet opens, and stops at the end of the book. It runs only while the screen is on:
+watchOS lets apps keep running with the screen off only for workouts, mindfulness, alarms and similar sessions
+(`WKExtendedRuntimeSession`), and reading is not one of them.
+
 ## Footnotes and endnotes
 
 Note references are shown underlined in the accent colour; tapping one opens the note in a sheet, and closing
