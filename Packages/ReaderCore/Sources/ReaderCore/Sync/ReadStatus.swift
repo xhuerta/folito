@@ -69,12 +69,18 @@ public enum ReadStatusRules {
         return lastBlockMaxY <= viewportBottom + endTolerance
     }
 
+    /// Books shorter than this (in characters, about ten watch screens) get no offer: a sample or an excerpt is
+    /// scrolled through in a few swipes, so its end coming on screen says nothing about having finished a book,
+    /// and a modal question there only interrupts. The reader menu still has Mark as Finished for them.
+    public static let minimumOfferCharacters = 10_000
+
     /// Whether the watch offers "Mark as Finished?": only when the reader *arrives* at the end while reading
-    /// (not when the book merely opens there), only once per opening (`alreadyOffered`: shown or declined), and
-    /// never for a book that is already finished. A book is never marked finished automatically: readers jump to
-    /// the end for the notes or an epilogue.
-    public static func shouldOfferFinish(wasAtEnd: Bool, isAtEnd: Bool, isFinished: Bool, alreadyOffered: Bool) -> Bool {
-        isAtEnd && !wasAtEnd && !isFinished && !alreadyOffered
+    /// (not when the book merely opens there), only once per opening (`alreadyOffered`: shown or declined), never
+    /// for a book that is already finished, and only for a book of at least `minimumOfferCharacters`. A book is
+    /// never marked finished automatically: readers jump to the end for the notes or an epilogue.
+    public static func shouldOfferFinish(wasAtEnd: Bool, isAtEnd: Bool, isFinished: Bool, alreadyOffered: Bool,
+                                         bookCharacters: Int) -> Bool {
+        isAtEnd && !wasAtEnd && !isFinished && !alreadyOffered && bookCharacters >= minimumOfferCharacters
     }
 
     /// Milliseconds since 1970.

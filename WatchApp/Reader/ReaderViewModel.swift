@@ -264,7 +264,7 @@ final class ReaderViewModel: ObservableObject {
         defer { wasAtEnd = atEnd }
         guard let before = wasAtEnd else { return }
         if ReadStatusRules.shouldOfferFinish(wasAtEnd: before, isAtEnd: atEnd, isFinished: isFinished,
-                                             alreadyOffered: finishOffered) {
+                                             alreadyOffered: finishOffered, bookCharacters: book.totalCharacters) {
             finishOffered = true
             showFinishOffer = true
         }

@@ -226,7 +226,9 @@ Wire format: key `readStatus`, a JSON string `{"<documentHash>": {"s": …, "t":
 - The watch never marks a book by itself. When the bottom of the book's last block comes on screen while reading
   (`ReadStatusRules.reachedEnd`; the reader saves the line at the top edge, so its percentage never reaches 100 %),
   it asks once per opening "Mark as Finished?" (`shouldOfferFinish`: not when the book opens at its end, not when it
-  is already finished). The reader menu has Mark as Finished / Mark as Unread at any time.
+  is already finished, not for books under `minimumOfferCharacters` = 10,000 characters, about ten screens:
+  samples and excerpts reach their end in a few swipes). The reader menu has Mark as Finished / Mark as Unread at
+  any time.
 - The watch Library lists finished books after the others ("Finished" with a check mark instead of the
   percentage); the iPhone Library does the same and its filter menu can hide them.
 - For books in Readest the iPhone also syncs the mark with the row's `reading_status` (docs/READEST_SYNC.md,

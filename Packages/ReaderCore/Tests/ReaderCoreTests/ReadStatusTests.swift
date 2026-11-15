@@ -31,13 +31,19 @@ final class ReadStatusTests: XCTestCase {
 
     func testOfferOnlyOnArrivingAtTheEndOncePerOpening() {
         typealias R = ReadStatusRules
-        XCTAssertTrue(R.shouldOfferFinish(wasAtEnd: false, isAtEnd: true, isFinished: false, alreadyOffered: false))
-        XCTAssertFalse(R.shouldOfferFinish(wasAtEnd: true, isAtEnd: true, isFinished: false, alreadyOffered: false),
+        let n = 200_000
+        XCTAssertTrue(R.shouldOfferFinish(wasAtEnd: false, isAtEnd: true, isFinished: false, alreadyOffered: false, bookCharacters: n))
+        XCTAssertFalse(R.shouldOfferFinish(wasAtEnd: true, isAtEnd: true, isFinished: false, alreadyOffered: false, bookCharacters: n),
                        "opened at the end, or still there: no new offer")
-        XCTAssertFalse(R.shouldOfferFinish(wasAtEnd: false, isAtEnd: false, isFinished: false, alreadyOffered: false))
-        XCTAssertFalse(R.shouldOfferFinish(wasAtEnd: false, isAtEnd: true, isFinished: true, alreadyOffered: false))
-        XCTAssertFalse(R.shouldOfferFinish(wasAtEnd: false, isAtEnd: true, isFinished: false, alreadyOffered: true),
+        XCTAssertFalse(R.shouldOfferFinish(wasAtEnd: false, isAtEnd: false, isFinished: false, alreadyOffered: false, bookCharacters: n))
+        XCTAssertFalse(R.shouldOfferFinish(wasAtEnd: false, isAtEnd: true, isFinished: true, alreadyOffered: false, bookCharacters: n))
+        XCTAssertFalse(R.shouldOfferFinish(wasAtEnd: false, isAtEnd: true, isFinished: false, alreadyOffered: true, bookCharacters: n),
                        "declined once: not again in the same opening")
+        XCTAssertFalse(R.shouldOfferFinish(wasAtEnd: false, isAtEnd: true, isFinished: false, alreadyOffered: false,
+                                           bookCharacters: R.minimumOfferCharacters - 1),
+                       "a sample or excerpt a few screens long: no offer")
+        XCTAssertTrue(R.shouldOfferFinish(wasAtEnd: false, isAtEnd: true, isFinished: false, alreadyOffered: false,
+                                          bookCharacters: R.minimumOfferCharacters))
     }
 
     // MARK: Manual toggles and stamps

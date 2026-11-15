@@ -44,19 +44,6 @@ struct ReaderMenuView: View {
                             .accessibilityIdentifier("syncNote")
                         }
                     }
-                    // Read status (#113): the same choice as the offer at the end of the book.
-                    Section {
-                        Button {
-                            model.setFinished(!model.isFinished)
-                        } label: {
-                            if model.isFinished {
-                                Label("Mark as Unread", systemImage: "circle")
-                            } else {
-                                Label("Mark as Finished", systemImage: "checkmark.circle")
-                            }
-                        }
-                        .accessibilityIdentifier("readStatusButton")
-                    }
                     Section("Text") {
                         TextSizeStepper()
                         NavigationLink("Typography", value: SettingsRoute.typography)
@@ -109,6 +96,20 @@ struct ReaderMenuView: View {
                             }
                             .accessibilityIdentifier("bookmarksLink")
                         }
+                    }
+                    // Read status (#113): the same choice as the offer at the end of the book. Below the text size, which the
+                    // sheet keeps as its first row.
+                    Section {
+                        Button {
+                            model.setFinished(!model.isFinished)
+                        } label: {
+                            if model.isFinished {
+                                Label("Mark as Unread", systemImage: "circle")
+                            } else {
+                                Label("Mark as Finished", systemImage: "checkmark.circle")
+                            }
+                        }
+                        .accessibilityIdentifier("readStatusButton")
                     }
                     Section("Chapters") {
                         let current = currentRow
