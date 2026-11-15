@@ -1,4 +1,5 @@
 import SwiftUI
+import Accessibility
 import ReaderCore
 
 /// Sheet shown from the reader: text size, dictionary and chapter index.
@@ -79,6 +80,23 @@ struct ReaderMenuView: View {
                             }
                         }
                     }
+                    // Next to the chapters (#65): mark the line at the top of the screen, and the book's list.
+                    Section("Bookmarks") {
+                        AddBookmarkButton(isBookmarked: model.isCurrentPositionBookmarked) {
+                            if case .added? = model.addBookmark() { bookmarkAdded() }
+                        }
+                        if !model.bookmarks.isEmpty {
+                            NavigationLink {
+                                BookmarksView(model: model) { bookmark in
+                                    model.jump(to: bookmark)
+                                    dismiss()
+                                }
+                            } label: {
+                                BookmarksLinkLabel(count: model.bookmarks.count)
+                            }
+                            .accessibilityIdentifier("bookmarksLink")
+                        }
+                    }
                     Section("Chapters") {
                         let current = currentRow
                         ForEach(Array(model.flat.contents.enumerated()), id: \.offset) { offset, row in
@@ -94,8 +112,8 @@ struct ReaderMenuView: View {
                 }
                 .onAppear { scrollToCurrentChapter(proxy) }
             }
-            // "Options", not "Contents": the sheet holds the text size, typography and the dictionary as well as the
-            // chapters, and it is opened from the Reading Options button.
+            // "Options", not "Contents": the sheet holds the text size, typography, the dictionary and the bookmarks
+            // as well as the chapters, and it is opened from the Reading Options button.
             .navigationTitle(Text("Options", comment: "Title of the reading options sheet opened from the reader"))
             .navigationDestination(for: SettingsRoute.self) { $0.destination }
         }
@@ -115,6 +133,14 @@ struct ReaderMenuView: View {
     }
 
     static let autoScrollMinimumRow = 3
+
+    /// Confirms a new bookmark: a success haptic, and VoiceOver says so (the button's label changes too).
+    private func bookmarkAdded() {
+        WatchHaptics().play(.bookmarkAdded)
+        AccessibilityNotification.Announcement(String(localized: "Bookmark added",
+                                                      comment: "VoiceOver announcement after adding a bookmark in the reader menu"))
+            .post()
+    }
 
     private func goToSyncedPosition() {
         fetchingSyncedPosition = true
