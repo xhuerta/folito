@@ -264,7 +264,9 @@ and are removed with the book or by *Settings › Reset*. They are not synced to
 
 ## Auto-scroll
 
-On the watch, *Reading Options › Auto-Scroll › Start Auto-Scroll* scrolls the text by itself. Turn the Digital
+On the watch, *Reading Options › Auto-Scroll › Start Auto-Scroll* scrolls the text by itself. It is built but
+not shipped yet: `FeatureFlags.autoScrollEnabled` (WatchApp/Logic/FeatureFlags.swift) is off, so the row is
+hidden; the UI tests turn it on with `-UITestingEnableAutoScroll`. Turn the Digital
 Crown at any time while it runs to change the speed (seven levels from 12 to 90 lines a minute, each about 1.4
 times the one before, in lines so the pace is the same at every text size; the default, level 3, is 24 lines or
 about 130 words a minute; the first start says so under the speed badge), tap the text to pause and again to

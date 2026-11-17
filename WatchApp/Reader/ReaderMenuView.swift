@@ -104,28 +104,31 @@ struct ReaderMenuView: View {
                     }
                 }
                 // Auto-scroll (#67), below the bookmarks: the text size stays the sheet's first row. Starts once the
-                // sheet is gone; while it is on (running or paused) the same row stops it.
-                Section("Auto-Scroll") {
-                    Button {
-                        if model.isAutoScrollActive {
-                            model.stopAutoScroll()
-                        } else {
-                            onAutoScroll()
+                // sheet is gone; while it is on (running or paused) the same row stops it. Behind a feature flag
+                // (off: no row at all).
+                if FeatureFlags.autoScroll {
+                    Section("Auto-Scroll") {
+                        Button {
+                            if model.isAutoScrollActive {
+                                model.stopAutoScroll()
+                            } else {
+                                onAutoScroll()
+                            }
+                            dismiss()
+                        } label: {
+                            if model.isAutoScrollActive {
+                                Label("Stop Auto-Scroll", systemImage: "stop.circle")
+                            } else {
+                                Label("Start Auto-Scroll", systemImage: "play.circle")
+                            }
                         }
-                        dismiss()
-                    } label: {
-                        if model.isAutoScrollActive {
-                            Label("Stop Auto-Scroll", systemImage: "stop.circle")
-                        } else {
-                            Label("Start Auto-Scroll", systemImage: "play.circle")
-                        }
+                        .accessibilityValue(Text("Speed \(model.autoScrollLevel) of \(AutoScroll.levelCount)",
+                                                 comment: "Auto-scroll speed level, e.g. 'Speed 3 of 7' (badge and VoiceOver value)"))
+                        .accessibilityHint(model.isAutoScrollActive ? Text("") :
+                                            Text("Scrolls the text by itself. Turn the Digital Crown to change the speed, tap to pause.",
+                                                 comment: "VoiceOver hint of 'Start Auto-Scroll' in the reader menu"))
+                        .accessibilityIdentifier("autoScrollButton")
                     }
-                    .accessibilityValue(Text("Speed \(model.autoScrollLevel) of \(AutoScroll.levelCount)",
-                                             comment: "Auto-scroll speed level, e.g. 'Speed 3 of 7' (badge and VoiceOver value)"))
-                    .accessibilityHint(model.isAutoScrollActive ? Text("") :
-                                        Text("Scrolls the text by itself. Turn the Digital Crown to change the speed, tap to pause.",
-                                             comment: "VoiceOver hint of 'Start Auto-Scroll' in the reader menu"))
-                    .accessibilityIdentifier("autoScrollButton")
                 }
                 // Read status (#113): the same choice as the offer at the end of the book. Below the text size, which the
                 // sheet keeps as its first row.

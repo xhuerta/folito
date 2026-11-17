@@ -143,7 +143,9 @@ final class WatchAppStoreScreenshotTests: XCTestCase {
     @MainActor
     private func hideReaderBar(_ app: XCUIApplication) {
         let options = WatchUI.element("readerOptionsButton", in: app)
-        XCTAssertTrue(waitFor(options, hittable: true), "Reading Options button should show when the book opens")
+        // Generous: on a busy runner the larger watches take several seconds to settle the opened book (a 5 s
+        // wait failed once on the 49 mm simulator while the same steps passed in the other suites).
+        XCTAssertTrue(waitFor(options, hittable: true, timeout: 20), "Reading Options button should show when the book opens")
         var nudges = 0
         while nudges < 6 && !waitFor(options, hittable: false, timeout: nudges == 0 ? 0.5 : 2) {
             WatchUI.nudgeUp(app)

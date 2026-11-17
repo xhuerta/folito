@@ -46,7 +46,9 @@ final class WatchAutoScrollUITests: XCTestCase {
     @MainActor
     func testStartPauseAndStop() {
         let app = XCUIApplication()
-        app.launchArguments += ["-UITestingSeedAppStore", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        // Auto-scroll is behind a feature flag (off in the app): the tests turn it on.
+        app.launchArguments += ["-UITestingSeedAppStore", "-UITestingEnableAutoScroll",
+                                "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
         XCTAssertTrue(WatchUI.libraryRow(in: app).waitForExistence(timeout: 45), "Library screen did not appear")
         WatchUI.openReader(app)
@@ -128,14 +130,24 @@ final class WatchAutoScrollUITests: XCTestCase {
     @MainActor
     func testRunningTextLooksLikeTheReader() {
         let app = XCUIApplication()
-        app.launchArguments += ["-UITestingSeedAppStore", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        // Auto-scroll is behind a feature flag (off in the app): the tests turn it on.
+        app.launchArguments += ["-UITestingSeedAppStore", "-UITestingEnableAutoScroll",
+                                "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
         XCTAssertTrue(WatchUI.libraryRow(in: app).waitForExistence(timeout: 45), "Library screen did not appear")
         WatchUI.openReader(app)
         sleep(1)
-        // Reading mode: scrolled a little, the bar hidden, as when auto-scroll runs.
-        for _ in 0..<3 { WatchUI.nudgeUp(app) }
-        sleep(2)
+        // Reading mode: scrolled just enough for the bar to hide, as when auto-scroll runs. Not further: the
+        // seed text is only a few screens long, and three nudges reached its end, where auto-scroll rightly
+        // stops at once (the first CI run of this test failed that way: "Auto-scroll did not start").
+        let options = WatchUI.element("readerOptionsButton", in: app)
+        var nudges = 0
+        repeat {
+            WatchUI.nudgeUp(app)
+            nudges += 1
+            sleep(1)
+        } while nudges < 3 && options.exists && options.isHittable
+        sleep(1)
         let before = visibleBlocks(app)
         XCTAssertFalse(before.isEmpty, "No text block on screen")
         attachScreenshot("autoscroll-before", app)
