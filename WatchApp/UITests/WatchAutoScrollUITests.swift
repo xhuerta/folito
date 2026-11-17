@@ -98,4 +98,73 @@ final class WatchAutoScrollUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 5), .completed, "Stopping should remove the paused badge")
         XCTAssertFalse(WatchUI.element("autoScrollControl", in: app).exists, "Stopped: nothing covers the text")
     }
+    /// The on-screen text blocks, by label: top edge and height.
+    @MainActor
+    private func visibleBlocks(_ app: XCUIApplication) -> [String: (minY: CGFloat, height: CGFloat)] {
+        let screen = app.windows.firstMatch.frame
+        var result: [String: (minY: CGFloat, height: CGFloat)] = [:]
+        for block in app.descendants(matching: .any).matching(identifier: "readerBlock").allElementsBoundByIndex {
+            let frame = block.frame
+            guard frame.maxY > screen.minY, frame.minY < screen.maxY, !block.label.isEmpty else { continue }
+            result[block.label] = (frame.minY, frame.height)
+        }
+        return result
+    }
+
+    @MainActor
+    private func attachScreenshot(_ name: String, _ app: XCUIApplication) {
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = name
+        shot.lifetime = .keepAlways
+        add(shot)
+    }
+
+    /// The running text must look exactly like the reader's (build 47: a box, a jump at the start, every block
+    /// cut to a line ending in "…"). The same blocks keep the same height once auto-scroll draws them (a cut
+    /// block is shorter; its accessibility label is the full text either way, so "…" cannot be read from the
+    /// tree), and the text does not jump when it starts. Screenshots "autoscroll-before" (bar hidden, just
+    /// before), "autoscroll-running" (just after the start) and "autoscroll-running-later" (about 3 s on) are
+    /// kept for a visual comparison.
+    @MainActor
+    func testRunningTextLooksLikeTheReader() {
+        let app = XCUIApplication()
+        app.launchArguments += ["-UITestingSeedAppStore", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        XCTAssertTrue(WatchUI.libraryRow(in: app).waitForExistence(timeout: 45), "Library screen did not appear")
+        WatchUI.openReader(app)
+        sleep(1)
+        // Reading mode: scrolled a little, the bar hidden, as when auto-scroll runs.
+        for _ in 0..<3 { WatchUI.nudgeUp(app) }
+        sleep(2)
+        let before = visibleBlocks(app)
+        XCTAssertFalse(before.isEmpty, "No text block on screen")
+        attachScreenshot("autoscroll-before", app)
+
+        // A tap shows the bar (it does not open the word picker while the bar is hidden), then Start.
+        app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)).tap()
+        tapAutoScrollButton(app, expecting: "Start Auto-Scroll")
+        guard WatchUI.element("autoScrollControl", in: app).waitForExistence(timeout: 5) else {
+            return WatchUI.fail("Auto-scroll did not start", in: app)
+        }
+        usleep(300_000)
+        attachScreenshot("autoscroll-running", app)
+        let running = visibleBlocks(app)
+        let shared = Set(before.keys).intersection(running.keys)
+        XCTAssertFalse(shared.isEmpty, "The text on screen should be the same blocks right after the start")
+        for label in shared {
+            let was = before[label]!, now = running[label]!
+            XCTAssertEqual(now.height, was.height, accuracy: 1,
+                           "A running block must keep its full height (cut short with \u{2026}?): \(label.prefix(40))")
+            XCTAssertEqual(now.minY, was.minY, accuracy: 30,
+                           "The text must not jump when auto-scroll starts: \(label.prefix(40))")
+        }
+
+        sleep(3)
+        attachScreenshot("autoscroll-running-later", app)
+        let later = visibleBlocks(app)
+        for label in Set(before.keys).intersection(later.keys) {
+            XCTAssertEqual(later[label]!.height, before[label]!.height, accuracy: 1,
+                           "Still the full height a few seconds on: \(label.prefix(40))")
+        }
+    }
 }
