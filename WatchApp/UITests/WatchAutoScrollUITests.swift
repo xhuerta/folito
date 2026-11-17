@@ -100,17 +100,59 @@ final class WatchAutoScrollUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 5), .completed, "Stopping should remove the paused badge")
         XCTAssertFalse(WatchUI.element("autoScrollControl", in: app).exists, "Stopped: nothing covers the text")
     }
-    /// The on-screen text blocks, by label: top edge and height.
+    /// A text block on screen: its frame as XCUITest reports it, and whether all of it is inside the screen.
+    private struct BlockSnapshot {
+        let frame: CGRect
+        let fullyOnScreen: Bool
+    }
+
+    /// The on-screen text blocks, by label.
+    ///
+    /// Only a block wholly inside the screen gives a height that can be compared: in the scroll view XCUITest
+    /// reports a block's whole frame even where it runs past the screen's edge (negative or off-screen origins),
+    /// while a block drawn by auto-scroll outside a scroll view is evidently reported cut at the screen's edge
+    /// (CI: a 267.5 pt paragraph, taller than the 197 pt screen and so never wholly on it, read 130.5 pt while
+    /// running). Heights are compared on whole blocks only; the frames are attached to the log either way.
     @MainActor
-    private func visibleBlocks(_ app: XCUIApplication) -> [String: (minY: CGFloat, height: CGFloat)] {
+    private func visibleBlocks(_ app: XCUIApplication) -> [String: BlockSnapshot] {
         let screen = app.windows.firstMatch.frame
-        var result: [String: (minY: CGFloat, height: CGFloat)] = [:]
+        var result: [String: BlockSnapshot] = [:]
         for block in app.descendants(matching: .any).matching(identifier: "readerBlock").allElementsBoundByIndex {
             let frame = block.frame
             guard frame.maxY > screen.minY, frame.minY < screen.maxY, !block.label.isEmpty else { continue }
-            result[block.label] = (frame.minY, frame.height)
+            let whole = frame.minY >= screen.minY - 0.5 && frame.maxY <= screen.maxY + 0.5
+            result[block.label] = BlockSnapshot(frame: frame, fullyOnScreen: whole)
         }
         return result
+    }
+
+    /// The frames, for the test log (evidence when a comparison fails).
+    @MainActor
+    private func attachFrames(_ name: String, _ blocks: [String: BlockSnapshot], _ app: XCUIApplication) {
+        let screen = app.windows.firstMatch.frame
+        let lines = blocks.sorted { $0.value.frame.minY < $1.value.frame.minY }.map { label, block in
+            "\(block.fullyOnScreen ? "whole" : "cut  ") \(block.frame)  \(label.prefix(40))"
+        }
+        let text = XCTAttachment(string: "screen \(screen)\n" + lines.joined(separator: "\n"))
+        text.name = name
+        text.lifetime = .keepAlways
+        add(text)
+    }
+
+    /// Blocks on screen in both, fully inside it in both: their heights must match (a block squeezed or cut
+    /// with "…" by the auto-scroll layout is shorter). Returns how many were compared.
+    @MainActor
+    private func compareWholeBlocks(_ before: [String: BlockSnapshot], _ now: [String: BlockSnapshot],
+                                    when: String) -> Int {
+        var compared = 0
+        for (label, was) in before where was.fullyOnScreen {
+            guard let block = now[label], block.fullyOnScreen else { continue }
+            compared += 1
+            XCTAssertEqual(block.frame.height, was.frame.height, accuracy: 1,
+                           "\(when): a block must keep its full height (cut short with \u{2026}?): before \(was.frame), "
+                           + "now \(block.frame): \(label.prefix(40))")
+        }
+        return compared
     }
 
     @MainActor
@@ -151,6 +193,7 @@ final class WatchAutoScrollUITests: XCTestCase {
         let before = visibleBlocks(app)
         XCTAssertFalse(before.isEmpty, "No text block on screen")
         attachScreenshot("autoscroll-before", app)
+        attachFrames("autoscroll-before-frames", before, app)
 
         // A tap shows the bar (it does not open the word picker while the bar is hidden), then Start.
         app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)).tap()
@@ -161,22 +204,23 @@ final class WatchAutoScrollUITests: XCTestCase {
         usleep(300_000)
         attachScreenshot("autoscroll-running", app)
         let running = visibleBlocks(app)
+        attachFrames("autoscroll-running-frames", running, app)
         let shared = Set(before.keys).intersection(running.keys)
         XCTAssertFalse(shared.isEmpty, "The text on screen should be the same blocks right after the start")
-        for label in shared {
-            let was = before[label]!, now = running[label]!
-            XCTAssertEqual(now.height, was.height, accuracy: 1,
-                           "A running block must keep its full height (cut short with \u{2026}?): \(label.prefix(40))")
-            XCTAssertEqual(now.minY, was.minY, accuracy: 30,
-                           "The text must not jump when auto-scroll starts: \(label.prefix(40))")
+        // No jump: every block still on screen starts where it did (the top edge is never cut short at the
+        // bottom of the screen, so this also holds for blocks running past it).
+        for label in shared where before[label]!.frame.minY >= app.windows.firstMatch.frame.minY {
+            XCTAssertEqual(running[label]!.frame.minY, before[label]!.frame.minY, accuracy: 30,
+                           "The text must not jump when auto-scroll starts: before \(before[label]!.frame), "
+                           + "now \(running[label]!.frame): \(label.prefix(40))")
         }
+        XCTAssertGreaterThan(compareWholeBlocks(before, running, when: "Just after the start"), 0,
+                             "No block was wholly on screen both before and after the start to compare")
 
         sleep(3)
         attachScreenshot("autoscroll-running-later", app)
         let later = visibleBlocks(app)
-        for label in Set(before.keys).intersection(later.keys) {
-            XCTAssertEqual(later[label]!.height, before[label]!.height, accuracy: 1,
-                           "Still the full height a few seconds on: \(label.prefix(40))")
-        }
+        attachFrames("autoscroll-running-later-frames", later, app)
+        _ = compareWholeBlocks(before, later, when: "A few seconds on")
     }
 }
