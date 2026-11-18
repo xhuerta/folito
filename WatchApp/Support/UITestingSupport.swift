@@ -35,7 +35,18 @@ enum UITesting {
     /// one-chapter sample, so a jump to a late chapter is a far jump in the lazy reader (#174).
     static let seedLongBookArgument = "-UITestingSeedLongBook"
 
+    /// `-UITestingBlockHeights`: each reader block (and each block auto-scroll draws) carries its laid-out
+    /// height as its accessibility value ("h=267.5"), so a UI test can compare whole heights even for a block
+    /// that runs past the screen's edge, where XCUITest may report its frame cut. Only the auto-scroll parity
+    /// test passes it; nothing else changes.
+    static let blockHeightsArgument = "-UITestingBlockHeights"
+
     #if DEBUG
+    static let exposesBlockHeights: Bool = {
+        let args = ProcessInfo.processInfo.arguments
+        return args.contains(blockHeightsArgument)
+    }()
+
     static let isActive: Bool = {
         let args = ProcessInfo.processInfo.arguments
         return args.contains(isolateArgument) || args.contains(seedSampleBookArgument) || args.contains(seedCoversArgument)
@@ -449,6 +460,7 @@ enum UITesting {
                              totalCharacters: offset)
     }()
     #else
+    static let exposesBlockHeights = false
     static let isActive = false
     static var defaults: UserDefaults { .standard }
     static func makeBookStorage() -> BookStorage { BookStorage() }

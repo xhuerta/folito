@@ -100,19 +100,20 @@ final class WatchAutoScrollUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 5), .completed, "Stopping should remove the paused badge")
         XCTAssertFalse(WatchUI.element("autoScrollControl", in: app).exists, "Stopped: nothing covers the text")
     }
-    /// A text block on screen: its frame as XCUITest reports it, and whether all of it is inside the screen.
+    /// A text block on screen: its frame as XCUITest reports it, whether all of it is inside the screen, and its
+    /// whole laid-out height as the app reports it (`-UITestingBlockHeights`: the accessibility value "h=…").
     private struct BlockSnapshot {
         let frame: CGRect
         let fullyOnScreen: Bool
+        let height: CGFloat?
     }
 
     /// The on-screen text blocks, by label.
     ///
-    /// Only a block wholly inside the screen gives a height that can be compared: in the scroll view XCUITest
-    /// reports a block's whole frame even where it runs past the screen's edge (negative or off-screen origins),
-    /// while a block drawn by auto-scroll outside a scroll view is evidently reported cut at the screen's edge
-    /// (CI: a 267.5 pt paragraph, taller than the 197 pt screen and so never wholly on it, read 130.5 pt while
-    /// running). Heights are compared on whole blocks only; the frames are attached to the log either way.
+    /// The frame alone cannot be compared: the seed's paragraphs are mostly taller than the 197 pt screen, and
+    /// XCUITest reports a scroll view's block with its whole frame past the screen's edge, but a block drawn by
+    /// auto-scroll cut at it (CI: a 267.5 pt paragraph read 130.5 pt while running). So the app reports each
+    /// block's laid-out height itself, the same way for the reader and for auto-scroll.
     @MainActor
     private func visibleBlocks(_ app: XCUIApplication) -> [String: BlockSnapshot] {
         let screen = app.windows.firstMatch.frame
@@ -121,17 +122,20 @@ final class WatchAutoScrollUITests: XCTestCase {
             let frame = block.frame
             guard frame.maxY > screen.minY, frame.minY < screen.maxY, !block.label.isEmpty else { continue }
             let whole = frame.minY >= screen.minY - 0.5 && frame.maxY <= screen.maxY + 0.5
-            result[block.label] = BlockSnapshot(frame: frame, fullyOnScreen: whole)
+            let value = (block.value as? String) ?? ""
+            let height = value.hasPrefix("h=") ? Double(value.dropFirst(2)).map { CGFloat($0) } : nil
+            result[block.label] = BlockSnapshot(frame: frame, fullyOnScreen: whole, height: height)
         }
         return result
     }
 
-    /// The frames, for the test log (evidence when a comparison fails).
+    /// The frames and heights, for the test log (evidence when a comparison fails).
     @MainActor
     private func attachFrames(_ name: String, _ blocks: [String: BlockSnapshot], _ app: XCUIApplication) {
         let screen = app.windows.firstMatch.frame
         let lines = blocks.sorted { $0.value.frame.minY < $1.value.frame.minY }.map { label, block in
-            "\(block.fullyOnScreen ? "whole" : "cut  ") \(block.frame)  \(label.prefix(40))"
+            "\(block.fullyOnScreen ? "whole" : "cut  ") h=\(block.height.map { "\($0)" } ?? "?") \(block.frame)  "
+                + "\(label.prefix(40))"
         }
         let text = XCTAttachment(string: "screen \(screen)\n" + lines.joined(separator: "\n"))
         text.name = name
@@ -139,18 +143,27 @@ final class WatchAutoScrollUITests: XCTestCase {
         add(text)
     }
 
-    /// Blocks on screen in both, fully inside it in both: their heights must match (a block squeezed or cut
-    /// with "…" by the auto-scroll layout is shorter). Returns how many were compared.
+    /// Every block on screen in both: its whole laid-out height must not change (a block squeezed or cut with
+    /// "…" by the auto-scroll layout is shorter). A block wholly on screen must also be drawn at that height, so
+    /// the reported value is the one on screen. Returns how many blocks were compared.
     @MainActor
-    private func compareWholeBlocks(_ before: [String: BlockSnapshot], _ now: [String: BlockSnapshot],
-                                    when: String) -> Int {
+    private func compareHeights(_ before: [String: BlockSnapshot], _ now: [String: BlockSnapshot],
+                                when: String) -> Int {
         var compared = 0
-        for (label, was) in before where was.fullyOnScreen {
-            guard let block = now[label], block.fullyOnScreen else { continue }
+        for (label, was) in before {
+            guard let block = now[label] else { continue }
+            guard let wasHeight = was.height, let height = block.height else {
+                XCTFail("\(when): no height reported for \(label.prefix(40)) (-UITestingBlockHeights)")
+                continue
+            }
             compared += 1
-            XCTAssertEqual(block.frame.height, was.frame.height, accuracy: 1,
-                           "\(when): a block must keep its full height (cut short with \u{2026}?): before \(was.frame), "
-                           + "now \(block.frame): \(label.prefix(40))")
+            XCTAssertEqual(height, wasHeight, accuracy: 1,
+                           "\(when): a block must keep its full height (squeezed or cut short with \u{2026}?): "
+                           + "before \(wasHeight), now \(height): \(label.prefix(40))")
+            if block.fullyOnScreen {
+                XCTAssertEqual(block.frame.height, height, accuracy: 1,
+                               "\(when): drawn at another height than reported: \(block.frame): \(label.prefix(40))")
+            }
         }
         return compared
     }
@@ -173,7 +186,7 @@ final class WatchAutoScrollUITests: XCTestCase {
     func testRunningTextLooksLikeTheReader() {
         let app = XCUIApplication()
         // Auto-scroll is behind a feature flag (off in the app): the tests turn it on.
-        app.launchArguments += ["-UITestingSeedAppStore", "-UITestingEnableAutoScroll",
+        app.launchArguments += ["-UITestingSeedAppStore", "-UITestingEnableAutoScroll", "-UITestingBlockHeights",
                                 "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
         XCTAssertTrue(WatchUI.libraryRow(in: app).waitForExistence(timeout: 45), "Library screen did not appear")
@@ -214,13 +227,15 @@ final class WatchAutoScrollUITests: XCTestCase {
                            "The text must not jump when auto-scroll starts: before \(before[label]!.frame), "
                            + "now \(running[label]!.frame): \(label.prefix(40))")
         }
-        XCTAssertGreaterThan(compareWholeBlocks(before, running, when: "Just after the start"), 0,
-                             "No block was wholly on screen both before and after the start to compare")
+        // A single paragraph can fill the screen, so one shared block is enough (its whole height is compared).
+        XCTAssertGreaterThanOrEqual(compareHeights(before, running, when: "Just after the start"), 1,
+                                    "No block on screen both before and after the start to compare")
 
         sleep(3)
         attachScreenshot("autoscroll-running-later", app)
         let later = visibleBlocks(app)
         attachFrames("autoscroll-running-later-frames", later, app)
-        _ = compareWholeBlocks(before, later, when: "A few seconds on")
+        XCTAssertGreaterThanOrEqual(compareHeights(before, later, when: "A few seconds on"), 1,
+                                    "At least one block still on screen a few seconds on")
     }
 }

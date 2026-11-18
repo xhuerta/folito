@@ -127,6 +127,7 @@ struct ReaderView: View {
                     ForEach(0..<model.flat.count, id: \.self) { index in
                         BlockStyledText(block: model.flat.blocks[index], style: style)
                             .equatable()
+                            .modifier(UITestBlockHeight())
                             .contentShape(Rectangle())
                             .onTapGesture { location in tapped(block: index, at: location, style: style) }
                             // Available from the VoiceOver actions rotor even with tap-to-look-up off.
@@ -1013,6 +1014,7 @@ private struct AutoScrollColumn: View, Equatable {
                     // In a scroll view every block gets its full height. Here the stack is offered one screen,
                     // and without this the blocks shared it: each was cut to a line or two ending in "…".
                     .fixedSize(horizontal: false, vertical: true)
+                    .modifier(UITestBlockHeight())
                     .accessibilityIdentifier("readerBlock")
                     .background(GeometryReader { geo in
                         Color.clear.preference(key: AutoScrollHeightsKey.self, value: [index: Double(geo.size.height)])
@@ -1023,6 +1025,28 @@ private struct AutoScrollColumn: View, Equatable {
         // (no clipping: the screen's own edges cut it, as they cut the scroll view).
         .frame(width: width, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// UI tests only (`-UITestingBlockHeights`, see `UITesting`): the block's laid-out height as its accessibility
+/// value, "h=<points>", for the reader's blocks and the ones auto-scroll draws alike. Without the argument (and in
+/// Release builds) it changes nothing.
+private struct UITestBlockHeight: ViewModifier {
+    @State private var height: CGFloat = 0
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if UITesting.exposesBlockHeights {
+            content
+                .background(GeometryReader { geo in
+                    Color.clear
+                        .onAppear { height = geo.size.height }
+                        .onChange(of: geo.size.height) { height = $0 }
+                })
+                .accessibilityValue(Text(verbatim: String(format: "h=%.1f", Double(height)))) // i18n-ignore: UI-test hook
+        } else {
+            content
+        }
     }
 }
 
