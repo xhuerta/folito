@@ -405,7 +405,9 @@ final class ReaderViewModel: ObservableObject {
         guard !flat.isEmpty else { return }
         // Time in the menu or a lookup is not reading time.
         pageTimer.reset(at: now())
-        guard !showsCurrentLine else { return }
+        // A restore in progress (the chapter just chosen, a re-layout) already brings this line back: starting
+        // another, covered one on top of it put a cover over a near jump for seconds (#181's CI).
+        guard !isRestoring, !showsCurrentLine else { return }
         // The line is not where it should be (a re-layout that could not finish behind the menu, say): bring it
         // back under the cover, so the move shows as one.
         if isPositioned, !isSettling, autoScroll == .off {
@@ -465,6 +467,37 @@ final class ReaderViewModel: ObservableObject {
     /// the part of it scrolled past that edge.
     /// `layoutKey`: the layout the frames were measured with (nil in tests that do not care); a new one is a
     /// layout change (`layoutChanged(to:)`), handled before the frames are read.
+    /// Set by the view while a sheet or an alert covers the reader (the Reading Options menu, a note, the word
+    /// lookup). Nobody can scroll the text then, and the reader's geometry is not the one it has on screen: with the
+    /// menu up, a text size change re-laid the text out and the restore checked it there, but once the menu went
+    /// the chapter heading sat about a bar's height above the reading line, and the cover lifted after its 3 s cap
+    /// on the wrong place (#181's CI, Chapter 12. at 15 pt). While held, frames never move the saved position and a
+    /// restore waits; when the reader shows again the restore starts over from there (`resumeHeldRestore`).
+    var holdsRestores = false {
+        didSet {
+            guard holdsRestores != oldValue, !holdsRestores else { return }
+            resumeHeldRestore()
+        }
+    }
+
+    /// The reader shows again: a restore that was held is started afresh on what is now on screen.
+    private func resumeHeldRestore() {
+        guard isRestoring, let target = restoreTarget else { return }
+        // A re-layout's frames that did not come behind the sheet get their full wait from now.
+        if framesStaleSince != nil { framesStaleSince = Date() }
+        let points = restorePoints
+        let jumpIndex = restoreJumpIndex
+        let anchor = restoreAnchor
+        beginRestore(target: target, offset: restoreOffset)
+        if points != nil {
+            // An auto-scroll hand-back keeps its exact target.
+            restorePoints = points
+            restoreJumpIndex = jumpIndex
+            restoreAnchor = anchor
+        }
+        jumpRequest = JumpRequest(index: restoreJumpIndex ?? target, anchorY: restoreAnchor)
+    }
+
     func blockFramesChanged(_ frames: [Int: BlockFrame], layoutKey: String? = nil) {
         if let layoutKey { layoutChanged(to: layoutKey) }
         lastFrames = frames
@@ -474,7 +507,7 @@ final class ReaderViewModel: ObservableObject {
         }
         // While auto-scroll moves the text the scroll view underneath stands still (hidden): its frames say
         // nothing about the reading position, which auto-scroll reports itself (`autoScrollPositionChanged`).
-        guard autoScroll != .running else { return }
+        guard autoScroll != .running, !holdsRestores else { return }
         if !isRestoring { checkEnd(frames) }
         guard !isRestoring, let top = VisibleBlockResolver.topIndex(frames: frames, viewportTop: viewportTop),
               top < flat.count, let frame = frames[top] else { return }
@@ -674,6 +707,8 @@ final class ReaderViewModel: ObservableObject {
         // once the blocks around the target are measured (never by correcting the anchor from it: that error
         // comes from the estimate, not the anchor, and an anchor "corrected" for it lands just as far off the
         // other way, a heading in mid-screen).
+        // Behind a sheet: wait until the reader shows again (`resumeHeldRestore` starts the checks over).
+        if holdsRestores { return }
         // Hard cap: a covered restore is revealed after `maxSettleDuration`, wherever it stands.
         if coversText, Date().timeIntervalSince(restoreBegan) >= JumpSettling.maxSettleDuration {
             finishRestore()
@@ -691,8 +726,9 @@ final class ReaderViewModel: ObservableObject {
         }
         let limit = restoreLimit
         // Near the end of the book the target may be unable to reach the top: on screen below the line is its place.
-        let targetHeldByTheEnd = restoreTarget.flatMap { lastFrames[$0] }.map { $0.minY > viewportTop } == true
-            && endOfBookOnScreen
+        // The same at the start of the book: the first block cannot go lower than the content's top.
+        let targetHeldByTheEnd = (restoreTarget.flatMap { lastFrames[$0] }.map { $0.minY > viewportTop } == true
+            && endOfBookOnScreen) || (restoreTarget == 0 && restoreOffset == 0 && lastFrames[0] != nil)
         if let target = restoreTarget, !targetHeldByTheEnd,
            RestoreCheck.needsRetry(top: VisibleBlockResolver.topIndex(frames: lastFrames, viewportTop: viewportTop),
                                    target: target, attempts: restoreAttempts, limit: limit) {

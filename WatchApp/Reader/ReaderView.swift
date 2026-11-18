@@ -327,6 +327,8 @@ struct ReaderView: View {
         }
         // Anything over the text pauses auto-scroll; it resumes only on a tap.
         .onChange(of: coversReader) { covered in
+            // Nothing moves the reading position (or settles a restore) behind a sheet.
+            model.holdsRestores = covered
             if covered {
                 model.pauseAutoScroll()
             } else if crownReturnPending {

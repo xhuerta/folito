@@ -426,4 +426,42 @@ final class JumpSettlingTests: XCTestCase {
         XCTAssertLessThan(Date().timeIntervalSince(began), JumpSettling.maxSettleDuration + 0.5)
         XCTAssertFalse(model.coversText)
     }
+
+    /// Behind a sheet nothing settles and frames never move the position; when the reader shows again the restore
+    /// starts over from what is on screen then.
+    @MainActor
+    func testRestoreBehindASheetWaitsForTheReader() async throws {
+        let model = try await openedReader().model
+        let heading = Self.blocksPerChapter
+        model.jump(to: heading)
+        model.blockFramesChanged([heading: f(0, 40), heading + 1: f(50, 150)], layoutKey: "16pt")
+        try await waitUntil { !model.isRestoring }
+
+        model.holdsRestores = true // the menu is up
+        model.blockFramesChanged([heading + 3: f(0, 100)], layoutKey: "16pt")
+        XCTAssertEqual(model.currentIndex, heading, "frames behind the sheet never move the position")
+        model.layoutChanged(to: "15pt")
+        model.blockFramesChanged([heading: f(47, 87), heading + 1: f(97, 197)], layoutKey: "15pt")
+        try await Task.sleep(nanoseconds: 200_000_000)
+        XCTAssertTrue(model.isRestoring, "nothing settles behind the sheet")
+        let held = model.jumpRequest
+
+        model.holdsRestores = false // the menu is gone: the heading sits below the line in the real geometry
+        XCTAssertNotEqual(model.jumpRequest, held, "the restore starts over")
+        XCTAssertEqual(model.jumpRequest?.index, heading)
+        model.blockFramesChanged([heading: f(0, 40), heading + 1: f(50, 150)], layoutKey: "15pt")
+        try await waitUntil { !model.isSettling }
+        XCTAssertEqual(model.currentIndex, heading)
+        XCTAssertEqual(model.currentOffset, 0)
+    }
+
+    /// Closing the menu right after a near chapter jump does not cover the text: the jump's own restore goes on.
+    @MainActor
+    func testReanchorDuringANearJumpAddsNoCover() async throws {
+        let model = try await openedReader().model
+        model.jump(to: 1)
+        XCTAssertFalse(model.isSettling)
+        model.reanchor()
+        XCTAssertFalse(model.isSettling, "no cover over a near jump")
+    }
 }
