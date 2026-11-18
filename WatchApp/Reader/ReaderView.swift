@@ -88,6 +88,10 @@ struct ReaderView: View {
     /// auto-scroll window lays out every line exactly as the scroll view does.
     @State private var autoScrollLeading: CGFloat = 0
     @State private var autoScrollTextWidth: CGFloat = 0
+    /// The scroll view's global origin when the auto-scroll window was made: the window's coordinates are the
+    /// scroll view's as they were then, so the text stays put on screen even if the bar hiding moves the
+    /// scroll view's frame. Hand-back converts back to the scroll view's coordinates of the moment.
+    @State private var autoScrollOrigin: CGPoint = .zero
     /// Auto-scroll paused or stopped and the scroll view is being brought to the point shown.
     @State private var autoScrollHandingBack = false
     /// Line height and paragraph spacing the auto-scroll housekeeping runs with (set when it starts).
@@ -123,6 +127,7 @@ struct ReaderView: View {
                     ForEach(0..<model.flat.count, id: \.self) { index in
                         BlockStyledText(block: model.flat.blocks[index], style: style)
                             .equatable()
+                            .modifier(UITestBlockHeight())
                             .contentShape(Rectangle())
                             .onTapGesture { location in tapped(block: index, at: location, style: style) }
                             // Available from the VoiceOver actions rotor even with tap-to-look-up off.
@@ -309,6 +314,8 @@ struct ReaderView: View {
             }
             if state == .running {
                 autoScrollHandingBack = false
+                // Seeded from the text as it is on screen right now, in this same update.
+                makeAutoScrollWindow(at: Date())
                 crownValue = Double(model.autoScrollLevel)
                 // On every start and resume, a little longer than after a crown change (the sheet is still
                 // leaving), and longer still with the first-start crown hint.
@@ -476,29 +483,48 @@ extension ReaderView {
 
     // MARK: Auto-scroll (#67)
 
-    /// The auto-scrolled text: the window's blocks in a plain stack, at the scroll view's width and in its
-    /// coordinates, moved up by the distance scrolled. The offset is computed on every display frame from the
-    /// view model's `Motion` (paused, it stops asking for frames); the stack itself only changes with the
-    /// window (`AutoScrollColumn` is equatable), so a frame costs one offset, not a layout.
+    /// The auto-scrolled text: the window's blocks stacked exactly like the reader's list (`AutoScrollColumn`:
+    /// the same block view, style, width and spacing, every block at its full height), placed where the
+    /// scroll view showed them when the window was made and moved up by the distance scrolled. Behind it, the
+    /// reader's own page colour edge to edge, as the reader paints it, and no clipping box: the screen looks
+    /// the same as the reader's. The offset is computed on every display frame from the view model's `Motion`
+    /// (paused, it stops asking for frames); the stack itself only changes with the window (it is equatable),
+    /// so a frame costs one offset, not a layout.
     fileprivate func autoScrollColumn(_ window: AutoScroll.Window, style: ReaderRenderStyle,
                                       lineHeight: Double) -> some View {
         let margin = CGFloat(style.typography.horizontalMargin)
-        return GeometryReader { geo in
-            // Where this overlay sits relative to the scroll view (it ignores the safe area, the text does not).
-            let origin = geo.frame(in: .global).origin
-            let dx = scrollOrigin.x - origin.x + (autoScrollLeading > 0 ? autoScrollLeading : margin)
-            let dy = scrollOrigin.y - origin.y
-            TimelineView(.animation(minimumInterval: nil, paused: model.autoScroll != .running)) { context in
-                AutoScrollColumn(blocks: model.flat.blocks, first: window.first, last: window.last, style: style,
-                                 width: autoScrollTextWidth > 0 ? autoScrollTextWidth : max(geo.size.width - 2 * margin, 0))
-                    .equatable()
-                    .offset(x: dx, y: dy + CGFloat(window.originY - autoScrollShift(window, at: context.date,
-                                                                                    lineHeight: lineHeight,
-                                                                                    spacing: Double(style.typography.paragraphSpacing))))
+        return ZStack(alignment: .topLeading) {
+            style.background
+                .ignoresSafeArea()
+            GeometryReader { geo in
+                // UI tests only: the area the text is drawn in, so a test can check that it is the scroll view's.
+                if UITesting.exposesBlockHeights {
+                    Color.clear
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .accessibilityElement()
+                        .accessibilityIdentifier("autoScrollSurface")
+                        .allowsHitTesting(false)
+                }
+                // From this overlay's own global origin (it ignores the safe area) to the scroll view's text.
+                let origin = geo.frame(in: .global).origin
+                let dx = autoScrollOrigin.x - origin.x + (autoScrollLeading > 0 ? autoScrollLeading : margin)
+                let dy = autoScrollOrigin.y - origin.y
+                TimelineView(.animation(minimumInterval: nil, paused: model.autoScroll != .running)) { context in
+                    AutoScrollColumn(blocks: model.flat.blocks, first: window.first, last: window.last, style: style,
+                                     width: autoScrollTextWidth > 0 ? autoScrollTextWidth
+                                                                    : max(geo.size.width - 2 * margin, 0))
+                        .equatable()
+                        .offset(x: dx, y: dy + CGFloat(window.originY - autoScrollShift(window, at: context.date,
+                                                                                        lineHeight: lineHeight,
+                                                                                        spacing: Double(style.typography.paragraphSpacing))))
+                }
             }
+            // The text's container spans the whole screen, as the scroll view does: laid out inside the safe area
+            // it ended at the bottom inset (y 178 of 197 on a 41 mm watch) and under the bar, where the
+            // scroll view's text runs on to the edges.
+            .ignoresSafeArea()
         }
         .ignoresSafeArea()
-        .clipped()
         .contentShape(Rectangle())
         // Paused (the scroll view is still landing underneath): a tap resumes, as on the text.
         .onTapGesture {
@@ -507,6 +533,28 @@ extension ReaderView {
         .onPreferenceChange(AutoScrollHeightsKey.self) { measured in
             autoScrollHeights.merge(measured) { _, new in new }
         }
+    }
+
+    /// Makes the window from the blocks exactly where the scroll view shows them now (their measured frames,
+    /// the geometry the reading position is tracked with), so its first frame is the reader's last one.
+    /// Returns whether it did.
+    @discardableResult
+    fileprivate func makeAutoScrollWindow(at date: Date) -> Bool {
+        guard autoScrollWindow == nil, model.autoScroll == .running, !model.isRestoring, !model.coversText else {
+            return false
+        }
+        let frames = model.blockFrames.mapValues { AutoScroll.Span(minY: Double($0.minY), maxY: Double($0.maxY)) }
+        guard let window = AutoScroll.Window(frames: frames, viewportHeight: Double(model.viewportHeight),
+                                             blockCount: model.flat.count,
+                                             baseLines: model.autoScrollLines(at: date)) else { return false }
+        withoutAnimation {
+            autoScrollHeights = frames.mapValues(\.height)
+            autoScrollLeading = model.blockFrames[window.first]?.minX ?? 0
+            autoScrollTextWidth = model.blockFrames[window.first]?.width ?? 0
+            autoScrollOrigin = scrollOrigin
+            autoScrollWindow = window
+        }
+        return true
     }
 
     /// Points the window has moved since it was made, at `date`: never past the end of the book.
@@ -524,7 +572,9 @@ extension ReaderView {
         -> (cursor: AutoScroll.Cursor, frames: [Int: AutoScroll.Span])? {
         guard let window = autoScrollWindow else { return nil }
         let shift = autoScrollShift(window, at: date, lineHeight: lineHeight, spacing: spacing)
-        let frames = window.spans(heights: autoScrollHeights, spacing: spacing, shift: shift)
+        // In the scroll view's coordinates of the moment (the same as the window's unless its frame moved).
+        let moved = Double(autoScrollOrigin.y - scrollOrigin.y)
+        let frames = window.spans(heights: autoScrollHeights, spacing: spacing, shift: shift - moved)
         guard let cursor = AutoScroll.cursor(frames: frames, viewportTop: Double(model.viewportTop)) else { return nil }
         return (cursor, frames)
     }
@@ -546,18 +596,9 @@ extension ReaderView {
             // The crown changes the speed at any moment while it runs (unless a sheet has it).
             if crownFocus != .autoScroll, !coversReader { crownFocus = .autoScroll }
             if autoScrollWindow == nil {
-                // Starts (or resumes) from exactly where the scroll view shows the text, once it settled.
-                guard !model.isRestoring else { return }
-                let frames = model.blockFrames.mapValues { AutoScroll.Span(minY: Double($0.minY), maxY: Double($0.maxY)) }
-                guard let window = AutoScroll.Window(frames: frames, viewportHeight: viewportHeight,
-                                                     blockCount: model.flat.count,
-                                                     baseLines: model.autoScrollLines(at: date)) else { return }
-                withoutAnimation {
-                    autoScrollHeights = frames.mapValues(\.height)
-                    autoScrollLeading = model.blockFrames[window.first]?.minX ?? 0
-                    autoScrollTextWidth = model.blockFrames[window.first]?.width ?? 0
-                    autoScrollWindow = window
-                }
+                // Starts (or resumes) from exactly where the scroll view shows the text, once it settled (when
+                // it was already settled, `onChange(of: autoScroll)` made the window at once).
+                makeAutoScrollWindow(at: date)
                 return
             }
         }
@@ -983,13 +1024,42 @@ private struct AutoScrollColumn: View, Equatable {
             ForEach(first...max(first, min(last, blocks.count - 1)), id: \.self) { index in
                 BlockStyledText(block: blocks[index], style: style)
                     .equatable()
+                    // In a scroll view every block gets its full height. Here the stack is offered one screen,
+                    // and without this the blocks shared it: each was cut to a line or two ending in "…".
+                    .fixedSize(horizontal: false, vertical: true)
+                    .modifier(UITestBlockHeight())
                     .accessibilityIdentifier("readerBlock")
                     .background(GeometryReader { geo in
                         Color.clear.preference(key: AutoScrollHeightsKey.self, value: [index: Double(geo.size.height)])
                     })
             }
         }
+        // The full width the scroll view gives its text, and the stack's whole height, past the screen's edge
+        // (no clipping: the screen's own edges cut it, as they cut the scroll view).
         .frame(width: width, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// UI tests only (`-UITestingBlockHeights`, see `UITesting`): the block's laid-out height as its accessibility
+/// value, "h=<points>", for the reader's blocks and the ones auto-scroll draws alike. Without the argument (and in
+/// Release builds) it changes nothing.
+private struct UITestBlockHeight: ViewModifier {
+    @State private var height: CGFloat = 0
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if UITesting.exposesBlockHeights {
+            content
+                .background(GeometryReader { geo in
+                    Color.clear
+                        .onAppear { height = geo.size.height }
+                        .onChange(of: geo.size.height) { height = $0 }
+                })
+                .accessibilityValue(Text(verbatim: String(format: "h=%.1f", Double(height)))) // i18n-ignore: UI-test hook
+        } else {
+            content
+        }
     }
 }
 
