@@ -639,6 +639,15 @@ final class ReaderViewModel: ObservableObject {
             savePosition()
             return
         }
+        if tracesRestores, top < currentIndex {
+            // Reading moves forward; a step back while nobody restores is what the forward-reading test catches.
+            let originText = scrollSpaceOriginOnScreen.map { String(format: "%.1f", Double($0)) } ?? "nil"
+            let offsetText = traceScrollOffset.map { String(format: "%.1f", Double($0)) } ?? "nil"
+            let screenText = frame.screenMinY.map { String(format: "%.1f", Double($0)) } ?? "nil"
+            let lineText = String(format: "%.1f", Double(viewportTop))
+            trace("back \(currentIndex) -> \(top) f=\(traceFrame(frame)) scr=\(screenText) vt=\(lineText) "
+                  + "so=\(originText) off=\(offsetText) blocks=\(frames.keys.min() ?? -1)-\(frames.keys.max() ?? -1)")
+        }
         learnSpeed(from: currentIndex, to: top)
         currentIndex = top
         currentOffset = InBlockPosition.characterOffset(forFraction: fraction, in: text)

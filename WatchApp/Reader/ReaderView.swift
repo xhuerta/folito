@@ -184,11 +184,10 @@ struct ReaderView: View {
                 // target line) is at the top edge.
                 .opacity(model.coversText ? 0 : 1)
                 .accessibilityHidden(model.coversText)
-                // A new layout or a window loaded at another block (`ChapterWindow`) gets a fresh stack: no height
-                // measured or estimated for the old one survives. On the stack, not the ScrollView: keyed there (in
-                // 8fb08d2, 3186ae5 and afdf1a4) the bar stopped hiding on scrolling in WatchReaderTopBarTests, which
-                // passed whenever the ScrollView carried no `.id` (f1f3bee). Appending below keeps the same stack.
-                .id("\(style.layoutKey)|\(model.window.lowerBound)")
+                // No `.id` here or on the ScrollView: with the stack keyed on the layout, every `scrollTo` after a text
+                // size change did nothing (#181's trace: twelve `scroll 404 a=top`, the content offset fixed at 359.5),
+                // and with the ScrollView keyed the bar stopped hiding. One chapter at a time (`ChapterWindow`) is what
+                // keeps estimated heights out of the way; a loaded window replaces the rows (their ids are the blocks).
             }
             .coordinateSpace(name: Self.scrollSpace)
             // While auto-scroll shows the text itself, the scroll view stays laid out (its frames place the
@@ -322,13 +321,6 @@ struct ReaderView: View {
             // A paused auto-scroll window was laid out for the old metrics: the scroll view takes over.
             if autoScrollWindow != nil, model.autoScroll != .running { endAutoScrollWindow() }
             model.layoutChanged(to: key)
-            // The rebuilt scroll view (`.id(style.layoutKey)`) is a new focus target: the crown goes back to it (once
-            // a sheet is gone, if one is up), unless auto-scroll holds it.
-            if model.autoScroll != .running { returnCrownToText() }
-        }
-        // The same for a scroll view rebuilt for another chapter.
-        .onChange(of: model.window.lowerBound) { _ in
-            if model.autoScroll != .running { returnCrownToText() }
         }
         .navigationTitle(model.title)
         .navigationBarTitleDisplayMode(.inline)
@@ -842,6 +834,7 @@ extension ReaderView {
     fileprivate func updateBar(_ change: (inout BarAutoHide) -> Void) {
         change(&autoHide.state)
         guard autoHide.state.isHidden != barHidden else { return }
+        model.trace("bar hidden=\(autoHide.state.isHidden ? 1 : 0) top=\(model.currentIndex)")
         withAnimation(.easeInOut(duration: 0.2)) { barHidden = autoHide.state.isHidden }
     }
 }
