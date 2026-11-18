@@ -91,10 +91,30 @@ enum WatchUI {
     }
 
     /// Reader -> Reading Options sheet (text size, dictionary, bookmarks, the Chapters row).
+    ///
+    /// The bar may be hidden (scrolled down) or about to hide again (a tap on the text shows it for only
+    /// `BarAutoHide.tapRevealDuration`, 3 s, which a few slow queries on the watch can use up): the button is
+    /// tapped as soon as it is hittable, and while it is not in the tree at all (bar hidden) the bar is revealed
+    /// with a tap on the text (which opens nothing while the bar is hidden), up to three times.
     static func openReaderMenu(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
         let button = element("readerOptionsButton", in: app)
-        XCTAssertTrue(button.waitForExistence(timeout: 5), "Reading Options button missing", file: file, line: line)
-        button.tap()
+        var tapped = false
+        for attempt in 0..<3 {
+            if waitForHittable(button, timeout: attempt == 0 ? 5 : 3) {
+                button.tap()
+                tapped = true
+                break
+            }
+            if button.exists {
+                // Shown but not reported hittable (as before this helper waited for that): tap it anyway.
+                button.tap()
+                tapped = true
+                break
+            }
+            // The bar is hidden (its button leaves the tree): a tap on the text shows it and opens nothing.
+            app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)).tap()
+        }
+        XCTAssertTrue(tapped, "Reading Options button missing", file: file, line: line)
         // The text size stepper is the sheet's first row; the Chapters row is further down and, in a lazy
         // List on a small watch, only enters the accessibility tree once scrolled into view.
         XCTAssertTrue(element("textSizeStepper", in: app).waitForExistence(timeout: 5),
@@ -236,12 +256,20 @@ enum WatchUI {
     }
 
     /// Shows the reader's top bar if it is hidden: a tap on the text toggles it (and opens nothing while hidden).
+    /// A bar shown by a tap hides again after 3 s: open Reading Options with `openReaderMenu`, which reveals it
+    /// again if needed.
     static func showReaderBar(_ app: XCUIApplication) {
         let options = element("readerOptionsButton", in: app)
         guard !(options.exists && options.isHittable) else { return }
         app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)).tap()
-        let shown = NSPredicate { _, _ in options.exists && options.isHittable }
-        _ = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: shown, object: nil)], timeout: 3)
+        _ = waitForHittable(options, timeout: 3)
+    }
+
+    /// Waits until `element` exists and is hittable. Returns whether it is.
+    static func waitForHittable(_ element: XCUIElement, timeout: TimeInterval) -> Bool {
+        let predicate = NSPredicate { _, _ in element.exists && element.isHittable }
+        return XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: predicate, object: nil)],
+                                timeout: timeout) == .completed
     }
 
     /// Reading Options -> chapter list -> the chapter titled `title`, which closes the menu. Opens the menu first
@@ -250,7 +278,6 @@ enum WatchUI {
     @discardableResult
     static func chooseChapter(_ title: String, current: String, in app: XCUIApplication,
                               file: StaticString = #filePath, line: UInt = #line) -> Bool {
-        showReaderBar(app)
         openReaderMenu(app, file: file, line: line)
         guard openChapters(app, currentChapter: current, file: file, line: line) else { return false }
         let row = app.descendants(matching: .any)

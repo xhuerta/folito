@@ -48,11 +48,13 @@ final class WatchTextSizeUITests: XCTestCase {
                                         file: StaticString = #filePath, line: UInt = #line) {
         // Let a scroll by hand come to rest first.
         sleep(1)
+        // The first visible block is measured below the shown bar (as after the menu closes); a tap shows the bar
+        // for only 3 s, so it is read right away, and `openReaderMenu` reveals the bar again if it hid meanwhile.
         WatchUI.showReaderBar(app)
+        let firstBefore = WatchUI.firstVisibleBlock(in: app)?.label
         guard let before = WatchUI.settledPosition(in: app) else {
             return WatchUI.fail("\(step): the reader did not settle", in: app, file: file, line: line)
         }
-        let firstBefore = WatchUI.firstVisibleBlock(in: app)?.label
 
         WatchUI.openReaderMenu(app, file: file, line: line)
         let stepper = WatchUI.element("textSizeStepper", in: app)
