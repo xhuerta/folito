@@ -148,7 +148,7 @@ final class WatchAutoScrollUITests: XCTestCase {
     /// the reported value is the one on screen. Returns how many blocks were compared.
     @MainActor
     private func compareHeights(_ before: [String: BlockSnapshot], _ now: [String: BlockSnapshot],
-                                when: String) -> Int {
+                                when: String, screenMaxY: CGFloat) -> Int {
         var compared = 0
         for (label, was) in before {
             guard let block = now[label] else { continue }
@@ -160,7 +160,9 @@ final class WatchAutoScrollUITests: XCTestCase {
             XCTAssertEqual(height, wasHeight, accuracy: 1,
                            "\(when): a block must keep its full height (squeezed or cut short with \u{2026}?): "
                            + "before \(wasHeight), now \(height): \(label.prefix(40))")
-            if block.fullyOnScreen {
+            // Only where the whole block fits on screen (its full height from its reported top); otherwise its
+            // frame is cut at the screen's edge.
+            if block.fullyOnScreen, block.frame.minY + height <= screenMaxY + 0.5 {
                 XCTAssertEqual(block.frame.height, height, accuracy: 1,
                                "\(when): drawn at another height than reported: \(block.frame): \(label.prefix(40))")
             }
@@ -205,6 +207,9 @@ final class WatchAutoScrollUITests: XCTestCase {
         sleep(1)
         let before = visibleBlocks(app)
         XCTAssertFalse(before.isEmpty, "No text block on screen")
+        let screen = app.windows.firstMatch.frame
+        // The area the reader's text is drawn in: its scroll view.
+        let readerArea = app.scrollViews.firstMatch.frame
         attachScreenshot("autoscroll-before", app)
         attachFrames("autoscroll-before-frames", before, app)
 
@@ -218,6 +223,17 @@ final class WatchAutoScrollUITests: XCTestCase {
         attachScreenshot("autoscroll-running", app)
         let running = visibleBlocks(app)
         attachFrames("autoscroll-running-frames", running, app)
+        // Auto-scroll draws the text over exactly the reader's area: the same edges, the bottom one included
+        // (the first version ended at the bottom safe-area inset, short of the scroll view's edge).
+        let surface = WatchUI.element("autoScrollSurface", in: app)
+        if surface.waitForExistence(timeout: 2) {
+            XCTAssertEqual(surface.frame.maxY, readerArea.maxY, accuracy: 1,
+                           "Auto-scroll's text must reach the reader's bottom edge: \(surface.frame) vs \(readerArea)")
+            XCTAssertEqual(surface.frame.minY, readerArea.minY, accuracy: 1,
+                           "Auto-scroll's text must start at the reader's top edge: \(surface.frame) vs \(readerArea)")
+        } else {
+            XCTFail("No autoScrollSurface element while running (-UITestingBlockHeights)")
+        }
         let shared = Set(before.keys).intersection(running.keys)
         XCTAssertFalse(shared.isEmpty, "The text on screen should be the same blocks right after the start")
         // No jump: every block still on screen starts where it did (the top edge is never cut short at the
@@ -228,14 +244,14 @@ final class WatchAutoScrollUITests: XCTestCase {
                            + "now \(running[label]!.frame): \(label.prefix(40))")
         }
         // A single paragraph can fill the screen, so one shared block is enough (its whole height is compared).
-        XCTAssertGreaterThanOrEqual(compareHeights(before, running, when: "Just after the start"), 1,
+        XCTAssertGreaterThanOrEqual(compareHeights(before, running, when: "Just after the start", screenMaxY: screen.maxY), 1,
                                     "No block on screen both before and after the start to compare")
 
         sleep(3)
         attachScreenshot("autoscroll-running-later", app)
         let later = visibleBlocks(app)
         attachFrames("autoscroll-running-later-frames", later, app)
-        XCTAssertGreaterThanOrEqual(compareHeights(before, later, when: "A few seconds on"), 1,
+        XCTAssertGreaterThanOrEqual(compareHeights(before, later, when: "A few seconds on", screenMaxY: screen.maxY), 1,
                                     "At least one block still on screen a few seconds on")
     }
 }

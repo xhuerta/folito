@@ -495,7 +495,16 @@ extension ReaderView {
         let margin = CGFloat(style.typography.horizontalMargin)
         return ZStack(alignment: .topLeading) {
             style.background
+                .ignoresSafeArea()
             GeometryReader { geo in
+                // UI tests only: the area the text is drawn in, so a test can check that it is the scroll view's.
+                if UITesting.exposesBlockHeights {
+                    Color.clear
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .accessibilityElement()
+                        .accessibilityIdentifier("autoScrollSurface")
+                        .allowsHitTesting(false)
+                }
                 // From this overlay's own global origin (it ignores the safe area) to the scroll view's text.
                 let origin = geo.frame(in: .global).origin
                 let dx = autoScrollOrigin.x - origin.x + (autoScrollLeading > 0 ? autoScrollLeading : margin)
@@ -510,6 +519,10 @@ extension ReaderView {
                                                                                         spacing: Double(style.typography.paragraphSpacing))))
                 }
             }
+            // The text's container spans the whole screen, as the scroll view does: laid out inside the safe area
+            // it ended at the bottom inset (y 178 of 197 on a 41 mm watch) and under the bar, where the
+            // scroll view's text runs on to the edges.
+            .ignoresSafeArea()
         }
         .ignoresSafeArea()
         .contentShape(Rectangle())
