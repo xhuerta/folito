@@ -618,20 +618,11 @@ final class ReaderViewModel: ObservableObject {
     }
 
     /// The in-block anchor for `offset`, from the block's last measured height, if it is laid out.
-    ///
-    /// Offset 0 (a chapter's start) needs one too while the scroll view runs under the bar: `.top` aligns the
-    /// block's top with the scroll view's own top edge (y 0, under the bar, the same model `InBlockPosition.anchorY`
-    /// uses), which would leave a chapter heading behind the bar. The anchor puts it at the reading line instead.
+    /// Offset 0 (a chapter's start) never needs one: `.top` puts the block's top at the reading line.
     private func knownAnchor(target: Int, offset: Int) -> Double? {
-        guard target < flat.count, let frame = lastFrames[target], viewportHeight > 0 else { return nil }
-        let height = Double(frame.maxY - frame.minY)
-        guard offset > 0 else {
-            guard viewportTop > 0 else { return nil }
-            return InBlockPosition.correctedAnchorY(0, error: -Double(viewportTop), blockHeight: height,
-                                                    viewportHeight: Double(viewportHeight))
-        }
+        guard offset > 0, target < flat.count, let frame = lastFrames[target], viewportHeight > 0 else { return nil }
         let fraction = InBlockPosition.fraction(forCharacterOffset: offset, in: flat.blocks[target].text)
-        return InBlockPosition.anchorY(fraction: fraction, blockHeight: height,
+        return InBlockPosition.anchorY(fraction: fraction, blockHeight: Double(frame.maxY - frame.minY),
                                        viewportHeight: Double(viewportHeight), viewportTop: Double(viewportTop))
     }
 
@@ -731,7 +722,8 @@ final class ReaderViewModel: ObservableObject {
     }
 
     /// The anchor for another in-block jump, or nil when the saved line is at the top (or retries ran out).
-    /// With offset 0 the block's own top must be at the reading line, within `JumpSettling.startTolerance`.
+    /// With offset 0 the block's own top must be at the reading line, within `JumpSettling.startTolerance`; the
+    /// same `.top` scroll is then simply re-issued (now on measured heights): no anchor is ever computed for it.
     private func inBlockAnchor(target: Int, frame: BlockFrame) -> Double? {
         let height = Double(frame.maxY - frame.minY)
         let fraction = InBlockPosition.fraction(forCharacterOffset: restoreOffset, in: flat.blocks[target].text)
@@ -740,20 +732,13 @@ final class ReaderViewModel: ObservableObject {
         let tolerance = restoreOffset > 0 ? InBlockPosition.tolerance : JumpSettling.startTolerance
         guard RestoreCheck.needsInBlockRetry(landedMinY: Double(frame.minY), wantedMinY: wanted,
                                              attempts: inBlockAttempts, tolerance: tolerance) else { return nil }
+        guard restoreOffset > 0 else { return restoreAnchor ?? 0 }
         if let previous = restoreAnchor {
             return InBlockPosition.correctedAnchorY(previous, error: Double(frame.minY) - wanted,
                                                     blockHeight: height, viewportHeight: Double(viewportHeight))
         }
-        if let anchor = InBlockPosition.anchorY(fraction: fraction, blockHeight: height,
-                                                viewportHeight: Double(viewportHeight), viewportTop: Double(viewportTop)) {
-            return anchor
-        }
-        // Offset 0 went to `.top`. Like `anchorY` above, the anchor is computed from the model, not from where the
-        // first scroll landed (that landing may still be on estimated heights): the one that puts the block's top
-        // at the reading line (`knownAnchor`). Later corrections, after a scroll on measured blocks, start from it.
-        guard viewportHeight > 0 else { return nil }
-        return InBlockPosition.correctedAnchorY(0, error: -Double(viewportTop), blockHeight: height,
-                                                viewportHeight: Double(viewportHeight))
+        return InBlockPosition.anchorY(fraction: fraction, blockHeight: height,
+                                       viewportHeight: Double(viewportHeight), viewportTop: Double(viewportTop))
     }
 
     /// Called by the view once it appeared: scroll to the saved block, then to the saved line in it. Both

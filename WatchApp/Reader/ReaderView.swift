@@ -75,6 +75,9 @@ struct ReaderView: View {
     @State private var barHidden = false
     /// The scroll view's origin in global coordinates: the origin of `scrollSpace`, for taps in the edge strip.
     @State private var scrollOrigin: CGPoint = .zero
+    /// The reading line on screen (global y of the bar's bottom edge, latched while the bar is hidden; see
+    /// `ReadingLine`). The model gets it in the scroll view's own coordinates (`ReadingLine.inScrollSpace`).
+    @State private var readingLineOnScreen: CGFloat = 0
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
     @Environment(\.isLuminanceReduced) private var isLuminanceReduced
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -189,10 +192,14 @@ struct ReaderView: View {
                     .preference(key: ViewportHeightKey.self, value: geo.size.height)
                     .preference(key: ViewportOriginKey.self, value: geo.frame(in: .global).origin)
             })
-            .onPreferenceChange(ViewportOriginKey.self) { scrollOrigin = $0 }
+            .onPreferenceChange(ViewportOriginKey.self) { origin in
+                scrollOrigin = origin
+                model.viewportTop = ReadingLine.inScrollSpace(screenLine: readingLineOnScreen, scrollOriginY: origin.y)
+            }
             .onPreferenceChange(ViewportTopKey.self) { top in
-                // The reading line stays where it is while the bar is hidden (see `ReadingLine`).
-                model.viewportTop = ReadingLine.updated(current: model.viewportTop, measured: top, barShown: !barHidden)
+                // The reading line stays where it is on screen while the bar is hidden (see `ReadingLine`).
+                readingLineOnScreen = ReadingLine.updated(current: readingLineOnScreen, measured: top, barShown: !barHidden)
+                model.viewportTop = ReadingLine.inScrollSpace(screenLine: readingLineOnScreen, scrollOriginY: scrollOrigin.y)
             }
             .onPreferenceChange(ContentTopKey.self) { top in
                 // Fallback for watchOS 10 only (see `ScrollDistanceReader`).

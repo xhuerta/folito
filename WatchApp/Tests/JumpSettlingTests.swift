@@ -206,7 +206,8 @@ final class JumpSettlingTests: XCTestCase {
         try await waitUntil { model.jumpRequest != firstJump }
         let correction = try XCTUnwrap(model.jumpRequest)
         XCTAssertEqual(correction.index, target)
-        XCTAssertGreaterThan(try XCTUnwrap(correction.anchorY), 0, "the correction moves the heading down")
+        XCTAssertEqual(try XCTUnwrap(correction.anchorY), 0, accuracy: 1e-9,
+                       "the same `.top` scroll again, now on measured heights: no anchor computed from the reading line")
         XCTAssertTrue(model.isSettling, "still covered while it corrects")
 
         model.blockFramesChanged([target: f(30, 80), target + 1: f(90, 190)])
@@ -217,17 +218,15 @@ final class JumpSettlingTests: XCTestCase {
         XCTAssertEqual(model.arrival?.announcement, "Two")
     }
 
-    /// `.top` would put a laid-out chapter heading at the scroll view's top edge, under the bar: a near jump to a
-    /// block's start carries the anchor that puts it at the reading line, so it lands in one uncovered scroll.
+    /// `.top` puts a block's top at the reading line: a near jump to a chapter's start uses it as is, with no
+    /// anchor derived from the reading line (one derived from it put headings at y 95 of 197 in build 48's PR).
     @MainActor
-    func testNearChapterJumpCarriesTheAnchorForTheReadingLine() async throws {
+    func testNearChapterJumpScrollsToTheBlockTop() async throws {
         let model = try await openedReader().model
         model.viewportTop = 30
         model.jump(to: 1) // laid out at 110...210 in a 200 pt viewport
         XCTAssertFalse(model.isSettling)
-        let anchor = try XCTUnwrap(model.jumpRequest?.anchorY)
-        // The block's top lands at y * (V - H) = 30.
-        XCTAssertEqual(anchor * (200 - 100), 30, accuracy: 1e-9)
+        XCTAssertNil(model.jumpRequest?.anchorY)
     }
 
     // MARK: Text size changes (build 48 feedback)
