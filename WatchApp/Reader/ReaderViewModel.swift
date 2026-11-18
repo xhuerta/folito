@@ -90,6 +90,16 @@ final class ReaderViewModel: ObservableObject {
     private var restoreOffset = 0
     private var restoreAnchor: Double?
     private var inBlockAttempts = 0
+    /// Covered restores only: the target's top at the last check where it was in place, and how many such checks
+    /// there were (`RestoreCheck.isStable`).
+    private var settledMinY: Double?
+    private var stabilityChecks = 0
+    /// Set by a re-layout: `lastFrames` was dropped and no frame of the new layout has arrived yet. A check that
+    /// finds no frames then waits for them (`awaitingFrames`) instead of using up the retries: behind the
+    /// Reading Options sheet the reader may not report frames until the sheet goes, and a restore that ended
+    /// meanwhile let the first frames of the new layout move the saved position (build 49 feedback).
+    private var framesStale = false
+    private var awaitingFrames = false
     /// Set when auto-scroll hands the text back (`handBackAutoScroll`): the exact points of `restoreTarget`
     /// above the reading line, used instead of `restoreOffset`, and the block the jump is anchored to (the
     /// next one when the target is about as tall as the viewport).
@@ -108,7 +118,7 @@ final class ReaderViewModel: ObservableObject {
     var settleDelay: UInt64 = 700_000_000
     /// The same pause while the book opens. Shorter: the text is still hidden then, so a check that comes
     /// before the lazy layout settled only costs a re-issued jump nobody sees, and the hidden time stays
-    /// short (at most `2 * RestoreCheck.maxRetries + 1` checks).
+    /// short (most openings settle in a few checks; at most `RestoreCheck.coveredRetries` of each kind).
     var openSettleDelay: UInt64 = 200_000_000
     private var lastReported: Spot?
 
@@ -432,6 +442,7 @@ final class ReaderViewModel: ObservableObject {
         guard !flat.isEmpty else { return }
         pageTimer.reset(at: now())
         lastFrames = [:]
+        framesStale = true
         if isPositioned, !isSettling, autoScroll != .running {
             announcesArrival = false
             beginSettlingCover()
@@ -452,6 +463,13 @@ final class ReaderViewModel: ObservableObject {
     func blockFramesChanged(_ frames: [Int: BlockFrame], layoutKey: String? = nil) {
         if let layoutKey { layoutChanged(to: layoutKey) }
         lastFrames = frames
+        if framesStale, !frames.isEmpty {
+            framesStale = false
+            if awaitingFrames {
+                awaitingFrames = false
+                if isRestoring { scheduleRestoreCheck() }
+            }
+        }
         // While auto-scroll moves the text the scroll view underneath stands still (hidden): its frames say
         // nothing about the reading position, which auto-scroll reports itself (`autoScrollPositionChanged`).
         guard autoScroll != .running else { return }
@@ -614,7 +632,19 @@ final class ReaderViewModel: ObservableObject {
         inBlockAttempts = 0
         restorePoints = nil
         restoreJumpIndex = nil
+        settledMinY = nil
+        stabilityChecks = 0
+        awaitingFrames = false
         scheduleRestoreCheck()
+    }
+
+    /// How many re-issues and corrections a restore gets: more under a cover, where they are not seen.
+    private var restoreLimit: Int { coversText ? RestoreCheck.coveredRetries : RestoreCheck.maxRetries }
+
+    /// The end of the book is on screen in the last frames.
+    private var endOfBookOnScreen: Bool {
+        RestoreCheck.endOfBookOnScreen(lastBlockMaxY: lastFrames[flat.count - 1].map { Double($0.maxY) },
+                                       viewportHeight: Double(viewportHeight))
     }
 
     /// The in-block anchor for `offset`, from the block's last measured height, if it is laid out.
@@ -642,10 +672,20 @@ final class ReaderViewModel: ObservableObject {
         // once the blocks around the target are measured (never by correcting the anchor from it: that error
         // comes from the estimate, not the anchor, and an anchor "corrected" for it lands just as far off the
         // other way, a heading in mid-screen).
-        if let target = restoreTarget,
+        // A re-layout's frames have not arrived yet: wait for them (`blockFramesChanged` checks again).
+        if framesStale {
+            awaitingFrames = true
+            return
+        }
+        let limit = restoreLimit
+        // Near the end of the book the target may be unable to reach the top: on screen below the line is its place.
+        let targetHeldByTheEnd = restoreTarget.flatMap { lastFrames[$0] }.map { $0.minY > viewportTop } == true
+            && endOfBookOnScreen
+        if let target = restoreTarget, !targetHeldByTheEnd,
            RestoreCheck.needsRetry(top: VisibleBlockResolver.topIndex(frames: lastFrames, viewportTop: viewportTop),
-                                   target: target, attempts: restoreAttempts) {
+                                   target: target, attempts: restoreAttempts, limit: limit) {
             restoreAttempts += 1
+            settledMinY = nil
             jumpRequest = JumpRequest(index: restoreJumpIndex ?? target, anchorY: restoreAnchor)
             scheduleRestoreCheck()
             return
@@ -660,11 +700,22 @@ final class ReaderViewModel: ObservableObject {
         }
         // Also for offset 0 (a chapter's start): the block's top must be at the reading line, not merely the
         // block at the top. A landing a few points off would leave a heading half under the bar.
-        if let target = restoreTarget, restorePoints == nil, let frame = lastFrames[target],
-           let anchor = inBlockAnchor(target: target, frame: frame) {
+        if let target = restoreTarget, restorePoints == nil, !targetHeldByTheEnd, let frame = lastFrames[target],
+           let anchor = inBlockAnchor(target: target, frame: frame, limit: limit) {
             inBlockAttempts += 1
+            settledMinY = nil
             restoreAnchor = anchor
             jumpRequest = JumpRequest(index: target, anchorY: anchor)
+            scheduleRestoreCheck()
+            return
+        }
+        // In place. Under a cover, reveal only once it stays in place: one more check without scrolling, so a
+        // target that the lazy stack is still moving (it measures the blocks above at their real heights) is
+        // caught and brought back above, not revealed mid-move and then saved where it drifted to.
+        if coversText, restorePoints == nil, let target = restoreTarget, let frame = lastFrames[target],
+           stabilityChecks < limit, !RestoreCheck.isStable(previousMinY: settledMinY, minY: Double(frame.minY)) {
+            settledMinY = Double(frame.minY)
+            stabilityChecks += 1
             scheduleRestoreCheck()
             return
         }
@@ -724,14 +775,14 @@ final class ReaderViewModel: ObservableObject {
     /// The anchor for another in-block jump, or nil when the saved line is at the top (or retries ran out).
     /// With offset 0 the block's own top must be at the reading line, within `JumpSettling.startTolerance`; the
     /// same `.top` scroll is then simply re-issued (now on measured heights): no anchor is ever computed for it.
-    private func inBlockAnchor(target: Int, frame: BlockFrame) -> Double? {
+    private func inBlockAnchor(target: Int, frame: BlockFrame, limit: Int = RestoreCheck.maxRetries) -> Double? {
         let height = Double(frame.maxY - frame.minY)
         let fraction = InBlockPosition.fraction(forCharacterOffset: restoreOffset, in: flat.blocks[target].text)
         let wanted = InBlockPosition.wantedMinY(fraction: fraction, blockHeight: height,
                                                 viewportTop: Double(viewportTop))
         let tolerance = restoreOffset > 0 ? InBlockPosition.tolerance : JumpSettling.startTolerance
         guard RestoreCheck.needsInBlockRetry(landedMinY: Double(frame.minY), wantedMinY: wanted,
-                                             attempts: inBlockAttempts, tolerance: tolerance) else { return nil }
+                                             attempts: inBlockAttempts, tolerance: tolerance, limit: limit) else { return nil }
         guard restoreOffset > 0 else { return restoreAnchor ?? 0 }
         if let previous = restoreAnchor {
             return InBlockPosition.correctedAnchorY(previous, error: Double(frame.minY) - wanted,

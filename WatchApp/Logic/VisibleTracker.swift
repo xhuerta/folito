@@ -30,19 +30,41 @@ enum VisibleBlockResolver {
 
 /// When a programmatic jump (restore, chapter, remote position) has to be re-issued.
 enum RestoreCheck {
+    /// Re-issues (and in-block corrections) for a restore the reader can see.
     static let maxRetries = 3
+    /// The same under a cover (opening, far jump, re-layout), where nobody sees them (build 49 feedback). After a
+    /// `.top` scroll on estimated heights the lazy stack measures the blocks around the target, and every block it
+    /// measures at a height other than its estimate moves the target again: in a real book (Moby-Dick: chapters of
+    /// very different lengths) that went on past three checks, and the cover lifted on the previous chapter's last
+    /// paragraph, or a later paragraph of the target chapter. About 2.4 s at the covered pace; most jumps settle in
+    /// two or three checks.
+    static let coveredRetries = 12
 
     /// The block at the top is not the target (or nothing is laid out yet) and retries remain. Near the
     /// end of a book the target may be unable to reach the top; the retries then run out harmlessly.
-    static func needsRetry(top: Int?, target: Int, attempts: Int) -> Bool {
-        attempts < maxRetries && top != target
+    static func needsRetry(top: Int?, target: Int, attempts: Int, limit: Int = maxRetries) -> Bool {
+        attempts < limit && top != target
     }
 
     /// The target block is at the top but the saved line inside it is more than `tolerance` points away
     /// from the top edge, and corrections remain.
     static func needsInBlockRetry(landedMinY: Double, wantedMinY: Double, attempts: Int,
-                                  tolerance: Double = InBlockPosition.tolerance) -> Bool {
-        attempts < maxRetries && abs(landedMinY - wantedMinY) > tolerance
+                                  tolerance: Double = InBlockPosition.tolerance, limit: Int = maxRetries) -> Bool {
+        attempts < limit && abs(landedMinY - wantedMinY) > tolerance
+    }
+
+    /// A covered restore ends only once the target has been in place at two checks in a row, at the same point
+    /// (within `tolerance`): a landing that still moves (blocks above it being measured) is not settled yet.
+    static func isStable(previousMinY: Double?, minY: Double, tolerance: Double = 0.5) -> Bool {
+        guard let previousMinY else { return false }
+        return abs(previousMinY - minY) <= tolerance
+    }
+
+    /// The end of the book is on screen (the last block's bottom within the viewport): a target near the end
+    /// cannot scroll up to the reading line, so its landing below the line is the right one.
+    static func endOfBookOnScreen(lastBlockMaxY: Double?, viewportHeight: Double) -> Bool {
+        guard let lastBlockMaxY, viewportHeight > 0 else { return false }
+        return lastBlockMaxY <= viewportHeight + 1
     }
 }
 

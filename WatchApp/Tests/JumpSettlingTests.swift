@@ -305,4 +305,96 @@ final class JumpSettlingTests: XCTestCase {
         XCTAssertFalse(model.isRestoring)
         XCTAssertFalse(model.coversText)
     }
+
+    // MARK: Settling on real books (build 49 feedback)
+
+    /// After the `.top` scroll the lazy stack measures the blocks above the target, which moves it: a landing that
+    /// was in place at one check and has moved at the next is brought back, and the cover lifts only once it has
+    /// stayed in place.
+    @MainActor
+    func testFarJumpIsRevealedOnlyOnceTheTargetStaysInPlace() async throws {
+        let model = try await openedReader().model
+        model.settleDelay = 120_000_000
+        model.openSettleDelay = 120_000_000
+        let target = Self.blocksPerChapter // chapter "Two"
+        model.jump(to: target)
+        model.blockFramesChanged([target: f(0, 40), target + 1: f(50, 150)])
+        let firstJump = try XCTUnwrap(model.jumpRequest)
+        // In place at the first check: not revealed yet.
+        try await Task.sleep(nanoseconds: 180_000_000)
+        XCTAssertTrue(model.isSettling, "one check in place is not enough")
+        XCTAssertEqual(model.jumpRequest, firstJump, "nothing to correct yet")
+
+        // The blocks above were measured taller than estimated: the target moved down, the previous chapter's last
+        // paragraph is at the top.
+        model.blockFramesChanged([target - 1: f(-30, 30), target: f(40, 80), target + 1: f(90, 190)])
+        try await waitUntil { model.jumpRequest != firstJump }
+        XCTAssertEqual(model.jumpRequest?.index, target, "the jump is re-issued")
+        XCTAssertTrue(model.isSettling)
+
+        model.blockFramesChanged([target: f(0, 40), target + 1: f(50, 150)])
+        try await waitUntil { !model.isSettling }
+        XCTAssertEqual(model.currentIndex, target)
+        XCTAssertEqual(model.currentOffset, 0)
+    }
+
+    /// Under the cover a landing that is still off after three re-issues is not revealed: the restore keeps going
+    /// (up to `RestoreCheck.coveredRetries`).
+    @MainActor
+    func testCoveredJumpKeepsCorrectingPastThreeRetries() async throws {
+        let model = try await openedReader().model
+        model.settleDelay = 60_000_000
+        model.openSettleDelay = 60_000_000
+        let target = 2 * Self.blocksPerChapter + 5
+        model.jump(to: target)
+        model.blockFramesChanged([target + 4: f(0, 100), target + 5: f(110, 210)]) // landed past the target
+        var requests = 0
+        var last = model.jumpRequest
+        while requests < RestoreCheck.maxRetries + 2 {
+            try await waitUntil { model.jumpRequest != last }
+            last = model.jumpRequest
+            requests += 1
+        }
+        XCTAssertTrue(model.isSettling, "still covered after \(requests) re-issues")
+        XCTAssertEqual(model.currentIndex, target, "the landing past the target never became the position")
+        model.blockFramesChanged([target: f(0, 100), target + 1: f(110, 210)])
+        try await waitUntil { !model.isSettling }
+        XCTAssertEqual(model.currentIndex, target)
+    }
+
+    /// A re-layout whose frames do not come (the reader behind the Reading Options sheet) waits for them instead of
+    /// ending the restore: the first frames of the new layout are then checked, not saved as the position.
+    @MainActor
+    func testLayoutChangeWaitsForTheNewFrames() async throws {
+        let model = try await openedReader().model
+        let heading = Self.blocksPerChapter
+        model.jump(to: heading)
+        model.blockFramesChanged([heading: f(0, 40), heading + 1: f(50, 150)], layoutKey: "15pt")
+        try await waitUntil { !model.isRestoring }
+        model.layoutChanged(to: "16pt")
+        // Many checks' worth of time with no frames at all.
+        try await Task.sleep(nanoseconds: 400_000_000)
+        XCTAssertTrue(model.isRestoring, "no frames yet: the restore waits")
+        XCTAssertTrue(model.isSettling)
+        // The sheet goes; the new layout arrives with the scroll offset kept: the previous chapter's end at the top.
+        model.blockFramesChanged([heading - 1: f(-20, 60), heading: f(70, 120)], layoutKey: "16pt")
+        XCTAssertEqual(model.currentIndex, heading, "the new layout is not read as scrolling")
+        try await waitUntil { model.jumpRequest?.index == heading && model.isRestoring }
+        model.blockFramesChanged([heading: f(0, 50), heading + 1: f(60, 200)], layoutKey: "16pt")
+        try await waitUntil { !model.isSettling }
+        XCTAssertEqual(model.currentIndex, heading)
+        XCTAssertEqual(model.currentOffset, 0)
+    }
+
+    /// Near the end of the book the target cannot reach the reading line: on screen below it, with the end of the
+    /// book in view, is its place, and the restore ends without using up its retries.
+    @MainActor
+    func testTargetHeldBelowTheLineByTheEndOfTheBookSettles() async throws {
+        let model = try await openedReader().model
+        let last = 3 * Self.blocksPerChapter - 1
+        model.jump(to: last - 1)
+        model.blockFramesChanged([last - 2: f(-40, 20), last - 1: f(30, 90), last: f(100, 180)])
+        try await waitUntil(timeout: 1.5) { !model.isSettling }
+        XCTAssertEqual(model.currentIndex, last - 1)
+    }
 }

@@ -276,7 +276,10 @@ enum WatchUI {
     /// (showing the bar if needed). `current` is the chapter the Chapters row should read. Returns whether the
     /// chapter was chosen.
     @discardableResult
+    /// `backwardSteps` / `forwardSteps`: how many small drags towards the top / the bottom of the list it may take
+    /// to reach the row (a far jump in a book with dozens of chapters needs more than the defaults).
     static func chooseChapter(_ title: String, current: String, in app: XCUIApplication,
+                              backwardSteps: Int = 6, forwardSteps: Int = 24,
                               file: StaticString = #filePath, line: UInt = #line) -> Bool {
         openReaderMenu(app, file: file, line: line)
         guard openChapters(app, currentChapter: current, file: file, line: line) else { return false }
@@ -284,11 +287,11 @@ enum WatchUI {
             .matching(NSPredicate(format: "identifier == %@ AND label == %@", "chapterButton", title)).element(boundBy: 0)
         // The list opens centred on the current chapter: the next one is below it, the previous one above.
         var steps = 0
-        while !(row.exists && row.isHittable) && steps < 6 {
+        while !(row.exists && row.isHittable) && steps < backwardSteps {
             nudgeDown(app)
             steps += 1
         }
-        guard scrollToHittable(row, in: app, maxSteps: 24) else {
+        guard scrollToHittable(row, in: app, maxSteps: forwardSteps) else {
             fail("\(title) is not reachable in the chapter list", in: app, file: file, line: line)
             return false
         }
