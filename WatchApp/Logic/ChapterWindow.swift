@@ -21,8 +21,10 @@ import Foundation
 enum ChapterWindow {
     /// Blocks a loaded window keeps below a jump's target (about a few screens), so the target can reach the top.
     static let minimumBelow = 12
-    /// Append the next chapter once a block this close to the window's end is laid out.
-    static let appendMargin = 4
+    /// Append the next chapter once a block this close to the window's end is laid out: well before the reader can
+    /// reach the end. With 4, a fling reached the end of the loaded blocks first and the scroll view bounced back
+    /// from it (#181's CI: the position went back from block 57 to 54 as "append 60 -> 87" came in).
+    static let appendMargin = 12
 
     /// The spine chapter holding block `index`: from the last chapter start at or before it to the next start after
     /// it (empty chapters share their start with the next one), or the end of the book.

@@ -609,8 +609,16 @@ final class ReaderViewModel: ObservableObject {
         if !isRestoring, ChapterWindow.needsAppend(lastLaidOut: frames.keys.max(), window: window, count: flat.count) {
             let appended = ChapterWindow.appendingNextChapter(to: window, chapterStarts: flat.chapterStarts,
                                                               count: flat.count)
-            trace("append \(window.upperBound) -> \(appended.upperBound)")
+            let topText = VisibleBlockResolver.topIndex(frames: frames, viewportTop: viewportTop).map(String.init) ?? "nil"
+            let offsetText = traceScrollOffset.map { String(format: "%.1f", Double($0)) } ?? "nil"
+            trace("append \(window.upperBound) -> \(appended.upperBound) top=\(topText) off=\(offsetText)")
             window = appended
+            if tracesRestores, let top = VisibleBlockResolver.topIndex(frames: frames, viewportTop: viewportTop) {
+                // What the reader shows right after the append (it must not move).
+                traceLastTarget = top
+                traceEndedAt = Date()
+                tracePostReports = 6
+            }
         }
         if !isRestoring { checkEnd(frames) }
         guard !isRestoring, let top = VisibleBlockResolver.topIndex(frames: frames, viewportTop: viewportTop),
