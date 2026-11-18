@@ -270,7 +270,8 @@ The watch syncs a book's position with Readest only while the book is linked to 
 library (by hash, or by `meta_hash` / title and author until it is relinked). The iPhone sends the linked hashes to
 the watch in its settings context (`readestLinked`, docs/WATCH_CONNECTIVITY.md); for any other book the watch makes
 no `GET` or `POST /api/sync` at all and shows no sync glyph, and the reader menu says the book is not in the
-Readest library. *Upload to Readest* (or the opt-in automatic upload, or a download from Readest) adds the book to
+Readest library. On the iPhone such a book's details show no Sync section, only a footnote under *Upload to
+Readest*. *Upload to Readest* (or the opt-in automatic upload, or a download from Readest) adds the book to
 the list, so it syncs from the next settings update on. While the iPhone has no listing yet (no library session,
 or never refreshed) the key is absent and every book syncs, as before. Independently, "Sync Progress for This
 Book" (iPhone book details, watch reader menu) keeps a book off Readest entirely: no position, and no read status

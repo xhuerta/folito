@@ -147,7 +147,7 @@ struct ReaderMenuView: View {
                 if model.isSyncConfigured {
                     if model.isOutsideSyncLibrary {
                         Section {
-                            BookNotInLibraryNote()
+                            BookNotInLibraryNote(serviceName: model.syncServiceName)
                         }
                     } else {
                         Section {
@@ -220,11 +220,16 @@ struct ReaderMenuView: View {
     }
 }
 
-/// The open book is not in the user's Readest library (#167): shown instead of "Sync Progress for This Book".
+/// The open book is not in the user's library on the sync service (#167; only Readest keeps one): shown instead of
+/// "Sync Progress for This Book".
 struct BookNotInLibraryNote: View {
+    /// The active service's display name. Only Readest keeps a library today (`requiresLibraryLink`), but the
+    /// note names whichever service it is, like `BookSyncFootnote`.
+    let serviceName: String
+
     var body: some View {
-        Text("Not in your Readest library — progress stays on this watch. Upload it to Readest from the iPhone to sync.",
-             comment: "Watch reader menu, instead of the per-book sync switch: the open book is not in the user's Readest library, so its position does not sync")
+        Text("Not in your \(serviceName) library — progress stays on this watch. Upload it to \(serviceName) from the iPhone to sync.",
+             comment: "Watch reader menu, instead of the per-book sync switch: the open book is not in the user's library on the sync service, so its position does not sync. Both placeholders are the sync service, e.g. Readest")
             .font(.footnote)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)

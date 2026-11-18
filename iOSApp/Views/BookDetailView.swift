@@ -68,8 +68,12 @@ struct BookDetailView: View {
                     information(entry)
                 }
                 section(nil) { actions(entry) }
-                // Last, below the actions: the per-book sync switch (#167), only while a sync service is set up.
-                if activeSyncConnectorID != nil {
+                // Last, below the actions: the per-book sync switch (#167), only while a sync service is set up and
+                // the switch can do something: not for a book known to be outside the Readest library, which could
+                // not sync either way (the actions explain that under Upload to Readest instead).
+                if BookDetailSyncRules.showsSyncSection(hash: entry.documentHash,
+                                                        activeConnectorID: activeSyncConnectorID,
+                                                        readestLinked: readestLinkedHashes) {
                     section(Text("Sync", comment: "Book detail section: the per-book sync switch")) {
                         bookSync(entry)
                     }
@@ -268,20 +272,17 @@ struct BookDetailView: View {
         }
     }
 
-    /// Why the book's progress does not sync, if it does not: its switch is off, or (Readest) it is not in the
-    /// Readest library.
+    /// Why the book's progress does not sync, if it does not: its switch is off. (A book outside the Readest
+    /// library gets no Sync section at all; the actions say why under Upload to Readest.)
     private func bookSyncNote(_ entry: LibraryEntry) -> Text? {
-        if !entry.syncsProgress {
-            return Text("Nothing about this book is sent to the sync service. Its progress stays on your iPhone and Apple Watch.",
-                        comment: "Book details: shown under 'Sync Progress for This Book' when it is off")
-        }
-        if activeSyncConnectorID == ReadestConnectorFactory.id, let readest,
-           let linked = readest.linkedHashes(in: library.entries), !linked.contains(entry.documentHash) {
-            return Text("This book isn’t in your Readest library, so its progress doesn’t sync. Upload it to Readest to sync it.",
-                        comment: "Book details: shown under 'Sync Progress for This Book' when the book is not in the user's Readest library")
-        }
-        return nil
+        guard !entry.syncsProgress else { return nil }
+        return Text("Nothing about this book is sent to the sync service. Its progress stays on your iPhone and Apple Watch.",
+                    comment: "Book details: shown under 'Sync Progress for This Book' when it is off")
     }
+
+    /// The books linked to a row of the Readest library (nil = unknown: Readest not connected or no listing yet).
+    /// Reads the observable Readest model, so the view updates when an upload or refresh changes the rows.
+    private var readestLinkedHashes: Set<String>? { readest?.linkedHashes(in: library.entries) }
 
     // MARK: Actions
 
@@ -328,6 +329,17 @@ struct BookDetailView: View {
                 Label("Upload to Readest", systemImage: "icloud.and.arrow.up").modifier(ActionLabel())
             }
             .buttonStyle(.borderless)
+            // Readest syncs only books in its library (#167): say so here, where the user can fix it, instead of
+            // a Sync section whose switch could not make this book sync.
+            if BookDetailSyncRules.isOutsideLibrary(hash: entry.documentHash, activeConnectorID: activeSyncConnectorID,
+                                                    readestLinked: readestLinkedHashes) {
+                Text("Progress for this book syncs once it is in your Readest library.",
+                     comment: "Book details: footnote under 'Upload to Readest' when Readest is the sync service and the book is not in the user's Readest library")
+                    .font(.footnote)
+                    .foregroundStyle(.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("bookDetailNotInLibraryNote")
+            }
         }
         let finished = readStatusMark(entry)?.isFinished == true
         Button {
@@ -510,6 +522,24 @@ struct BookDeletionDialogs: ViewModifier {
     private var readestDeleteTitle: String {
         guard let book = deletion.readestBook else { return "" }
         return String(localized: "Delete “\(book.title)” from Readest?", comment: "Confirmation title; the placeholder is the book title")
+    }
+}
+
+/// Whether the book details show the per-book sync switch (#167). Pure, so it is unit-tested (LogicTests).
+enum BookDetailSyncRules {
+    /// Whether the book is known to be outside the active service's library: the service keeps one (on the
+    /// iPhone only Readest does, and `readestLinked` is its link list) and the book is not in it. An unknown link
+    /// (nil) is not "outside". The same rule as the watch reader menu (`BookSyncSettings.isOutsideLibrary`).
+    static func isOutsideLibrary(hash: String, activeConnectorID: String?, readestLinked: Set<String>?) -> Bool {
+        BookSyncSettings(readestLinked: readestLinked)
+            .isOutsideLibrary(hash, requiresLibraryLink: activeConnectorID == ReadestConnectorFactory.id)
+    }
+
+    /// The Sync section is shown while a service is set up, except for a book known to be outside its library:
+    /// there the switch could not make the book sync, on or off.
+    static func showsSyncSection(hash: String, activeConnectorID: String?, readestLinked: Set<String>?) -> Bool {
+        activeConnectorID != nil
+            && !isOutsideLibrary(hash: hash, activeConnectorID: activeConnectorID, readestLinked: readestLinked)
     }
 }
 

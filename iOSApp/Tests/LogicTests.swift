@@ -189,6 +189,31 @@ final class LogicTests: XCTestCase {
         XCTAssertNil(WatchSchema.libraryReadStatus(from: ["type": "settings", ReadStatusSync.key: "{}"]))
     }
 
+    /// #167: the book details show "Sync Progress for This Book" only where it can do something. A book known to be
+    /// outside the Readest library gets no Sync section (the actions explain it under Upload to Readest); an unknown
+    /// link keeps the section, and so does any book with a service that keeps no library.
+    func testBookDetailSyncSectionHiddenOnlyForBooksOutsideTheReadestLibrary() {
+        let readest = ReadestConnectorFactory.id
+        let kosync = KOSyncConnectorFactory.id
+        func shows(_ connector: String?, _ linked: Set<String>?) -> Bool {
+            BookDetailSyncRules.showsSyncSection(hash: "h", activeConnectorID: connector, readestLinked: linked)
+        }
+        func outside(_ connector: String?, _ linked: Set<String>?) -> Bool {
+            BookDetailSyncRules.isOutsideLibrary(hash: "h", activeConnectorID: connector, readestLinked: linked)
+        }
+        XCTAssertFalse(shows(nil, nil), "sync off: no section")
+        XCTAssertFalse(shows(nil, ["h"]))
+        XCTAssertTrue(shows(readest, ["h", "x"]), "linked: the switch is shown")
+        XCTAssertFalse(shows(readest, ["x"]), "outside the library: no useless switch")
+        XCTAssertFalse(shows(readest, []))
+        XCTAssertTrue(outside(readest, ["x"]), "the actions show the footnote instead")
+        XCTAssertTrue(shows(readest, nil), "unknown link keeps today's behaviour")
+        XCTAssertFalse(outside(readest, nil))
+        XCTAssertTrue(shows(kosync, ["x"]), "KOReader Sync keeps no library: every book has the switch")
+        XCTAssertFalse(outside(kosync, ["x"]))
+        XCTAssertFalse(outside(nil, ["x"]), "sync off: no footnote")
+    }
+
     /// #167: the per-book sync switch is persisted, merged with the watch's copy (newer wins) and sent in the
     /// settings context with the Readest links; without links the key is absent (the watch syncs every book).
     @MainActor

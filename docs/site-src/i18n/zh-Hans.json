@@ -144,7 +144,7 @@
   "support.q8": "我在手表上往回翻了，但 KOReader 或 Readest 仍打开在更靠后的位置。",
   "support.a8": "同步只向前，与 Readest 和 KOReader 相同。打开图书时，只有其他设备的位置<em>更靠后</em>时，手表才会询问是否继续阅读；更靠前的同步位置会被忽略，你停留在当前位置。若仍想回到同步位置，请在阅读器中打开<em>选项</em>并轻点<em>前往同步位置</em>。反过来，Readest 和 KOReader 会保留它们最靠后的位置，不会跟随在手表上往回翻的操作；这是这些应用的行为，Folito 无法更改。",
   "support.q9": "有些书不同步，或者我想让某本书不经过服务器。",
-  "support.a9": "使用 Readest 时，只有你 Readest 书库中的书才会同步位置：导入 Folito 但从未上传的书没有可同步的对象。在 iPhone 上的图书详情中将它上传到 Readest，之后就会同步。在此之前，手表阅读器的<em>选项</em>中不会显示开关，而是显示一条简短说明，告诉你这本书不在你的 Readest 书库中。无论使用哪种同步服务，如果想让某本书完全不经过同步服务，请在 iPhone 上该书的详情中或手表阅读器的<em>选项</em>中关闭<em>同步这本书的阅读进度</em>：不会发送这本书的任何信息，它的位置只保留在你的 iPhone 和 Apple Watch 上。",
+  "support.a9": "使用 Readest 时，只有你 Readest 书库中的书才会同步位置：导入 Folito 但从未上传的书没有可同步的对象。在 iPhone 上的图书详情中将它上传到 Readest，之后就会同步。在此之前，iPhone 上的图书详情会在<em>上传到 Readest</em>下方显示一条简短说明，手表阅读器的<em>选项</em>中也会显示一条，告诉你这本书不在你的 Readest 书库中；两处都不显示开关，因为开关无法让它同步。无论使用哪种同步服务，如果想让某本书完全不经过同步服务，请在 iPhone 上该书的详情中或手表阅读器的<em>选项</em>中关闭<em>同步这本书的阅读进度</em>：不会发送这本书的任何信息，它的位置只保留在你的 iPhone 和 Apple Watch 上。",
   "privacy.readest_library": "<strong>iPhone 上的 Readest 资料库。</strong>登录 Readest 后，iPhone 上的资料库会读取你 Readest 账户中的图书列表（标题、作者、文件哈希值），显示封面，并在你轻点某本书时下载其文件。只有当你在图书上选择<em>上传到 Readest</em>，或开启<em>自动上传导入的图书</em>（默认关闭）时，图书文件才会上传到你的 Readest 账户；此时该文件及其标题、作者和哈希值会占用你的 Readest 存储空间。<em>从 Readest 删除</em>会在你确认后从 Readest 账户中移除该文件和图书。",
   "support.readest_3": "登录 Readest 后，资料库还会显示你 Readest 资料库中的图书，并带有云朵下载符号。轻点一本即可下载到 iPhone 和 Apple Watch；由于是同一个文件，阅读位置会精确同步。按住一本书（或轻扫）可选择<em>上传到 Readest</em>、<em>移除下载</em>（仍保留在 Readest 中）或<em>删除</em>。使用过滤按钮可显示全部图书、仅此 iPhone 上的图书或仅 Readest 中的图书。"
 }
