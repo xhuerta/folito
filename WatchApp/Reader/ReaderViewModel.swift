@@ -531,11 +531,19 @@ final class ReaderViewModel: ObservableObject {
         let top = VisibleBlockResolver.topIndex(frames: lastFrames, viewportTop: viewportTop)
         let targetText = target.map(String.init) ?? "nil"
         let topText = top.map(String.init) ?? "nil"
-        let frameText = traceFrame(target.flatMap { lastFrames[$0] })
-            + (target.flatMap { lastFrames[$0]?.screenMinY }.map { String(format: " scr=%.1f", Double($0)) } ?? "")
-            + (scrollSpaceOriginOnScreen.map { String(format: " so=%.1f", Double($0)) } ?? "")
-            + (traceScrollOffset.map { String(format: " off=%.1f", Double($0)) } ?? "")
-            + (lastFrames.keys.min().map { " blocks=\($0)-\(lastFrames.keys.max()!)" } ?? "")
+        var frameText: String = traceFrame(target.flatMap { lastFrames[$0] })
+        if let screenMinY = target.flatMap({ lastFrames[$0]?.screenMinY }) {
+            frameText += String(format: " scr=%.1f", Double(screenMinY))
+        }
+        if let origin = scrollSpaceOriginOnScreen {
+            frameText += String(format: " so=%.1f", Double(origin))
+        }
+        if let offset = traceScrollOffset {
+            frameText += String(format: " off=%.1f", Double(offset))
+        }
+        if let first = lastFrames.keys.min(), let last = lastFrames.keys.max() {
+            frameText += " blocks=\(first)-\(last)"
+        }
         let anchorText = restoreAnchor.map { String(format: "%.3f", $0) } ?? "nil"
         let lineText = String(format: "vt=%.1f vh=%.1f", Double(viewportTop), Double(viewportHeight))
         let keyText = layoutKey ?? "nil"
