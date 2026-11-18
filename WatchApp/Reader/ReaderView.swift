@@ -177,6 +177,13 @@ struct ReaderView: View {
                 .opacity(model.coversText ? 0 : 1)
                 .accessibilityHidden(model.coversText)
             }
+            // A new layout (text size, font, spacing, Bold Text, Dynamic Type) gets a new scroll view: nothing laid
+            // out for the old one survives the change. #181's trace (16 -> 15 pt): every `.top` scroll put the
+            // heading exactly on the line, and before the next check, with no scroll from the reader, the content
+            // was back at blocks 402-406, a few blocks on, over and over until the cover's cap. The old scroll view
+            // kept moving back to the offset it had in the 16 pt layout. The restore then runs on a fresh, consistent
+            // layout. Only a layout change rebuilds it; scrolling and colour changes keep it.
+            .id(style.layoutKey)
             .coordinateSpace(name: Self.scrollSpace)
             // While auto-scroll shows the text itself, the scroll view stays laid out (its frames place the
             // hand-back) but is hidden, silent and untouchable, with no indicator flashing beside the crown.
@@ -192,6 +199,7 @@ struct ReaderView: View {
             // watchOS (the text scrolled hundreds of points and the bar never hid).
             .modifier(ScrollDistanceReader { offset in
                 updateBar { $0.scrolled(to: offset, at: Date(), voiceOver: voiceOver) }
+                if model.tracesRestores { model.traceScrollOffset = offset }
             })
             // The scroll view runs under the navigation bar: its top inset is where reading starts.
             .background(GeometryReader { geo in
@@ -308,6 +316,9 @@ struct ReaderView: View {
             // A paused auto-scroll window was laid out for the old metrics: the scroll view takes over.
             if autoScrollWindow != nil, model.autoScroll != .running { endAutoScrollWindow() }
             model.layoutChanged(to: key)
+            // The rebuilt scroll view (`.id(style.layoutKey)`) is a new focus target: the crown goes back to it (once
+            // a sheet is gone, if one is up), unless auto-scroll holds it.
+            if model.autoScroll != .running { returnCrownToText() }
         }
         .navigationTitle(model.title)
         .navigationBarTitleDisplayMode(.inline)

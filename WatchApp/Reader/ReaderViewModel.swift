@@ -493,6 +493,8 @@ final class ReaderViewModel: ObservableObject {
 
     /// Set by the view from `UITesting.tracesRestores`; off, nothing below is recorded.
     var tracesRestores = false
+    /// The scroll view's content offset (distance scrolled), last reported (trace only; not published).
+    var traceScrollOffset: CGFloat?
     /// The last `traceLimit` events of the restore machinery, oldest first, for a UI test's failure message.
     @Published private(set) var restoreTrace: [String] = []
     /// The last few geometry reports (scroll view top edge, reading line), kept apart so the bar's animation does
@@ -532,6 +534,8 @@ final class ReaderViewModel: ObservableObject {
         let frameText = traceFrame(target.flatMap { lastFrames[$0] })
             + (target.flatMap { lastFrames[$0]?.screenMinY }.map { String(format: " scr=%.1f", Double($0)) } ?? "")
             + (scrollSpaceOriginOnScreen.map { String(format: " so=%.1f", Double($0)) } ?? "")
+            + (traceScrollOffset.map { String(format: " off=%.1f", Double($0)) } ?? "")
+            + (lastFrames.keys.min().map { " blocks=\($0)-\(lastFrames.keys.max()!)" } ?? "")
         let anchorText = restoreAnchor.map { String(format: "%.3f", $0) } ?? "nil"
         let lineText = String(format: "vt=%.1f vh=%.1f", Double(viewportTop), Double(viewportHeight))
         let keyText = layoutKey ?? "nil"
