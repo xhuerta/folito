@@ -647,12 +647,11 @@ final class ReaderViewModel: ObservableObject {
     }
 
     private func restoreSettled() {
-        // A target measured near the screen is placed by the in-block correction below (from where it landed), not
-        // by re-issuing the same scroll: a chapter heading that landed entirely under the bar is not the top block,
-        // and the same `.top` scroll would only land there again.
-        let targetNear = restorePoints == nil && restoreTarget.flatMap { lastFrames[$0] }
-            .map { JumpSettling.isNear($0, viewportHeight: viewportHeight) } == true
-        if let target = restoreTarget, !targetNear,
+        // First the right block at the top: a landing on estimated heights is fixed by re-issuing the same scroll
+        // once the blocks around the target are measured (never by correcting the anchor from it: that error
+        // comes from the estimate, not the anchor, and an anchor "corrected" for it lands just as far off the
+        // other way, a heading in mid-screen).
+        if let target = restoreTarget,
            RestoreCheck.needsRetry(top: VisibleBlockResolver.topIndex(frames: lastFrames, viewportTop: viewportTop),
                                    target: target, attempts: restoreAttempts) {
             restoreAttempts += 1
@@ -749,10 +748,12 @@ final class ReaderViewModel: ObservableObject {
                                                 viewportHeight: Double(viewportHeight), viewportTop: Double(viewportTop)) {
             return anchor
         }
-        // Offset 0 went to `.top` (anchor 0): correct from there.
+        // Offset 0 went to `.top`. Like `anchorY` above, the anchor is computed from the model, not from where the
+        // first scroll landed (that landing may still be on estimated heights): the one that puts the block's top
+        // at the reading line (`knownAnchor`). Later corrections, after a scroll on measured blocks, start from it.
         guard viewportHeight > 0 else { return nil }
-        return InBlockPosition.correctedAnchorY(0, error: Double(frame.minY) - wanted,
-                                                blockHeight: height, viewportHeight: Double(viewportHeight))
+        return InBlockPosition.correctedAnchorY(0, error: -Double(viewportTop), blockHeight: height,
+                                                viewportHeight: Double(viewportHeight))
     }
 
     /// Called by the view once it appeared: scroll to the saved block, then to the saved line in it. Both
