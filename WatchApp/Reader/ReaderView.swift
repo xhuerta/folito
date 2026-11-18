@@ -201,11 +201,16 @@ struct ReaderView: View {
             .onPreferenceChange(ViewportOriginKey.self) { origin in
                 scrollOrigin = origin
                 model.viewportTop = ReadingLine.inScrollSpace(screenLine: readingLineOnScreen, scrollOriginY: origin.y)
+                model.traceGeometry(String(format: "geo origin=%.1f line=%.1f vt=%.1f bar=%ld", Double(origin.y),
+                                   Double(readingLineOnScreen), Double(model.viewportTop), barHidden ? 0 : 1))
             }
             .onPreferenceChange(ViewportTopKey.self) { top in
                 // The reading line stays where it is on screen while the bar is hidden (see `ReadingLine`).
                 readingLineOnScreen = ReadingLine.updated(current: readingLineOnScreen, measured: top, barShown: !barHidden)
                 model.viewportTop = ReadingLine.inScrollSpace(screenLine: readingLineOnScreen, scrollOriginY: scrollOrigin.y)
+                model.traceGeometry(String(format: "geo inset=%.1f line=%.1f origin=%.1f vt=%.1f bar=%ld", Double(top),
+                                   Double(readingLineOnScreen), Double(scrollOrigin.y), Double(model.viewportTop),
+                                   barHidden ? 0 : 1))
             }
             .onPreferenceChange(ContentTopKey.self) { top in
                 // Fallback for watchOS 10 only (see `ScrollDistanceReader`).
@@ -250,6 +255,16 @@ struct ReaderView: View {
                 if UITesting.exposesReaderPosition {
                     UITestReaderPosition(index: model.currentIndex, offset: model.currentOffset,
                                          settled: !model.isRestoring && !model.coversText)
+                }
+                // UI tests only (`-UITestingRestoreTrace`): the restore machinery's last events.
+                if UITesting.tracesRestores {
+                    Color.clear
+                        .frame(width: 1, height: 1)
+                        .accessibilityElement()
+                        .accessibilityIdentifier("restoreTrace")
+                        .accessibilityValue(Text(verbatim: (model.restoreTrace + ["geometry:"] + model.geometryTrace) // i18n-ignore: UI-test hook
+                            .joined(separator: " | ")))
+                        .allowsHitTesting(false)
                 }
             }
             // Auto-scroll housekeeping a few times a second (never per frame): makes and updates the window,
@@ -410,6 +425,7 @@ struct ReaderView: View {
             AccessibilityNotification.Announcement(arrival.announcement).post()
         }
         .onAppear {
+            model.tracesRestores = UITesting.tracesRestores
             updateBar { $0.programmaticScroll(true) }
             model.restoreInitialPosition()
         }

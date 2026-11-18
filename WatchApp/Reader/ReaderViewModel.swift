@@ -445,6 +445,7 @@ final class ReaderViewModel: ObservableObject {
         }
         guard old != key else { return }
         layoutKey = key
+        trace("layout \(old) -> \(key) restoring=\(isRestoring ? 1 : 0) hold=\(holdsRestores ? 1 : 0)")
         guard !flat.isEmpty else { return }
         pageTimer.reset(at: now())
         staleFrames = lastFrames
@@ -467,6 +468,56 @@ final class ReaderViewModel: ObservableObject {
     /// the part of it scrolled past that edge.
     /// `layoutKey`: the layout the frames were measured with (nil in tests that do not care); a new one is a
     /// layout change (`layoutChanged(to:)`), handled before the frames are read.
+    // MARK: Restore trace (UI tests only, `-UITestingRestoreTrace`)
+
+    /// Set by the view from `UITesting.tracesRestores`; off, nothing below is recorded.
+    var tracesRestores = false
+    /// The last `traceLimit` events of the restore machinery, oldest first, for a UI test's failure message.
+    @Published private(set) var restoreTrace: [String] = []
+    /// The last few geometry reports (scroll view top edge, reading line), kept apart so the bar's animation does
+    /// not push the checks out of `restoreTrace`.
+    @Published private(set) var geometryTrace: [String] = []
+    private static let traceLimit = 30
+
+    func traceGeometry(_ event: @autoclosure () -> String) {
+        guard tracesRestores else { return }
+        let text = event()
+        guard geometryTrace.last != text else { return }
+        geometryTrace.append(text)
+        if geometryTrace.count > 6 { geometryTrace.removeFirst(geometryTrace.count - 6) }
+    }
+    private var traceCheck = 0
+    /// Frame reports still to trace after a restore ended (where the text really went once revealed).
+    private var tracePostReports = 0
+
+    func trace(_ event: @autoclosure () -> String) {
+        guard tracesRestores else { return }
+        restoreTrace.append(event())
+        if restoreTrace.count > Self.traceLimit { restoreTrace.removeFirst(restoreTrace.count - Self.traceLimit) }
+    }
+
+    private func traceFrame(_ frame: BlockFrame?) -> String {
+        frame.map { String(format: "%.1f..%.1f", Double($0.minY), Double($0.maxY)) } ?? "nil"
+    }
+
+    /// One settle check: the target, the reading line in scroll space, the target's measured frame, the top block.
+    private func traceCheckState(_ step: String) {
+        guard tracesRestores else { return }
+        traceCheck += 1
+        let target = restoreTarget
+        let top = VisibleBlockResolver.topIndex(frames: lastFrames, viewportTop: viewportTop)
+        let targetText = target.map(String.init) ?? "nil"
+        let topText = top.map(String.init) ?? "nil"
+        let frameText = traceFrame(target.flatMap { lastFrames[$0] })
+        let anchorText = restoreAnchor.map { String(format: "%.3f", $0) } ?? "nil"
+        let lineText = String(format: "vt=%.1f vh=%.1f", Double(viewportTop), Double(viewportHeight))
+        let keyText = layoutKey ?? "nil"
+        let parts: [String] = ["c\(traceCheck)", step, "tgt=\(targetText)", "off=\(restoreOffset)", lineText,
+                               "f=\(frameText)", "top=\(topText)", "n=\(lastFrames.count)", "a=\(anchorText)",
+                               "cov=\(coversText ? 1 : 0)", "key=\(keyText)"]
+        trace(parts.joined(separator: " "))
+    }
+
     /// Set by the view while a sheet or an alert covers the reader (the Reading Options menu, a note, the word
     /// lookup). Nobody can scroll the text then, and the reader's geometry is not the one it has on screen: with the
     /// menu up, a text size change re-laid the text out and the restore checked it there, but once the menu went
@@ -475,7 +526,9 @@ final class ReaderViewModel: ObservableObject {
     /// restore waits; when the reader shows again the restore starts over from there (`resumeHeldRestore`).
     var holdsRestores = false {
         didSet {
-            guard holdsRestores != oldValue, !holdsRestores else { return }
+            guard holdsRestores != oldValue else { return }
+            trace("hold=\(holdsRestores ? 1 : 0) restoring=\(isRestoring ? 1 : 0)")
+            guard !holdsRestores else { return }
             resumeHeldRestore()
         }
     }
@@ -501,6 +554,12 @@ final class ReaderViewModel: ObservableObject {
     func blockFramesChanged(_ frames: [Int: BlockFrame], layoutKey: String? = nil) {
         if let layoutKey { layoutChanged(to: layoutKey) }
         lastFrames = frames
+        if tracePostReports > 0, !isRestoring, let target = traceLastTarget {
+            tracePostReports -= 1
+            let topText = VisibleBlockResolver.topIndex(frames: frames, viewportTop: viewportTop).map(String.init) ?? "nil"
+            let frameText = traceFrame(frames[target])
+            trace("post f=\(frameText) top=\(topText) " + String(format: "vt=%.1f", Double(viewportTop)))
+        }
         if framesStaleSince != nil, !frames.isEmpty {
             framesStaleSince = nil
             staleFrames = [:]
@@ -670,6 +729,7 @@ final class ReaderViewModel: ObservableObject {
         settledMinY = nil
         stabilityChecks = 0
         restoreBegan = Date()
+        trace("begin tgt=\(target) off=\(offset) cov=\(coversText ? 1 : 0)")
         scheduleRestoreCheck()
     }
 
@@ -708,18 +768,24 @@ final class ReaderViewModel: ObservableObject {
         // comes from the estimate, not the anchor, and an anchor "corrected" for it lands just as far off the
         // other way, a heading in mid-screen).
         // Behind a sheet: wait until the reader shows again (`resumeHeldRestore` starts the checks over).
-        if holdsRestores { return }
+        if holdsRestores {
+            traceCheckState("held")
+            return
+        }
         // Hard cap: a covered restore is revealed after `maxSettleDuration`, wherever it stands.
         if coversText, Date().timeIntervalSince(restoreBegan) >= JumpSettling.maxSettleDuration {
-            finishRestore()
+            traceCheckState("cap")
+            finishRestore(reason: "cap")
             return
         }
         // A re-layout's frames have not arrived yet: check again shortly, without using up a retry.
         if let since = framesStaleSince {
             if Date().timeIntervalSince(since) < JumpSettling.newLayoutWait {
+                traceCheckState("waitframes")
                 scheduleRestoreCheck()
                 return
             }
+            trace("newframes timeout: old frames used=\(lastFrames.isEmpty ? 1 : 0)")
             framesStaleSince = nil
             if lastFrames.isEmpty { lastFrames = staleFrames }
             staleFrames = [:]
@@ -734,6 +800,7 @@ final class ReaderViewModel: ObservableObject {
                                    target: target, attempts: restoreAttempts, limit: limit) {
             restoreAttempts += 1
             settledMinY = nil
+            traceCheckState("retry")
             jumpRequest = JumpRequest(index: restoreJumpIndex ?? target, anchorY: restoreAnchor)
             scheduleRestoreCheck()
             return
@@ -752,6 +819,7 @@ final class ReaderViewModel: ObservableObject {
            let anchor = inBlockAnchor(target: target, frame: frame, limit: limit) {
             inBlockAttempts += 1
             settledMinY = nil
+            traceCheckState("inblock")
             restoreAnchor = anchor
             jumpRequest = JumpRequest(index: target, anchorY: anchor)
             scheduleRestoreCheck()
@@ -764,14 +832,25 @@ final class ReaderViewModel: ObservableObject {
            stabilityChecks < limit, !RestoreCheck.isStable(previousMinY: settledMinY, minY: Double(frame.minY)) {
             settledMinY = Double(frame.minY)
             stabilityChecks += 1
+            traceCheckState("confirm")
             scheduleRestoreCheck()
             return
         }
-        finishRestore()
+        traceCheckState("done")
+        finishRestore(reason: targetHeldByTheEnd ? "end" : (restoreAttempts >= limit ? "retries-out" : "inplace"))
     }
 
+    /// The target of the restore that ended last (trace only).
+    private var traceLastTarget: Int?
+
     /// The restore is over: the position follows the scroll view again and the cover (if any) lifts.
-    private func finishRestore() {
+    private func finishRestore(reason: String = "inplace") {
+        if tracesRestores {
+            let elapsed = String(format: "after %.2fs", Date().timeIntervalSince(restoreBegan))
+            trace("end \(reason) checks=\(restoreAttempts)+\(inBlockAttempts)+\(stabilityChecks) \(elapsed)")
+            traceLastTarget = restoreTarget
+            tracePostReports = 3
+        }
         restoreTarget = nil
         isRestoring = false
         let jumped = isSettling && announcesArrival

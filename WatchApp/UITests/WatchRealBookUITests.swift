@@ -18,6 +18,7 @@ final class WatchRealBookUITests: XCTestCase {
     private func launchVariedBook() -> (app: XCUIApplication, line: CGFloat)? {
         let app = WatchUI.launch(seedSampleBook: true,
                                  extraArguments: ["-UITestingSeedVariedBook", WatchUI.readerPositionArgument,
+                                                  "-UITestingRestoreTrace",
                                                   "-AppleLanguages", "(en)", "-AppleLocale", "en_US"])
         WatchUI.openReader(app)
         guard WatchUI.settledPosition(in: app, expected: (0, 0)) != nil else {
@@ -40,6 +41,21 @@ final class WatchRealBookUITests: XCTestCase {
             .matching(NSPredicate(format: "identifier == %@ AND label == %@", "readerBlock", title)).element(boundBy: 0)
     }
 
+    /// For a failure message: where the heading and the first visible block really are on screen, the bar, and the
+    /// reader's restore trace (`-UITestingRestoreTrace`: each settle check with the reading line in scroll space, the
+    /// target's measured frame, how the restore ended, and the scroll view's geometry).
+    @MainActor
+    private func diagnostics(_ title: String, in app: XCUIApplication) -> String {
+        let block = heading(title, in: app)
+        let headingText = block.exists ? "\(block.frame)" : "absent"
+        let first = WatchUI.firstVisibleBlock(in: app)
+        let firstText = first.map { "\($0.label.prefix(40)) \($0.frame)" } ?? "none"
+        let bar = app.navigationBars.firstMatch
+        let barText = bar.exists ? "\(bar.frame)" : "none"
+        let trace = WatchUI.element("restoreTrace", in: app).value as? String ?? "no trace"
+        return "heading on screen: \(headingText); first visible: \(firstText); bar: \(barText); trace: \(trace)"
+    }
+
     /// The reader shows chapter `title`'s heading as the first block below the bar, its top at `line`, the position
     /// is that heading with offset 0, and nothing moves or is re-saved for 2 s. Returns the settled position.
     @MainActor
@@ -55,18 +71,19 @@ final class WatchRealBookUITests: XCTestCase {
                       file: file, line: sourceLine)
         let block = heading(title, in: app)
         guard block.waitForExistence(timeout: 5) else {
-            WatchUI.fail("\(step): the heading \(title) is not on screen (position \(settled))", in: app,
-                         file: file, line: sourceLine)
+            WatchUI.fail("\(step): the heading \(title) is not on screen (position \(settled)). "
+                         + diagnostics(title, in: app), in: app, file: file, line: sourceLine)
             return nil
         }
         let top = block.frame.minY
-        XCTAssertEqual(top, line, accuracy: 1, "\(step): the heading's top is at \(top), the reading line at \(line)",
-                       file: file, line: sourceLine)
-        XCTAssertEqual(WatchUI.firstVisibleBlock(in: app)?.label, title,
-                       "\(step): the first block below the bar should be the heading \(title)",
-                       file: file, line: sourceLine)
+        if abs(top - line) > 1 || WatchUI.firstVisibleBlock(in: app)?.label != title {
+            XCTFail("\(step): the heading's top is at \(top), the reading line at \(line), first visible block "
+                    + "\(WatchUI.firstVisibleBlock(in: app)?.label.prefix(40) ?? "none"). " + diagnostics(title, in: app),
+                    file: file, line: sourceLine)
+        }
         sleep(2)
-        XCTAssertEqual(block.frame.minY, top, accuracy: 1, "\(step): the text moved after it was revealed",
+        XCTAssertEqual(block.frame.minY, top, accuracy: 1,
+                       "\(step): the text moved after it was revealed. " + diagnostics(title, in: app),
                        file: file, line: sourceLine)
         XCTAssertEqual(WatchUI.readerPosition(in: app).value as? String, settled,
                        "\(step): the position changed after landing", file: file, line: sourceLine)

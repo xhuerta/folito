@@ -48,11 +48,20 @@ enum UITesting {
     /// of a tiny accessibility element "readerPosition", so a UI test can check exactly where a chapter jump or a
     /// text-size change left the reader. Nothing else changes.
     static let readerPositionArgument = "-UITestingReaderPosition"
+    /// `-UITestingRestoreTrace`: the reader records the last events of its restore machinery (each settle check with
+    /// the reading line, the target's measured frame and the top block, how the restore ended, the geometry the
+    /// reading line comes from, sheets holding restores, layout changes) and shows them as the value of a tiny
+    /// accessibility element "restoreTrace", for a UI test's failure message. Nothing else changes.
+    static let restoreTraceArgument = "-UITestingRestoreTrace"
 
     #if DEBUG
     static let exposesBlockHeights: Bool = {
         let args = ProcessInfo.processInfo.arguments
         return args.contains(blockHeightsArgument)
+    }()
+
+    static let tracesRestores: Bool = {
+        ProcessInfo.processInfo.arguments.contains(restoreTraceArgument)
     }()
 
     static let exposesReaderPosition: Bool = {
@@ -521,6 +530,7 @@ enum UITesting {
     #else
     static let exposesBlockHeights = false
     static let exposesReaderPosition = false
+    static let tracesRestores = false
     static let isActive = false
     static var defaults: UserDefaults { .standard }
     static func makeBookStorage() -> BookStorage { BookStorage() }
