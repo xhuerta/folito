@@ -75,6 +75,12 @@ book off the server. `BookSyncPolicy.decide(requiresLibraryLink:linked:switchedO
   last writer wins (`BookSyncSwitchMerge`, the same rule as the read status). When it is off nothing about the
   book is sent to any service: no fetch, no push, no background refresh, and the iPhone does not write the book's
   read status to Readest either.
+- **On the iPhone** (`BookDetailView`): the book details show the Sync section (the switch) only while a service is
+  set up and the switch can do something (`BookDetailSyncRules.showsSyncSection`, unit-tested in the iOS
+  `LogicTests`). With Readest, a book known to be outside the library (`linkedHashes(in:)` is non-nil and lacks it,
+  the same rule as `BookSyncSettings.isOutsideLibrary`) has no Sync section; a footnote under *Upload to Readest*
+  says its progress syncs once it is in the library. An unknown link (nil) shows the section as before. The view
+  reads the observable `ReadestLibraryModel`, so the section appears as soon as an upload or refresh links the book.
 - **On the watch** (`SyncCoordinator`): `decisionOnOpen`, `refreshSynced` (launch, foreground, background
   refresh), `syncedPosition` and `report` make no request for a book that does not sync; the background refresh
   is not scheduled for one; the reader shows no sync glyph for it; the reader menu hides *Go to Synced

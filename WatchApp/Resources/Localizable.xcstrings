@@ -3735,49 +3735,49 @@
         }
       }
     },
-    "Not in your Readest library — progress stays on this watch. Upload it to Readest from the iPhone to sync." : {
-      "comment" : "Watch reader menu, instead of the per-book sync switch: the open book is not in the user's Readest library, so its position does not sync",
+    "Not in your %@ library — progress stays on this watch. Upload it to %@ from the iPhone to sync." : {
+      "comment" : "Watch reader menu, instead of the per-book sync switch: the open book is not in the user's library on the sync service, so its position does not sync. Both placeholders are the sync service, e.g. Readest",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nicht in deiner Readest-Bibliothek – der Fortschritt bleibt auf dieser Uhr. Lade das Buch vom iPhone zu Readest hoch, um es zu synchronisieren."
+            "value" : "Nicht in deiner %@-Bibliothek – der Fortschritt bleibt auf dieser Uhr. Lade das Buch vom iPhone zu %@ hoch, um es zu synchronisieren."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No está en tu biblioteca de Readest: el progreso se queda en este reloj. Súbelo a Readest desde el iPhone para sincronizarlo."
+            "value" : "No está en tu biblioteca de %@: el progreso se queda en este reloj. Súbelo a %@ desde el iPhone para sincronizarlo."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Absent de votre bibliothèque Readest : la progression reste sur cette montre. Envoyez-le vers Readest depuis l’iPhone pour le synchroniser."
+            "value" : "Absent de votre bibliothèque %@ : la progression reste sur cette montre. Envoyez-le vers %@ depuis l’iPhone pour le synchroniser."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Non è nella tua libreria Readest: i progressi restano su questo orologio. Caricalo su Readest dall’iPhone per sincronizzarlo."
+            "value" : "Non è nella tua libreria %@: i progressi restano su questo orologio. Caricalo su %@ dall’iPhone per sincronizzarlo."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Readestのライブラリにありません。進捗はこのApple Watchにのみ保存されます。同期するにはiPhoneからReadestにアップロードしてください。"
+            "value" : "%@のライブラリにありません。進捗はこのApple Watchにのみ保存されます。同期するにはiPhoneから%@にアップロードしてください。"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Não está na sua biblioteca do Readest: o progresso fica neste relógio. Envie-o ao Readest pelo iPhone para sincronizar."
+            "value" : "Não está na sua biblioteca do %@: o progresso fica neste relógio. Envie-o ao %@ pelo iPhone para sincronizar."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "不在你的 Readest 书库中，进度只保留在这块手表上。请从 iPhone 上传到 Readest 以同步。"
+            "value" : "不在你的 %@ 书库中，进度只保留在这块手表上。请从 iPhone 上传到 %@ 以同步。"
           }
         }
       }

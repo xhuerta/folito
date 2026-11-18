@@ -6293,49 +6293,49 @@
         }
       }
     },
-    "This book isn’t in your Readest library, so its progress doesn’t sync. Upload it to Readest to sync it." : {
-      "comment" : "Book details: shown under 'Sync Progress for This Book' when the book is not in the user's Readest library",
+    "Progress for this book syncs once it is in your Readest library." : {
+      "comment" : "Book details: footnote under 'Upload to Readest' when Readest is the sync service and the book is not in the user's Readest library",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dieses Buch ist nicht in deiner Readest-Bibliothek, daher wird sein Fortschritt nicht synchronisiert. Lade es zu Readest hoch, um es zu synchronisieren."
+            "value" : "Der Fortschritt dieses Buchs wird synchronisiert, sobald es in deiner Readest-Bibliothek ist."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Este libro no está en tu biblioteca de Readest, así que su progreso no se sincroniza. Súbelo a Readest para sincronizarlo."
+            "value" : "El progreso de este libro se sincroniza en cuanto esté en tu biblioteca de Readest."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ce livre n’est pas dans votre bibliothèque Readest : sa progression n’est donc pas synchronisée. Envoyez-le vers Readest pour le synchroniser."
+            "value" : "La progression de ce livre sera synchronisée dès qu’il sera dans votre bibliothèque Readest."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Questo libro non è nella tua libreria Readest, quindi i suoi progressi non vengono sincronizzati. Caricalo su Readest per sincronizzarlo."
+            "value" : "I progressi di questo libro si sincronizzano non appena è nella tua libreria Readest."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "この本はReadestのライブラリにないため、進捗は同期されません。同期するにはReadestにアップロードしてください。"
+            "value" : "この本がReadestのライブラリに入ると、進捗が同期されます。"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Este livro não está na sua biblioteca do Readest, então o progresso dele não é sincronizado. Envie-o ao Readest para sincronizá-lo."
+            "value" : "O progresso deste livro é sincronizado assim que ele estiver na sua biblioteca do Readest."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "这本书不在你的 Readest 书库中，因此不会同步进度。上传到 Readest 即可同步。"
+            "value" : "这本书加入你的 Readest 书库后，就会同步进度。"
           }
         }
       }
