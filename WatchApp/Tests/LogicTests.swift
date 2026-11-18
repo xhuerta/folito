@@ -587,12 +587,14 @@ final class ReopenPositionTests: XCTestCase {
         let book = BookIdentity(partialMD5: "h")
         // Unknown link: as before.
         XCTAssertTrue(sync.syncs("h"))
+        XCTAssertFalse(sync.isOutsideLibrary("h"), "unknown is not reported as outside the library")
         guard case .offerRemote = await sync.decisionOnOpen(book: book, local: local) else {
             return XCTFail("a book syncs while the iPhone has not reported its Readest links")
         }
         // The iPhone reports the links: "h" is not in the Readest library.
         sync.applyRemote(switches: nil, readestLinked: ["other"])
         XCTAssertEqual(sync.syncDecision(for: "h"), .notInLibrary)
+        XCTAssertTrue(sync.isOutsideLibrary("h"), "the reader menu shows the note instead of the switch")
         let unlinked = await sync.decisionOnOpen(book: book, local: local)
         XCTAssertEqual(unlinked, .keepLocal)
         sync.report(book: book, xpointer: "/body/p[2]", percentage: 0.01, page: 2, pageCount: 100, immediately: true)
@@ -602,6 +604,7 @@ final class ReopenPositionTests: XCTestCase {
         // Uploaded to Readest: linked, syncs again.
         sync.applyRemote(switches: nil, readestLinked: ["h"])
         XCTAssertTrue(sync.syncs("h"))
+        XCTAssertFalse(sync.isOutsideLibrary("h"))
         // Switched off in the reader menu: no sync whatever the link, and the switch survives a relaunch.
         sync.setSyncEnabled(false, bookKey: "h")
         XCTAssertEqual(sync.syncDecision(for: "h"), .switchedOff)
