@@ -23,6 +23,9 @@ final class ReaderViewModel: ObservableObject {
     let flat: FlatBook
 
     @Published var jumpRequest: JumpRequest?
+    /// The blocks the reader's scroll view holds: the chapter being read, plus chapters appended while reading
+    /// forward (`ChapterWindow`). Flat indices; positions stay global.
+    @Published private(set) var window: Range<Int>
     @Published var showRemoteOffer = false
     /// "Mark as Finished?": the reader just arrived at the end of the book (`ReadStatusRules.shouldOfferFinish`).
     @Published var showFinishOffer = false
@@ -195,6 +198,7 @@ final class ReaderViewModel: ObservableObject {
         let (start, startOffset) = Self.openPosition(saved: positions.load(book.documentHash), in: flat)
         self.startIndex = start
         self.startOffset = startOffset
+        self.window = ChapterWindow.window(for: start, chapterStarts: flat.chapterStarts, count: flat.count)
         self.currentIndex = start
         self.currentOffset = startOffset
         // Merely opening a book must not PUT its (possibly 0%) start position: if the open-time GET
@@ -348,6 +352,15 @@ final class ReaderViewModel: ObservableObject {
             reanchor()
             return
         }
+        // Auto-scroll may have moved past the loaded chapters: extend the window below (never above, which would
+        // rebuild what is on screen) so the scroll view holds the block it is brought to.
+        let furthest = max(cursor.index, target.index)
+        if let extended = ChapterWindow.extended(window, toHold: furthest, chapterStarts: flat.chapterStarts,
+                                                 count: flat.count) {
+            if extended != window { window = extended }
+        } else {
+            loadWindow(for: cursor.index)
+        }
         beginRestore(target: cursor.index)
         restorePoints = cursor.offset
         restoreJumpIndex = target.index
@@ -472,6 +485,13 @@ final class ReaderViewModel: ObservableObject {
         staleFrames = lastFrames
         lastFrames = [:]
         framesStaleSince = Date()
+        // The scroll view is rebuilt for the new layout: it gets the current chapter only (chapters appended while
+        // reading are dropped here, not while reading).
+        let reloaded = ChapterWindow.window(for: currentIndex, chapterStarts: flat.chapterStarts, count: flat.count)
+        if reloaded != window {
+            window = reloaded
+            staleFrames = [:]
+        }
         if isPositioned, !isSettling, autoScroll != .running {
             announcesArrival = false
             beginSettlingCover()
@@ -584,6 +604,14 @@ final class ReaderViewModel: ObservableObject {
         // While auto-scroll moves the text the scroll view underneath stands still (hidden): its frames say
         // nothing about the reading position, which auto-scroll reports itself (`autoScrollPositionChanged`).
         guard autoScroll != .running else { return }
+        // Reading forward: the next chapter goes below before its first block is needed (never during a restore,
+        // which must not see the content change under it).
+        if !isRestoring, ChapterWindow.needsAppend(lastLaidOut: frames.keys.max(), window: window, count: flat.count) {
+            let appended = ChapterWindow.appendingNextChapter(to: window, chapterStarts: flat.chapterStarts,
+                                                              count: flat.count)
+            trace("append \(window.upperBound) -> \(appended.upperBound)")
+            window = appended
+        }
         if !isRestoring { checkEnd(frames) }
         guard !isRestoring, let top = VisibleBlockResolver.topIndex(frames: frames, viewportTop: viewportTop),
               top < flat.count, let frame = frames[top] else { return }
@@ -983,6 +1011,9 @@ final class ReaderViewModel: ObservableObject {
     func jump(to index: Int, characterOffset: Int = 0) {
         let i = flat.clamped(index)
         let offset = flat.clampedOffset(characterOffset, in: i)
+        // A target outside the loaded blocks loads its chapter (a new scroll view): nothing above it but that
+        // chapter's own blocks.
+        loadWindow(for: i)
         // Before `beginRestore`, so its checks already run at the covered pace. A block measured long ago (and
         // kept by the lazy stack) far from the screen does not land exactly either: only a near one is uncovered.
         let laidOut = lastFrames[i].map { JumpSettling.isNear($0, viewportHeight: viewportHeight) } ?? false
@@ -996,6 +1027,40 @@ final class ReaderViewModel: ObservableObject {
         currentOffset = offset
         persistCurrent()
         jumpRequest = JumpRequest(index: i, anchorY: restoreAnchor)
+    }
+
+    // MARK: Chapter window
+
+    /// Loads the window a jump to `target` needs, unless the loaded one already holds it. A window starting at another
+    /// block is a new scroll view (`ReaderView` keys it on the window's start): the frames measured in the old one
+    /// are dropped, and the restore waits for the new ones like after a re-layout.
+    private func loadWindow(for target: Int) {
+        guard !flat.isEmpty, !window.contains(target) else { return }
+        let next = ChapterWindow.window(for: target, chapterStarts: flat.chapterStarts, count: flat.count)
+        trace("window \(window.lowerBound)-\(window.upperBound) -> \(next.lowerBound)-\(next.upperBound)")
+        if next.lowerBound != window.lowerBound {
+            lastFrames = [:]
+            staleFrames = [:]
+            framesStaleSince = Date()
+        }
+        window = next
+    }
+
+    /// Where "Previous Chapter" at the top of the loaded blocks goes (nil at the start of the book).
+    var previousChapterStart: Int? {
+        ChapterWindow.previousChapterStart(before: window, chapterStarts: flat.chapterStarts, count: flat.count)
+    }
+
+    /// The title of that chapter, for VoiceOver ("Previous Chapter, Loomings").
+    var previousChapterTitle: String? {
+        previousChapterStart.flatMap { flat.chapterTitle(at: $0) }
+    }
+
+    /// "Previous Chapter": to the start of the chapter before the loaded blocks (its heading at the top), like
+    /// choosing it in the chapter list.
+    func goToPreviousChapter() {
+        guard let start = previousChapterStart else { return }
+        jump(to: start)
     }
 
     // MARK: Bookmarks

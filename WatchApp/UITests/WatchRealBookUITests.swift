@@ -133,6 +133,102 @@ final class WatchRealBookUITests: XCTestCase {
         add(shot)
     }
 
+    /// Mid-chapter: after reading a little into "Chapter 12.", text size 16 → 15 → 12 → 16 keeps the same block and
+    /// character offset, and the same block first below the bar.
+    @MainActor
+    func testLargeTextSizeChangesKeepTheLineMidChapter() {
+        guard let launched = launchVariedBook() else { return }
+        let app = launched.app, line = launched.line
+        guard WatchUI.chooseChapter("Chapter 12.", current: "Chapter 1.", in: app, backwardSteps: 0, forwardSteps: 30)
+        else { return }
+        assertHeadingAtTheTop("Chapter 12.", readingLine: line, in: app, step: "jump to Chapter 12.")
+        for _ in 0..<3 { WatchUI.nudgeUp(app) }
+        sleep(1)
+        WatchUI.showReaderBar(app)
+        let firstBefore = WatchUI.firstVisibleBlock(in: app)?.label
+        guard let position = WatchUI.settledPosition(in: app) else {
+            return WatchUI.fail("The reader did not settle after reading on. " + diagnostics("Chapter 12.", in: app), in: app)
+        }
+        for (from, to) in [(16, 15), (15, 12), (12, 16)] {
+            let step = "mid-chapter text size \(from) → \(to)"
+            guard changeTextSize(by: to - from, in: app, step: step) else { return }
+            guard let settled = WatchUI.settledPosition(in: app) else {
+                return WatchUI.fail("\(step): the reader did not settle. " + diagnostics("Chapter 12.", in: app), in: app)
+            }
+            XCTAssertEqual(settled, position, "\(step): the reading position changed. " + diagnostics("Chapter 12.", in: app))
+            XCTAssertEqual(WatchUI.firstVisibleBlock(in: app)?.label, firstBefore,
+                           "\(step): another block is first below the bar. " + diagnostics("Chapter 12.", in: app))
+        }
+    }
+
+    /// Reading forward from "Chapter 3." (its own chapter loaded) into "Chapter 4." (appended below while reading):
+    /// the position only moves forward, a few blocks per drag at most, and the next heading stays put once on screen.
+    @MainActor
+    func testReadingForwardAcrossAChapterEndDoesNotJump() {
+        guard let launched = launchVariedBook() else { return }
+        let app = launched.app, line = launched.line
+        guard WatchUI.chooseChapter("Chapter 3.", current: "Chapter 1.", in: app, backwardSteps: 0, forwardSteps: 12)
+        else { return }
+        assertHeadingAtTheTop("Chapter 3.", readingLine: line, in: app, step: "jump to Chapter 3.")
+        // Flat index of "Chapter 4." in the varied book (UITesting.variedBook: chapter 3 is a heading and 13 paragraphs).
+        let nextHeading = 60
+        var previous = 46
+        let next = heading("Chapter 4.", in: app)
+        for step in 0..<80 {
+            WatchUI.nudgeUp(app)
+            sleep(1)
+            guard let value = WatchUI.settledPosition(in: app, timeout: 5), let block = blockIndex(value) else {
+                return WatchUI.fail("Reading forward, drag \(step): no settled position. " + diagnostics("Chapter 4.", in: app),
+                                    in: app)
+            }
+            XCTAssertGreaterThanOrEqual(block, previous, "Reading forward, drag \(step): the position went back "
+                                        + "from \(previous) to \(block). " + diagnostics("Chapter 4.", in: app))
+            XCTAssertLessThanOrEqual(block - previous, 8, "Reading forward, drag \(step): the text jumped from block "
+                                     + "\(previous) to \(block). " + diagnostics("Chapter 4.", in: app))
+            previous = block
+            if block >= nextHeading, next.exists { break }
+        }
+        guard previous >= nextHeading else {
+            return WatchUI.fail("Reading forward never reached Chapter 4. (block \(previous)). "
+                                + diagnostics("Chapter 4.", in: app), in: app)
+        }
+        if next.exists {
+            let top = next.frame.minY
+            sleep(2)
+            XCTAssertEqual(next.frame.minY, top, accuracy: 1,
+                           "The next chapter moved while nobody scrolled. " + diagnostics("Chapter 4.", in: app))
+        }
+    }
+
+    /// "Previous Chapter" at the top of a loaded chapter goes to the start of the chapter before it.
+    @MainActor
+    func testPreviousChapterControlGoesToThePreviousChaptersStart() {
+        guard let launched = launchVariedBook() else { return }
+        let app = launched.app, line = launched.line
+        guard WatchUI.chooseChapter("Chapter 3.", current: "Chapter 1.", in: app, backwardSteps: 0, forwardSteps: 12)
+        else { return }
+        assertHeadingAtTheTop("Chapter 3.", readingLine: line, in: app, step: "jump to Chapter 3.")
+        let control = WatchUI.element("previousChapterButton", in: app)
+        var drags = 0
+        while !(control.exists && control.isHittable) && drags < 4 {
+            WatchUI.nudgeDown(app)
+            drags += 1
+        }
+        guard control.exists, control.isHittable else {
+            return WatchUI.fail("No Previous Chapter control above Chapter 3. " + diagnostics("Chapter 3.", in: app), in: app)
+        }
+        XCTAssertGreaterThanOrEqual(control.frame.height, 44, "Previous Chapter is at least 44 pt tall")
+        control.tap()
+        let settled = assertHeadingAtTheTop("Chapter 2.", readingLine: line, in: app, step: "Previous Chapter")
+        XCTAssertEqual(settled.flatMap { blockIndex($0) }, 35, "the start of Chapter 2. (block 35)")
+    }
+
+    /// The block index in a reader position value ("block=46 offset=0 settled=1").
+    private func blockIndex(_ value: String) -> Int? {
+        guard let part = value.split(separator: " ").first(where: { $0.hasPrefix("block=") }) else { return nil }
+        return Int(part.dropFirst("block=".count))
+    }
+
     /// Opens Reading Options, taps − or + `abs(delta)` times (its first row is the text size stepper) and closes it.
     @MainActor
     private func changeTextSize(by delta: Int, in app: XCUIApplication, step: String) -> Bool {

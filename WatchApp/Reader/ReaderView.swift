@@ -132,7 +132,15 @@ struct ReaderView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: style.typography.paragraphSpacing) {
-                    ForEach(0..<model.flat.count, id: \.self) { index in
+                    // The way back past the loaded chapter's start (`ChapterWindow`): the blocks above are not loaded.
+                    if let previous = model.previousChapterStart {
+                        PreviousChapterRow(title: model.previousChapterTitle, color: style.accentColor) {
+                            model.goToPreviousChapter()
+                        }
+                        .id("previous-\(previous)")
+                    }
+                    // Only the chapter being read (and chapters appended below while reading): see `ChapterWindow`.
+                    ForEach(model.window, id: \.self) { index in
                         BlockStyledText(block: model.flat.blocks[index], style: style)
                             .equatable()
                             .modifier(UITestBlockHeight())
@@ -203,7 +211,9 @@ struct ReaderView: View {
             // After the scroll view's own modifiers (its coordinate space, focus and the scroll-distance reader), so
             // they are rebuilt with it: placed right on the ScrollView, the bar no longer hid on scrolling (#181's CI,
             // testClockBandCoversTheTimeWhenTheBarIsHidden, the only change since its last pass).
-            .id(style.layoutKey)
+            // A window loaded at another block (a jump to another chapter) is a new scroll view too; appending below
+            // keeps the same one.
+            .id("\(style.layoutKey)|\(model.window.lowerBound)")
             // The scroll view runs under the navigation bar: its top inset is where reading starts.
             .background(GeometryReader { geo in
                 Color.clear
@@ -321,6 +331,10 @@ struct ReaderView: View {
             model.layoutChanged(to: key)
             // The rebuilt scroll view (`.id(style.layoutKey)`) is a new focus target: the crown goes back to it (once
             // a sheet is gone, if one is up), unless auto-scroll holds it.
+            if model.autoScroll != .running { returnCrownToText() }
+        }
+        // The same for a scroll view rebuilt for another chapter.
+        .onChange(of: model.window.lowerBound) { _ in
             if model.autoScroll != .running { returnCrownToText() }
         }
         .navigationTitle(model.title)
@@ -1137,6 +1151,32 @@ private struct UITestBlockHeight: ViewModifier {
         } else {
             content
         }
+    }
+}
+
+/// "Previous Chapter" at the top of the loaded blocks (`ChapterWindow`): scrolling back past a chapter's start is this
+/// control, which jumps to the start of the previous chapter. At least 44 pt tall; VoiceOver reads it as a button
+/// with the chapter's title as its value.
+private struct PreviousChapterRow: View {
+    let title: String?
+    let color: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label {
+                Text("Previous Chapter", comment: "Row at the top of a chapter in the reader that goes to the start of the previous chapter")
+            } icon: {
+                Image(systemName: "chevron.up")
+            }
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(color)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityValue(Text(verbatim: title ?? "")) // i18n-ignore: the book's own chapter title
+        .accessibilityIdentifier("previousChapterButton")
     }
 }
 
