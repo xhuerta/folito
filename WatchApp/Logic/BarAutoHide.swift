@@ -127,6 +127,16 @@ enum ReadingLine {
     static func updated(current: CGFloat, measured: CGFloat, barShown: Bool) -> CGFloat {
         barShown ? max(current, measured) : current
     }
+
+    /// The reading line in the scroll view's own coordinate space (where block frames are measured), from the line
+    /// on screen (`updated`: the bar's height, measured from the top of the screen) and the scroll view's global
+    /// top edge. With the bar shown the scroll view starts below it, so its space's 0 is already the reading line:
+    /// the bar's height must not be added a second time. A block's top at this value is where `scrollTo(.top)`
+    /// puts it (build 48 feedback: chapter headings were 2 lines "under the bar" and the line below them was saved;
+    /// a jump aligned to the old value put the heading at y 95 of 197, twice the 47.5 pt bar). Never negative.
+    static func inScrollSpace(screenLine: CGFloat, scrollOriginY: CGFloat) -> CGFloat {
+        max(screenLine - scrollOriginY, 0)
+    }
 }
 
 /// The band in the page colour that covers the system time while the navigation bar is hidden, so the text

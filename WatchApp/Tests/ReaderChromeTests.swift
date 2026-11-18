@@ -141,6 +141,15 @@ final class ReaderChromeTests: XCTestCase {
         XCTAssertFalse(spoken.isHidden, "never hidden with VoiceOver")
     }
 
+    /// The scroll view starts below the shown bar, so in its own space the reading line is 0; with the bar hidden
+    /// it starts at the top of the screen and the line (kept on screen) is the bar's height into it.
+    func testReadingLineInTheScrollViewsSpace() {
+        XCTAssertEqual(ReadingLine.inScrollSpace(screenLine: 47.5, scrollOriginY: 47.5), 0)
+        XCTAssertEqual(ReadingLine.inScrollSpace(screenLine: 47.5, scrollOriginY: 0), 47.5)
+        XCTAssertEqual(ReadingLine.inScrollSpace(screenLine: 47.5, scrollOriginY: 20), 27.5, "mid-animation")
+        XCTAssertEqual(ReadingLine.inScrollSpace(screenLine: 0, scrollOriginY: 10), 0, "never negative")
+    }
+
     func testReadingLineIgnoresTheHiddenBar() {
         var line: CGFloat = 0
         line = ReadingLine.updated(current: line, measured: 44, barShown: true)

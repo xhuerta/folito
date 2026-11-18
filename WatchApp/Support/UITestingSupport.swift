@@ -40,11 +40,19 @@ enum UITesting {
     /// that runs past the screen's edge, where XCUITest may report its frame cut. Only the auto-scroll parity
     /// test passes it; nothing else changes.
     static let blockHeightsArgument = "-UITestingBlockHeights"
+    /// `-UITestingReaderPosition`: the reader shows its saved position (block and character offset) as the value
+    /// of a tiny accessibility element "readerPosition", so a UI test can check exactly where a chapter jump or a
+    /// text-size change left the reader. Nothing else changes.
+    static let readerPositionArgument = "-UITestingReaderPosition"
 
     #if DEBUG
     static let exposesBlockHeights: Bool = {
         let args = ProcessInfo.processInfo.arguments
         return args.contains(blockHeightsArgument)
+    }()
+
+    static let exposesReaderPosition: Bool = {
+        ProcessInfo.processInfo.arguments.contains(readerPositionArgument)
     }()
 
     static let isActive: Bool = {
@@ -461,6 +469,7 @@ enum UITesting {
     }()
     #else
     static let exposesBlockHeights = false
+    static let exposesReaderPosition = false
     static let isActive = false
     static var defaults: UserDefaults { .standard }
     static func makeBookStorage() -> BookStorage { BookStorage() }
