@@ -123,6 +123,14 @@ public struct BookSyncSettings: Sendable, Equatable, Codable {
                               switchedOn: isSwitchedOn(bookKey))
     }
 
+    /// Whether the book is known to be outside the service's library: the service keeps one (Readest) and the
+    /// iPhone reported the linked books without this one. An unknown link (nil) is not "outside". Unlike
+    /// `decision`, the switch plays no part: the reader menu shows no switch for such a book, only a note.
+    public func isOutsideLibrary(_ bookKey: String, requiresLibraryLink: Bool) -> Bool {
+        guard requiresLibraryLink, let readestLinked else { return false }
+        return !readestLinked.contains(bookKey)
+    }
+
     /// The decision under the given connector; nil connector (sync off) never syncs.
     public func decision(for bookKey: String, connector: SyncConnectorDescriptor?) -> BookSyncDecision? {
         guard let connector else { return nil }

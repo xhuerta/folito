@@ -447,6 +447,16 @@ final class SyncCoordinator: ObservableObject {
     /// Whether the active service syncs `bookKey` (false while sync is off).
     func syncs(_ bookKey: String) -> Bool { syncDecision(for: bookKey)?.syncs == true }
 
+    /// Whether the active service keeps a library (Readest) and the iPhone reported `bookKey` outside it. False
+    /// while sync is off, with KOReader Sync, and while the links are unknown.
+    func isOutsideLibrary(_ bookKey: String) -> Bool {
+        guard let descriptor = connector()?.descriptor else { return false }
+        return bookSync.isOutsideLibrary(bookKey, requiresLibraryLink: descriptor.requiresLibraryLink)
+    }
+
+    /// The active service's name ("Readest", "KOReader Sync"); nil while sync is off.
+    var activeServiceName: String? { connector()?.descriptor.displayName }
+
     /// The book's "Sync Progress for This Book" switch (on unless turned off here or on the iPhone).
     func isSwitchedOn(_ bookKey: String) -> Bool { bookSync.isSwitchedOn(bookKey) }
 

@@ -67,7 +67,9 @@ book off the server. `BookSyncPolicy.decide(requiresLibraryLink:linked:switchedO
   progress lookup also matches `meta_hash`) and sends the linked hashes to the watch (`readestLinked`, see
   docs/WATCH_CONNECTIVITY.md, "Per-book sync"). The key is sent only while the iPhone knows the listing (cached or
   refreshed); without it the watch syncs every book. Uploading a book to Readest (or downloading one from it)
-  adds it to the list on the next settings update, so it starts syncing by itself.
+  adds it to the list on the next settings update, so it starts syncing by itself. The iPhone sends the settings
+  context again after each import and loads the Readest rows when it becomes active without them, so "unknown"
+  stays short.
 - **Per-book switch.** "Sync Progress for This Book" (default on) in the iPhone book details and in the watch
   reader menu, for both connectors: a `BookSyncSwitch` (`on` + stamp in ms) per book, synced iPhone <-> watch with
   last writer wins (`BookSyncSwitchMerge`, the same rule as the read status). When it is off nothing about the
@@ -75,8 +77,10 @@ book off the server. `BookSyncPolicy.decide(requiresLibraryLink:linked:switchedO
   read status to Readest either.
 - **On the watch** (`SyncCoordinator`): `decisionOnOpen`, `refreshSynced` (launch, foreground, background
   refresh), `syncedPosition` and `report` make no request for a book that does not sync; the background refresh
-  is not scheduled for one; the reader shows no sync glyph for it; the reader menu replaces *Go to Synced
-  Position* with a short explanation. When a book stops syncing (switch turned off, link reported missing, a
+  is not scheduled for one; the reader shows no sync glyph for it; the reader menu hides *Go to Synced
+  Position*. With Readest, a book the iPhone reported outside the library gets a short note in place of the
+  per-book switch (which could not make it sync); otherwise the switch has a one-line footnote saying what it does
+  (on) or that the progress stays on the watch (off). When a book stops syncing (switch turned off, link reported missing, a
   switch of service) its queued positions are dropped (`SyncQueue.prune(keeping:)`).
 - **Quieter glyph.** The watch shows the syncing glyph only for a request still running after about a second
   (`SlowRequestIndicator`, injectable clock), so a quick answer never flashes it. Offline and error states are

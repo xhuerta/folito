@@ -47,6 +47,19 @@ final class BookSyncPolicyTests: XCTestCase {
         XCTAssertEqual(BookSyncSettings().decision(for: "c", connector: readest), .sync)
     }
 
+    func testOutsideLibraryOnlyWhenKnownAndLinkRequired() {
+        let settings = BookSyncSettings(readestLinked: ["a"],
+                                        switches: ["c": BookSyncSwitch(isOn: false, stamp: 5)])
+        XCTAssertFalse(settings.isOutsideLibrary("a", requiresLibraryLink: true))
+        XCTAssertTrue(settings.isOutsideLibrary("b", requiresLibraryLink: true))
+        // The switch plays no part: a book switched off and not in the library is still outside it.
+        XCTAssertTrue(settings.isOutsideLibrary("c", requiresLibraryLink: true))
+        // KOReader Sync keeps no library.
+        XCTAssertFalse(settings.isOutsideLibrary("b", requiresLibraryLink: false))
+        // Unknown links: not outside (the book syncs, as before).
+        XCTAssertFalse(BookSyncSettings().isOutsideLibrary("b", requiresLibraryLink: true))
+    }
+
     func testSettingsPersistRoundTripAndTolerateOldData() throws {
         let settings = BookSyncSettings(readestLinked: ["a", "b"], switches: ["c": BookSyncSwitch(isOn: false, stamp: 9)])
         let data = try JSONEncoder().encode(settings)
