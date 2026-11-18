@@ -397,4 +397,33 @@ final class JumpSettlingTests: XCTestCase {
         try await waitUntil(timeout: 1.5) { !model.isSettling }
         XCTAssertEqual(model.currentIndex, last - 1)
     }
+
+    /// A layout key change that resized nothing reports no new frames: after `JumpSettling.newLayoutWait` the
+    /// restore goes on with the frames it has and the cover lifts (it stayed up for good in #181's first CI run).
+    @MainActor
+    func testLayoutChangeWithoutNewFramesStillReveals() async throws {
+        let model = try await openedReader().model
+        model.blockFramesChanged([0: f(0, 100), 1: f(110, 210)], layoutKey: "a")
+        model.layoutChanged(to: "b")
+        XCTAssertTrue(model.isSettling)
+        try await waitUntil(timeout: JumpSettling.newLayoutWait + 1.5) { !model.isSettling }
+        XCTAssertFalse(model.isRestoring)
+        XCTAssertEqual(model.currentIndex, 0)
+    }
+
+    /// Whatever the checks find, a covered restore is revealed after `JumpSettling.maxSettleDuration`.
+    @MainActor
+    func testCoverAlwaysLiftsWithinTheCap() async throws {
+        let model = try await openedReader().model
+        model.settleDelay = 300_000_000
+        model.openSettleDelay = 300_000_000
+        let target = 2 * Self.blocksPerChapter
+        model.jump(to: target)
+        // Never the target at the top: 12 retries at this pace would take 3.6 s.
+        model.blockFramesChanged([target + 4: f(0, 100), target + 5: f(110, 210)])
+        let began = Date()
+        try await waitUntil(timeout: JumpSettling.maxSettleDuration + 1) { !model.isSettling }
+        XCTAssertLessThan(Date().timeIntervalSince(began), JumpSettling.maxSettleDuration + 0.5)
+        XCTAssertFalse(model.coversText)
+    }
 }

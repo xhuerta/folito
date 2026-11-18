@@ -285,7 +285,21 @@ enum WatchUI {
         guard openChapters(app, currentChapter: current, file: file, line: line) else { return false }
         let row = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier == %@ AND label == %@", "chapterButton", title)).element(boundBy: 0)
-        // The list opens centred on the current chapter: the next one is below it, the previous one above.
+        // The list opens centred on the current chapter: the next one is below it, the previous one above. With
+        // numbered titles ("Chapter 12.") the visible rows say which way to go, so a drag that flings past the row
+        // (a long list scrolls on after the finger lifts) is followed by one back.
+        if let wanted = chapterNumber(title) {
+            var steps = 0
+            while !(row.exists && row.isHittable) && steps < 2 * (backwardSteps + forwardSteps) {
+                let shown = app.descendants(matching: .any).matching(identifier: "chapterButton")
+                    .allElementsBoundByIndex.compactMap { $0.exists ? chapterNumber($0.label) : nil }
+                guard let first = shown.min(), let last = shown.max() else { break }
+                let down = wanted < first ? true : wanted > last ? false
+                    : row.exists && row.frame.minY < app.windows.firstMatch.frame.midY
+                listStep(app, towardsTop: down)
+                steps += 1
+            }
+        }
         var steps = 0
         while !(row.exists && row.isHittable) && steps < backwardSteps {
             nudgeDown(app)
@@ -301,6 +315,23 @@ enum WatchUI {
             return false
         }
         return true
+    }
+
+    /// A short drag in a list (a tenth of the screen). A third of the screen flung the chapter list on by four rows
+    /// after the finger lifted (#181's first CI run: "Chapter 27." to "Chapter 31." in one drag), past the row
+    /// looked for; a short one moves it by about a row.
+    static func listStep(_ app: XCUIApplication, towardsTop: Bool) {
+        let window = app.windows.firstMatch
+        let a = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45))
+        let b = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55))
+        if towardsTop { a.press(forDuration: 0.05, thenDragTo: b) } else { b.press(forDuration: 0.05, thenDragTo: a) }
+    }
+
+    /// The number in a chapter title like "Chapter 12." (nil for other titles).
+    static func chapterNumber(_ title: String) -> Int? {
+        guard title.hasPrefix("Chapter ") else { return nil }
+        let digits = title.dropFirst("Chapter ".count).prefix { $0.isNumber }
+        return digits.isEmpty ? nil : Int(digits)
     }
 
     /// Closes the sheet on screen (the reader menu) with its close button. Returns whether the reader shows again.

@@ -85,6 +85,14 @@ enum JumpSettling {
     /// After this long under the cover, a small progress indicator shows (most far jumps land before it).
     static let indicatorDelay: UInt64 = 150_000_000
 
+    /// The longest a restore keeps the text covered (seconds): it is then revealed wherever it stands, so the
+    /// cover always lifts, whatever the checks find (or fail to find).
+    static let maxSettleDuration: TimeInterval = 3
+
+    /// How long the checks after a re-layout wait for the first frame of the new layout (seconds) before they go
+    /// on with the frames they have.
+    static let newLayoutWait: TimeInterval = 1
+
     /// Whether a jump to a block must be covered: the reader is already showing text (while the book opens it
     /// is hidden anyway) and the target block is not laid out, so the first scroll cannot land exactly.
     static func covers(isPositioned: Bool, targetLaidOut: Bool) -> Bool {

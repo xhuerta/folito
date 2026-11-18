@@ -94,12 +94,16 @@ final class ReaderViewModel: ObservableObject {
     /// there were (`RestoreCheck.isStable`).
     private var settledMinY: Double?
     private var stabilityChecks = 0
-    /// Set by a re-layout: `lastFrames` was dropped and no frame of the new layout has arrived yet. A check that
-    /// finds no frames then waits for them (`awaitingFrames`) instead of using up the retries: behind the
-    /// Reading Options sheet the reader may not report frames until the sheet goes, and a restore that ended
-    /// meanwhile let the first frames of the new layout move the saved position (build 49 feedback).
-    private var framesStale = false
-    private var awaitingFrames = false
+    /// Set by a re-layout: when `lastFrames` was dropped, and what it held. Until a frame of the new layout arrives
+    /// the checks wait (without using up the retries), for at most `JumpSettling.newLayoutWait`: behind the Reading
+    /// Options sheet the reader may report the new frames late. A key change that resized nothing reports no new
+    /// frames at all (an unchanged preference is not delivered again): after the wait the old frames, which are the
+    /// current ones then, are used. An unbounded wait there kept the cover up for good (#181's first CI run).
+    private var framesStaleSince: Date?
+    private var staleFrames: [Int: BlockFrame] = [:]
+    /// When the current restore began (real time): a covered one is revealed after `JumpSettling.maxSettleDuration`
+    /// whatever its checks say, so the cover always lifts.
+    private var restoreBegan = Date()
     /// Set when auto-scroll hands the text back (`handBackAutoScroll`): the exact points of `restoreTarget`
     /// above the reading line, used instead of `restoreOffset`, and the block the jump is anchored to (the
     /// next one when the target is about as tall as the viewport).
@@ -441,8 +445,9 @@ final class ReaderViewModel: ObservableObject {
         layoutKey = key
         guard !flat.isEmpty else { return }
         pageTimer.reset(at: now())
+        staleFrames = lastFrames
         lastFrames = [:]
-        framesStale = true
+        framesStaleSince = Date()
         if isPositioned, !isSettling, autoScroll != .running {
             announcesArrival = false
             beginSettlingCover()
@@ -463,12 +468,9 @@ final class ReaderViewModel: ObservableObject {
     func blockFramesChanged(_ frames: [Int: BlockFrame], layoutKey: String? = nil) {
         if let layoutKey { layoutChanged(to: layoutKey) }
         lastFrames = frames
-        if framesStale, !frames.isEmpty {
-            framesStale = false
-            if awaitingFrames {
-                awaitingFrames = false
-                if isRestoring { scheduleRestoreCheck() }
-            }
+        if framesStaleSince != nil, !frames.isEmpty {
+            framesStaleSince = nil
+            staleFrames = [:]
         }
         // While auto-scroll moves the text the scroll view underneath stands still (hidden): its frames say
         // nothing about the reading position, which auto-scroll reports itself (`autoScrollPositionChanged`).
@@ -634,7 +636,7 @@ final class ReaderViewModel: ObservableObject {
         restoreJumpIndex = nil
         settledMinY = nil
         stabilityChecks = 0
-        awaitingFrames = false
+        restoreBegan = Date()
         scheduleRestoreCheck()
     }
 
@@ -672,10 +674,20 @@ final class ReaderViewModel: ObservableObject {
         // once the blocks around the target are measured (never by correcting the anchor from it: that error
         // comes from the estimate, not the anchor, and an anchor "corrected" for it lands just as far off the
         // other way, a heading in mid-screen).
-        // A re-layout's frames have not arrived yet: wait for them (`blockFramesChanged` checks again).
-        if framesStale {
-            awaitingFrames = true
+        // Hard cap: a covered restore is revealed after `maxSettleDuration`, wherever it stands.
+        if coversText, Date().timeIntervalSince(restoreBegan) >= JumpSettling.maxSettleDuration {
+            finishRestore()
             return
+        }
+        // A re-layout's frames have not arrived yet: check again shortly, without using up a retry.
+        if let since = framesStaleSince {
+            if Date().timeIntervalSince(since) < JumpSettling.newLayoutWait {
+                scheduleRestoreCheck()
+                return
+            }
+            framesStaleSince = nil
+            if lastFrames.isEmpty { lastFrames = staleFrames }
+            staleFrames = [:]
         }
         let limit = restoreLimit
         // Near the end of the book the target may be unable to reach the top: on screen below the line is its place.
@@ -719,6 +731,11 @@ final class ReaderViewModel: ObservableObject {
             scheduleRestoreCheck()
             return
         }
+        finishRestore()
+    }
+
+    /// The restore is over: the position follows the scroll view again and the cover (if any) lifts.
+    private func finishRestore() {
         restoreTarget = nil
         isRestoring = false
         let jumped = isSettling && announcesArrival
