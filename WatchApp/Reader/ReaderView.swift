@@ -161,6 +161,12 @@ struct ReaderView: View {
                     }
                 }
                 .padding(.horizontal, style.typography.horizontalMargin)
+                // A tap between two paragraphs (the stack's spacing belongs to no block) or in the side margins
+                // reaches no block's tap gesture: here it shows a hidden bar too (or resumes a paused auto-scroll),
+                // so a tap anywhere on the text always brings the bar back. Taps on a block keep their own action
+                // (a child's gesture wins over this one).
+                .contentShape(Rectangle())
+                .onTapGesture { tappedBetweenBlocks() }
                 .background(GeometryReader { geo in
                     Color.clear.preference(key: ContentTopKey.self, value: geo.frame(in: .named(Self.scrollSpace)).minY)
                 })
@@ -471,6 +477,16 @@ extension ReaderView {
             return
         }
         tapped(block: target.index, at: target.location, style: style)
+    }
+
+    /// A tap on the text outside every block (between paragraphs, in the margins): like a tap on empty reader space.
+    fileprivate func tappedBetweenBlocks() {
+        guard !model.coversText else { return }
+        if model.autoScroll == .paused {
+            model.resumeAutoScroll()
+            return
+        }
+        _ = revealBarOnTap()
     }
 
     /// Shows the hidden bar for a tap (then hides it again after a few seconds). Returns whether it did.
