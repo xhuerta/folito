@@ -53,7 +53,12 @@ struct FolitoApp: App {
                 reviewPrompt.watchReported(progress: progress)
             }
             .onChange(of: scenePhase) { _, phase in
-                if phase == .active { connectivity.syncWatchState() }
+                if phase == .active {
+                    connectivity.syncWatchState()
+                    // Until the Readest rows are known the watch cannot tell which books are in the library and
+                    // syncs every book (#167): load them now rather than when the Library is next shown.
+                    if readest.isAvailable && !readest.hasListing { Task { await readest.refresh() } }
+                }
             }
         }
     }
@@ -61,6 +66,9 @@ struct FolitoApp: App {
     private func wire() {
         library.onImported = { entry in
             sendToWatch(entry) // auto-send
+            // The settings context again, so the watch knows at once whether the new book is in the Readest
+            // library (#167) instead of keeping a list from before the import.
+            connectivity.syncWatchState()
             readest.autoUploadIfNeeded(entry, from: library) // opt-in, off by default
             onlineMetadata.bookImported(entry, library: library) // opt-in, off by default
             Announcer.announce(String(localized: "Imported “\(entry.title)”.",

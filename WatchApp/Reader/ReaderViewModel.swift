@@ -904,11 +904,12 @@ final class ReaderViewModel: ObservableObject {
     /// fetched or pushed for it and the reader shows no sync glyph (#167).
     var syncsThisBook: Bool { sync.syncs(documentHash) }
 
-    /// Why this book does not sync with the active service; nil when it does or sync is off.
-    var bookSyncBlocker: BookSyncDecision? {
-        guard let decision = sync.syncDecision(for: documentHash), !decision.syncs else { return nil }
-        return decision
-    }
+    /// Whether the iPhone reported this book outside the Readest library while Readest is the service: the reader
+    /// menu then shows a note instead of "Sync Progress for This Book", which could not make it sync (#167).
+    var isOutsideSyncLibrary: Bool { sync.isOutsideLibrary(documentHash) }
+
+    /// The active service's name ("Readest", "KOReader Sync") for the switch's footnote; empty while sync is off.
+    var syncServiceName: String { sync.activeServiceName ?? "" }
 
     /// "Sync Progress for This Book" in the reader menu (default on; synced with the iPhone).
     var isSyncSwitchedOn: Bool { sync.isSwitchedOn(documentHash) }
