@@ -76,7 +76,7 @@ struct ReaderView: View {
     /// The scroll view's origin in global coordinates: the origin of `scrollSpace`, for taps in the edge strip.
     @State private var scrollOrigin: CGPoint = .zero
     /// The reading line on screen (global y of the bar's bottom edge, latched while the bar is hidden; see
-    /// `ReadingLine`). The model gets it in the scroll view's own coordinates (`ReadingLine.inScrollSpace`).
+    /// `ReadingLine`). The model turns it into the scroll view's own coordinates (`ReadingLine.inScrollSpace`).
     @State private var readingLineOnScreen: CGFloat = 0
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
     @Environment(\.isLuminanceReduced) private var isLuminanceReduced
@@ -151,9 +151,11 @@ struct ReaderView: View {
                             .background(
                                 GeometryReader { geo in
                                     let f = geo.frame(in: .named(Self.scrollSpace))
+                                    // Also on screen: the two together say where the scroll view's space starts.
+                                    let screenMinY = geo.frame(in: .global).minY
                                     Color.clear.preference(key: BlockFramesKey.self,
                                                            value: [index: BlockFrame(minY: f.minY, maxY: f.maxY, width: f.width,
-                                                                                     minX: f.minX)])
+                                                                                     minX: f.minX, screenMinY: screenMinY)])
                                 })
                     }
                     if model.flat.isEmpty {
@@ -200,14 +202,13 @@ struct ReaderView: View {
             })
             .onPreferenceChange(ViewportOriginKey.self) { origin in
                 scrollOrigin = origin
-                model.viewportTop = ReadingLine.inScrollSpace(screenLine: readingLineOnScreen, scrollOriginY: origin.y)
                 model.traceGeometry(String(format: "geo origin=%.1f line=%.1f vt=%.1f bar=%ld", Double(origin.y),
                                    Double(readingLineOnScreen), Double(model.viewportTop), barHidden ? 0 : 1))
             }
             .onPreferenceChange(ViewportTopKey.self) { top in
                 // The reading line stays where it is on screen while the bar is hidden (see `ReadingLine`).
                 readingLineOnScreen = ReadingLine.updated(current: readingLineOnScreen, measured: top, barShown: !barHidden)
-                model.viewportTop = ReadingLine.inScrollSpace(screenLine: readingLineOnScreen, scrollOriginY: scrollOrigin.y)
+                model.readingLineOnScreen = readingLineOnScreen
                 model.traceGeometry(String(format: "geo inset=%.1f line=%.1f origin=%.1f vt=%.1f bar=%ld", Double(top),
                                    Double(readingLineOnScreen), Double(scrollOrigin.y), Double(model.viewportTop),
                                    barHidden ? 0 : 1))
@@ -486,7 +487,7 @@ extension ReaderView {
             model.resumeAutoScroll()
             return
         }
-        guard let target = EdgeSwipeBack.tapTarget(at: point, scrollOrigin: scrollOrigin,
+        guard let target = EdgeSwipeBack.tapTarget(at: point, scrollOrigin: scrollSpaceOrigin,
                                                    contentMinX: CGFloat(style.typography.horizontalMargin),
                                                    frames: model.blockFrames) else {
             _ = revealBarOnTap()
@@ -529,6 +530,13 @@ extension ReaderView {
                                         tracking: style.typography.tracking)
         return TapPosition.characterOffset(x: Double(location.x) - spec.indent, y: Double(location.y) - spec.topPadding,
                                            layout: layout, characterCount: block.text.count)
+    }
+
+    /// Where the scroll view's coordinate space starts on screen: measured from the block frames when known (see
+    /// `ReadingLine.inScrollSpace`), else the scroll view's reported origin. Block frames map to the screen through
+    /// it (edge taps, the auto-scroll window).
+    fileprivate var scrollSpaceOrigin: CGPoint {
+        CGPoint(x: scrollOrigin.x, y: model.scrollSpaceOriginOnScreen ?? scrollOrigin.y)
     }
 
     /// A sheet or an alert covers the text (the menu, a note, the word lookup, a sync or finish offer).
@@ -606,7 +614,7 @@ extension ReaderView {
             autoScrollHeights = frames.mapValues(\.height)
             autoScrollLeading = model.blockFrames[window.first]?.minX ?? 0
             autoScrollTextWidth = model.blockFrames[window.first]?.width ?? 0
-            autoScrollOrigin = scrollOrigin
+            autoScrollOrigin = scrollSpaceOrigin
             autoScrollWindow = window
         }
         return true
@@ -628,7 +636,7 @@ extension ReaderView {
         guard let window = autoScrollWindow else { return nil }
         let shift = autoScrollShift(window, at: date, lineHeight: lineHeight, spacing: spacing)
         // In the scroll view's coordinates of the moment (the same as the window's unless its frame moved).
-        let moved = Double(autoScrollOrigin.y - scrollOrigin.y)
+        let moved = Double(autoScrollOrigin.y - scrollSpaceOrigin.y)
         let frames = window.spans(heights: autoScrollHeights, spacing: spacing, shift: shift - moved)
         guard let cursor = AutoScroll.cursor(frames: frames, viewportTop: Double(model.viewportTop)) else { return nil }
         return (cursor, frames)

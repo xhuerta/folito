@@ -129,11 +129,14 @@ enum ReadingLine {
     }
 
     /// The reading line in the scroll view's own coordinate space (where block frames are measured), from the line
-    /// on screen (`updated`: the bar's height, measured from the top of the screen) and the scroll view's global
-    /// top edge. With the bar shown the scroll view starts below it, so its space's 0 is already the reading line:
-    /// the bar's height must not be added a second time. A block's top at this value is where `scrollTo(.top)`
-    /// puts it (build 48 feedback: chapter headings were 2 lines "under the bar" and the line below them was saved;
-    /// a jump aligned to the old value put the heading at y 95 of 197, twice the 47.5 pt bar). Never negative.
+    /// on screen (`updated`: the bar's bottom edge, measured from the top of the screen, kept there while the bar is
+    /// hidden) and where that space starts on screen (`scrollOriginY`). The latter is measured from the block frames
+    /// themselves (`BlockFrame.screenMinY - minY`), not taken from the scroll view's reported origin or inset: #181's
+    /// traces showed the space starting at 47.5 in one state and at 0 in another with the same reported geometry,
+    /// so any fixed assumption put chapter headings either under the bar or a bar's height below it. Never negative.
+    ///
+    /// With the bar hidden the line stays at the bar's bottom edge on screen: hiding the bar never moves the saved
+    /// position, and a chapter heading lands below where the bar is when it shows.
     static func inScrollSpace(screenLine: CGFloat, scrollOriginY: CGFloat) -> CGFloat {
         max(screenLine - scrollOriginY, 0)
     }

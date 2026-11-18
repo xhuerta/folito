@@ -120,9 +120,21 @@ final class ReaderViewModel: ObservableObject {
     static let handBackTolerance = 0.5
     /// Latest frames reported by the view, kept while restoring to verify where the jump landed.
     private var lastFrames: [Int: BlockFrame] = [:]
-    /// Top of the visible area in the scroll view's coordinate space (the inset under the navigation
-    /// bar when the scroll view extends beneath it). Set by the view.
+    /// The reading line in the scroll view's coordinate space. Derived from `readingLineOnScreen` and the measured
+    /// start of that space on screen (`scrollSpaceOriginOnScreen`) whenever either changes; tests set it directly.
     var viewportTop: CGFloat = 0
+    /// The reading line on screen (global y), set by the view (`ReadingLine.updated`). Nil until the view reports it.
+    var readingLineOnScreen: CGFloat? {
+        didSet { updateReadingLine() }
+    }
+    /// Where the scroll view's coordinate space starts on screen, measured from the last frames that carried their
+    /// screen position (`BlockFrame.screenMinY`). Nil until measured.
+    private(set) var scrollSpaceOriginOnScreen: CGFloat?
+
+    private func updateReadingLine() {
+        guard let line = readingLineOnScreen, let origin = scrollSpaceOriginOnScreen else { return }
+        viewportTop = ReadingLine.inScrollSpace(screenLine: line, scrollOriginY: origin)
+    }
     /// Height of the scroll view (set by the view); used to compute in-block `scrollTo` anchors.
     var viewportHeight: CGFloat = 0
     /// Pause before checking where a programmatic jump landed (injectable for tests).
@@ -518,6 +530,8 @@ final class ReaderViewModel: ObservableObject {
         let targetText = target.map(String.init) ?? "nil"
         let topText = top.map(String.init) ?? "nil"
         let frameText = traceFrame(target.flatMap { lastFrames[$0] })
+            + (target.flatMap { lastFrames[$0]?.screenMinY }.map { String(format: " scr=%.1f", Double($0)) } ?? "")
+            + (scrollSpaceOriginOnScreen.map { String(format: " so=%.1f", Double($0)) } ?? "")
         let anchorText = restoreAnchor.map { String(format: "%.3f", $0) } ?? "nil"
         let lineText = String(format: "vt=%.1f vh=%.1f", Double(viewportTop), Double(viewportHeight))
         let keyText = layoutKey ?? "nil"
@@ -530,6 +544,17 @@ final class ReaderViewModel: ObservableObject {
     func blockFramesChanged(_ frames: [Int: BlockFrame], layoutKey: String? = nil) {
         if let layoutKey { layoutChanged(to: layoutKey) }
         lastFrames = frames
+        // Measure where the scroll view's space starts on screen from these very frames, so the reading line and the
+        // frames it is compared with are always in the same space.
+        if let measured = frames.min(by: { $0.key < $1.key }).flatMap({ entry in
+            entry.value.screenMinY.map { $0 - entry.value.minY } }) {
+            if scrollSpaceOriginOnScreen.map({ abs($0 - measured) > 0.25 }) ?? true {
+                trace(String(format: "space origin=%.1f (was %@)", Double(measured),
+                             scrollSpaceOriginOnScreen.map { String(format: "%.1f", Double($0)) } ?? "nil"))
+                scrollSpaceOriginOnScreen = measured
+                updateReadingLine()
+            }
+        }
         if tracePostReports > 0, !isRestoring, let target = traceLastTarget {
             tracePostReports -= 1
             let topText = VisibleBlockResolver.topIndex(frames: frames, viewportTop: viewportTop).map(String.init) ?? "nil"

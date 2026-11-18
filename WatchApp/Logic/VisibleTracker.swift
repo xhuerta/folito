@@ -10,6 +10,11 @@ struct BlockFrame: Equatable {
     var width: CGFloat = 0
     /// Left edge of the block (auto-scroll lines its own copy of the text up with it).
     var minX: CGFloat = 0
+    /// The block's top on screen (global coordinates), measured with the frame above. The difference to `minY` is
+    /// where the scroll view's space starts on screen, which is not always the same: #181's traces showed it at
+    /// 47.5 (the bar's height) after opening a book or a chapter jump and at 0 after a text-size change in the
+    /// menu, with the same reported inset and origin. Nil where not measured (tests).
+    var screenMinY: CGFloat? = nil
 }
 
 /// Decides the reading position from block frames measured with a named coordinate space.
