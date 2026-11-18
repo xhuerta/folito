@@ -206,8 +206,7 @@ final class JumpSettlingTests: XCTestCase {
         try await waitUntil { model.jumpRequest != firstJump }
         let correction = try XCTUnwrap(model.jumpRequest)
         XCTAssertEqual(correction.index, target)
-        XCTAssertEqual(try XCTUnwrap(correction.anchorY), 0, accuracy: 1e-9,
-                       "the same `.top` scroll again, now on measured heights: no anchor computed from the reading line")
+        XCTAssertGreaterThan(try XCTUnwrap(correction.anchorY), 0, "the correction moves the heading down")
         XCTAssertTrue(model.isSettling, "still covered while it corrects")
 
         model.blockFramesChanged([target: f(30, 80), target + 1: f(90, 190)])
@@ -427,34 +426,6 @@ final class JumpSettlingTests: XCTestCase {
         XCTAssertFalse(model.coversText)
     }
 
-    /// Behind a sheet nothing settles and frames never move the position; when the reader shows again the restore
-    /// starts over from what is on screen then.
-    @MainActor
-    func testRestoreBehindASheetWaitsForTheReader() async throws {
-        let model = try await openedReader().model
-        let heading = Self.blocksPerChapter
-        model.jump(to: heading)
-        model.blockFramesChanged([heading: f(0, 40), heading + 1: f(50, 150)], layoutKey: "16pt")
-        try await waitUntil { !model.isRestoring }
-
-        model.holdsRestores = true // the menu is up
-        model.blockFramesChanged([heading + 3: f(0, 100)], layoutKey: "16pt")
-        XCTAssertEqual(model.currentIndex, heading, "frames behind the sheet never move the position")
-        model.layoutChanged(to: "15pt")
-        model.blockFramesChanged([heading: f(47, 87), heading + 1: f(97, 197)], layoutKey: "15pt")
-        try await Task.sleep(nanoseconds: 200_000_000)
-        XCTAssertTrue(model.isRestoring, "nothing settles behind the sheet")
-        let held = model.jumpRequest
-
-        model.holdsRestores = false // the menu is gone: the heading sits below the line in the real geometry
-        XCTAssertNotEqual(model.jumpRequest, held, "the restore starts over")
-        XCTAssertEqual(model.jumpRequest?.index, heading)
-        model.blockFramesChanged([heading: f(0, 40), heading + 1: f(50, 150)], layoutKey: "15pt")
-        try await waitUntil { !model.isSettling }
-        XCTAssertEqual(model.currentIndex, heading)
-        XCTAssertEqual(model.currentOffset, 0)
-    }
-
     /// Closing the menu right after a near chapter jump does not cover the text: the jump's own restore goes on.
     @MainActor
     func testReanchorDuringANearJumpAddsNoCover() async throws {
@@ -463,5 +434,41 @@ final class JumpSettlingTests: XCTestCase {
         XCTAssertFalse(model.isSettling)
         model.reanchor()
         XCTAssertFalse(model.isSettling, "no cover over a near jump")
+    }
+
+    /// #181's trace: after a text size change every `.top` scroll put the heading at y 0.1 with the reading line at
+    /// 47.5, so the heading was never the top block and twelve identical re-issues changed nothing. A re-issue that
+    /// lands exactly where the previous one did now switches to anchor corrections, and those follow the measured
+    /// slope of the scroll view.
+    @MainActor
+    func testIdenticalLandingsSwitchToAnchorCorrections() async throws {
+        let model = try await openedReader().model
+        model.settleDelay = 80_000_000
+        model.openSettleDelay = 80_000_000
+        model.viewportHeight = 130.5
+        model.viewportTop = 47.5
+        let target = Self.blocksPerChapter
+        model.jump(to: target)
+        let landed: [Int: BlockFrame] = [target: f(0.1, 32.1), target + 1: f(42, 96)]
+        model.blockFramesChanged(landed)
+        // First check: re-issue (the heading is not the top block). Second: the same landing again.
+        var anchored: ReaderViewModel.JumpRequest?
+        let deadline = Date().addingTimeInterval(2)
+        while Date() < deadline {
+            if let request = model.jumpRequest, request.anchorY.map({ $0 > 0 }) == true { anchored = request; break }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        let first = try XCTUnwrap(anchored, "an anchor correction instead of more identical re-issues")
+        XCTAssertTrue(model.isSettling)
+        // That anchor moved the heading only to y 30: the next anchor uses the measured slope.
+        model.blockFramesChanged([target: f(30, 62), target + 1: f(72, 126)])
+        try await waitUntil { model.jumpRequest != first }
+        let second = try XCTUnwrap(model.jumpRequest?.anchorY)
+        let slope = (30 - 0.1) / (first.anchorY! - 0)
+        XCTAssertEqual(second, first.anchorY! + (47.5 - 30) / slope, accuracy: 1e-6, "a secant step")
+        model.blockFramesChanged([target: f(47.5, 79.5), target + 1: f(89.5, 143.5)])
+        try await waitUntil { !model.isSettling }
+        XCTAssertEqual(model.currentIndex, target)
+        XCTAssertEqual(model.currentOffset, 0)
     }
 }

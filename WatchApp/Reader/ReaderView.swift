@@ -230,6 +230,7 @@ struct ReaderView: View {
             .onChange(of: model.jumpRequest) { request in
                 guard let request else { return }
                 DispatchQueue.main.async {
+                    model.trace("scroll \(request.index) a=\(request.anchorY.map { String(format: "%.3f", $0) } ?? "top")")
                     // Instant jump (no animation), also under Reduce Motion.
                     var transaction = Transaction()
                     transaction.disablesAnimations = true
@@ -342,8 +343,6 @@ struct ReaderView: View {
         }
         // Anything over the text pauses auto-scroll; it resumes only on a tap.
         .onChange(of: coversReader) { covered in
-            // Nothing moves the reading position (or settles a restore) behind a sheet.
-            model.holdsRestores = covered
             if covered {
                 model.pauseAutoScroll()
             } else if crownReturnPending {
@@ -425,7 +424,6 @@ struct ReaderView: View {
             AccessibilityNotification.Announcement(arrival.announcement).post()
         }
         .onAppear {
-            model.tracesRestores = UITesting.tracesRestores
             updateBar { $0.programmaticScroll(true) }
             model.restoreInitialPosition()
         }
