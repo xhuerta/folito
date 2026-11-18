@@ -167,4 +167,143 @@ final class JumpSettlingTests: XCTestCase {
         XCTAssertEqual(model.arrival?.announcement, "Two")
         XCTAssertEqual(model.currentIndex, target)
     }
+
+    // MARK: Chapter starts (build 48 feedback)
+
+    func testOnlyAMeasuredBlockNearTheScreenCountsAsLaidOut() {
+        XCTAssertTrue(JumpSettling.isNear(f(250, 300), viewportHeight: 200), "just below the screen")
+        XCTAssertTrue(JumpSettling.isNear(f(-150, -100), viewportHeight: 200), "just above the screen")
+        XCTAssertFalse(JumpSettling.isNear(f(2_000, 2_050), viewportHeight: 200), "kept by the lazy stack, far below")
+        XCTAssertFalse(JumpSettling.isNear(f(-3_000, -2_950), viewportHeight: 200), "read earlier, far above")
+        XCTAssertTrue(JumpSettling.isNear(f(2_000, 2_050), viewportHeight: 0), "no viewport yet: the frame is all there is")
+    }
+
+    /// The previous chapter's heading can still be measured (the lazy stack keeps it) far above the screen, with
+    /// estimated heights in between: the jump is covered like any far jump.
+    @MainActor
+    func testJumpToAFarBlockThatIsStillMeasuredIsCovered() async throws {
+        let model = try await openedReader().model
+        model.blockFramesChanged([0: f(-3_000, -2_950), 30: f(0, 100), 31: f(110, 210)])
+        model.jump(to: 0)
+        XCTAssertTrue(model.isSettling, "a block measured far from the screen does not land exactly")
+    }
+
+    /// A jump to a chapter's start (offset 0) is over only once the heading's top is at the reading line: the
+    /// heading being the top block is not enough when it landed half under the bar.
+    @MainActor
+    func testChapterJumpCorrectsALandingOffTheReadingLine() async throws {
+        let model = try await openedReader().model
+        model.settleDelay = 150_000_000
+        model.openSettleDelay = 150_000_000
+        model.viewportTop = 30
+        let target = Self.blocksPerChapter // chapter "Two"
+        model.jump(to: target)
+        let firstJump = try XCTUnwrap(model.jumpRequest)
+        XCTAssertNil(firstJump.anchorY, "a chapter start goes to the block's top")
+
+        // The heading is the top block, but 20 pt above the reading line (under the bar).
+        model.blockFramesChanged([target: f(10, 60), target + 1: f(70, 170)])
+        try await waitUntil { model.jumpRequest != firstJump }
+        let correction = try XCTUnwrap(model.jumpRequest)
+        XCTAssertEqual(correction.index, target)
+        XCTAssertGreaterThan(try XCTUnwrap(correction.anchorY), 0, "the correction moves the heading down")
+        XCTAssertTrue(model.isSettling, "still covered while it corrects")
+
+        model.blockFramesChanged([target: f(30, 80), target + 1: f(90, 190)])
+        try await waitUntil { !model.isSettling }
+        XCTAssertFalse(model.isRestoring)
+        XCTAssertEqual(model.currentIndex, target)
+        XCTAssertEqual(model.currentOffset, 0, "the chapter's first line is the position")
+        XCTAssertEqual(model.arrival?.announcement, "Two")
+    }
+
+    /// `.top` would put a laid-out chapter heading at the scroll view's top edge, under the bar: a near jump to a
+    /// block's start carries the anchor that puts it at the reading line, so it lands in one uncovered scroll.
+    @MainActor
+    func testNearChapterJumpCarriesTheAnchorForTheReadingLine() async throws {
+        let model = try await openedReader().model
+        model.viewportTop = 30
+        model.jump(to: 1) // laid out at 110...210 in a 200 pt viewport
+        XCTAssertFalse(model.isSettling)
+        let anchor = try XCTUnwrap(model.jumpRequest?.anchorY)
+        // The block's top lands at y * (V - H) = 30.
+        XCTAssertEqual(anchor * (200 - 100), 30, accuracy: 1e-9)
+    }
+
+    // MARK: Text size changes (build 48 feedback)
+
+    /// A new layout freezes the position at once, covers the text, brings the same line back to the top and reveals
+    /// it: the saved block and character offset never change, and nothing is announced.
+    @MainActor
+    func testLayoutChangeKeepsTheLineAndRevealsItOnceItIsBack() async throws {
+        let fixture = try await openedReader()
+        let model = fixture.model
+        model.settleDelay = 150_000_000
+        model.openSettleDelay = 150_000_000
+        // Reading block 5, a quarter of it scrolled past.
+        model.blockFramesChanged([5: f(-50, 150), 6: f(160, 260)], layoutKey: "16pt")
+        XCTAssertEqual(model.currentIndex, 5)
+        let offset = model.currentOffset
+        XCTAssertGreaterThan(offset, 0)
+        XCTAssertFalse(model.isRestoring, "the first layout key is only remembered")
+
+        // The first frames of the larger text arrive (before the view's onChange): block 7 is now at the top.
+        model.blockFramesChanged([7: f(0, 300), 8: f(310, 610)], layoutKey: "17pt")
+        XCTAssertEqual(model.currentIndex, 5, "the new layout is not read as scrolling")
+        XCTAssertEqual(model.currentOffset, offset)
+        XCTAssertTrue(model.isRestoring)
+        XCTAssertTrue(model.isSettling, "covered while the line is brought back")
+        let firstJump = try XCTUnwrap(model.jumpRequest)
+        XCTAssertEqual(firstJump.index, 5)
+        // The view's onChange for the same key changes nothing more.
+        model.layoutChanged(to: "17pt")
+        XCTAssertEqual(model.jumpRequest, firstJump)
+
+        // The block is at the top; the line inside it not yet.
+        model.blockFramesChanged([5: f(0, 300), 6: f(310, 610)], layoutKey: "17pt")
+        try await waitUntil { model.jumpRequest != firstJump }
+        XCTAssertNotNil(model.jumpRequest?.anchorY, "the second scroll brings the line to the top edge")
+        XCTAssertTrue(model.isSettling)
+
+        let fraction = InBlockPosition.fraction(forCharacterOffset: offset, in: model.flat.blocks[5].text)
+        let wanted = CGFloat(InBlockPosition.wantedMinY(fraction: fraction, blockHeight: 300, viewportTop: 0))
+        model.blockFramesChanged([5: f(wanted, wanted + 300), 6: f(wanted + 310, wanted + 610)], layoutKey: "17pt")
+        try await waitUntil { !model.isSettling }
+        XCTAssertFalse(model.isRestoring)
+        XCTAssertEqual(model.currentIndex, 5)
+        XCTAssertEqual(model.currentOffset, offset, "the same line, to the character")
+        XCTAssertNil(model.arrival, "a text size change goes nowhere: nothing to announce")
+        let reopened = ReaderViewModel(book: book(), positions: fixture.positions, sync: fixture.sync,
+                                       settings: fixture.defaults)
+        XCTAssertEqual(reopened.startIndex, 5)
+        XCTAssertEqual(reopened.startOffset, offset, "the saved position never moved")
+    }
+
+    /// The view's onChange can come first, with the old frames still reported: the same freeze.
+    @MainActor
+    func testLayoutChangeFromTheViewFreezesThePositionBeforeNewFrames() async throws {
+        let model = try await openedReader().model
+        model.blockFramesChanged([3: f(0, 100), 4: f(110, 210)], layoutKey: "a")
+        XCTAssertEqual(model.currentIndex, 3)
+        model.layoutChanged(to: "b")
+        XCTAssertTrue(model.isSettling)
+        XCTAssertNil(model.jumpRequest?.anchorY, "old heights are not used for the anchor")
+        model.blockFramesChanged([6: f(0, 100)], layoutKey: "b")
+        XCTAssertEqual(model.currentIndex, 3, "frames during the re-layout never become the position")
+        model.blockFramesChanged([3: f(0, 140), 4: f(150, 290)], layoutKey: "b")
+        try await waitUntil { !model.isSettling }
+        XCTAssertEqual(model.currentIndex, 3)
+        XCTAssertEqual(model.currentOffset, 0)
+    }
+
+    /// Closing the menu re-anchors; with the line already at the top nothing scrolls (no hop).
+    @MainActor
+    func testReanchorWithTheLineInPlaceDoesNotScroll() async throws {
+        let model = try await openedReader().model
+        let before = model.jumpRequest
+        model.reanchor()
+        XCTAssertEqual(model.jumpRequest, before)
+        XCTAssertFalse(model.isRestoring)
+        XCTAssertFalse(model.coversText)
+    }
 }

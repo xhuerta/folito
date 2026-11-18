@@ -68,6 +68,10 @@ final class ReaderViewModel: ObservableObject {
     /// Where a covered jump landed, for VoiceOver to announce once when the text is revealed (a new value per
     /// jump).
     @Published private(set) var arrival: Arrival?
+    /// The current cover is a jump's (announced on arrival), not a re-layout's (the reader stays where it was).
+    private var announcesArrival = false
+    /// The reader's layout key (`ReaderRenderStyle.layoutKey`) the frames were last measured with; nil until known.
+    private(set) var layoutKey: String?
 
     struct Arrival: Equatable {
         let token = UUID()
@@ -379,12 +383,60 @@ final class ReaderViewModel: ObservableObject {
     /// Last measured frames of the instantiated blocks (scroll-view coordinate space).
     var blockFrames: [Int: BlockFrame] { lastFrames }
 
-    /// Re-aligns the scroll view with the block we were reading after the layout changed (typography).
-    /// Does not change the saved position.
+    /// Re-aligns the scroll view with the line we were reading (after the menu closes). Does not change the
+    /// saved position. When that line is at the top edge already, nothing is scrolled: a scroll to where the text
+    /// is would only risk a hop (`InBlockPosition.anchorY` is an estimate until corrected). Otherwise the text is
+    /// covered until it has landed (`JumpSettling`).
     func reanchor() {
         guard !flat.isEmpty else { return }
         // Time in the menu or a lookup is not reading time.
         pageTimer.reset(at: now())
+        guard !showsCurrentLine else { return }
+        // The line is not where it should be (a re-layout that could not finish behind the menu, say): bring it
+        // back under the cover, so the move shows as one.
+        if isPositioned, !isSettling, autoScroll == .off {
+            announcesArrival = false
+            beginSettlingCover()
+        }
+        beginRestore(target: currentIndex, offset: currentOffset)
+        jumpRequest = JumpRequest(index: currentIndex, anchorY: restoreAnchor)
+    }
+
+    /// Not restoring, and the saved line is at the top edge (within `InBlockPosition.tolerance`).
+    private var showsCurrentLine: Bool {
+        guard !isRestoring, currentIndex < flat.count,
+              VisibleBlockResolver.topIndex(frames: lastFrames, viewportTop: viewportTop) == currentIndex,
+              let frame = lastFrames[currentIndex] else { return false }
+        let fraction = InBlockPosition.fraction(forCharacterOffset: currentOffset, in: flat.blocks[currentIndex].text)
+        let wanted = InBlockPosition.wantedMinY(fraction: fraction, blockHeight: Double(frame.maxY - frame.minY),
+                                                viewportTop: Double(viewportTop))
+        return abs(Double(frame.minY) - wanted) <= InBlockPosition.tolerance
+    }
+
+    /// The reader's layout changed (text size, font, spacing, margins, Bold Text, Dynamic Type): every block
+    /// changes height, so the passage at the top must be brought back. Called by the view as soon as it sees a
+    /// new `layoutKey`, and checked on every frame report too (`blockFramesChanged(_:layoutKey:)`), so whichever
+    /// comes first freezes the position before a frame of the new layout could be read as the reader scrolling.
+    ///
+    /// The saved block and character offset are kept as they are and become the restore target; the old frames
+    /// are dropped (their heights are wrong now). While the text is shown it is covered until that line is back
+    /// at the top edge (`JumpSettling`), then revealed in one move. No VoiceOver announcement: the reader did not
+    /// go anywhere. While auto-scroll runs it shows its own copy of the text, so nothing is covered.
+    func layoutChanged(to key: String) {
+        guard let old = layoutKey else {
+            layoutKey = key
+            return
+        }
+        guard old != key else { return }
+        layoutKey = key
+        guard !flat.isEmpty else { return }
+        pageTimer.reset(at: now())
+        lastFrames = [:]
+        if isPositioned, !isSettling, autoScroll != .running {
+            announcesArrival = false
+            beginSettlingCover()
+        }
+        // A jump still settling keeps its target (it is the position already: `jump` saved it).
         beginRestore(target: currentIndex, offset: currentOffset)
         jumpRequest = JumpRequest(index: currentIndex, anchorY: restoreAnchor)
     }
@@ -395,7 +447,10 @@ final class ReaderViewModel: ObservableObject {
     ///
     /// The position is the line at the viewport's top edge: the top block plus the character offset of
     /// the part of it scrolled past that edge.
-    func blockFramesChanged(_ frames: [Int: BlockFrame]) {
+    /// `layoutKey`: the layout the frames were measured with (nil in tests that do not care); a new one is a
+    /// layout change (`layoutChanged(to:)`), handled before the frames are read.
+    func blockFramesChanged(_ frames: [Int: BlockFrame], layoutKey: String? = nil) {
+        if let layoutKey { layoutChanged(to: layoutKey) }
         lastFrames = frames
         // While auto-scroll moves the text the scroll view underneath stands still (hidden): its frames say
         // nothing about the reading position, which auto-scroll reports itself (`autoScrollPositionChanged`).
@@ -563,10 +618,20 @@ final class ReaderViewModel: ObservableObject {
     }
 
     /// The in-block anchor for `offset`, from the block's last measured height, if it is laid out.
+    ///
+    /// Offset 0 (a chapter's start) needs one too while the scroll view runs under the bar: `.top` aligns the
+    /// block's top with the scroll view's own top edge (y 0, under the bar, the same model `InBlockPosition.anchorY`
+    /// uses), which would leave a chapter heading behind the bar. The anchor puts it at the reading line instead.
     private func knownAnchor(target: Int, offset: Int) -> Double? {
-        guard offset > 0, target < flat.count, let frame = lastFrames[target], viewportHeight > 0 else { return nil }
+        guard target < flat.count, let frame = lastFrames[target], viewportHeight > 0 else { return nil }
+        let height = Double(frame.maxY - frame.minY)
+        guard offset > 0 else {
+            guard viewportTop > 0 else { return nil }
+            return InBlockPosition.correctedAnchorY(0, error: -Double(viewportTop), blockHeight: height,
+                                                    viewportHeight: Double(viewportHeight))
+        }
         let fraction = InBlockPosition.fraction(forCharacterOffset: offset, in: flat.blocks[target].text)
-        return InBlockPosition.anchorY(fraction: fraction, blockHeight: Double(frame.maxY - frame.minY),
+        return InBlockPosition.anchorY(fraction: fraction, blockHeight: height,
                                        viewportHeight: Double(viewportHeight), viewportTop: Double(viewportTop))
     }
 
@@ -582,7 +647,12 @@ final class ReaderViewModel: ObservableObject {
     }
 
     private func restoreSettled() {
-        if let target = restoreTarget,
+        // A target measured near the screen is placed by the in-block correction below (from where it landed), not
+        // by re-issuing the same scroll: a chapter heading that landed entirely under the bar is not the top block,
+        // and the same `.top` scroll would only land there again.
+        let targetNear = restorePoints == nil && restoreTarget.flatMap { lastFrames[$0] }
+            .map { JumpSettling.isNear($0, viewportHeight: viewportHeight) } == true
+        if let target = restoreTarget, !targetNear,
            RestoreCheck.needsRetry(top: VisibleBlockResolver.topIndex(frames: lastFrames, viewportTop: viewportTop),
                                    target: target, attempts: restoreAttempts) {
             restoreAttempts += 1
@@ -598,7 +668,9 @@ final class ReaderViewModel: ObservableObject {
             scheduleRestoreCheck()
             return
         }
-        if let target = restoreTarget, restorePoints == nil, restoreOffset > 0, let frame = lastFrames[target],
+        // Also for offset 0 (a chapter's start): the block's top must be at the reading line, not merely the
+        // block at the top. A landing a few points off would leave a heading half under the bar.
+        if let target = restoreTarget, restorePoints == nil, let frame = lastFrames[target],
            let anchor = inBlockAnchor(target: target, frame: frame) {
             inBlockAttempts += 1
             restoreAnchor = anchor
@@ -608,7 +680,8 @@ final class ReaderViewModel: ObservableObject {
         }
         restoreTarget = nil
         isRestoring = false
-        let jumped = isSettling
+        let jumped = isSettling && announcesArrival
+        announcesArrival = false
         endSettlingCover()
         if !isPositioned { isPositioned = true }
         if jumped { arrival = Arrival(announcement: arrivalAnnouncement) }
@@ -659,19 +732,27 @@ final class ReaderViewModel: ObservableObject {
     }
 
     /// The anchor for another in-block jump, or nil when the saved line is at the top (or retries ran out).
+    /// With offset 0 the block's own top must be at the reading line, within `JumpSettling.startTolerance`.
     private func inBlockAnchor(target: Int, frame: BlockFrame) -> Double? {
         let height = Double(frame.maxY - frame.minY)
         let fraction = InBlockPosition.fraction(forCharacterOffset: restoreOffset, in: flat.blocks[target].text)
         let wanted = InBlockPosition.wantedMinY(fraction: fraction, blockHeight: height,
                                                 viewportTop: Double(viewportTop))
+        let tolerance = restoreOffset > 0 ? InBlockPosition.tolerance : JumpSettling.startTolerance
         guard RestoreCheck.needsInBlockRetry(landedMinY: Double(frame.minY), wantedMinY: wanted,
-                                             attempts: inBlockAttempts) else { return nil }
+                                             attempts: inBlockAttempts, tolerance: tolerance) else { return nil }
         if let previous = restoreAnchor {
             return InBlockPosition.correctedAnchorY(previous, error: Double(frame.minY) - wanted,
                                                     blockHeight: height, viewportHeight: Double(viewportHeight))
         }
-        return InBlockPosition.anchorY(fraction: fraction, blockHeight: height,
-                                       viewportHeight: Double(viewportHeight), viewportTop: Double(viewportTop))
+        if let anchor = InBlockPosition.anchorY(fraction: fraction, blockHeight: height,
+                                                viewportHeight: Double(viewportHeight), viewportTop: Double(viewportTop)) {
+            return anchor
+        }
+        // Offset 0 went to `.top` (anchor 0): correct from there.
+        guard viewportHeight > 0 else { return nil }
+        return InBlockPosition.correctedAnchorY(0, error: Double(frame.minY) - wanted,
+                                                blockHeight: height, viewportHeight: Double(viewportHeight))
     }
 
     /// Called by the view once it appeared: scroll to the saved block, then to the saved line in it. Both
@@ -689,8 +770,11 @@ final class ReaderViewModel: ObservableObject {
     func jump(to index: Int, characterOffset: Int = 0) {
         let i = flat.clamped(index)
         let offset = flat.clampedOffset(characterOffset, in: i)
-        // Before `beginRestore`, so its checks already run at the covered pace.
-        if JumpSettling.covers(isPositioned: isPositioned, targetLaidOut: lastFrames[i] != nil) {
+        // Before `beginRestore`, so its checks already run at the covered pace. A block measured long ago (and
+        // kept by the lazy stack) far from the screen does not land exactly either: only a near one is uncovered.
+        let laidOut = lastFrames[i].map { JumpSettling.isNear($0, viewportHeight: viewportHeight) } ?? false
+        if JumpSettling.covers(isPositioned: isPositioned, targetLaidOut: laidOut) {
+            announcesArrival = true
             beginSettlingCover()
         }
         beginRestore(target: i, offset: offset)

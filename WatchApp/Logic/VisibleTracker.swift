@@ -46,7 +46,7 @@ enum RestoreCheck {
     }
 }
 
-/// The cover over the text while a far jump settles (#174).
+/// The cover over the text while a far jump or a re-layout settles (#174).
 ///
 /// A `LazyVStack` places far-away blocks with estimated heights, so `scrollTo` to a block that is not laid out
 /// lands a little off and the restore loop (`RestoreCheck`) corrects it once the real blocks are measured.
@@ -54,6 +54,11 @@ enum RestoreCheck {
 /// top edge, then revealed at once (a short cross-fade, none with Reduce Motion): the reader sees the old place,
 /// then the new one. A jump to a block that is already laid out lands exactly in one scroll (its in-block anchor
 /// is known up front) and is not covered.
+///
+/// A text-size (or any typography layout) change is covered the same way: every block changes height, so the
+/// passage at the top has to be brought back by a scroll that lands on estimated heights first. The position is
+/// frozen from the moment the layout key changes (`ReaderViewModel.layoutChanged(to:)`), so the corrections can
+/// never be saved as the reading position, and the text is revealed once that passage is back at the top.
 enum JumpSettling {
     /// After this long under the cover, a small progress indicator shows (most far jumps land before it).
     static let indicatorDelay: UInt64 = 150_000_000
@@ -63,6 +68,21 @@ enum JumpSettling {
     static func covers(isPositioned: Bool, targetLaidOut: Bool) -> Bool {
         isPositioned && !targetLaidOut
     }
+
+    /// Whether a measured block is close enough to the screen for `scrollTo` to land on it exactly: within
+    /// `nearScreens` viewport heights above or below the visible area. The lazy stack can keep a block measured
+    /// long after it scrolled away (the previous chapter's heading, read earlier), while the blocks between it and
+    /// the screen are placed on estimated heights; a jump to such a block lands off just like a far one, so it
+    /// is covered too. An unknown viewport height counts as near (the frame is all there is to go on).
+    static func isNear(_ frame: BlockFrame, viewportHeight: CGFloat, nearScreens: CGFloat = 2) -> Bool {
+        guard viewportHeight > 0 else { return true }
+        return frame.maxY > -nearScreens * viewportHeight && frame.minY < (1 + nearScreens) * viewportHeight
+    }
+
+    /// How close (points) a jump to the start of a block (a chapter, a block-only bookmark) must bring the block's
+    /// top to the reading line. Tighter than `InBlockPosition.tolerance`, which is about a saved line inside a
+    /// block: a chapter heading half under the bar is not "the start of the chapter".
+    static let startTolerance = 1.0
 
     /// Pause before checking where a scroll landed. Under a cover (opening or a far jump) nobody sees a
     /// re-issued scroll, so checks come at the short opening pace and the cover lifts sooner; uncovered

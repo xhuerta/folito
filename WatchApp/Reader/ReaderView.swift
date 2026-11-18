@@ -37,7 +37,12 @@ import ReaderCore
 /// estimated landing is corrected, and reveals it once the target line is at the top edge, so the reader sees
 /// the old place and then the new one, never the hops in between. The cover is the page colour; after a moment
 /// it shows a small progress indicator (also while a book opens). It lifts with a short cross-fade, or at once
-/// with Reduce Motion, and VoiceOver then announces the chapter arrived at, once.
+/// with Reduce Motion, and VoiceOver then announces the chapter arrived at, once. A jump to a block's start (a
+/// chapter) is over only once that block's top is at the reading line, not merely once it is the top block.
+///
+/// Text size and other layout changes (build 48 feedback) are covered the same way: the saved block and character
+/// offset are frozen the moment the layout key changes, the text is covered while that line is brought back to the
+/// top edge, and it is revealed in one move, without an announcement.
 ///
 /// Auto-scroll (#67): started from Reading Options, never by itself. While it runs, the reader shows the
 /// blocks around the reading line in a plain stack over the scroll view (an `AutoScroll.Window`, laid out at
@@ -196,7 +201,9 @@ struct ReaderView: View {
                 updateBar { $0.scrolled(to: offset, at: Date(), voiceOver: voiceOver) }
             }
             .onPreferenceChange(ViewportHeightKey.self) { model.viewportHeight = $0 }
-            .onPreferenceChange(BlockFramesKey.self) { model.blockFramesChanged($0) }
+            // With the layout they were measured in: the first frames of a new text size freeze the position
+            // (`ReaderViewModel.layoutChanged(to:)`) instead of being read as the reader scrolling.
+            .onPreferenceChange(BlockFramesKey.self) { model.blockFramesChanged($0, layoutKey: style.layoutKey) }
             // Restores and jumps are not reading: they must not hide the bar.
             .onChange(of: model.isRestoring) { restoring in
                 // Auto-scroll's own motion is not reading by hand either: offsets never toggle the bar then.
@@ -224,6 +231,13 @@ struct ReaderView: View {
             .overlay {
                 SettlingCover(covers: model.coversText, showsIndicator: model.showsSettlingIndicator,
                               color: style.background, textColor: style.secondaryColor, reduceMotion: reduceMotion)
+            }
+            // UI tests only (`-UITestingReaderPosition`): the saved position, to check where a jump landed.
+            .overlay(alignment: .bottomTrailing) {
+                if UITesting.exposesReaderPosition {
+                    UITestReaderPosition(index: model.currentIndex, offset: model.currentOffset,
+                                         settled: !model.isRestoring && !model.coversText)
+                }
             }
             // Auto-scroll housekeeping a few times a second (never per frame): makes and updates the window,
             // saves the position, stops at the end, finishes the hand-back. Restarted when the layout changes.
@@ -256,12 +270,14 @@ struct ReaderView: View {
         }
         .tint(style.accentColor)
         .preferredColorScheme(style.isLightPage ? .light : .dark)
-        // Layout metrics changed: keep reading the same block. Colour-only changes (Always On,
-        // Increase Contrast) keep the layout and need no re-anchoring.
-        .onChange(of: style.layoutKey) { _ in
+        // Layout metrics changed (text size, font, spacing): the same line stays at the top. The position is
+        // frozen at once and the text covered until that line is back at the top edge, then revealed in one move
+        // (`ReaderViewModel.layoutChanged(to:)`, `JumpSettling`). Colour-only changes (Always On, Increase
+        // Contrast) keep the layout and need no re-anchoring.
+        .onChange(of: style.layoutKey) { key in
             // A paused auto-scroll window was laid out for the old metrics: the scroll view takes over.
             if autoScrollWindow != nil, model.autoScroll != .running { endAutoScrollWindow() }
-            DispatchQueue.main.async { model.reanchor() }
+            model.layoutChanged(to: key)
         }
         .navigationTitle(model.title)
         .navigationBarTitleDisplayMode(.inline)
@@ -1060,6 +1076,24 @@ private struct UITestBlockHeight: ViewModifier {
         } else {
             content
         }
+    }
+}
+
+/// UI tests only (`-UITestingReaderPosition`, see `UITesting`): the reading position as a tiny, untappable element
+/// "readerPosition" whose value is "block=<flat index> offset=<characters> settled=<0|1>" ("settled" once no restore
+/// or cover is running). Without the argument (and in Release builds) it is never created.
+private struct UITestReaderPosition: View {
+    let index: Int
+    let offset: Int
+    let settled: Bool
+
+    var body: some View {
+        Color.clear
+            .frame(width: 1, height: 1)
+            .accessibilityElement()
+            .accessibilityIdentifier("readerPosition")
+            .accessibilityValue(Text(verbatim: "block=\(index) offset=\(offset) settled=\(settled ? 1 : 0)")) // i18n-ignore: UI-test hook
+            .allowsHitTesting(false)
     }
 }
 

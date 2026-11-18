@@ -176,4 +176,120 @@ enum WatchUI {
         let end = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))
         start.press(forDuration: 0.05, thenDragTo: end)
     }
+
+    /// Drags the content down by roughly a third of the screen (back towards the top of a list).
+    static func nudgeDown(_ app: XCUIApplication) {
+        let window = app.windows.firstMatch
+        let start = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))
+        let end = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
+        start.press(forDuration: 0.05, thenDragTo: end)
+    }
+
+    // MARK: Reading position (`-UITestingReaderPosition`)
+
+    /// Launch argument that makes the reader expose its saved position (`readerPosition`).
+    static let readerPositionArgument = "-UITestingReaderPosition"
+
+    /// The reader's position element: value "block=<flat index> offset=<characters> settled=<0|1>".
+    static func readerPosition(in app: XCUIApplication) -> XCUIElement {
+        element("readerPosition", in: app)
+    }
+
+    /// Waits until the reader has settled (no restore, no cover) and, with `expected`, until its position reads
+    /// "block=<expected.block> offset=<expected.offset>". Returns the settled value ("block=… offset=… settled=1"),
+    /// or nil on a timeout.
+    static func settledPosition(in app: XCUIApplication, expected: (block: Int, offset: Int)? = nil,
+                                timeout: TimeInterval = 10) -> String? {
+        let position = readerPosition(in: app)
+        let wanted = expected.map { "block=\($0.block) offset=\($0.offset) settled=1" }
+        let predicate = NSPredicate { _, _ in
+            guard position.exists, let value = position.value as? String else { return false }
+            return wanted.map { value == $0 } ?? value.hasSuffix("settled=1")
+        }
+        let done = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: predicate, object: nil)], timeout: timeout)
+        return done == .completed ? position.value as? String : nil
+    }
+
+    /// The long seeded book (`-UITestingSeedLongBook`): flat index of the heading of chapter `chapter` (1-based).
+    /// Each chapter is a heading and 30 paragraphs (`UITesting.longBookParagraphs` in the app).
+    static func longBookHeadingIndex(chapter: Int) -> Int { (chapter - 1) * 31 }
+
+    /// The reader block of the long book's chapter heading `title` ("Chapter 2"), not one of its paragraphs
+    /// ("Chapter 2, paragraph 1. …"). Not for "Chapter 1", which would also match "Chapter 10".
+    static func headingBlock(_ title: String, in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == %@ AND label BEGINSWITH %@ AND NOT (label CONTAINS %@)",
+                                  "readerBlock", title, ",")).element(boundBy: 0)
+    }
+
+    /// The first reader block below the top bar: the one being read. Blocks that end less than 4 pt below the
+    /// bar (its frame, or at least the Reading Options button in it) are under it and not counted.
+    static func firstVisibleBlock(in app: XCUIApplication) -> XCUIElement? {
+        let window = app.windows.firstMatch.frame
+        let options = element("readerOptionsButton", in: app)
+        let bar = app.navigationBars.firstMatch
+        var line = options.exists ? options.frame.maxY : window.minY
+        if bar.exists, bar.frame.height > 0, bar.frame.maxY < window.midY { line = max(line, bar.frame.maxY) }
+        let blocks = app.descendants(matching: .any).matching(identifier: "readerBlock").allElementsBoundByIndex
+        return blocks.filter { $0.exists && $0.frame.maxY > line + 4 && $0.frame.minY < window.maxY }
+            .min { $0.frame.minY < $1.frame.minY }
+    }
+
+    /// Shows the reader's top bar if it is hidden: a tap on the text toggles it (and opens nothing while hidden).
+    static func showReaderBar(_ app: XCUIApplication) {
+        let options = element("readerOptionsButton", in: app)
+        guard !(options.exists && options.isHittable) else { return }
+        app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)).tap()
+        let shown = NSPredicate { _, _ in options.exists && options.isHittable }
+        _ = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: shown, object: nil)], timeout: 3)
+    }
+
+    /// Reading Options -> chapter list -> the chapter titled `title`, which closes the menu. Opens the menu first
+    /// (showing the bar if needed). `current` is the chapter the Chapters row should read. Returns whether the
+    /// chapter was chosen.
+    @discardableResult
+    static func chooseChapter(_ title: String, current: String, in app: XCUIApplication,
+                              file: StaticString = #filePath, line: UInt = #line) -> Bool {
+        showReaderBar(app)
+        openReaderMenu(app, file: file, line: line)
+        guard openChapters(app, currentChapter: current, file: file, line: line) else { return false }
+        let row = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == %@ AND label == %@", "chapterButton", title)).element(boundBy: 0)
+        // The list opens centred on the current chapter: the next one is below it, the previous one above.
+        var steps = 0
+        while !(row.exists && row.isHittable) && steps < 6 {
+            nudgeDown(app)
+            steps += 1
+        }
+        guard scrollToHittable(row, in: app, maxSteps: 24) else {
+            fail("\(title) is not reachable in the chapter list", in: app, file: file, line: line)
+            return false
+        }
+        row.tap()
+        guard element("readerOptionsButton", in: app).waitForExistence(timeout: 5) else {
+            fail("Choosing \(title) did not close the menu", in: app, file: file, line: line)
+            return false
+        }
+        return true
+    }
+
+    /// Closes the sheet on screen (the reader menu) with its close button. Returns whether the reader shows again.
+    @discardableResult
+    static func closeSheet(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) -> Bool {
+        let stepper = element("textSizeStepper", in: app)
+        let candidates = ["Close", "Cancel", "Dismiss", "Done"].map { app.buttons[$0] }
+        if let button = candidates.first(where: { $0.exists && $0.isHittable }) {
+            button.tap()
+        } else if let bar = app.navigationBars.allElementsBoundByIndex.last(where: { $0.exists }),
+                  let button = bar.buttons.allElementsBoundByIndex.first(where: { $0.exists && $0.isHittable }) {
+            // The frontmost bar is the sheet's (presented content comes last in the tree); its first button closes it.
+            button.tap()
+        }
+        let gone = NSPredicate { _, _ in !stepper.exists }
+        guard XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: gone, object: nil)], timeout: 5) == .completed else {
+            fail("The reader menu did not close", in: app, file: file, line: line)
+            return false
+        }
+        return true
+    }
 }
