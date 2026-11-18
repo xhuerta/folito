@@ -177,13 +177,6 @@ struct ReaderView: View {
                 .opacity(model.coversText ? 0 : 1)
                 .accessibilityHidden(model.coversText)
             }
-            // A new layout (text size, font, spacing, Bold Text, Dynamic Type) gets a new scroll view: nothing laid
-            // out for the old one survives the change. #181's trace (16 -> 15 pt): every `.top` scroll put the
-            // heading exactly on the line, and before the next check, with no scroll from the reader, the content
-            // was back at blocks 402-406, a few blocks on, over and over until the cover's cap. The old scroll view
-            // kept moving back to the offset it had in the 16 pt layout. The restore then runs on a fresh, consistent
-            // layout. Only a layout change rebuilds it; scrolling and colour changes keep it.
-            .id(style.layoutKey)
             .coordinateSpace(name: Self.scrollSpace)
             // While auto-scroll shows the text itself, the scroll view stays laid out (its frames place the
             // hand-back) but is hidden, silent and untouchable, with no indicator flashing beside the crown.
@@ -201,6 +194,16 @@ struct ReaderView: View {
                 updateBar { $0.scrolled(to: offset, at: Date(), voiceOver: voiceOver) }
                 if model.tracesRestores { model.traceScrollOffset = offset }
             })
+            // A new layout (text size, font, spacing, Bold Text, Dynamic Type) gets a new scroll view: nothing laid
+            // out for the old one survives the change. #181's trace (16 -> 15 pt): every `.top` scroll put the
+            // heading exactly on the line, and before the next check, with no scroll from the reader, the content
+            // was back at blocks 402-406, a few blocks on, over and over until the cover's cap. The old scroll view
+            // kept moving back to the offset it had in the 16 pt layout. The restore then runs on a fresh, consistent
+            // layout. Only a layout change rebuilds it; scrolling and colour changes keep it.
+            // After the scroll view's own modifiers (its coordinate space, focus and the scroll-distance reader), so
+            // they are rebuilt with it: placed right on the ScrollView, the bar no longer hid on scrolling (#181's CI,
+            // testClockBandCoversTheTimeWhenTheBarIsHidden, the only change since its last pass).
+            .id(style.layoutKey)
             // The scroll view runs under the navigation bar: its top inset is where reading starts.
             .background(GeometryReader { geo in
                 Color.clear

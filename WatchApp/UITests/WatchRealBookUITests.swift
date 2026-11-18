@@ -64,10 +64,12 @@ final class WatchRealBookUITests: XCTestCase {
                                        step: String, file: StaticString = #filePath,
                                        line sourceLine: UInt = #line) -> String? {
         guard let settled = WatchUI.settledPosition(in: app) else {
-            WatchUI.fail("\(step): the reader did not settle", in: app, file: file, line: sourceLine)
+            WatchUI.fail("\(step): the reader did not settle. " + diagnostics(title, in: app), in: app,
+                         file: file, line: sourceLine)
             return nil
         }
-        XCTAssertTrue(settled.contains(" offset=0 "), "\(step): the position is \(settled), not a block's start",
+        XCTAssertTrue(settled.contains(" offset=0 "),
+                      "\(step): the position is \(settled), not a block's start. " + diagnostics(title, in: app),
                       file: file, line: sourceLine)
         let block = heading(title, in: app)
         guard block.waitForExistence(timeout: 5) else {
@@ -86,7 +88,7 @@ final class WatchRealBookUITests: XCTestCase {
                        "\(step): the text moved after it was revealed. " + diagnostics(title, in: app),
                        file: file, line: sourceLine)
         XCTAssertEqual(WatchUI.readerPosition(in: app).value as? String, settled,
-                       "\(step): the position changed after landing", file: file, line: sourceLine)
+                       "\(step): the position changed after landing. " + diagnostics(title, in: app), file: file, line: sourceLine)
         return settled
     }
 
@@ -122,7 +124,8 @@ final class WatchRealBookUITests: XCTestCase {
             let step = "text size \(from) → \(to)"
             guard changeTextSize(by: to - from, in: app, step: step) else { return }
             let settled = assertHeadingAtTheTop("Chapter 12.", readingLine: line, in: app, step: step)
-            XCTAssertEqual(settled, position, "\(step): the reading position changed")
+            XCTAssertEqual(settled, position,
+                           "\(step): the reading position changed. " + diagnostics("Chapter 12.", in: app))
         }
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "watch-real-book-text-size"

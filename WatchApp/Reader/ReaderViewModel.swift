@@ -573,7 +573,9 @@ final class ReaderViewModel: ObservableObject {
             let frameText = traceFrame(frames[target])
             let range = frames.keys.min().map { "\($0)-\(frames.keys.max()!)" } ?? "none"
             let since = traceEndedAt.map { String(format: "+%.2fs", Date().timeIntervalSince($0)) } ?? "?"
-            trace("post \(since) f=\(frameText) top=\(topText) blocks=\(range) " + String(format: "vt=%.1f", Double(viewportTop)))
+            let offsetText = traceScrollOffset.map { String(format: " off=%.1f", Double($0)) } ?? ""
+            trace("post \(since) f=\(frameText) top=\(topText) blocks=\(range)\(offsetText) "
+                  + String(format: "vt=%.1f", Double(viewportTop)))
         }
         if framesStaleSince != nil, !frames.isEmpty {
             framesStaleSince = nil
@@ -870,7 +872,7 @@ final class ReaderViewModel: ObservableObject {
             trace("end \(reason) checks=\(restoreAttempts)+\(inBlockAttempts)+\(stabilityChecks) \(elapsed)")
             traceLastTarget = restoreTarget
             traceEndedAt = Date()
-            tracePostReports = 4
+            tracePostReports = 8
         }
         restoreTarget = nil
         isRestoring = false
