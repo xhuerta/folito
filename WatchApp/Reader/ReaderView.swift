@@ -81,6 +81,8 @@ struct ReaderView: View {
     /// the content offset stayed while the blocks moved: #181's trace, block 51 back at the line where block 58 had
     /// been, the offset unchanged at 4314.5.
     @State private var scrollAnchor: Int?
+    /// Where the rows are (watchOS 11+): see `BlockFrameStore`.
+    @State private var frameStore = BlockFrameStore()
     /// The reading line on screen (global y of the bar's bottom edge, latched while the bar is hidden; see
     /// `ReadingLine`). The model turns it into the scroll view's own coordinates (`ReadingLine.inScrollSpace`).
     @State private var readingLineOnScreen: CGFloat = 0
@@ -119,6 +121,7 @@ struct ReaderView: View {
     @State private var speedBadgeToken = 0
     private var readerAccessibility = ReaderAccessibilityReader()
     private static let scrollSpace = "reader.scroll"
+    private static let stackSpace = "reader.stack"
 
     enum CrownTarget: Hashable {
         case text
@@ -137,48 +140,21 @@ struct ReaderView: View {
                                                          lineSpacing: style.typography.lineSpacing)
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: style.typography.paragraphSpacing) {
-                    // The way back past the loaded chapter's start (`ChapterWindow`): the blocks above are not loaded.
-                    if let previous = model.previousChapterStart {
-                        PreviousChapterRow(title: model.previousChapterTitle, color: style.accentColor) {
-                            model.goToPreviousChapter()
-                        }
-                        // An Int like the blocks' ids (the scroll position is an Int), never one of them.
-                        .id(-1 - previous)
-                    }
-                    // Only the chapter being read (and chapters appended below while reading): see `ChapterWindow`.
-                    ForEach(model.window, id: \.self) { index in
-                        BlockStyledText(block: model.flat.blocks[index], style: style)
-                            .equatable()
-                            .modifier(UITestBlockHeight())
-                            .contentShape(Rectangle())
-                            .onTapGesture { location in tapped(block: index, at: location, style: style) }
-                            // Available from the VoiceOver actions rotor even with tap-to-look-up off.
-                            .accessibilityAction(named: Text("Look Up a Word")) { model.beginLookup(at: index) }
-                            // One action per note reference in the block ("Footnote 3"), opening the note (#66).
-                            .modifier(NoteAccessibilityActions(notes: model.flat.blocks[index].notes ?? []) { note in
-                                model.showNote(note, inBlock: index)
-                            })
-                            // VoiceOver's two-finger scrub leaves the book from any paragraph (#118).
-                            .accessibilityAction(.escape) { dismiss() }
-                            .accessibilityIdentifier("readerBlock")
-                            .id(index)
-                            .background(
-                                GeometryReader { geo in
-                                    let f = geo.frame(in: .named(Self.scrollSpace))
-                                    // Also on screen: the two together say where the scroll view's space starts.
-                                    let screenMinY = geo.frame(in: .global).minY
-                                    Color.clear.preference(key: BlockFramesKey.self,
-                                                           value: [index: BlockFrame(minY: f.minY, maxY: f.maxY, width: f.width,
-                                                                                     minX: f.minX, screenMinY: screenMinY)])
-                                })
-                    }
-                    if model.flat.isEmpty {
-                        Text("This book has no text.").foregroundStyle(style.secondaryColor)
-                    }
+                // The loaded chapter's blocks (`ChapterWindow`) in a plain stack: every block has its real height, so
+                // nothing is ever re-estimated (#181's trace: reading forward, the lazy stack re-placed blocks 50-53
+                // about 1000 pt lower, where 57-60 had been, at an unchanged scroll offset). Lazy only for a window of
+                // more than `ReaderViewModel.lazyWindowThreshold` blocks (one enormous spine chapter).
+                ReaderStack(lazy: model.windowIsLazy, spacing: style.typography.paragraphSpacing) {
+                    readerRows(style: style)
                 }
-                // Its rows are what `scrollPosition` anchors the scroll view to.
-                .scrollTargetLayout()
+                .coordinateSpace(name: Self.stackSpace)
+                // The stack's place in the scroll view, as it scrolls (watchOS 11+): with the rows' own frames in the
+                // stack, the frames of the rows near the viewport (`BlockFrameStore`).
+                .modifier(StackPlacementReader(scrollSpace: Self.scrollSpace) { inScroll, screenMinY in
+                    frameStore.stackInScroll = inScroll
+                    frameStore.stackScreenMinY = screenMinY
+                    reportFrames(layoutKey: style.layoutKey)
+                })
                 .padding(.horizontal, style.typography.horizontalMargin)
                 // A tap between two paragraphs (the stack's spacing belongs to no block) or in the side margins
                 // reaches no block's tap gesture: here it shows a hidden bar too (or resumes a paused auto-scroll),
@@ -472,6 +448,52 @@ struct ReaderView: View {
 }
 
 extension ReaderView {
+
+    /// The reader's rows: the way back past the loaded chapter's start, then the loaded blocks.
+    @ViewBuilder
+    fileprivate func readerRows(style: ReaderRenderStyle) -> some View {
+        // The way back past the loaded chapter's start (`ChapterWindow`): the blocks above are not loaded.
+        if let previous = model.previousChapterStart {
+            PreviousChapterRow(title: model.previousChapterTitle, color: style.accentColor) {
+                model.goToPreviousChapter()
+            }
+            // An Int like the blocks' ids (the scroll position is an Int), never one of them.
+            .id(-1 - previous)
+        }
+        // Only the chapter being read (and chapters appended below while reading): see `ChapterWindow`.
+        ForEach(model.window, id: \.self) { index in
+            BlockStyledText(block: model.flat.blocks[index], style: style)
+                .equatable()
+                .modifier(UITestBlockHeight())
+                .contentShape(Rectangle())
+                .onTapGesture { location in tapped(block: index, at: location, style: style) }
+                // Available from the VoiceOver actions rotor even with tap-to-look-up off.
+                .accessibilityAction(named: Text("Look Up a Word")) { model.beginLookup(at: index) }
+                // One action per note reference in the block ("Footnote 3"), opening the note (#66).
+                .modifier(NoteAccessibilityActions(notes: model.flat.blocks[index].notes ?? []) { note in
+                    model.showNote(note, inBlock: index)
+                })
+                // VoiceOver's two-finger scrub leaves the book from any paragraph (#118).
+                .accessibilityAction(.escape) { dismiss() }
+                .accessibilityIdentifier("readerBlock")
+                .id(index)
+                .modifier(RowFrameReporter(index: index, stackSpace: Self.stackSpace,
+                                           scrollSpace: Self.scrollSpace, store: frameStore) {
+                    reportFrames(layoutKey: style.layoutKey)
+                })
+        }
+        if model.flat.isEmpty {
+            Text("This book has no text.").foregroundStyle(style.secondaryColor)
+        }
+    }
+
+    /// Hands the model the frames of the rows near the viewport (`BlockFrameStore`, watchOS 11+).
+    fileprivate func reportFrames(layoutKey: String) {
+        let frames = frameStore.frames(window: model.window, viewportHeight: model.viewportHeight)
+        guard !frames.isEmpty else { return }
+        model.blockFramesChanged(frames, layoutKey: layoutKey)
+    }
+
     /// The sync status to show, if any: only with sync on and configured, never while the wrist is down
     /// (Always On shows just the page), and nothing while idle. Never for a book that does not sync (switched
     /// off, or not in the Readest library: #167).
@@ -1149,6 +1171,84 @@ private struct UITestBlockHeight: ViewModifier {
                         .onChange(of: geo.size.height) { height = $0 }
                 })
                 .accessibilityValue(Text(verbatim: String(format: "h=%.1f", Double(height)))) // i18n-ignore: UI-test hook
+        } else {
+            content
+        }
+    }
+}
+
+/// The reader's stack: plain, so every block has its real height (#181), or lazy for a huge window. Its rows are what
+/// `scrollPosition` anchors the scroll view to.
+private struct ReaderStack<Content: View>: View {
+    let lazy: Bool
+    let spacing: CGFloat
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        if lazy {
+            LazyVStack(alignment: .leading, spacing: spacing) { content }
+                .scrollTargetLayout()
+        } else {
+            VStack(alignment: .leading, spacing: spacing) { content }
+                .scrollTargetLayout()
+        }
+    }
+}
+
+/// A reader row's frame. On watchOS 11+ the frame in the stack's own space goes to the `BlockFrameStore` when it
+/// changes (only on layout), and leaves it when the row goes; on watchOS 10 every row reports its scroll-space frame
+/// through `BlockFramesKey` as before.
+private struct RowFrameReporter: ViewModifier {
+    let index: Int
+    let stackSpace: String
+    let scrollSpace: String
+    let store: BlockFrameStore
+    let changed: () -> Void
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(watchOS 11.0, *) {
+            content
+                .onGeometryChange(for: CGRect.self) { proxy in
+                    proxy.frame(in: .named(stackSpace))
+                } action: { rect in
+                    store.rows[index] = rect
+                    changed()
+                }
+                .onDisappear { store.rows[index] = nil }
+        } else {
+            content.background(
+                GeometryReader { geo in
+                    let f = geo.frame(in: .named(scrollSpace))
+                    // Also on screen: the two together say where the scroll view's space starts.
+                    let screenMinY = geo.frame(in: .global).minY
+                    Color.clear.preference(key: BlockFramesKey.self,
+                                           value: [index: BlockFrame(minY: f.minY, maxY: f.maxY, width: f.width,
+                                                                     minX: f.minX, screenMinY: screenMinY)])
+                })
+        }
+    }
+}
+
+/// The reader stack's frame in the scroll view's space and its top on screen, as it scrolls (watchOS 11+; nothing
+/// on watchOS 10, where the rows report themselves).
+private struct StackPlacementReader: ViewModifier {
+    let scrollSpace: String
+    let changed: (CGRect, CGFloat) -> Void
+
+    private struct Placement: Equatable {
+        var inScroll: CGRect
+        var screenMinY: CGFloat
+    }
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(watchOS 11.0, *) {
+            content.onGeometryChange(for: Placement.self) { proxy in
+                Placement(inScroll: proxy.frame(in: .named(scrollSpace)), screenMinY: proxy.frame(in: .global).minY)
+            } action: { placement in
+                changed(placement.inScroll, placement.screenMinY)
+            }
         } else {
             content
         }

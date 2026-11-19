@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 /// Which blocks the reader's scroll view holds: the chapter being read, not the whole book (build 49 feedback).
 ///
@@ -86,5 +87,34 @@ enum ChapterWindow {
             upper = chapterRange(containing: upper, chapterStarts: chapterStarts, count: count).upperBound
         }
         return window.lowerBound..<max(upper, window.upperBound)
+    }
+}
+
+/// Where the reader's rows are, for a plain (non-lazy) stack (#181): each row's frame in the stack's own space,
+/// recorded when it changes (only on layout: scrolling moves the stack, not the rows in it), and the stack's frame
+/// in the scroll view's space and on screen, recorded as it scrolls. The frames of the rows near the viewport follow
+/// from the two, so nothing per row runs on each scroll frame. Not observed: the view reports from it.
+final class BlockFrameStore {
+    /// Row frames in the stack's coordinate space, by block index.
+    var rows: [Int: CGRect] = [:]
+    /// The stack's frame in the scroll view's coordinate space.
+    var stackInScroll: CGRect?
+    /// The stack's top on screen (global y).
+    var stackScreenMinY: CGFloat?
+
+    /// The frames (scroll-view space, as `BlockFramesKey` reported them) of the rows of `window` within one
+    /// viewport height (at least 100 pt) above or below the viewport. Empty until the stack has been placed.
+    func frames(window: Range<Int>, viewportHeight: CGFloat) -> [Int: BlockFrame] {
+        guard let stack = stackInScroll, let screenTop = stackScreenMinY else { return [:] }
+        let margin = max(viewportHeight, 100)
+        var result: [Int: BlockFrame] = [:]
+        for (index, row) in rows where window.contains(index) {
+            let minY = stack.minY + row.minY
+            let maxY = stack.minY + row.maxY
+            guard maxY > -margin, minY < viewportHeight + margin else { continue }
+            result[index] = BlockFrame(minY: minY, maxY: maxY, width: row.width, minX: stack.minX + row.minX,
+                                       screenMinY: screenTop + row.minY)
+        }
+        return result
     }
 }

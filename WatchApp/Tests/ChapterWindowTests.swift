@@ -62,4 +62,21 @@ final class ChapterWindowTests: XCTestCase {
         XCTAssertEqual(ChapterWindow.extended(13..<38, toHold: 20, chapterStarts: starts, count: count), 13..<38)
         XCTAssertNil(ChapterWindow.extended(13..<33, toHold: 5, chapterStarts: starts, count: count))
     }
+
+    /// Rows keep their frames in the stack; scrolling moves only the stack. The frames handed on are the window's rows
+    /// near the viewport, in the scroll view's space and on screen.
+    func testFrameStoreMapsRowsNearTheViewport() {
+        let store = BlockFrameStore()
+        XCTAssertTrue(store.frames(window: 0..<10, viewportHeight: 130).isEmpty, "nothing before the stack is placed")
+        for index in 0..<10 {
+            store.rows[index] = CGRect(x: 0, y: CGFloat(index) * 100, width: 150, height: 90)
+        }
+        store.rows[42] = CGRect(x: 0, y: 0, width: 150, height: 90) // a row of another window
+        store.stackInScroll = CGRect(x: 6, y: -250, width: 150, height: 1000)
+        store.stackScreenMinY = -202.5
+        let frames = store.frames(window: 0..<10, viewportHeight: 130)
+        XCTAssertEqual(Set(frames.keys), Set(1...5), "within one viewport above and below")
+        XCTAssertEqual(frames[2], BlockFrame(minY: -50, maxY: 40, width: 150, minX: 6, screenMinY: -2.5))
+        XCTAssertNil(frames[42], "rows outside the window are left out")
+    }
 }

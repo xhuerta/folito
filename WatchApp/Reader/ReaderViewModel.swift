@@ -26,6 +26,13 @@ final class ReaderViewModel: ObservableObject {
     /// The blocks the reader's scroll view holds: the chapter being read, plus chapters appended while reading
     /// forward (`ChapterWindow`). Flat indices; positions stay global.
     @Published private(set) var window: Range<Int>
+    /// Whether the reader shows the window in a lazy stack: only a window of more than `lazyWindowThreshold` blocks
+    /// when it is loaded (one enormous spine chapter); decided on loading, never on appending, so the stack never
+    /// changes kind under the reader.
+    @Published private(set) var windowIsLazy: Bool
+    static let lazyWindowThreshold = 400
+    /// Trace only: when the current window was loaded, for how long it takes to show (`window shown`).
+    private var windowLoad: (date: Date, target: Int, count: Int)?
     @Published var showRemoteOffer = false
     /// "Mark as Finished?": the reader just arrived at the end of the book (`ReadStatusRules.shouldOfferFinish`).
     @Published var showFinishOffer = false
@@ -198,7 +205,9 @@ final class ReaderViewModel: ObservableObject {
         let (start, startOffset) = Self.openPosition(saved: positions.load(book.documentHash), in: flat)
         self.startIndex = start
         self.startOffset = startOffset
-        self.window = ChapterWindow.window(for: start, chapterStarts: flat.chapterStarts, count: flat.count)
+        let window = ChapterWindow.window(for: start, chapterStarts: flat.chapterStarts, count: flat.count)
+        self.window = window
+        self.windowIsLazy = window.count > Self.lazyWindowThreshold
         self.currentIndex = start
         self.currentOffset = startOffset
         // Merely opening a book must not PUT its (possibly 0%) start position: if the open-time GET
@@ -490,8 +499,10 @@ final class ReaderViewModel: ObservableObject {
         let reloaded = ChapterWindow.window(for: currentIndex, chapterStarts: flat.chapterStarts, count: flat.count)
         if reloaded != window {
             window = reloaded
+            windowIsLazy = reloaded.count > Self.lazyWindowThreshold
             staleFrames = [:]
         }
+        windowLoad = (Date(), currentIndex, window.count)
         if isPositioned, !isSettling, autoScroll != .running {
             announcesArrival = false
             beginSettlingCover()
@@ -627,6 +638,13 @@ final class ReaderViewModel: ObservableObject {
             let offsetText = traceScrollOffset.map { String(format: " off=%.1f", Double($0)) } ?? ""
             trace("post \(since) f=\(frameText) top=\(topText) blocks=\(range)\(offsetText) "
                   + String(format: "vt=%.1f", Double(viewportTop)))
+        }
+        if let load = windowLoad, let frame = frames[load.target] {
+            // The cost of showing a loaded window: from loading it to its target's first measured frame.
+            let elapsed = String(format: "%.0f ms", Date().timeIntervalSince(load.date) * 1000)
+            trace("window shown \(load.count) blocks (\(windowIsLazy ? "lazy" : "plain")), target in \(elapsed) "
+                  + String(format: "h=%.1f", Double(frame.maxY - frame.minY)))
+            windowLoad = nil
         }
         if framesStaleSince != nil, !frames.isEmpty {
             framesStaleSince = nil
@@ -1059,6 +1077,7 @@ final class ReaderViewModel: ObservableObject {
     /// moves happen while the text is still transparent (`isPositioned`), so the reader appears at the line.
     func restoreInitialPosition() {
         if flat.isEmpty { isPositioned = true }
+        windowLoad = (Date(), startIndex, window.count)
         beginRestore(target: startIndex, offset: startOffset)
         // A long opening shows the same indicator as a far jump.
         if !isPositioned { scheduleSettlingIndicator() }
@@ -1103,6 +1122,8 @@ final class ReaderViewModel: ObservableObject {
             framesStaleSince = Date()
         }
         window = next
+        windowIsLazy = next.count > Self.lazyWindowThreshold
+        windowLoad = (Date(), target, next.count)
     }
 
     /// Where "Previous Chapter" at the top of the loaded blocks goes (nil at the start of the book).

@@ -100,6 +100,7 @@ final class WatchRealBookUITests: XCTestCase {
         guard WatchUI.chooseChapter("Chapter 30.", current: "Chapter 1.", in: app, backwardSteps: 0, forwardSteps: 40)
         else { return }
         assertHeadingAtTheTop("Chapter 30.", readingLine: line, in: app, step: "far forward jump")
+        logWindowCost(in: app, step: "far forward jump (Chapter 30.: 66 paragraphs, the seed's longest text)")
 
         guard WatchUI.chooseChapter("Chapter 3.", current: "Chapter 30.", in: app, backwardSteps: 40, forwardSteps: 6)
         else { return }
@@ -221,6 +222,14 @@ final class WatchRealBookUITests: XCTestCase {
         control.tap()
         let settled = assertHeadingAtTheTop("Chapter 2.", readingLine: line, in: app, step: "Previous Chapter")
         XCTAssertEqual(settled.flatMap { blockIndex($0) }, 35, "the start of Chapter 2. (block 35)")
+    }
+
+    /// Prints the trace's "window shown" entries (how long a loaded chapter took to show its target) to the test log.
+    @MainActor
+    private func logWindowCost(in app: XCUIApplication, step: String) {
+        let trace = WatchUI.element("restoreTrace", in: app).value as? String ?? ""
+        let shown = trace.components(separatedBy: " | ").filter { $0.hasPrefix("window shown") }
+        print("[window-cost] \(step): \(shown.isEmpty ? "no entry" : shown.joined(separator: "; "))")
     }
 
     /// The block index in a reader position value ("block=46 offset=0 settled=1").
