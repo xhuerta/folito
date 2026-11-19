@@ -42,10 +42,16 @@ final class ReaderViewModel: ObservableObject {
     private struct PendingPrepend {
         let block: Int
         let minY: Double
-        /// Frame reports since the prepend that did not hold the block.
-        var missingReports = 0
     }
     private var pendingPrepend: PendingPrepend?
+    private var prependCheckTask: Task<Void, Never>?
+    /// How long after a prepend the block at the reading line is checked (seconds): every row has reported its new
+    /// place by then. The first frame reports after the rows go in still mix old and new places.
+    static let prependCheckDelay: TimeInterval = 0.3
+    /// Set with a prepend, in the same update as the new rows: where the reader scrolls so that the block at the
+    /// reading line stays where it is (the scroll view keeps its offset when rows go in above). Cleared by any other
+    /// change of the window.
+    @Published private(set) var prependKeep: JumpRequest?
 #if DEBUG
     /// Trace only: when the current window was loaded, for how long it takes to show (`window shown`).
     private var windowLoad: (date: Date, target: Int, count: Int)?
@@ -517,6 +523,7 @@ final class ReaderViewModel: ObservableObject {
         // The scroll view is rebuilt for the new layout: it gets the current chapter only (chapters appended while
         // reading are dropped here, not while reading).
         let reloaded = ChapterWindow.window(for: currentIndex, chapterStarts: flat.chapterStarts, count: flat.count)
+        cancelPrepend()
         if reloaded != window {
             window = reloaded
             windowIsLazy = reloaded.count > Self.lazyWindowThreshold
@@ -721,8 +728,8 @@ final class ReaderViewModel: ObservableObject {
         // While auto-scroll moves the text the scroll view underneath stands still (hidden): its frames say
         // nothing about the reading position, which auto-scroll reports itself (`autoScrollPositionChanged`).
         guard autoScroll != .running else { return }
-        // After a prepend: the block at the reading line must not have moved (checked before it can move the position).
-        if !isRestoring { checkPrepend(frames) }
+        // Between a prepend and its check, frame reports mix the rows' old and new places: they are not reading.
+        guard pendingPrepend == nil else { return }
         // Reading forward: the next chapter goes below before its first block is needed (never during a restore,
         // which must not see the content change under it).
         if !isRestoring, ChapterWindow.needsAppend(lastLaidOut: frames.keys.max(), window: window, count: flat.count) {
@@ -1068,6 +1075,8 @@ final class ReaderViewModel: ObservableObject {
         endSettlingCover()
         if !isPositioned { isPositioned = true }
         if jumped { arrival = Arrival(announcement: arrivalAnnouncement) }
+        // Landed near the first loaded block (a chapter's start): the chapter before it goes above once idle.
+        if autoScroll == .off, ChapterWindow.needsPrepend(top: currentIndex, window: window) { schedulePrepend() }
     }
 
     /// Covers the text until the jump has landed (`restoreSettled`), with the indicator after a moment.
@@ -1207,6 +1216,7 @@ final class ReaderViewModel: ObservableObject {
             staleFrames = [:]
             framesStaleSince = Date()
         }
+        cancelPrepend()
         window = next
         windowIsLazy = next.count > Self.lazyWindowThreshold
 #if DEBUG
@@ -1236,6 +1246,11 @@ final class ReaderViewModel: ObservableObject {
             return
         }
         guard let frame = lastFrames[currentIndex] else { return }
+        let spans = lastFrames.mapValues { AutoScroll.Span(minY: Double($0.minY), maxY: Double($0.maxY)) }
+        let pointsAbove = Double(viewportTop) - Double(frame.minY)
+        let cursor = AutoScroll.Cursor(index: currentIndex, offset: pointsAbove)
+        guard let keep = AutoScroll.scrollTarget(cursor, frames: spans, viewportTop: Double(viewportTop),
+                                                 viewportHeight: Double(viewportHeight)) else { return }
         let prepended = ChapterWindow.prependingPreviousChapter(to: window, chapterStarts: flat.chapterStarts,
                                                                 count: flat.count)
         let trimmed = ChapterWindow.trimmedBelow(prepended, readingAt: currentIndex, chapterStarts: flat.chapterStarts,
@@ -1246,21 +1261,26 @@ final class ReaderViewModel: ObservableObject {
         trace("prepend \(window.lowerBound)-\(window.upperBound) -> \(trimmed.lowerBound)-\(trimmed.upperBound) "
               + "block=\(currentIndex) \(before)")
 #endif
+        prependKeep = JumpRequest(index: keep.index, anchorY: keep.anchorY)
         window = trimmed
+        prependCheckTask?.cancel()
+        let delay = Self.prependCheckDelay
+        prependCheckTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            guard !Task.isCancelled, let self else { return }
+            self.prependCheckTask = nil
+            self.checkPrepend()
+        }
     }
 
-    /// After a prepend, the first frame report that holds the block that was at the reading line: it must be where
-    /// it was (the scroll view keeps it there, see `ReaderView`'s `scrollPosition`). If it moved, the scroll view is
-    /// brought back to the same point of that block (a restore like auto-scroll's hand-back).
-    private func checkPrepend(_ frames: [Int: BlockFrame]) {
-        guard var pending = pendingPrepend else { return }
+    /// `prependCheckDelay` after a prepend, once every row has reported its new place: the block that was at the
+    /// reading line must be where it was. If it moved, the scroll view is brought back to the same point of that block
+    /// (a restore like auto-scroll's hand-back); if it is not even measured any more, back to the saved line.
+    private func checkPrepend() {
+        guard let pending = pendingPrepend else { return }
+        pendingPrepend = nil
+        let frames = lastFrames
         guard let frame = frames[pending.block] else {
-            guard !frames.isEmpty else { return }
-            // One report can hold only some rows; three in a row without the block mean it moved far off.
-            pending.missingReports += 1
-            pendingPrepend = pending
-            guard pending.missingReports >= 3 else { return }
-            pendingPrepend = nil
 #if DEBUG
             trace("prepend lost block \(pending.block): blocks=\(frames.keys.min() ?? -1)-\(frames.keys.max() ?? -1)")
 #endif
@@ -1269,13 +1289,22 @@ final class ReaderViewModel: ObservableObject {
             jumpRequest = JumpRequest(index: currentIndex, anchorY: restoreAnchor)
             return
         }
-        pendingPrepend = nil
         let moved = Double(frame.minY) - pending.minY
 #if DEBUG
         trace(String(format: "prepend kept block %ld: moved=%.1f", pending.block, moved))
 #endif
         guard abs(moved) > Self.prependTolerance, !isRestoring else { return }
         keepPoint(of: pending.block, pointsAbove: Double(viewportTop) - pending.minY, frames: frames)
+    }
+
+    /// A jump or a re-layout replaces the window: a prepend waiting or being checked no longer applies.
+    private func cancelPrepend() {
+        prependTask?.cancel()
+        prependTask = nil
+        prependCheckTask?.cancel()
+        prependCheckTask = nil
+        pendingPrepend = nil
+        prependKeep = nil
     }
 
     /// Brings the scroll view back so that `pointsAbove` points of `block` are above the reading line, the way
@@ -1522,6 +1551,8 @@ final class ReaderViewModel: ObservableObject {
         restoreTask?.cancel()
         prependTask?.cancel()
         prependTask = nil
+        prependCheckTask?.cancel()
+        prependCheckTask = nil
         settlingIndicatorTask?.cancel()
         settlingIndicatorTask = nil
         if autoScroll != .off { autoScroll = .off }

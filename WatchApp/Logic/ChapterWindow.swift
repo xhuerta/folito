@@ -13,11 +13,10 @@ import CoreGraphics
 ///   Appending below never moves what is on screen; nothing is ever inserted or removed above it while reading.
 /// - A layout change reloads the current chapter (the scroll view is rebuilt for it anyway): earlier chapters
 ///   appended while reading are trimmed only then, on a jump or when the book is reopened.
-/// - A loaded window starts one chapter before the target's, so reading back up from a chapter's start goes on into
-///   the previous chapter's end. Reading up near the window's first block prepends the chapter before it
-///   (`needsPrepend`), once the scroll is idle; the reader view keeps the block at the reading line where it is
-///   (`scrollPosition`), and the view model checks it and corrects it if it moved. Chapters far below the reader are
-///   dropped then (`trimmedBelow`), which never moves what is on screen.
+/// - Reading up near the window's first block (and right after landing at a chapter's start) prepends the chapter
+///   before it (`needsPrepend`), once the scroll is idle: the reader scrolls to the same point of the block at the
+///   reading line in the same update as the new rows, and the view model checks it once laid out and corrects it if
+///   it moved. Chapters far below the reader are dropped then (`trimmedBelow`), which never moves what is on screen.
 ///
 /// Chapters are the book's spine chapters (`FlatBook.chapterStarts`, flat indices). Positions stay global.
 enum ChapterWindow {
@@ -47,10 +46,9 @@ enum ChapterWindow {
     /// Prepend the previous chapter once the block at the reading line is this close to the window's first block.
     static let prependMargin = 12
 
-    /// The window a jump to `target` loads: the chapter before the target's (nothing above at the book's first
-    /// chapter), the target's chapter, and the following chapters until at least `minimumBelow` blocks follow the
-    /// target (or the book ends). Every block above the target is laid out exactly (a plain stack), so a chapter's
-    /// start still lands exactly with a chapter above it.
+    /// The window a jump to `target` loads: its chapter, extended by the following chapters until at least
+    /// `minimumBelow` blocks follow the target (or the book ends). The chapter before it is prepended once the reader
+    /// has landed (`needsPrepend`), so a jump only lays out what it needs.
     static func window(for target: Int, chapterStarts: [Int], count: Int) -> Range<Int> {
         guard count > 0 else { return 0..<0 }
         let chapter = chapterRange(containing: target, chapterStarts: chapterStarts, count: count)
@@ -58,11 +56,7 @@ enum ChapterWindow {
         while upper < count && upper - target < minimumBelow {
             upper = chapterRange(containing: upper, chapterStarts: chapterStarts, count: count).upperBound
         }
-        var lower = chapter.lowerBound
-        if lower > 0 {
-            lower = chapterRange(containing: lower - 1, chapterStarts: chapterStarts, count: count).lowerBound
-        }
-        return lower..<upper
+        return chapter.lowerBound..<upper
     }
 
     /// `window` with the previous chapter prepended above (unchanged at the start of the book).

@@ -18,18 +18,15 @@ final class ChapterWindowTests: XCTestCase {
         XCTAssertEqual(ChapterWindow.chapterRange(containing: 0, chapterStarts: [], count: 0), 0..<0)
     }
 
-    /// A jump loads the chapter before the target's, the target's chapter, and following chapters until
-    /// `minimumBelow` blocks follow the target.
-    func testWindowForAJumpHoldsThePreviousChapterAndRoomBelow() {
-        XCTAssertEqual(ChapterWindow.window(for: 13, chapterStarts: starts, count: count), 10..<33,
-                       "a chapter start: the previous chapter above it")
-        XCTAssertEqual(ChapterWindow.window(for: 10, chapterStarts: starts, count: count), 0..<33,
+    /// A jump loads the target's chapter, plus following chapters until `minimumBelow` blocks follow the target.
+    func testWindowForAJumpStartsAtTheChapterAndLeavesRoomBelow() {
+        XCTAssertEqual(ChapterWindow.window(for: 13, chapterStarts: starts, count: count), 13..<33,
+                       "a chapter start: its chapter only (the previous one is prepended after landing)")
+        XCTAssertEqual(ChapterWindow.window(for: 10, chapterStarts: starts, count: count), 10..<33,
                        "a short chapter takes the next one too, so its start can reach the top")
-        XCTAssertEqual(ChapterWindow.window(for: 30, chapterStarts: starts, count: count), 10..<38,
+        XCTAssertEqual(ChapterWindow.window(for: 30, chapterStarts: starts, count: count), 13..<38,
                        "near a chapter's end: the next chapter as well")
-        XCTAssertEqual(ChapterWindow.window(for: 36, chapterStarts: starts, count: count), 13..<38, "the book's end")
-        XCTAssertEqual(ChapterWindow.window(for: 2, chapterStarts: starts, count: count).lowerBound, 0,
-                       "nothing above the first chapter")
+        XCTAssertEqual(ChapterWindow.window(for: 36, chapterStarts: starts, count: count), 33..<38, "the book's end")
         for target in 0..<count {
             let window = ChapterWindow.window(for: target, chapterStarts: starts, count: count)
             XCTAssertTrue(window.contains(target), "\(target) in \(window)")

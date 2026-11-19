@@ -46,8 +46,8 @@ import ReaderCore
 ///
 /// A few chapters at a time (`ChapterWindow`): the scroll view holds the chapter being read and the one before it, in a
 /// plain stack, so every block has its real height and nothing above a target is estimated; a jump elsewhere loads
-/// the target's chapter and the one before, reading forward appends the next chapter below, and reading up prepends
-/// the previous one above once the scroll is idle, keeping the block at the reading line where it is.
+/// the target's chapter, reading forward appends the next chapter below, and reading up (or landing at a chapter's
+/// start) prepends the previous one above once the scroll is idle, keeping the block at the reading line where it is.
 /// Block frames come from the stack's own layout (`BlockFrameStore`), and the reading line is mapped into the
 /// scroll view's space from those frames (`ReadingLine.inScrollSpace`). Only a block at the reading line moves the
 /// saved position (`VisibleBlockResolver.lineIndex`).
@@ -83,10 +83,9 @@ struct ReaderView: View {
     @State private var barHidden = false
     /// The scroll view's origin in global coordinates: the origin of `scrollSpace`, for taps in the edge strip.
     @State private var scrollOrigin: CGPoint = .zero
-    /// The block at the top of the scroll view, kept by SwiftUI (`scrollPosition(id:anchor:)`): when the previous
-    /// chapter is prepended above it (or blocks above it change height, in the lazy stack of a huge window), the scroll
-    /// view keeps this block where it is rather than its offset. The view model checks the block at the reading line
-    /// after a prepend and brings it back if it moved anyway.
+    /// The block at the top of the scroll view, kept by SwiftUI (`scrollPosition(id:anchor:)`): if blocks above it
+    /// change height (in the lazy stack of a huge window), the scroll view keeps this block where it is rather than
+    /// its offset. (A prepend is compensated by the reader itself: see `ReaderViewModel.prependKeep`.)
     @State private var scrollAnchor: Int?
     /// Where the rows are (watchOS 11+): see `BlockFrameStore`.
     @State private var frameStore = BlockFrameStore()
@@ -238,6 +237,22 @@ struct ReaderView: View {
                 // Auto-scroll's own motion is not reading by hand either: offsets never toggle the bar then.
                 updateBar { $0.programmaticScroll(restoring || model.isAutoScrollActive) }
             }
+            // A chapter prepended above: in the same update as the new rows, scroll to the same point of the block at
+            // the reading line (the scroll view would otherwise keep its offset and show text a chapter's height
+            // higher). That moves the content offset by the chapter's height: not scrolling, for the bar.
+            .onChange(of: model.window.lowerBound) { _ in
+                updateBar { $0.programmaticScroll(true) }
+                if let keep = model.prependKeep {
+                    var transaction = Transaction()
+                    transaction.disablesAnimations = true
+                    withTransaction(transaction) {
+                        proxy.scrollTo(keep.index, anchor: UnitPoint(x: 0, y: keep.anchorY ?? 0))
+                    }
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    updateBar { $0.programmaticScroll(model.isRestoring || model.isAutoScrollActive) }
+                }
+            }
             .onChange(of: model.jumpRequest) { request in
                 guard let request else { return }
                 DispatchQueue.main.async {
@@ -312,13 +327,6 @@ struct ReaderView: View {
         // frozen at once and the text covered until that line is back at the top edge, then revealed in one move
         // (`ReaderViewModel.layoutChanged(to:)`, `JumpSettling`). Colour-only changes (Always On, Increase
         // Contrast) keep the layout and need no re-anchoring.
-        // A chapter prepended above moves the content offset by its height: not scrolling, for the bar.
-        .onChange(of: model.window.lowerBound) { _ in
-            updateBar { $0.programmaticScroll(true) }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                updateBar { $0.programmaticScroll(model.isRestoring || model.isAutoScrollActive) }
-            }
-        }
         .onChange(of: style.layoutKey) { key in
             // A paused auto-scroll window was laid out for the old metrics: the scroll view takes over.
             if autoScrollWindow != nil, model.autoScroll != .running { endAutoScrollWindow() }
