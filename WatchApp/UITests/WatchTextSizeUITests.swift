@@ -27,8 +27,8 @@ final class WatchTextSizeUITests: XCTestCase {
             return WatchUI.fail("The jump to Chapter 2 did not settle at its heading", in: app)
         }
         changeTextSizeAndCheck(app, step: "at the chapter heading")
-        XCTAssertTrue(WatchUI.firstVisibleBlock(in: app)?.label.hasPrefix("Chapter 2") == true
-                      && WatchUI.firstVisibleBlock(in: app)?.label.contains(",") == false,
+        let headingLabel = WatchUI.firstVisibleBlock(in: app)?.label
+        XCTAssertTrue(headingLabel?.hasPrefix("Chapter 2") == true && headingLabel?.contains(",") == false,
                       "the chapter heading should still be the first block below the bar")
 
         // Inside a paragraph: the same line, to the character.
@@ -79,7 +79,8 @@ final class WatchTextSizeUITests: XCTestCase {
         let landed = first?.frame.minY
         sleep(2)
         if let first, let landed {
-            XCTAssertEqual(first.frame.minY, landed, accuracy: 1, "\(step): the text moved again after the change",
+            let now = WatchUI.readerShot(in: app)?.block(labelled: first.label)?.frame.minY
+            XCTAssertEqual(now ?? -1_000, landed, accuracy: 1, "\(step): the text moved again after the change",
                            file: file, line: line)
         }
         XCTAssertEqual(WatchUI.readerPosition(in: app).value as? String, before,

@@ -12,6 +12,9 @@ final class WatchRealBookUITests: XCTestCase {
     override func setUp() {
         super.setUp()
         continueAfterFailure = false
+        // Each size test makes three or four trips through Reading Options and the chapter list on a 36-chapter
+        // book; the default allowance (3 min) left little room. Within the workflow's 300 s per test.
+        executionTimeAllowance = 280
     }
 
     @MainActor
@@ -78,9 +81,10 @@ final class WatchRealBookUITests: XCTestCase {
             return nil
         }
         let top = block.frame.minY
-        if abs(top - line) > 1 || WatchUI.firstVisibleBlock(in: app)?.label != title {
+        let firstLabel = WatchUI.firstVisibleBlock(in: app)?.label
+        if abs(top - line) > 1 || firstLabel != title {
             XCTFail("\(step): the heading's top is at \(top), the reading line at \(line), first visible block "
-                    + "\(WatchUI.firstVisibleBlock(in: app)?.label.prefix(40) ?? "none"). " + diagnostics(title, in: app),
+                    + "\(firstLabel?.prefix(40) ?? "none"). " + diagnostics(title, in: app),
                     file: file, line: sourceLine)
         }
         sleep(2)
