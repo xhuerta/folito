@@ -305,7 +305,7 @@ final class JumpSettlingTests: XCTestCase {
         XCTAssertFalse(model.coversText)
     }
 
-    // MARK: Settling on real books (build 49 feedback)
+    // MARK: Settling on real books
 
     /// After the `.top` scroll the lazy stack measures the blocks above the target, which moves it: a landing that
     /// was in place at one check and has moved at the next is brought back, and the cover lifts only once it has
@@ -398,7 +398,7 @@ final class JumpSettlingTests: XCTestCase {
     }
 
     /// A layout key change that resized nothing reports no new frames: after `JumpSettling.newLayoutWait` the
-    /// restore goes on with the frames it has and the cover lifts (it stayed up for good in #181's first CI run).
+    /// restore goes on with the frames it has and the cover lifts.
     @MainActor
     func testLayoutChangeWithoutNewFramesStillReveals() async throws {
         let model = try await openedReader().model
@@ -436,10 +436,10 @@ final class JumpSettlingTests: XCTestCase {
         XCTAssertFalse(model.isSettling, "no cover over a near jump")
     }
 
-    /// #181's trace: after a text size change every `.top` scroll put the heading at y 0.1 with the reading line at
-    /// 47.5, so the heading was never the top block and twelve identical re-issues changed nothing. A re-issue that
-    /// lands exactly where the previous one did now switches to anchor corrections, and those follow the measured
-    /// slope of the scroll view.
+    /// When the scroll space starts at the top of the screen, `.top` puts the heading at y 0.1 with the reading line
+    /// at 47.5, every time: the heading is never the top block and re-issuing the same scroll changes nothing. A
+    /// re-issue that lands exactly where the previous one did switches to anchor corrections, which follow the
+    /// measured slope of the scroll view.
     @MainActor
     func testIdenticalLandingsSwitchToAnchorCorrections() async throws {
         let model = try await openedReader().model
@@ -472,7 +472,7 @@ final class JumpSettlingTests: XCTestCase {
         XCTAssertEqual(model.currentOffset, 0)
     }
 
-    // MARK: Partial frame reports while reading (#181's forward-reading trace)
+    // MARK: Partial frame reports while reading
 
     func testLineIndexNeedsABlockAtTheReadingLine() {
         XCTAssertEqual(VisibleBlockResolver.lineIndex(frames: [3: f(-20, 50), 4: f(60, 120)]), 3)

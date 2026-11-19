@@ -1,13 +1,11 @@
 import Foundation
 import CoreGraphics
 
-/// Which blocks the reader's scroll view holds: the chapter being read, not the whole book (build 49 feedback).
+/// Which blocks the reader's scroll view holds: the chapter being read, not the whole book.
 ///
-/// The reader's `LazyVStack` places blocks it has not measured with estimated heights. With the whole book in it, a
-/// jump to block 399 left about 400 estimated blocks above the target; as they were measured the content above
-/// shrank (the scroll offset fell from 67955 to 64355 over 13 checks in #181's trace while the target, landed
-/// exactly each time, moved up by 230 pt between checks) and the jump never settled. With one chapter loaded, a
-/// chapter's start has nothing above it and lands exactly, and anything above a target is at most that chapter.
+/// A lazy stack places the blocks it has not measured on estimated heights, and moves everything when it measures
+/// them; with the whole book loaded, a jump far into it never settled. With one chapter loaded (in a plain stack,
+/// see `ReaderView`), a chapter's start has nothing above it, and anything above a target is laid out exactly.
 ///
 /// - A jump (chapter, bookmark, synced position, opening) to a block outside the window loads the target's chapter,
 ///   plus the following chapters until at least `minimumBelow` blocks follow the target, so it can reach the top.
@@ -22,9 +20,8 @@ import CoreGraphics
 enum ChapterWindow {
     /// Blocks a loaded window keeps below a jump's target (about a few screens), so the target can reach the top.
     static let minimumBelow = 12
-    /// Append the next chapter once a block this close to the window's end is laid out: well before the reader can
-    /// reach the end. With 4, a fling reached the end of the loaded blocks first and the scroll view bounced back
-    /// from it (#181's CI: the position went back from block 57 to 54 as "append 60 -> 87" came in).
+    /// Append the next chapter once a block this close to the window's end is laid out: well before a fling can reach
+    /// the end of the loaded blocks and bounce back from it.
     static let appendMargin = 12
 
     /// The spine chapter holding block `index`: from the last chapter start at or before it to the next start after
@@ -90,7 +87,7 @@ enum ChapterWindow {
     }
 }
 
-/// Where the reader's rows are, for a plain (non-lazy) stack (#181): each row's frame in the stack's own space,
+/// Where the reader's rows are, for a plain (non-lazy) stack: each row's frame in the stack's own space,
 /// recorded when it changes (only on layout: scrolling moves the stack, not the rows in it), and the stack's frame
 /// in the scroll view's space and on screen, recorded as it scrolls. The frames of the rows near the viewport follow
 /// from the two, so nothing per row runs on each scroll frame. Not observed: the view reports from it.

@@ -31,8 +31,10 @@ final class ReaderViewModel: ObservableObject {
     /// changes kind under the reader.
     @Published private(set) var windowIsLazy: Bool
     static let lazyWindowThreshold = 400
+#if DEBUG
     /// Trace only: when the current window was loaded, for how long it takes to show (`window shown`).
     private var windowLoad: (date: Date, target: Int, count: Int)?
+#endif
     @Published var showRemoteOffer = false
     /// "Mark as Finished?": the reader just arrived at the end of the book (`ReadStatusRules.shouldOfferFinish`).
     @Published var showFinishOffer = false
@@ -105,8 +107,7 @@ final class ReaderViewModel: ObservableObject {
     private var settledMinY: Double?
     private var stabilityChecks = 0
     /// The target's top after the last re-issued scroll: the same scroll landing at the same point again cannot be
-    /// helped by re-issuing it once more (#181's trace: twelve identical `.top` scrolls, the heading at y 0 every
-    /// time, the reading line at 47.5).
+    /// helped by re-issuing it once more, so the anchor is corrected instead.
     private var lastRetryMinY: Double?
     /// The last anchor a chapter start was scrolled with and where the block's top landed with it, so the next
     /// correction uses the measured points-per-anchor of this scroll view, not a model of it.
@@ -115,7 +116,7 @@ final class ReaderViewModel: ObservableObject {
     /// the checks wait (without using up the retries), for at most `JumpSettling.newLayoutWait`: behind the Reading
     /// Options sheet the reader may report the new frames late. A key change that resized nothing reports no new
     /// frames at all (an unchanged preference is not delivered again): after the wait the old frames, which are the
-    /// current ones then, are used. An unbounded wait there kept the cover up for good (#181's first CI run).
+    /// current ones then, are used.
     private var framesStaleSince: Date?
     private var staleFrames: [Int: BlockFrame] = [:]
     /// When the current restore began (real time): a covered one is revealed after `JumpSettling.maxSettleDuration`
@@ -218,8 +219,10 @@ final class ReaderViewModel: ObservableObject {
         // With a TOC, "chapter" in the time left is the chapter-level TOC section the menu marks.
         let toc = flat.toc
         self.autoScrollLevel = AutoScroll.storedLevel(settings.integer(forKey: ReaderSettings.autoScrollSpeedKey))
+#if DEBUG
         // From the start, so the first geometry reports and the opening restore are traced too.
         self.tracesRestores = UITesting.tracesRestores
+#endif
         Task.detached(priority: .utility) { [weak self] in
             let index = FlatBook.lengthIndex(for: book, toc: toc)
             await self?.lengthsReady(index)
@@ -448,8 +451,8 @@ final class ReaderViewModel: ObservableObject {
         guard !flat.isEmpty else { return }
         // Time in the menu or a lookup is not reading time.
         pageTimer.reset(at: now())
-        // A restore in progress (the chapter just chosen, a re-layout) already brings this line back: starting
-        // another, covered one on top of it put a cover over a near jump for seconds (#181's CI).
+        // A restore in progress (the chapter just chosen, a re-layout) already brings this line back: another one
+        // on top of it would only add a cover over a near jump.
         guard !isRestoring, !showsCurrentLine else { return }
         // The line is not where it should be (a re-layout that could not finish behind the menu, say): bring it
         // back under the cover, so the move shows as one.
@@ -488,7 +491,9 @@ final class ReaderViewModel: ObservableObject {
         }
         guard old != key else { return }
         layoutKey = key
+#if DEBUG
         trace("layout \(old) -> \(key) restoring=\(isRestoring ? 1 : 0)")
+#endif
         guard !flat.isEmpty else { return }
         pageTimer.reset(at: now())
         staleFrames = lastFrames
@@ -502,7 +507,9 @@ final class ReaderViewModel: ObservableObject {
             windowIsLazy = reloaded.count > Self.lazyWindowThreshold
             staleFrames = [:]
         }
+#if DEBUG
         windowLoad = (Date(), currentIndex, window.count)
+#endif
         if isPositioned, !isSettling, autoScroll != .running {
             announcesArrival = false
             beginSettlingCover()
@@ -520,6 +527,7 @@ final class ReaderViewModel: ObservableObject {
     /// the part of it scrolled past that edge.
     /// `layoutKey`: the layout the frames were measured with (nil in tests that do not care); a new one is a
     /// layout change (`layoutChanged(to:)`), handled before the frames are read.
+#if DEBUG
     // MARK: Restore trace (UI tests only, `-UITestingRestoreTrace`)
 
     /// Set by the view from `UITesting.tracesRestores`; off, nothing below is recorded.
@@ -615,6 +623,62 @@ final class ReaderViewModel: ObservableObject {
         trace(parts.joined(separator: " "))
     }
 
+    /// After a restore or an append: where the text really went (the next few frame reports), and how long a loaded
+    /// window took to show its target.
+    private func traceFrameReport(_ frames: [Int: BlockFrame]) {
+        if tracePostReports > 0, !isRestoring, let target = traceLastTarget {
+            tracePostReports -= 1
+            let topText = VisibleBlockResolver.topIndex(frames: frames, viewportTop: viewportTop).map(String.init) ?? "nil"
+            let frameText = traceFrame(frames[target])
+            let range = frames.keys.min().map { "\($0)-\(frames.keys.max()!)" } ?? "none"
+            let since = traceEndedAt.map { String(format: "+%.2fs", Date().timeIntervalSince($0)) } ?? "?"
+            let offsetText = traceScrollOffset.map { String(format: " off=%.1f", Double($0)) } ?? ""
+            let lineText = String(format: "vt=%.1f", Double(viewportTop))
+            trace("post \(since) f=\(frameText) top=\(topText) blocks=\(range)\(offsetText) \(lineText)")
+        }
+        if let load = windowLoad, let frame = frames[load.target] {
+            let elapsed = String(format: "%.0f ms", Date().timeIntervalSince(load.date) * 1000)
+            let kind = windowIsLazy ? "lazy" : "plain"
+            let height = String(format: "h=%.1f", Double(frame.maxY - frame.minY))
+            trace("window shown \(load.count) blocks (\(kind)), target in \(elapsed) \(height)")
+            windowLoad = nil
+        }
+    }
+
+    private func traceAppend(to appended: Range<Int>, frames: [Int: BlockFrame]) {
+        guard tracesRestores else { return }
+        let top = VisibleBlockResolver.topIndex(frames: frames, viewportTop: viewportTop)
+        let topText = top.map(String.init) ?? "nil"
+        let offsetText = traceScrollOffset.map { String(format: "%.1f", Double($0)) } ?? "nil"
+        trace("append \(window.upperBound) -> \(appended.upperBound) top=\(topText) off=\(offsetText)")
+        if let top {
+            traceLastTarget = top
+            traceEndedAt = Date()
+            tracePostReports = 6
+        }
+    }
+
+    private func traceIgnoredReport(_ frames: [Int: BlockFrame]) {
+        guard tracesRestores, !frames.isEmpty else { return }
+        let topText = VisibleBlockResolver.topIndex(frames: frames, viewportTop: viewportTop).map(String.init) ?? "nil"
+        let first = frames.keys.min() ?? -1
+        let last = frames.keys.max() ?? -1
+        trace("ignored report: no block at the line (first below=\(topText), blocks=\(first)-\(last))")
+    }
+
+    private func traceStepBack(to top: Int, frame: BlockFrame, frames: [Int: BlockFrame]) {
+        guard tracesRestores else { return }
+        let originText = scrollSpaceOriginOnScreen.map { String(format: "%.1f", Double($0)) } ?? "nil"
+        let offsetText = traceScrollOffset.map { String(format: "%.1f", Double($0)) } ?? "nil"
+        let screenText = frame.screenMinY.map { String(format: "%.1f", Double($0)) } ?? "nil"
+        let lineText = String(format: "%.1f", Double(viewportTop))
+        let first = frames.keys.min() ?? -1
+        let last = frames.keys.max() ?? -1
+        trace("back \(currentIndex) -> \(top) f=\(traceFrame(frame)) scr=\(screenText) vt=\(lineText) so=\(originText) "
+              + "off=\(offsetText) blocks=\(first)-\(last)")
+    }
+#endif
+
     func blockFramesChanged(_ frames: [Int: BlockFrame], layoutKey: String? = nil) {
         if let layoutKey { layoutChanged(to: layoutKey) }
         lastFrames = frames
@@ -623,29 +687,17 @@ final class ReaderViewModel: ObservableObject {
         if let measured = frames.min(by: { $0.key < $1.key }).flatMap({ entry in
             entry.value.screenMinY.map { $0 - entry.value.minY } }) {
             if scrollSpaceOriginOnScreen.map({ abs($0 - measured) > 0.25 }) ?? true {
+#if DEBUG
                 trace(String(format: "space origin=%.1f (was %@)", Double(measured),
                              scrollSpaceOriginOnScreen.map { String(format: "%.1f", Double($0)) } ?? "nil"))
+#endif
                 scrollSpaceOriginOnScreen = measured
                 updateReadingLine()
             }
         }
-        if tracePostReports > 0, !isRestoring, let target = traceLastTarget {
-            tracePostReports -= 1
-            let topText = VisibleBlockResolver.topIndex(frames: frames, viewportTop: viewportTop).map(String.init) ?? "nil"
-            let frameText = traceFrame(frames[target])
-            let range = frames.keys.min().map { "\($0)-\(frames.keys.max()!)" } ?? "none"
-            let since = traceEndedAt.map { String(format: "+%.2fs", Date().timeIntervalSince($0)) } ?? "?"
-            let offsetText = traceScrollOffset.map { String(format: " off=%.1f", Double($0)) } ?? ""
-            trace("post \(since) f=\(frameText) top=\(topText) blocks=\(range)\(offsetText) "
-                  + String(format: "vt=%.1f", Double(viewportTop)))
-        }
-        if let load = windowLoad, let frame = frames[load.target] {
-            // The cost of showing a loaded window: from loading it to its target's first measured frame.
-            let elapsed = String(format: "%.0f ms", Date().timeIntervalSince(load.date) * 1000)
-            trace("window shown \(load.count) blocks (\(windowIsLazy ? "lazy" : "plain")), target in \(elapsed) "
-                  + String(format: "h=%.1f", Double(frame.maxY - frame.minY)))
-            windowLoad = nil
-        }
+#if DEBUG
+        traceFrameReport(frames)
+#endif
         if framesStaleSince != nil, !frames.isEmpty {
             framesStaleSince = nil
             staleFrames = [:]
@@ -658,29 +710,24 @@ final class ReaderViewModel: ObservableObject {
         if !isRestoring, ChapterWindow.needsAppend(lastLaidOut: frames.keys.max(), window: window, count: flat.count) {
             let appended = ChapterWindow.appendingNextChapter(to: window, chapterStarts: flat.chapterStarts,
                                                               count: flat.count)
-            let topText = VisibleBlockResolver.topIndex(frames: frames, viewportTop: viewportTop).map(String.init) ?? "nil"
-            let offsetText = traceScrollOffset.map { String(format: "%.1f", Double($0)) } ?? "nil"
-            trace("append \(window.upperBound) -> \(appended.upperBound) top=\(topText) off=\(offsetText)")
+#if DEBUG
+            traceAppend(to: appended, frames: frames)
+#endif
             window = appended
-            if tracesRestores, let top = VisibleBlockResolver.topIndex(frames: frames, viewportTop: viewportTop) {
-                // What the reader shows right after the append (it must not move).
-                traceLastTarget = top
-                traceEndedAt = Date()
-                tracePostReports = 6
-            }
         }
         if !isRestoring { checkEnd(frames) }
         // Only a block that is at the reading line moves the position: a partial report (some rows only, while the
         // lazy stack re-lays them) leaves it where it is.
         guard !isRestoring else { return }
         let lineTop = VisibleBlockResolver.lineIndex(frames: frames, viewportTop: viewportTop)
+#if DEBUG
         traceReading(frames: frames, top: lineTop, changed: lineTop != nil && lineTop != currentIndex)
+#endif
         guard let top = lineTop,
               top < flat.count, let frame = frames[top] else {
-            if tracesRestores, !frames.isEmpty {
-                let topText = VisibleBlockResolver.topIndex(frames: frames, viewportTop: viewportTop).map(String.init) ?? "nil"
-                trace("ignored report: no block at the line (first below=\(topText), blocks=\(frames.keys.min() ?? -1)-\(frames.keys.max() ?? -1))")
-            }
+#if DEBUG
+            traceIgnoredReport(frames)
+#endif
             return
         }
         let text = flat.blocks[top].text
@@ -699,15 +746,9 @@ final class ReaderViewModel: ObservableObject {
             savePosition()
             return
         }
-        if tracesRestores, top < currentIndex {
-            // Reading moves forward; a step back while nobody restores is what the forward-reading test catches.
-            let originText = scrollSpaceOriginOnScreen.map { String(format: "%.1f", Double($0)) } ?? "nil"
-            let offsetText = traceScrollOffset.map { String(format: "%.1f", Double($0)) } ?? "nil"
-            let screenText = frame.screenMinY.map { String(format: "%.1f", Double($0)) } ?? "nil"
-            let lineText = String(format: "%.1f", Double(viewportTop))
-            trace("back \(currentIndex) -> \(top) f=\(traceFrame(frame)) scr=\(screenText) vt=\(lineText) "
-                  + "so=\(originText) off=\(offsetText) blocks=\(frames.keys.min() ?? -1)-\(frames.keys.max() ?? -1)")
-        }
+#if DEBUG
+        if top < currentIndex { traceStepBack(to: top, frame: frame, frames: frames) }
+#endif
         learnSpeed(from: currentIndex, to: top)
         currentIndex = top
         currentOffset = InBlockPosition.characterOffset(forFraction: fraction, in: text)
@@ -853,7 +894,9 @@ final class ReaderViewModel: ObservableObject {
         lastRetryMinY = nil
         anchorSample = nil
         restoreBegan = Date()
+#if DEBUG
         trace("begin tgt=\(target) off=\(offset) cov=\(coversText ? 1 : 0)")
+#endif
         scheduleRestoreCheck()
     }
 
@@ -893,18 +936,24 @@ final class ReaderViewModel: ObservableObject {
         // other way, a heading in mid-screen).
         // Hard cap: a covered restore is revealed after `maxSettleDuration`, wherever it stands.
         if coversText, Date().timeIntervalSince(restoreBegan) >= JumpSettling.maxSettleDuration {
+#if DEBUG
             traceCheckState("cap")
+#endif
             finishRestore(reason: "cap")
             return
         }
         // A re-layout's frames have not arrived yet: check again shortly, without using up a retry.
         if let since = framesStaleSince {
             if Date().timeIntervalSince(since) < JumpSettling.newLayoutWait {
+#if DEBUG
                 traceCheckState("waitframes")
+#endif
                 scheduleRestoreCheck()
                 return
             }
+#if DEBUG
             trace("newframes timeout: old frames used=\(lastFrames.isEmpty ? 1 : 0)")
+#endif
             framesStaleSince = nil
             if lastFrames.isEmpty { lastFrames = staleFrames }
             staleFrames = [:]
@@ -926,7 +975,9 @@ final class ReaderViewModel: ObservableObject {
             restoreAttempts += 1
             lastRetryMinY = targetMinY
             settledMinY = nil
+#if DEBUG
             traceCheckState("retry")
+#endif
             jumpRequest = JumpRequest(index: restoreJumpIndex ?? target, anchorY: restoreAnchor)
             scheduleRestoreCheck()
             return
@@ -946,7 +997,9 @@ final class ReaderViewModel: ObservableObject {
             inBlockAttempts += 1
             settledMinY = nil
             restoreAnchor = anchor
+#if DEBUG
             traceCheckState("inblock")
+#endif
             jumpRequest = JumpRequest(index: target, anchorY: anchor)
             scheduleRestoreCheck()
             return
@@ -958,20 +1011,27 @@ final class ReaderViewModel: ObservableObject {
            stabilityChecks < limit, !RestoreCheck.isStable(previousMinY: settledMinY, minY: Double(frame.minY)) {
             settledMinY = Double(frame.minY)
             stabilityChecks += 1
+#if DEBUG
             traceCheckState("confirm")
+#endif
             scheduleRestoreCheck()
             return
         }
+#if DEBUG
         traceCheckState("done")
+#endif
         finishRestore(reason: targetHeldByTheEnd ? "end" : (restoreAttempts >= limit ? "retries-out" : "inplace"))
     }
 
+#if DEBUG
     /// The target of the restore that ended last (trace only).
     private var traceLastTarget: Int?
     private var traceEndedAt: Date?
+#endif
 
     /// The restore is over: the position follows the scroll view again and the cover (if any) lifts.
     private func finishRestore(reason: String = "inplace") {
+#if DEBUG
         if tracesRestores {
             let elapsed = String(format: "after %.2fs", Date().timeIntervalSince(restoreBegan))
             trace("end \(reason) checks=\(restoreAttempts)+\(inBlockAttempts)+\(stabilityChecks) \(elapsed)")
@@ -979,6 +1039,7 @@ final class ReaderViewModel: ObservableObject {
             traceEndedAt = Date()
             tracePostReports = 8
         }
+#endif
         restoreTarget = nil
         isRestoring = false
         let jumped = isSettling && announcesArrival
@@ -1054,8 +1115,8 @@ final class ReaderViewModel: ObservableObject {
 
     /// The anchor that brings a block's start (offset 0) to the reading line, from where the last scroll put it.
     ///
-    /// `.top` does not always put the block's top at the reading line: in #181's trace (after a text size change) it
-    /// landed at scroll-space y 0 with the line at 47.5, every time. The first correction assumes the model of
+    /// `.top` does not always put the block's top at the reading line (when the scroll space starts at the top of the
+    /// screen, it puts it under the bar). The first correction assumes the model of
     /// `InBlockPosition.anchorY` (moving the anchor by `dy` moves the block by `dy * (V - H)`); once two landings with
     /// different anchors are known, their measured slope is used instead (a secant step), so a scroll view that maps
     /// anchors differently is still brought to the line in a step or two.
@@ -1077,7 +1138,9 @@ final class ReaderViewModel: ObservableObject {
     /// moves happen while the text is still transparent (`isPositioned`), so the reader appears at the line.
     func restoreInitialPosition() {
         if flat.isEmpty { isPositioned = true }
+#if DEBUG
         windowLoad = (Date(), startIndex, window.count)
+#endif
         beginRestore(target: startIndex, offset: startOffset)
         // A long opening shows the same indicator as a far jump.
         if !isPositioned { scheduleSettlingIndicator() }
@@ -1115,7 +1178,9 @@ final class ReaderViewModel: ObservableObject {
     private func loadWindow(for target: Int) {
         guard !flat.isEmpty, !window.contains(target) else { return }
         let next = ChapterWindow.window(for: target, chapterStarts: flat.chapterStarts, count: flat.count)
+#if DEBUG
         trace("window \(window.lowerBound)-\(window.upperBound) -> \(next.lowerBound)-\(next.upperBound)")
+#endif
         if next.lowerBound != window.lowerBound {
             lastFrames = [:]
             staleFrames = [:]
@@ -1123,7 +1188,9 @@ final class ReaderViewModel: ObservableObject {
         }
         window = next
         windowIsLazy = next.count > Self.lazyWindowThreshold
+#if DEBUG
         windowLoad = (Date(), target, next.count)
+#endif
     }
 
     /// Where "Previous Chapter" at the top of the loaded blocks goes (nil at the start of the book).

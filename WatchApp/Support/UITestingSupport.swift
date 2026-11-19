@@ -48,10 +48,11 @@ enum UITesting {
     /// of a tiny accessibility element "readerPosition", so a UI test can check exactly where a chapter jump or a
     /// text-size change left the reader. Nothing else changes.
     static let readerPositionArgument = "-UITestingReaderPosition"
-    /// `-UITestingRestoreTrace`: the reader records the last events of its restore machinery (each settle check with
-    /// the reading line, the target's measured frame and the top block, how the restore ended, the geometry the
-    /// reading line comes from, sheets holding restores, layout changes) and shows them as the value of a tiny
-    /// accessibility element "restoreTrace", for a UI test's failure message. Nothing else changes.
+    /// `-UITestingRestoreTrace` (Debug builds only): the reader records the last events of its restore machinery (each
+    /// settle check with the reading line, the target's measured frame and the top block, how the restore ended, the
+    /// geometry the reading line comes from, layout changes, chapter windows and reading by hand) and shows them as
+    /// the value of a tiny accessibility element "restoreTrace", for a UI test's failure message. Release builds
+    /// contain none of it.
     static let restoreTraceArgument = "-UITestingRestoreTrace"
 
     #if DEBUG
@@ -455,7 +456,7 @@ enum UITesting {
                              chapters: chapters, totalCharacters: offset)
     }()
 
-    /// A generated book shaped like a real novel (build 49 feedback: Moby-Dick): `variedBookChapters` chapters titled
+    /// A generated book shaped like a real novel: `variedBookChapters` chapters titled
     /// "Chapter 1." … "Chapter 36." (the period keeps "Chapter 1." from being a prefix of "Chapter 10."), each a
     /// heading and 8 to 70 paragraphs of 1 to 14 sentences, chosen by a fixed pseudo-random sequence, so every run
     /// lays out the same book. No paragraph starts with "Chapter".
@@ -530,7 +531,6 @@ enum UITesting {
     #else
     static let exposesBlockHeights = false
     static let exposesReaderPosition = false
-    static let tracesRestores = false
     static let isActive = false
     static var defaults: UserDefaults { .standard }
     static func makeBookStorage() -> BookStorage { BookStorage() }

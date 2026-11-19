@@ -539,10 +539,10 @@ values and traits of the elements above and run *Audit* on each screen.
   on iOS; that the watch simulator honours it the same way is assumed, not yet verified. The label checks
   only see elements that are in the accessibility tree (on-screen rows of lazy lists).
 - The reader holds one chapter at a time (`ChapterWindow`, #181): the chapter being read, with the next one
-  appended below while reading forward. Above a chapter's first block a "Previous Chapter" button (at least 44 pt
-  tall, the chapter's title as its VoiceOver value) goes to the start of the previous chapter; scrolling back past
-  a chapter's start is that control, not continuous scrolling. Within the loaded chapters the reader is a
-  `LazyVStack`: VoiceOver can only reach headings that are laid out (near the current position); use
+  appended below while reading forward, in a plain stack (a lazy one only for a window of more than 400 blocks).
+  Above a chapter's first block a "Previous Chapter" button (at least 44 pt tall, the chapter's title as its
+  VoiceOver value) goes to the start of the previous chapter; scrolling back past a chapter's start is that
+  control, not continuous scrolling. VoiceOver reaches the headings of the loaded chapters; use
   *Reading Options › Chapters* to jump further.
 - The reader puts nothing in the leading / `.cancellationAction` toolbar slot: on watchOS an item there
   replaces the back button (#106). `WatchReaderTopBarTests` checks the auto-hiding bar on the simulator; on a

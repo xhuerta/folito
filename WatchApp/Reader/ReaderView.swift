@@ -40,9 +40,16 @@ import ReaderCore
 /// with Reduce Motion, and VoiceOver then announces the chapter arrived at, once. A jump to a block's start (a
 /// chapter) is over only once that block's top is at the reading line, not merely once it is the top block.
 ///
-/// Text size and other layout changes (build 48 feedback) are covered the same way: the saved block and character
-/// offset are frozen the moment the layout key changes, the text is covered while that line is brought back to the
-/// top edge, and it is revealed in one move, without an announcement.
+/// Text size and other layout changes are covered the same way: the saved block and character offset are frozen the
+/// moment the layout key changes, the text is covered while that line is brought back to the top edge, and it is
+/// revealed in one move, without an announcement.
+///
+/// One chapter at a time (`ChapterWindow`): the scroll view holds the chapter being read, in a plain stack, so every
+/// block has its real height and nothing above a target is estimated; a jump elsewhere loads the target's chapter,
+/// reading forward appends the next one below, and a "Previous Chapter" row above the first loaded block goes back.
+/// Block frames come from the stack's own layout (`BlockFrameStore`), and the reading line is mapped into the
+/// scroll view's space from those frames (`ReadingLine.inScrollSpace`). Only a block at the reading line moves the
+/// saved position (`VisibleBlockResolver.lineIndex`).
 ///
 /// Auto-scroll (#67): started from Reading Options, never by itself. While it runs, the reader shows the
 /// blocks around the reading line in a plain stack over the scroll view (an `AutoScroll.Window`, laid out at
@@ -75,11 +82,9 @@ struct ReaderView: View {
     @State private var barHidden = false
     /// The scroll view's origin in global coordinates: the origin of `scrollSpace`, for taps in the edge strip.
     @State private var scrollOrigin: CGPoint = .zero
-    /// The block at the top of the scroll view, kept by SwiftUI (`scrollPosition(id:anchor:)`): when blocks above it
-    /// change height (the lazy stack replacing estimates with measurements, or re-estimating blocks that scrolled
-    /// away), the scroll view keeps this block where it is instead of keeping its offset. Without it, reading forward
-    /// the content offset stayed while the blocks moved: #181's trace, block 51 back at the line where block 58 had
-    /// been, the offset unchanged at 4314.5.
+    /// The block at the top of the scroll view, kept by SwiftUI (`scrollPosition(id:anchor:)`): if blocks above it
+    /// change height (in the lazy stack of a huge window), the scroll view keeps this block where it is rather than
+    /// its offset.
     @State private var scrollAnchor: Int?
     /// Where the rows are (watchOS 11+): see `BlockFrameStore`.
     @State private var frameStore = BlockFrameStore()
@@ -141,9 +146,8 @@ struct ReaderView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 // The loaded chapter's blocks (`ChapterWindow`) in a plain stack: every block has its real height, so
-                // nothing is ever re-estimated (#181's trace: reading forward, the lazy stack re-placed blocks 50-53
-                // about 1000 pt lower, where 57-60 had been, at an unchanged scroll offset). Lazy only for a window of
-                // more than `ReaderViewModel.lazyWindowThreshold` blocks (one enormous spine chapter).
+                // nothing is placed on estimates. Lazy only for a window of more than
+                // `ReaderViewModel.lazyWindowThreshold` blocks (one enormous spine chapter).
                 ReaderStack(lazy: model.windowIsLazy, spacing: style.typography.paragraphSpacing) {
                     readerRows(style: style)
                 }
@@ -169,10 +173,9 @@ struct ReaderView: View {
                 // target line) is at the top edge.
                 .opacity(model.coversText ? 0 : 1)
                 .accessibilityHidden(model.coversText)
-                // No `.id` here or on the ScrollView: with the stack keyed on the layout, every `scrollTo` after a text
-                // size change did nothing (#181's trace: twelve `scroll 404 a=top`, the content offset fixed at 359.5),
-                // and with the ScrollView keyed the bar stopped hiding. One chapter at a time (`ChapterWindow`) is what
-                // keeps estimated heights out of the way; a loaded window replaces the rows (their ids are the blocks).
+                // Neither the stack nor the ScrollView carries an identity key: rebuilding them on a layout change
+                // broke `scrollTo` (the stack) or the scroll-distance reader that hides the bar (the ScrollView). A
+                // loaded window replaces the rows, whose ids are the block indices.
             }
             .scrollPosition(id: $scrollAnchor, anchor: .top)
             .coordinateSpace(name: Self.scrollSpace)
@@ -190,7 +193,9 @@ struct ReaderView: View {
             // watchOS (the text scrolled hundreds of points and the bar never hid).
             .modifier(ScrollDistanceReader { offset in
                 updateBar { $0.scrolled(to: offset, at: Date(), voiceOver: voiceOver) }
+#if DEBUG
                 if model.tracesRestores { model.traceScrollOffset = offset }
+#endif
             })
             // The scroll view runs under the navigation bar: its top inset is where reading starts.
             .background(GeometryReader { geo in
@@ -201,16 +206,20 @@ struct ReaderView: View {
             })
             .onPreferenceChange(ViewportOriginKey.self) { origin in
                 scrollOrigin = origin
+#if DEBUG
                 model.traceGeometry(String(format: "geo origin=%.1f line=%.1f vt=%.1f bar=%ld", Double(origin.y),
                                    Double(readingLineOnScreen), Double(model.viewportTop), barHidden ? 0 : 1))
+#endif
             }
             .onPreferenceChange(ViewportTopKey.self) { top in
                 // The reading line stays where it is on screen while the bar is hidden (see `ReadingLine`).
                 readingLineOnScreen = ReadingLine.updated(current: readingLineOnScreen, measured: top, barShown: !barHidden)
                 model.readingLineOnScreen = readingLineOnScreen
+#if DEBUG
                 model.traceGeometry(String(format: "geo inset=%.1f line=%.1f origin=%.1f vt=%.1f bar=%ld", Double(top),
                                    Double(readingLineOnScreen), Double(scrollOrigin.y), Double(model.viewportTop),
                                    barHidden ? 0 : 1))
+#endif
             }
             .onPreferenceChange(ContentTopKey.self) { top in
                 // Fallback for watchOS 10 only (see `ScrollDistanceReader`).
@@ -230,7 +239,9 @@ struct ReaderView: View {
             .onChange(of: model.jumpRequest) { request in
                 guard let request else { return }
                 DispatchQueue.main.async {
+#if DEBUG
                     model.trace("scroll \(request.index) a=\(request.anchorY.map { String(format: "%.3f", $0) } ?? "top")")
+#endif
                     // Instant jump (no animation), also under Reduce Motion.
                     var transaction = Transaction()
                     transaction.disablesAnimations = true
@@ -257,15 +268,12 @@ struct ReaderView: View {
                     UITestReaderPosition(index: model.currentIndex, offset: model.currentOffset,
                                          settled: !model.isRestoring && !model.coversText)
                 }
+#if DEBUG
                 // UI tests only (`-UITestingRestoreTrace`): the restore machinery's last events.
                 if UITesting.tracesRestores {
-                    Color.clear
-                        .frame(width: 1, height: 1)
-                        .accessibilityElement()
-                        .accessibilityIdentifier("restoreTrace")
-                        .accessibilityValue(Text(verbatim: model.traceText)) // i18n-ignore: UI-test hook
-                        .allowsHitTesting(false)
+                    UITestRestoreTrace(text: model.traceText)
                 }
+#endif
             }
             // Auto-scroll housekeeping a few times a second (never per frame): makes and updates the window,
             // saves the position, stops at the end, finishes the hand-back. Restarted when the layout changes.
@@ -865,7 +873,9 @@ extension ReaderView {
     fileprivate func updateBar(_ change: (inout BarAutoHide) -> Void) {
         change(&autoHide.state)
         guard autoHide.state.isHidden != barHidden else { return }
+#if DEBUG
         model.trace("bar hidden=\(autoHide.state.isHidden ? 1 : 0) top=\(model.currentIndex)")
+#endif
         withAnimation(.easeInOut(duration: 0.2)) { barHidden = autoHide.state.isHidden }
     }
 }
@@ -1008,9 +1018,8 @@ struct ScrollDistanceReader: ViewModifier {
             content.onScrollGeometryChange(for: CGFloat.self) { geometry in
                 // contentOffset.y is -inset at the top; adding the (bar) inset makes the start of the text 0.
                 let distance = geometry.contentOffset.y + geometry.contentInsets.top
-                // Never past the end: a fling that overshoots the end of the text bounces back up by tens of points,
-                // which read as scrolling back up and showed the bar again (#181's CI: WatchReaderTopBarTests on the
-                // short App Store book, its text scrolled to the very end and the bar shown).
+                // Never past either end: a fling that overshoots the end of the text bounces back by tens of points,
+                // which must not count as scrolling back up (that would show the bar).
                 let insets = geometry.contentInsets.top + geometry.contentInsets.bottom
                 let end = max(geometry.contentSize.height + insets - geometry.containerSize.height, 0)
                 return min(max(distance, 0), end)
@@ -1094,8 +1103,8 @@ private struct EdgeSwipeBackStrip: View {
     }
 }
 
-/// Collects the frames of the blocks the `LazyVStack` currently has instantiated. Views that are
-/// discarded stop contributing, so the dictionary only holds on-screen blocks plus a small buffer.
+/// watchOS 10 only (on watchOS 11+ rows report through `BlockFrameStore`): collects the frames of the reader's
+/// blocks in the scroll view's space.
 struct BlockFramesKey: PreferenceKey {
     static var defaultValue: [Int: BlockFrame] = [:]
     static func reduce(value: inout [Int: BlockFrame], nextValue: () -> [Int: BlockFrame]) {
@@ -1177,7 +1186,7 @@ private struct UITestBlockHeight: ViewModifier {
     }
 }
 
-/// The reader's stack: plain, so every block has its real height (#181), or lazy for a huge window. Its rows are what
+/// The reader's stack: plain, so every block has its real height, or lazy for a huge window. Its rows are what
 /// `scrollPosition` anchors the scroll view to.
 private struct ReaderStack<Content: View>: View {
     let lazy: Bool
@@ -1280,6 +1289,23 @@ private struct PreviousChapterRow: View {
         .accessibilityIdentifier("previousChapterButton")
     }
 }
+
+#if DEBUG
+/// UI tests only (`-UITestingRestoreTrace`): the reader's restore trace as the value of a 1 pt element "restoreTrace",
+/// for a UI test's failure message. Debug builds only.
+private struct UITestRestoreTrace: View {
+    let text: String
+
+    var body: some View {
+        Color.clear
+            .frame(width: 1, height: 1)
+            .accessibilityElement()
+            .accessibilityIdentifier("restoreTrace")
+            .accessibilityValue(Text(verbatim: text)) // i18n-ignore: UI-test hook
+            .allowsHitTesting(false)
+    }
+}
+#endif
 
 /// UI tests only (`-UITestingReaderPosition`, see `UITesting`): the reading position as a tiny, untappable element
 /// "readerPosition" whose value is "block=<flat index> offset=<characters> settled=<0|1>" ("settled" once no restore

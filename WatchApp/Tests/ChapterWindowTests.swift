@@ -1,7 +1,7 @@
 import XCTest
 @testable import FolitoWatch
 
-/// The reader's chapter window (`ChapterWindow`, build 49 feedback): which blocks the scroll view holds.
+/// The reader's chapter window (`ChapterWindow`): which blocks the scroll view holds.
 final class ChapterWindowTests: XCTestCase {
     /// Chapters of 10, 3, 0 (empty: shares its start with the next), 20 and 5 blocks.
     private let starts = [0, 10, 13, 13, 33]

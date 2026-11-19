@@ -280,8 +280,8 @@ enum WatchUI {
     }
 
     /// One accessibility snapshot of the reader. With the reader's plain stack every block of the loaded chapters is
-    /// in the tree, and querying them one `XCUIElement` at a time made each check a query per block (#181: the size
-    /// tests ran past their 3-minute allowance). Nil if the snapshot fails.
+    /// in the tree, and querying them one `XCUIElement` at a time would make each check a query per block. Nil if the
+    /// snapshot fails.
     static func readerShot(in app: XCUIApplication) -> ReaderShot? {
         guard let root = try? app.snapshot() else { return nil }
         var blocks: [BlockShot] = []
@@ -372,9 +372,8 @@ enum WatchUI {
         return true
     }
 
-    /// A short drag in a list (a tenth of the screen). A third of the screen flung the chapter list on by four rows
-    /// after the finger lifted (#181's first CI run: "Chapter 27." to "Chapter 31." in one drag), past the row
-    /// looked for; a short one moves it by about a row.
+    /// A short drag in a list (a tenth of the screen). A third of the screen flings a long chapter list on by about
+    /// four rows after the finger lifts, past the row looked for; a short one moves it by about a row.
     static func listStep(_ app: XCUIApplication, towardsTop: Bool) {
         let window = app.windows.firstMatch
         let a = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45))

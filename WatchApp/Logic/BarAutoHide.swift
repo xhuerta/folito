@@ -131,9 +131,8 @@ enum ReadingLine {
     /// The reading line in the scroll view's own coordinate space (where block frames are measured), from the line
     /// on screen (`updated`: the bar's bottom edge, measured from the top of the screen, kept there while the bar is
     /// hidden) and where that space starts on screen (`scrollOriginY`). The latter is measured from the block frames
-    /// themselves (`BlockFrame.screenMinY - minY`), not taken from the scroll view's reported origin or inset: #181's
-    /// traces showed the space starting at 47.5 in one state and at 0 in another with the same reported geometry,
-    /// so any fixed assumption put chapter headings either under the bar or a bar's height below it. Never negative.
+    /// themselves (`BlockFrame.screenMinY - minY`), not taken from the scroll view's reported origin or inset, which
+    /// stay the same while the space starts either below the bar or at the top of the screen. Never negative.
     ///
     /// With the bar hidden the line stays at the bar's bottom edge on screen: hiding the bar never moves the saved
     /// position, and a chapter heading lands below where the bar is when it shows.

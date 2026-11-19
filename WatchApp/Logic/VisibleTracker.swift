@@ -11,9 +11,8 @@ struct BlockFrame: Equatable {
     /// Left edge of the block (auto-scroll lines its own copy of the text up with it).
     var minX: CGFloat = 0
     /// The block's top on screen (global coordinates), measured with the frame above. The difference to `minY` is
-    /// where the scroll view's space starts on screen, which is not always the same: #181's traces showed it at
-    /// 47.5 (the bar's height) after opening a book or a chapter jump and at 0 after a text-size change in the
-    /// menu, with the same reported inset and origin. Nil where not measured (tests).
+    /// where the scroll view's space starts on screen, which is not always the same (below the bar or at the top of
+    /// the screen, with the same reported inset and origin). Nil where not measured (tests).
     var screenMinY: CGFloat? = nil
 }
 
@@ -37,10 +36,9 @@ enum VisibleBlockResolver {
     static let lineSlack: CGFloat = 24
 
     /// The block at the reading line, only if one is there: `topIndex`, provided that block's top is not more than
-    /// `lineSlack` below the line. While the lazy stack re-lays rows, a frame report can hold only some of them, and
-    /// the first one "below the line" is then a block far down the screen or off it (#181's trace while reading
-    /// forward: "back 58 -> 52" from a report holding only block 52, its top 150 pt below the line, then
-    /// "back 52 -> 50" with block 50 at 685 pt). Such a report says nothing about the position: nil.
+    /// `lineSlack` below the line. A frame report can hold only some rows (while they are laid out again), and the
+    /// first one "below the line" is then a block far down the screen or off it. Such a report says nothing about the
+    /// position: nil.
     static func lineIndex(frames: [Int: BlockFrame], viewportTop: CGFloat = 0, threshold: CGFloat = 4) -> Int? {
         guard let top = topIndex(frames: frames, viewportTop: viewportTop, threshold: threshold),
               let frame = frames[top], frame.minY <= viewportTop + lineSlack else { return nil }
@@ -52,12 +50,9 @@ enum VisibleBlockResolver {
 enum RestoreCheck {
     /// Re-issues (and in-block corrections) for a restore the reader can see.
     static let maxRetries = 3
-    /// The same under a cover (opening, far jump, re-layout), where nobody sees them (build 49 feedback). After a
-    /// `.top` scroll on estimated heights the lazy stack measures the blocks around the target, and every block it
-    /// measures at a height other than its estimate moves the target again: in a real book (Moby-Dick: chapters of
-    /// very different lengths) that went on past three checks, and the cover lifted on the previous chapter's last
-    /// paragraph, or a later paragraph of the target chapter. About 2.4 s at the covered pace; most jumps settle in
-    /// two or three checks.
+    /// The same under a cover (opening, far jump, re-layout), where nobody sees them: a landing that is still being
+    /// laid out gets more checks before the cover lifts. About 2.4 s at the covered pace; most jumps settle in two or
+    /// three checks, and `JumpSettling.maxSettleDuration` caps the cover anyway.
     static let coveredRetries = 12
 
     /// The block at the top is not the target (or nothing is laid out yet) and retries remain. Near the
