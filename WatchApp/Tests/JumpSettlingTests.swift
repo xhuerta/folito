@@ -501,4 +501,53 @@ final class JumpSettlingTests: XCTestCase {
         model.blockFramesChanged([58: f(-120, -20), 59: f(-10, 90)])
         XCTAssertEqual(model.currentIndex, 59, "reading on still moves the position")
     }
+
+    // MARK: Reading up (#181 follow-up)
+
+    /// Landing at a chapter's start loads that chapter, then prepends the previous one once idle; reading up near the
+    /// first loaded block prepends the next one up. When the block at the reading line stayed where it was, nothing
+    /// is scrolled after the prepend's own keep-scroll.
+    @MainActor
+    func testReadingUpPrependsThePreviousChapterWhenIdle() async throws {
+        let model = try await readerReadingUpInChapterTwo()
+        let before = model.jumpRequest
+        model.blockFramesChanged([24: f(-10, 90), 25: f(100, 200)]) // block 24 stayed in place
+        try await Task.sleep(nanoseconds: 600_000_000)
+        XCTAssertEqual(model.jumpRequest, before, "nothing to correct")
+        XCTAssertFalse(model.isRestoring)
+        XCTAssertEqual(model.currentIndex, 24)
+        XCTAssertEqual(model.prependKeep?.index, 24, "the keep-scroll went with the new rows")
+    }
+
+    /// If the block at the reading line moved with the prepend, the scroll view is brought back to the same point
+    /// of it, and the moved frames never become the position.
+    @MainActor
+    func testAPrependThatMovedTheLineIsCorrected() async throws {
+        let model = try await readerReadingUpInChapterTwo()
+        model.blockFramesChanged([24: f(290, 390), 25: f(400, 500)])
+        try await waitUntil { model.isRestoring }
+        XCTAssertEqual(model.jumpRequest?.index, 24)
+        XCTAssertEqual(model.currentIndex, 24, "the moved frames are not read as scrolling")
+    }
+
+    /// A reader that jumped to chapter Three (its chapter loaded, then chapter Two prepended once idle) and read up
+    /// into chapter Two, near the window's first block, until chapter One was prepended.
+    @MainActor
+    private func readerReadingUpInChapterTwo() async throws -> ReaderViewModel {
+        let model = try await openedReader().model
+        let start = 2 * Self.blocksPerChapter
+        model.jump(to: start)
+        XCTAssertEqual(model.window, start..<(3 * Self.blocksPerChapter), "a jump loads its chapter only")
+        model.blockFramesChanged([start: f(0, 40), start + 1: f(50, 150)])
+        try await waitUntil { !model.isRestoring }
+        try await waitUntil(timeout: 3) { model.window.lowerBound == Self.blocksPerChapter }
+        // Its check (`prependCheckDelay`) finds block 40 where it was.
+        try await Task.sleep(nanoseconds: 500_000_000)
+        XCTAssertFalse(model.isRestoring, "landing, then the prepend: nothing moved")
+        model.blockFramesChanged([24: f(-10, 90), 25: f(100, 200)])
+        XCTAssertEqual(model.currentIndex, 24)
+        XCTAssertEqual(model.window.lowerBound, Self.blocksPerChapter, "not before the scroll is idle")
+        try await waitUntil(timeout: 3) { model.window.lowerBound == 0 }
+        return model
+    }
 }

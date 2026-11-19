@@ -44,9 +44,10 @@ import ReaderCore
 /// moment the layout key changes, the text is covered while that line is brought back to the top edge, and it is
 /// revealed in one move, without an announcement.
 ///
-/// One chapter at a time (`ChapterWindow`): the scroll view holds the chapter being read, in a plain stack, so every
-/// block has its real height and nothing above a target is estimated; a jump elsewhere loads the target's chapter,
-/// reading forward appends the next one below, and a "Previous Chapter" row above the first loaded block goes back.
+/// A few chapters at a time (`ChapterWindow`): the scroll view holds the chapter being read and the one before it, in a
+/// plain stack, so every block has its real height and nothing above a target is estimated; a jump elsewhere loads
+/// the target's chapter, reading forward appends the next chapter below, and reading up (or landing at a chapter's
+/// start) prepends the previous one above once the scroll is idle, keeping the block at the reading line where it is.
 /// Block frames come from the stack's own layout (`BlockFrameStore`), and the reading line is mapped into the
 /// scroll view's space from those frames (`ReadingLine.inScrollSpace`). Only a block at the reading line moves the
 /// saved position (`VisibleBlockResolver.lineIndex`).
@@ -84,7 +85,7 @@ struct ReaderView: View {
     @State private var scrollOrigin: CGPoint = .zero
     /// The block at the top of the scroll view, kept by SwiftUI (`scrollPosition(id:anchor:)`): if blocks above it
     /// change height (in the lazy stack of a huge window), the scroll view keeps this block where it is rather than
-    /// its offset.
+    /// its offset. (A prepend is compensated by the reader itself: see `ReaderViewModel.prependKeep`.)
     @State private var scrollAnchor: Int?
     /// Where the rows are (watchOS 11+): see `BlockFrameStore`.
     @State private var frameStore = BlockFrameStore()
@@ -235,6 +236,22 @@ struct ReaderView: View {
             .onChange(of: model.isRestoring) { restoring in
                 // Auto-scroll's own motion is not reading by hand either: offsets never toggle the bar then.
                 updateBar { $0.programmaticScroll(restoring || model.isAutoScrollActive) }
+            }
+            // A chapter prepended above: in the same update as the new rows, scroll to the same point of the block at
+            // the reading line (the scroll view would otherwise keep its offset and show text a chapter's height
+            // higher). That moves the content offset by the chapter's height: not scrolling, for the bar.
+            .onChange(of: model.window.lowerBound) { _ in
+                updateBar { $0.programmaticScroll(true) }
+                if let keep = model.prependKeep {
+                    var transaction = Transaction()
+                    transaction.disablesAnimations = true
+                    withTransaction(transaction) {
+                        proxy.scrollTo(keep.index, anchor: UnitPoint(x: 0, y: keep.anchorY ?? 0))
+                    }
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    updateBar { $0.programmaticScroll(model.isRestoring || model.isAutoScrollActive) }
+                }
             }
             .onChange(of: model.jumpRequest) { request in
                 guard let request else { return }
@@ -457,18 +474,11 @@ struct ReaderView: View {
 
 extension ReaderView {
 
-    /// The reader's rows: the way back past the loaded chapter's start, then the loaded blocks.
+    /// The reader's rows: the loaded blocks.
     @ViewBuilder
     fileprivate func readerRows(style: ReaderRenderStyle) -> some View {
-        // The way back past the loaded chapter's start (`ChapterWindow`): the blocks above are not loaded.
-        if let previous = model.previousChapterStart {
-            PreviousChapterRow(title: model.previousChapterTitle, color: style.accentColor) {
-                model.goToPreviousChapter()
-            }
-            // An Int like the blocks' ids (the scroll position is an Int), never one of them.
-            .id(-1 - previous)
-        }
-        // Only the chapter being read (and chapters appended below while reading): see `ChapterWindow`.
+        // Only the loaded chapters (the one before the one being read, that one, and chapters added above and below
+        // while reading): see `ChapterWindow`.
         ForEach(model.window, id: \.self) { index in
             BlockStyledText(block: model.flat.blocks[index], style: style)
                 .equatable()
@@ -1261,32 +1271,6 @@ private struct StackPlacementReader: ViewModifier {
         } else {
             content
         }
-    }
-}
-
-/// "Previous Chapter" at the top of the loaded blocks (`ChapterWindow`): scrolling back past a chapter's start is this
-/// control, which jumps to the start of the previous chapter. At least 44 pt tall; VoiceOver reads it as a button
-/// with the chapter's title as its value.
-private struct PreviousChapterRow: View {
-    let title: String?
-    let color: Color
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Label {
-                Text("Previous Chapter", comment: "Row at the top of a chapter in the reader that goes to the start of the previous chapter")
-            } icon: {
-                Image(systemName: "chevron.up")
-            }
-            .font(.footnote.weight(.semibold))
-            .foregroundStyle(color)
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityValue(Text(verbatim: title ?? "")) // i18n-ignore: the book's own chapter title
-        .accessibilityIdentifier("previousChapterButton")
     }
 }
 

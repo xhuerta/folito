@@ -13,8 +13,10 @@ import CoreGraphics
 ///   Appending below never moves what is on screen; nothing is ever inserted or removed above it while reading.
 /// - A layout change reloads the current chapter (the scroll view is rebuilt for it anyway): earlier chapters
 ///   appended while reading are trimmed only then, on a jump or when the book is reopened.
-/// - Going back past a chapter's start is a control at the top of the loaded window ("Previous Chapter"), which
-///   jumps to the start of the previous chapter.
+/// - Reading up near the window's first block (and right after landing at a chapter's start) prepends the chapter
+///   before it (`needsPrepend`), once the scroll is idle: the reader scrolls to the same point of the block at the
+///   reading line in the same update as the new rows, and the view model checks it once laid out and corrects it if
+///   it moved. Chapters far below the reader are dropped then (`trimmedBelow`), which never moves what is on screen.
 ///
 /// Chapters are the book's spine chapters (`FlatBook.chapterStarts`, flat indices). Positions stay global.
 enum ChapterWindow {
@@ -41,8 +43,12 @@ enum ChapterWindow {
         return lower..<upper
     }
 
+    /// Prepend the previous chapter once the block at the reading line is this close to the window's first block.
+    static let prependMargin = 12
+
     /// The window a jump to `target` loads: its chapter, extended by the following chapters until at least
-    /// `minimumBelow` blocks follow the target (or the book ends).
+    /// `minimumBelow` blocks follow the target (or the book ends). The chapter before it is prepended once the reader
+    /// has landed (`needsPrepend`), so a jump only lays out what it needs.
     static func window(for target: Int, chapterStarts: [Int], count: Int) -> Range<Int> {
         guard count > 0 else { return 0..<0 }
         let chapter = chapterRange(containing: target, chapterStarts: chapterStarts, count: count)
@@ -51,6 +57,36 @@ enum ChapterWindow {
             upper = chapterRange(containing: upper, chapterStarts: chapterStarts, count: count).upperBound
         }
         return chapter.lowerBound..<upper
+    }
+
+    /// `window` with the previous chapter prepended above (unchanged at the start of the book).
+    static func prependingPreviousChapter(to window: Range<Int>, chapterStarts: [Int], count: Int) -> Range<Int> {
+        guard window.lowerBound > 0 else { return window }
+        let previous = chapterRange(containing: window.lowerBound - 1, chapterStarts: chapterStarts, count: count)
+        return previous.lowerBound..<window.upperBound
+    }
+
+    /// Whether the previous chapter should be prepended: the block at the reading line (`top`) is within
+    /// `prependMargin` blocks of the window's first block, and the book has chapters before it.
+    static func needsPrepend(top: Int?, window: Range<Int>) -> Bool {
+        guard let top, window.lowerBound > 0, window.contains(top) else { return false }
+        return top - window.lowerBound < prependMargin
+    }
+
+    /// `window` without the chapters far below the reader: it keeps the chapter being read (`top`'s), the one after
+    /// it, and at least `minimumBelow` blocks after `top`. Dropping blocks below the screen never moves it.
+    static func trimmedBelow(_ window: Range<Int>, readingAt top: Int, chapterStarts: [Int], count: Int) -> Range<Int> {
+        guard window.contains(top) else { return window }
+        let current = chapterRange(containing: top, chapterStarts: chapterStarts, count: count)
+        var keep = current.upperBound
+        if keep < count {
+            keep = chapterRange(containing: keep, chapterStarts: chapterStarts, count: count).upperBound
+        }
+        while keep < count && keep - top < minimumBelow {
+            keep = chapterRange(containing: keep, chapterStarts: chapterStarts, count: count).upperBound
+        }
+        guard keep < window.upperBound else { return window }
+        return window.lowerBound..<keep
     }
 
     /// `window` with the next chapter appended below (unchanged at the end of the book).
@@ -65,13 +101,6 @@ enum ChapterWindow {
     static func needsAppend(lastLaidOut: Int?, window: Range<Int>, count: Int) -> Bool {
         guard let lastLaidOut, window.upperBound < count else { return false }
         return lastLaidOut >= window.upperBound - appendMargin
-    }
-
-    /// Where "Previous Chapter" at the top of `window` goes: the start of the chapter before it, nil at the book's
-    /// start.
-    static func previousChapterStart(before window: Range<Int>, chapterStarts: [Int], count: Int) -> Int? {
-        guard window.lowerBound > 0 else { return nil }
-        return chapterRange(containing: window.lowerBound - 1, chapterStarts: chapterStarts, count: count).lowerBound
     }
 
     /// The window `target` needs for a hand-back or another move that must not rebuild what is on screen: the same

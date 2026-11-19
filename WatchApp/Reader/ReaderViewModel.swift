@@ -31,6 +31,27 @@ final class ReaderViewModel: ObservableObject {
     /// changes kind under the reader.
     @Published private(set) var windowIsLazy: Bool
     static let lazyWindowThreshold = 400
+    /// A prepend waits for the scroll to be idle this long (seconds), so the block at the reading line is still.
+    static let prependIdle: TimeInterval = 0.35
+    /// How far (points) the block at the reading line may be off after a prepend before it is brought back.
+    static let prependTolerance = 1.0
+    private var prependTask: Task<Void, Never>?
+    /// When the last frame report came (a prepend waits until the scroll is idle).
+    private var lastFrameReport = Date.distantPast
+    /// A prepend in progress: the block that was at the reading line and its top (scroll-view space) before it.
+    private struct PendingPrepend {
+        let block: Int
+        let minY: Double
+    }
+    private var pendingPrepend: PendingPrepend?
+    private var prependCheckTask: Task<Void, Never>?
+    /// How long after a prepend the block at the reading line is checked (seconds): every row has reported its new
+    /// place by then. The first frame reports after the rows go in still mix old and new places.
+    static let prependCheckDelay: TimeInterval = 0.3
+    /// Set with a prepend, in the same update as the new rows: where the reader scrolls so that the block at the
+    /// reading line stays where it is (the scroll view keeps its offset when rows go in above). Cleared by any other
+    /// change of the window.
+    @Published private(set) var prependKeep: JumpRequest?
 #if DEBUG
     /// Trace only: when the current window was loaded, for how long it takes to show (`window shown`).
     private var windowLoad: (date: Date, target: Int, count: Int)?
@@ -502,6 +523,7 @@ final class ReaderViewModel: ObservableObject {
         // The scroll view is rebuilt for the new layout: it gets the current chapter only (chapters appended while
         // reading are dropped here, not while reading).
         let reloaded = ChapterWindow.window(for: currentIndex, chapterStarts: flat.chapterStarts, count: flat.count)
+        cancelPrepend()
         if reloaded != window {
             window = reloaded
             windowIsLazy = reloaded.count > Self.lazyWindowThreshold
@@ -682,6 +704,7 @@ final class ReaderViewModel: ObservableObject {
     func blockFramesChanged(_ frames: [Int: BlockFrame], layoutKey: String? = nil) {
         if let layoutKey { layoutChanged(to: layoutKey) }
         lastFrames = frames
+        lastFrameReport = Date()
         // Measure where the scroll view's space starts on screen from these very frames, so the reading line and the
         // frames it is compared with are always in the same space.
         if let measured = frames.min(by: { $0.key < $1.key }).flatMap({ entry in
@@ -705,6 +728,8 @@ final class ReaderViewModel: ObservableObject {
         // While auto-scroll moves the text the scroll view underneath stands still (hidden): its frames say
         // nothing about the reading position, which auto-scroll reports itself (`autoScrollPositionChanged`).
         guard autoScroll != .running else { return }
+        // Between a prepend and its check, frame reports mix the rows' old and new places: they are not reading.
+        guard pendingPrepend == nil else { return }
         // Reading forward: the next chapter goes below before its first block is needed (never during a restore,
         // which must not see the content change under it).
         if !isRestoring, ChapterWindow.needsAppend(lastLaidOut: frames.keys.max(), window: window, count: flat.count) {
@@ -723,6 +748,8 @@ final class ReaderViewModel: ObservableObject {
 #if DEBUG
         traceReading(frames: frames, top: lineTop, changed: lineTop != nil && lineTop != currentIndex)
 #endif
+        // Reading up near the first loaded block: the previous chapter goes above once the scroll is idle.
+        if autoScroll == .off, ChapterWindow.needsPrepend(top: lineTop, window: window) { schedulePrepend() }
         guard let top = lineTop,
               top < flat.count, let frame = frames[top] else {
 #if DEBUG
@@ -747,7 +774,8 @@ final class ReaderViewModel: ObservableObject {
             return
         }
 #if DEBUG
-        if top < currentIndex { traceStepBack(to: top, frame: frame, frames: frames) }
+        // Only a jump back (more than a few blocks), not reading up a block at a time.
+        if currentIndex - top > 3 { traceStepBack(to: top, frame: frame, frames: frames) }
 #endif
         learnSpeed(from: currentIndex, to: top)
         currentIndex = top
@@ -1047,6 +1075,8 @@ final class ReaderViewModel: ObservableObject {
         endSettlingCover()
         if !isPositioned { isPositioned = true }
         if jumped { arrival = Arrival(announcement: arrivalAnnouncement) }
+        // Landed near the first loaded block (a chapter's start): the chapter before it goes above once idle.
+        if autoScroll == .off, ChapterWindow.needsPrepend(top: currentIndex, window: window) { schedulePrepend() }
     }
 
     /// Covers the text until the jump has landed (`restoreSettled`), with the indicator after a moment.
@@ -1173,8 +1203,8 @@ final class ReaderViewModel: ObservableObject {
     // MARK: Chapter window
 
     /// Loads the window a jump to `target` needs, unless the loaded one already holds it. A window starting at another
-    /// block is a new scroll view (`ReaderView` keys it on the window's start): the frames measured in the old one
-    /// are dropped, and the restore waits for the new ones like after a re-layout.
+    /// block replaces the rows: the frames measured for the old ones are dropped, and the restore waits for the new
+    /// ones like after a re-layout.
     private func loadWindow(for target: Int) {
         guard !flat.isEmpty, !window.contains(target) else { return }
         let next = ChapterWindow.window(for: target, chapterStarts: flat.chapterStarts, count: flat.count)
@@ -1186,6 +1216,7 @@ final class ReaderViewModel: ObservableObject {
             staleFrames = [:]
             framesStaleSince = Date()
         }
+        cancelPrepend()
         window = next
         windowIsLazy = next.count > Self.lazyWindowThreshold
 #if DEBUG
@@ -1193,21 +1224,101 @@ final class ReaderViewModel: ObservableObject {
 #endif
     }
 
-    /// Where "Previous Chapter" at the top of the loaded blocks goes (nil at the start of the book).
-    var previousChapterStart: Int? {
-        ChapterWindow.previousChapterStart(before: window, chapterStarts: flat.chapterStarts, count: flat.count)
+    /// Reading up near the first loaded block: prepend the previous chapter once the scroll is idle (no frame report
+    /// for `prependIdle`), checked every `prependIdle`. Never during a restore or auto-scroll; a deferred prepend
+    /// looks again at the position it then finds.
+    private func schedulePrepend() {
+        guard prependTask == nil else { return }
+        let idle = Self.prependIdle
+        prependTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(idle * 1_000_000_000))
+            guard !Task.isCancelled, let self else { return }
+            self.prependTask = nil
+            self.prependIfIdle()
+        }
     }
 
-    /// The title of that chapter, for VoiceOver ("Previous Chapter, Loomings").
-    var previousChapterTitle: String? {
-        previousChapterStart.flatMap { flat.chapterTitle(at: $0) }
+    private func prependIfIdle() {
+        guard !isRestoring, autoScroll == .off, pendingPrepend == nil,
+              ChapterWindow.needsPrepend(top: currentIndex, window: window) else { return }
+        guard Date().timeIntervalSince(lastFrameReport) >= Self.prependIdle else {
+            schedulePrepend()
+            return
+        }
+        guard let frame = lastFrames[currentIndex] else { return }
+        let spans = lastFrames.mapValues { AutoScroll.Span(minY: Double($0.minY), maxY: Double($0.maxY)) }
+        let pointsAbove = Double(viewportTop) - Double(frame.minY)
+        let cursor = AutoScroll.Cursor(index: currentIndex, offset: pointsAbove)
+        guard let keep = AutoScroll.scrollTarget(cursor, frames: spans, viewportTop: Double(viewportTop),
+                                                 viewportHeight: Double(viewportHeight)) else { return }
+        let prepended = ChapterWindow.prependingPreviousChapter(to: window, chapterStarts: flat.chapterStarts,
+                                                                count: flat.count)
+        let trimmed = ChapterWindow.trimmedBelow(prepended, readingAt: currentIndex, chapterStarts: flat.chapterStarts,
+                                                 count: flat.count)
+        pendingPrepend = PendingPrepend(block: currentIndex, minY: Double(frame.minY))
+#if DEBUG
+        let before = String(format: "minY=%.1f", Double(frame.minY))
+        trace("prepend \(window.lowerBound)-\(window.upperBound) -> \(trimmed.lowerBound)-\(trimmed.upperBound) "
+              + "block=\(currentIndex) \(before)")
+#endif
+        prependKeep = JumpRequest(index: keep.index, anchorY: keep.anchorY)
+        window = trimmed
+        prependCheckTask?.cancel()
+        let delay = Self.prependCheckDelay
+        prependCheckTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            guard !Task.isCancelled, let self else { return }
+            self.prependCheckTask = nil
+            self.checkPrepend()
+        }
     }
 
-    /// "Previous Chapter": to the start of the chapter before the loaded blocks (its heading at the top), like
-    /// choosing it in the chapter list.
-    func goToPreviousChapter() {
-        guard let start = previousChapterStart else { return }
-        jump(to: start)
+    /// `prependCheckDelay` after a prepend, once every row has reported its new place: the block that was at the
+    /// reading line must be where it was. If it moved, the scroll view is brought back to the same point of that block
+    /// (a restore like auto-scroll's hand-back); if it is not even measured any more, back to the saved line.
+    private func checkPrepend() {
+        guard let pending = pendingPrepend else { return }
+        pendingPrepend = nil
+        let frames = lastFrames
+        guard let frame = frames[pending.block] else {
+#if DEBUG
+            trace("prepend lost block \(pending.block): blocks=\(frames.keys.min() ?? -1)-\(frames.keys.max() ?? -1)")
+#endif
+            guard !isRestoring else { return }
+            beginRestore(target: currentIndex, offset: currentOffset)
+            jumpRequest = JumpRequest(index: currentIndex, anchorY: restoreAnchor)
+            return
+        }
+        let moved = Double(frame.minY) - pending.minY
+#if DEBUG
+        trace(String(format: "prepend kept block %ld: moved=%.1f", pending.block, moved))
+#endif
+        guard abs(moved) > Self.prependTolerance, !isRestoring else { return }
+        keepPoint(of: pending.block, pointsAbove: Double(viewportTop) - pending.minY, frames: frames)
+    }
+
+    /// A jump or a re-layout replaces the window: a prepend waiting or being checked no longer applies.
+    private func cancelPrepend() {
+        prependTask?.cancel()
+        prependTask = nil
+        prependCheckTask?.cancel()
+        prependCheckTask = nil
+        pendingPrepend = nil
+        prependKeep = nil
+    }
+
+    /// Brings the scroll view back so that `pointsAbove` points of `block` are above the reading line, the way
+    /// auto-scroll's hand-back does, without changing the saved position.
+    private func keepPoint(of block: Int, pointsAbove: Double, frames: [Int: BlockFrame]) {
+        let spans = frames.mapValues { AutoScroll.Span(minY: Double($0.minY), maxY: Double($0.maxY)) }
+        let cursor = AutoScroll.Cursor(index: block, offset: pointsAbove)
+        guard let target = AutoScroll.scrollTarget(cursor, frames: spans, viewportTop: Double(viewportTop),
+                                                   viewportHeight: Double(viewportHeight)) else { return }
+        beginRestore(target: block)
+        restorePoints = pointsAbove
+        restoreJumpIndex = target.index
+        restoreAnchor = target.anchorY
+        jumpRequest = JumpRequest(index: target.index, anchorY: target.anchorY)
     }
 
     // MARK: Bookmarks
@@ -1438,6 +1549,10 @@ final class ReaderViewModel: ObservableObject {
 
     func leave() {
         restoreTask?.cancel()
+        prependTask?.cancel()
+        prependTask = nil
+        prependCheckTask?.cancel()
+        prependCheckTask = nil
         settlingIndicatorTask?.cancel()
         settlingIndicatorTask = nil
         if autoScroll != .off { autoScroll = .off }

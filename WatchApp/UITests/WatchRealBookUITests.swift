@@ -205,27 +205,61 @@ final class WatchRealBookUITests: XCTestCase {
         }
     }
 
-    /// "Previous Chapter" at the top of a loaded chapter goes to the start of the chapter before it.
+    /// Reading up from the start of "Chapter 4." through Chapters 3 and 2 into Chapter 1 (three chapter starts): the
+    /// text scrolls on continuously, the position only moves back, a few blocks per drag at most, and each prepend of
+    /// a previous chapter (the trace's "prepend kept block N: moved=X") leaves the block at the reading line within
+    /// 1 pt. Also: the bar hides when scrolling down from a chapter's start, now that the previous chapter is above it.
     @MainActor
-    func testPreviousChapterControlGoesToThePreviousChaptersStart() {
+    func testReadingUpAcrossChapterStartsIsContinuous() {
         guard let launched = launchVariedBook() else { return }
         let app = launched.app, line = launched.line
-        guard WatchUI.chooseChapter("Chapter 3.", current: "Chapter 1.", in: app, backwardSteps: 0, forwardSteps: 12)
+        guard WatchUI.chooseChapter("Chapter 4.", current: "Chapter 1.", in: app, backwardSteps: 0, forwardSteps: 12)
         else { return }
-        assertHeadingAtTheTop("Chapter 3.", readingLine: line, in: app, step: "jump to Chapter 3.")
-        let control = WatchUI.element("previousChapterButton", in: app)
-        var drags = 0
-        while !(control.exists && control.isHittable) && drags < 4 {
+        assertHeadingAtTheTop("Chapter 4.", readingLine: line, in: app, step: "jump to Chapter 4.")
+
+        let options = WatchUI.element("readerOptionsButton", in: app)
+        for _ in 0..<3 { WatchUI.nudgeUp(app) }
+        let hidden = NSPredicate { _, _ in !(options.exists && options.isHittable) }
+        XCTAssertEqual(XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: hidden, object: nil)], timeout: 5),
+                       .completed, "The bar should hide when scrolling down from a chapter's start")
+        sleep(1)
+        guard let start = WatchUI.settledPosition(in: app).flatMap({ blockIndex($0) }) else {
+            return WatchUI.fail("No settled position in Chapter 4. " + diagnostics("Chapter 4.", in: app), in: app)
+        }
+
+        // Flat indices in the varied book: Chapter 2. starts at 35, Chapter 3. at 46, Chapter 4. at 60.
+        let chapterOneEnd = 35
+        var previous = start
+        var prepends = Set<String>()
+        for step in 0..<150 {
             WatchUI.nudgeDown(app)
-            drags += 1
+            sleep(1)
+            guard let value = WatchUI.settledPosition(in: app, timeout: 5), let block = blockIndex(value) else {
+                return WatchUI.fail("Reading up, drag \(step): no settled position. " + diagnostics("Chapter 3.", in: app),
+                                    in: app)
+            }
+            XCTAssertLessThanOrEqual(block, previous, "Reading up, drag \(step): the position went forward from "
+                                     + "\(previous) to \(block). " + diagnostics("Chapter 3.", in: app))
+            XCTAssertLessThanOrEqual(previous - block, 8, "Reading up, drag \(step): the text jumped from block "
+                                     + "\(previous) to \(block). " + diagnostics("Chapter 3.", in: app))
+            previous = block
+            let trace = WatchUI.element("restoreTrace", in: app).value as? String ?? ""
+            for entry in trace.components(separatedBy: " | ") where entry.hasPrefix("prepend kept block") {
+                prepends.insert(entry)
+            }
+            if block < chapterOneEnd { break }
         }
-        guard control.exists, control.isHittable else {
-            return WatchUI.fail("No Previous Chapter control above Chapter 3. " + diagnostics("Chapter 3.", in: app), in: app)
+        guard previous < chapterOneEnd else {
+            return WatchUI.fail("Reading up never reached Chapter 1. (block \(previous)). "
+                                + diagnostics("Chapter 2.", in: app), in: app)
         }
-        XCTAssertGreaterThanOrEqual(control.frame.height, 44, "Previous Chapter is at least 44 pt tall")
-        control.tap()
-        let settled = assertHeadingAtTheTop("Chapter 2.", readingLine: line, in: app, step: "Previous Chapter")
-        XCTAssertEqual(settled.flatMap { blockIndex($0) }, 35, "the start of Chapter 2. (block 35)")
+        XCTAssertFalse(prepends.isEmpty, "Reading up from Chapter 4. prepends Chapters 2. and 1. "
+                       + diagnostics("Chapter 2.", in: app))
+        for entry in prepends {
+            let moved = entry.components(separatedBy: "moved=").last.flatMap { Double($0) } ?? .infinity
+            XCTAssertLessThanOrEqual(abs(moved), 1, "A prepend moved the text: \(entry). " + diagnostics("Chapter 2.", in: app))
+        }
+        print("[prepends] \(prepends.sorted().joined(separator: "; "))")
     }
 
     /// Prints the trace's "window shown" entries (how long a loaded chapter took to show its target) to the test log.
