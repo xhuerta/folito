@@ -18,21 +18,51 @@ final class ChapterWindowTests: XCTestCase {
         XCTAssertEqual(ChapterWindow.chapterRange(containing: 0, chapterStarts: [], count: 0), 0..<0)
     }
 
-    /// A jump loads the target's chapter, plus following chapters until `minimumBelow` blocks follow the target.
-    func testWindowForAJumpStartsAtTheChapterAndLeavesRoomBelow() {
-        XCTAssertEqual(ChapterWindow.window(for: 13, chapterStarts: starts, count: count), 13..<33,
-                       "a chapter start: its chapter only, nothing above the target")
-        XCTAssertEqual(ChapterWindow.window(for: 10, chapterStarts: starts, count: count), 10..<33,
+    /// A jump loads the chapter before the target's, the target's chapter, and following chapters until
+    /// `minimumBelow` blocks follow the target.
+    func testWindowForAJumpHoldsThePreviousChapterAndRoomBelow() {
+        XCTAssertEqual(ChapterWindow.window(for: 13, chapterStarts: starts, count: count), 10..<33,
+                       "a chapter start: the previous chapter above it")
+        XCTAssertEqual(ChapterWindow.window(for: 10, chapterStarts: starts, count: count), 0..<33,
                        "a short chapter takes the next one too, so its start can reach the top")
-        XCTAssertEqual(ChapterWindow.window(for: 30, chapterStarts: starts, count: count), 13..<38,
+        XCTAssertEqual(ChapterWindow.window(for: 30, chapterStarts: starts, count: count), 10..<38,
                        "near a chapter's end: the next chapter as well")
-        XCTAssertEqual(ChapterWindow.window(for: 36, chapterStarts: starts, count: count), 33..<38, "the book's end")
+        XCTAssertEqual(ChapterWindow.window(for: 36, chapterStarts: starts, count: count), 13..<38, "the book's end")
+        XCTAssertEqual(ChapterWindow.window(for: 2, chapterStarts: starts, count: count).lowerBound, 0,
+                       "nothing above the first chapter")
         for target in 0..<count {
             let window = ChapterWindow.window(for: target, chapterStarts: starts, count: count)
             XCTAssertTrue(window.contains(target), "\(target) in \(window)")
             XCTAssertTrue(window.upperBound - target >= ChapterWindow.minimumBelow || window.upperBound == count)
             XCTAssertTrue(starts.contains(window.lowerBound), "a window starts at a chapter start")
         }
+    }
+
+    /// Reading up prepends whole chapters above, never changing the window's end.
+    func testPrependingAddsThePreviousChapter() {
+        XCTAssertEqual(ChapterWindow.prependingPreviousChapter(to: 13..<38, chapterStarts: starts, count: count), 10..<38)
+        XCTAssertEqual(ChapterWindow.prependingPreviousChapter(to: 10..<38, chapterStarts: starts, count: count), 0..<38)
+        XCTAssertEqual(ChapterWindow.prependingPreviousChapter(to: 0..<13, chapterStarts: starts, count: count), 0..<13,
+                       "nothing before the book's start")
+    }
+
+    func testPrependIsNeededOnlyNearTheLoadedStart() {
+        XCTAssertTrue(ChapterWindow.needsPrepend(top: 15, window: 13..<33))
+        XCTAssertTrue(ChapterWindow.needsPrepend(top: 13 + ChapterWindow.prependMargin - 1, window: 13..<33))
+        XCTAssertFalse(ChapterWindow.needsPrepend(top: 13 + ChapterWindow.prependMargin, window: 13..<33))
+        XCTAssertFalse(ChapterWindow.needsPrepend(top: 2, window: 0..<33), "the book's start")
+        XCTAssertFalse(ChapterWindow.needsPrepend(top: nil, window: 13..<33))
+        XCTAssertFalse(ChapterWindow.needsPrepend(top: 5, window: 13..<33), "not in the window")
+    }
+
+    /// Chapters far below the reader go; the chapter being read, the next one and `minimumBelow` blocks stay.
+    func testTrimmingBelowKeepsTheReaderAndTheNextChapter() {
+        XCTAssertEqual(ChapterWindow.trimmedBelow(10..<38, readingAt: 11, chapterStarts: starts, count: count), 10..<33)
+        XCTAssertEqual(ChapterWindow.trimmedBelow(10..<33, readingAt: 20, chapterStarts: starts, count: count), 10..<33)
+        XCTAssertEqual(ChapterWindow.trimmedBelow(0..<38, readingAt: 2, chapterStarts: starts, count: count), 0..<33,
+                       "chapter 1, chapter 2 (3 blocks) and enough below")
+        XCTAssertEqual(ChapterWindow.trimmedBelow(0..<38, readingAt: 50, chapterStarts: starts, count: count), 0..<38,
+                       "a reader outside the window changes nothing")
     }
 
     /// Reading forward appends whole chapters below, never changing the window's start.
@@ -48,12 +78,6 @@ final class ChapterWindowTests: XCTestCase {
         XCTAssertFalse(ChapterWindow.needsAppend(lastLaidOut: 20, window: 13..<33, count: count))
         XCTAssertTrue(ChapterWindow.needsAppend(lastLaidOut: 33 - ChapterWindow.appendMargin, window: 13..<33, count: count))
         XCTAssertFalse(ChapterWindow.needsAppend(lastLaidOut: 37, window: 33..<38, count: count), "the book's end")
-    }
-
-    func testPreviousChapterStart() {
-        XCTAssertNil(ChapterWindow.previousChapterStart(before: 0..<13, chapterStarts: starts, count: count))
-        XCTAssertEqual(ChapterWindow.previousChapterStart(before: 13..<33, chapterStarts: starts, count: count), 10)
-        XCTAssertEqual(ChapterWindow.previousChapterStart(before: 33..<38, chapterStarts: starts, count: count), 13)
     }
 
     /// The auto-scroll hand-back extends the window below without moving its start; above it, nothing.

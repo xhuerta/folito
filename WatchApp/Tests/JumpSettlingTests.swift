@@ -501,4 +501,46 @@ final class JumpSettlingTests: XCTestCase {
         model.blockFramesChanged([58: f(-120, -20), 59: f(-10, 90)])
         XCTAssertEqual(model.currentIndex, 59, "reading on still moves the position")
     }
+
+    // MARK: Reading up (#181 follow-up)
+
+    /// Reading up near the first loaded block prepends the previous chapter once the scroll is idle; when the block
+    /// at the reading line has stayed where it was, nothing is scrolled.
+    @MainActor
+    func testReadingUpPrependsThePreviousChapterWhenIdle() async throws {
+        let model = try await readerReadingUpInChapterTwo()
+        let before = model.jumpRequest
+        model.blockFramesChanged([24: f(-10, 90), 25: f(100, 200)]) // the scroll view kept block 24 in place
+        XCTAssertEqual(model.jumpRequest, before, "nothing to correct")
+        XCTAssertFalse(model.isRestoring)
+        XCTAssertEqual(model.currentIndex, 24)
+    }
+
+    /// If the block at the reading line moved with the prepend, the scroll view is brought back to the same point
+    /// of it, and the moved frames never become the position.
+    @MainActor
+    func testAPrependThatMovedTheLineIsCorrected() async throws {
+        let model = try await readerReadingUpInChapterTwo()
+        model.blockFramesChanged([24: f(290, 390), 25: f(400, 500)])
+        XCTAssertTrue(model.isRestoring, "brought back")
+        XCTAssertEqual(model.jumpRequest?.index, 24)
+        XCTAssertEqual(model.currentIndex, 24, "the moved frames are not read as scrolling")
+    }
+
+    /// A reader that jumped to chapter Three (window: chapters Two and Three) and read up into chapter Two, near the
+    /// window's first block, until chapter One was prepended.
+    @MainActor
+    private func readerReadingUpInChapterTwo() async throws -> ReaderViewModel {
+        let model = try await openedReader().model
+        let start = 2 * Self.blocksPerChapter
+        model.jump(to: start)
+        XCTAssertEqual(model.window, Self.blocksPerChapter..<(3 * Self.blocksPerChapter))
+        model.blockFramesChanged([start: f(0, 40), start + 1: f(50, 150)])
+        try await waitUntil { !model.isRestoring }
+        model.blockFramesChanged([24: f(-10, 90), 25: f(100, 200)])
+        XCTAssertEqual(model.currentIndex, 24)
+        XCTAssertEqual(model.window.lowerBound, Self.blocksPerChapter, "not before the scroll is idle")
+        try await waitUntil(timeout: 3) { model.window.lowerBound == 0 }
+        return model
+    }
 }
