@@ -520,6 +520,37 @@ final class ReaderViewModel: ObservableObject {
     /// The last few geometry reports (scroll view top edge, reading line), kept apart so the bar's animation does
     /// not push the checks out of `restoreTrace`.
     @Published private(set) var geometryTrace: [String] = []
+    /// Reading by hand (no restore): each change of the top block, and every tenth report, with the content offset,
+    /// the measured blocks and the measured height above the top block, to show when the offset and the frames part.
+    @Published private(set) var readingTrace: [String] = []
+    private var readingReports = 0
+
+    /// Everything the trace holds, for the "restoreTrace" element.
+    var traceText: String {
+        var parts: [String] = restoreTrace
+        parts.append("geometry:")
+        parts.append(contentsOf: geometryTrace)
+        parts.append("reading:")
+        parts.append(contentsOf: readingTrace)
+        return parts.joined(separator: " | ")
+    }
+
+    private func traceReading(frames: [Int: BlockFrame], top: Int?, changed: Bool) {
+        guard tracesRestores else { return }
+        readingReports += 1
+        guard changed || readingReports % 10 == 0 else { return }
+        let offsetText = traceScrollOffset.map { String(format: "%.1f", Double($0)) } ?? "nil"
+        var above: CGFloat = 0
+        if let top {
+            for (index, frame) in frames where index < top { above += frame.maxY - frame.minY }
+        }
+        let first = frames.keys.min() ?? -1
+        let last = frames.keys.max() ?? -1
+        let topText = top.map(String.init) ?? "nil"
+        let aboveText = String(format: "%.1f", Double(above))
+        readingTrace.append("r\(readingReports) top=\(topText) off=\(offsetText) blocks=\(first)-\(last) above=\(aboveText)")
+        if readingTrace.count > 20 { readingTrace.removeFirst(readingTrace.count - 20) }
+    }
     private static let traceLimit = 30
 
     func traceGeometry(_ event: @autoclosure () -> String) {
@@ -624,7 +655,9 @@ final class ReaderViewModel: ObservableObject {
         // Only a block that is at the reading line moves the position: a partial report (some rows only, while the
         // lazy stack re-lays them) leaves it where it is.
         guard !isRestoring else { return }
-        guard let top = VisibleBlockResolver.lineIndex(frames: frames, viewportTop: viewportTop),
+        let lineTop = VisibleBlockResolver.lineIndex(frames: frames, viewportTop: viewportTop)
+        traceReading(frames: frames, top: lineTop, changed: lineTop != nil && lineTop != currentIndex)
+        guard let top = lineTop,
               top < flat.count, let frame = frames[top] else {
             if tracesRestores, !frames.isEmpty {
                 let topText = VisibleBlockResolver.topIndex(frames: frames, viewportTop: viewportTop).map(String.init) ?? "nil"

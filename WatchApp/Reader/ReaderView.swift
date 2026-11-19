@@ -75,6 +75,12 @@ struct ReaderView: View {
     @State private var barHidden = false
     /// The scroll view's origin in global coordinates: the origin of `scrollSpace`, for taps in the edge strip.
     @State private var scrollOrigin: CGPoint = .zero
+    /// The block at the top of the scroll view, kept by SwiftUI (`scrollPosition(id:anchor:)`): when blocks above it
+    /// change height (the lazy stack replacing estimates with measurements, or re-estimating blocks that scrolled
+    /// away), the scroll view keeps this block where it is instead of keeping its offset. Without it, reading forward
+    /// the content offset stayed while the blocks moved: #181's trace, block 51 back at the line where block 58 had
+    /// been, the offset unchanged at 4314.5.
+    @State private var scrollAnchor: Int?
     /// The reading line on screen (global y of the bar's bottom edge, latched while the bar is hidden; see
     /// `ReadingLine`). The model turns it into the scroll view's own coordinates (`ReadingLine.inScrollSpace`).
     @State private var readingLineOnScreen: CGFloat = 0
@@ -137,7 +143,8 @@ struct ReaderView: View {
                         PreviousChapterRow(title: model.previousChapterTitle, color: style.accentColor) {
                             model.goToPreviousChapter()
                         }
-                        .id("previous-\(previous)")
+                        // An Int like the blocks' ids (the scroll position is an Int), never one of them.
+                        .id(-1 - previous)
                     }
                     // Only the chapter being read (and chapters appended below while reading): see `ChapterWindow`.
                     ForEach(model.window, id: \.self) { index in
@@ -170,6 +177,8 @@ struct ReaderView: View {
                         Text("This book has no text.").foregroundStyle(style.secondaryColor)
                     }
                 }
+                // Its rows are what `scrollPosition` anchors the scroll view to.
+                .scrollTargetLayout()
                 .padding(.horizontal, style.typography.horizontalMargin)
                 // A tap between two paragraphs (the stack's spacing belongs to no block) or in the side margins
                 // reaches no block's tap gesture: here it shows a hidden bar too (or resumes a paused auto-scroll),
@@ -189,6 +198,7 @@ struct ReaderView: View {
                 // and with the ScrollView keyed the bar stopped hiding. One chapter at a time (`ChapterWindow`) is what
                 // keeps estimated heights out of the way; a loaded window replaces the rows (their ids are the blocks).
             }
+            .scrollPosition(id: $scrollAnchor, anchor: .top)
             .coordinateSpace(name: Self.scrollSpace)
             // While auto-scroll shows the text itself, the scroll view stays laid out (its frames place the
             // hand-back) but is hidden, silent and untouchable, with no indicator flashing beside the crown.
@@ -277,8 +287,7 @@ struct ReaderView: View {
                         .frame(width: 1, height: 1)
                         .accessibilityElement()
                         .accessibilityIdentifier("restoreTrace")
-                        .accessibilityValue(Text(verbatim: (model.restoreTrace + ["geometry:"] + model.geometryTrace) // i18n-ignore: UI-test hook
-                            .joined(separator: " | ")))
+                        .accessibilityValue(Text(verbatim: model.traceText)) // i18n-ignore: UI-test hook
                         .allowsHitTesting(false)
                 }
             }
@@ -976,7 +985,13 @@ struct ScrollDistanceReader: ViewModifier {
         if #available(watchOS 11.0, *) {
             content.onScrollGeometryChange(for: CGFloat.self) { geometry in
                 // contentOffset.y is -inset at the top; adding the (bar) inset makes the start of the text 0.
-                geometry.contentOffset.y + geometry.contentInsets.top
+                let distance = geometry.contentOffset.y + geometry.contentInsets.top
+                // Never past the end: a fling that overshoots the end of the text bounces back up by tens of points,
+                // which read as scrolling back up and showed the bar again (#181's CI: WatchReaderTopBarTests on the
+                // short App Store book, its text scrolled to the very end and the bar shown).
+                let insets = geometry.contentInsets.top + geometry.contentInsets.bottom
+                let end = max(geometry.contentSize.height + insets - geometry.containerSize.height, 0)
+                return min(max(distance, 0), end)
             } action: { _, offset in
                 action(offset)
             }
