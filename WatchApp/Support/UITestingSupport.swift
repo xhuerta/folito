@@ -34,6 +34,10 @@ enum UITesting {
     /// `-UITestingSeedLongBook` (with `-UITestingSeedSampleBook`): the seeded book is `longBook` instead of the
     /// one-chapter sample, so a jump to a late chapter is a far jump in the lazy reader (#174).
     static let seedLongBookArgument = "-UITestingSeedLongBook"
+    /// `-UITestingSeedVariedBook` (with `-UITestingSeedSampleBook`): the seeded book is `variedBook`, a book shaped
+    /// like a real novel (dozens of chapters of very different lengths, paragraphs from one line to a dozen), so
+    /// the lazy reader's estimated heights are far off and far jumps and text-size changes have to settle.
+    static let seedVariedBookArgument = "-UITestingSeedVariedBook"
 
     /// `-UITestingBlockHeights`: each reader block (and each block auto-scroll draws) carries its laid-out
     /// height as its accessibility value ("h=267.5"), so a UI test can compare whole heights even for a block
@@ -44,11 +48,21 @@ enum UITesting {
     /// of a tiny accessibility element "readerPosition", so a UI test can check exactly where a chapter jump or a
     /// text-size change left the reader. Nothing else changes.
     static let readerPositionArgument = "-UITestingReaderPosition"
+    /// `-UITestingRestoreTrace` (Debug builds only): the reader records the last events of its restore machinery (each
+    /// settle check with the reading line, the target's measured frame and the top block, how the restore ended, the
+    /// geometry the reading line comes from, layout changes, chapter windows and reading by hand) and shows them as
+    /// the value of a tiny accessibility element "restoreTrace", for a UI test's failure message. Release builds
+    /// contain none of it.
+    static let restoreTraceArgument = "-UITestingRestoreTrace"
 
     #if DEBUG
     static let exposesBlockHeights: Bool = {
         let args = ProcessInfo.processInfo.arguments
         return args.contains(blockHeightsArgument)
+    }()
+
+    static let tracesRestores: Bool = {
+        ProcessInfo.processInfo.arguments.contains(restoreTraceArgument)
     }()
 
     static let exposesReaderPosition: Bool = {
@@ -93,8 +107,10 @@ enum UITesting {
             .appendingPathComponent("UITesting-\(UUID().uuidString)", isDirectory: true)
         let storage = BookStorage(root: root)
         if ProcessInfo.processInfo.arguments.contains(seedSampleBookArgument) {
-            let seedsLongBook = ProcessInfo.processInfo.arguments.contains(seedLongBookArgument)
-            seed(seedsLongBook ? longBook : sampleBook, into: storage, scratch: root)
+            let args = ProcessInfo.processInfo.arguments
+            let book = args.contains(seedVariedBookArgument) ? variedBook
+                : args.contains(seedLongBookArgument) ? longBook : sampleBook
+            seed(book, into: storage, scratch: root)
         }
         // The toggle is an @AppStorage in the standard defaults: set it for this launch either way.
         if ProcessInfo.processInfo.arguments.contains(coversOffArgument) {
@@ -437,6 +453,51 @@ enum UITesting {
         return ProcessedBook(metadata: BookMetadata(title: "A Long Book", authors: ["Folito Tests"], language: "en"), // i18n-ignore: UI-test fixture
                              documentHash: "0000000000000000000000000010b0c0",
                              metaHash: "0000000000000000000000000010b0c1",
+                             chapters: chapters, totalCharacters: offset)
+    }()
+
+    /// A generated book shaped like a real novel: `variedBookChapters` chapters titled
+    /// "Chapter 1." … "Chapter 36." (the period keeps "Chapter 1." from being a prefix of "Chapter 10."), each a
+    /// heading and 8 to 70 paragraphs of 1 to 14 sentences, chosen by a fixed pseudo-random sequence, so every run
+    /// lays out the same book. No paragraph starts with "Chapter".
+    static let variedBookChapters = 36
+    static let variedBook: ProcessedBook = {
+        let sentences = [
+            "Call it what you will, the sea kept its own counsel that morning.", // i18n-ignore: UI-test fixture
+            "The mate said nothing.", // i18n-ignore: UI-test fixture
+            "Far off, a line of spray rose and fell again, as if the water itself were breathing slowly in its sleep.", // i18n-ignore: UI-test fixture
+            "Nobody on deck could say how long the calm would last, or what would come after it.", // i18n-ignore: UI-test fixture
+            "He looked up.", // i18n-ignore: UI-test fixture
+            "Ropes creaked overhead while the old timbers groaned beneath the weight of barrels, sails and men.", // i18n-ignore: UI-test fixture
+            "There are some enterprises in which a careful disorderliness is the true method.", // i18n-ignore: UI-test fixture
+            "The wind came round to the north and the light turned grey.", // i18n-ignore: UI-test fixture
+        ]
+        var state: UInt64 = 0x5EED_B00C
+        func next(_ bound: Int) -> Int {
+            state = state &* 6364136223846793005 &+ 1442695040888963407
+            return Int((state >> 33) % UInt64(bound))
+        }
+        var chapters: [Chapter] = []
+        var offset = 0
+        for c in 1...variedBookChapters {
+            let title = "Chapter \(c)." // i18n-ignore: UI-test fixture
+            var blocks = [Block(text: title, style: .heading1, xpointer: "/body/DocFragment[\(c)]/body/h1",
+                                globalOffset: offset)]
+            offset += title.count
+            // Some chapters are a page, some go on for dozens of screens.
+            let paragraphs = 8 + next(63)
+            for p in 1...paragraphs {
+                // Mostly short paragraphs, with the occasional very long one.
+                let count = next(4) == 0 ? 6 + next(9) : 1 + next(3)
+                let text = (0..<count).map { _ in sentences[next(sentences.count)] }.joined(separator: " ")
+                blocks.append(Block(text: text, xpointer: "/body/DocFragment[\(c)]/body/p[\(p)]", globalOffset: offset))
+                offset += text.count
+            }
+            chapters.append(Chapter(spineIndex: c, title: title, blocks: blocks))
+        }
+        return ProcessedBook(metadata: BookMetadata(title: "A Varied Book", authors: ["Folito Tests"], language: "en"), // i18n-ignore: UI-test fixture
+                             documentHash: "0000000000000000000000000ba41ed0",
+                             metaHash: "0000000000000000000000000ba41ed1",
                              chapters: chapters, totalCharacters: offset)
     }()
 

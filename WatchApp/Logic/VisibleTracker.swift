@@ -10,6 +10,10 @@ struct BlockFrame: Equatable {
     var width: CGFloat = 0
     /// Left edge of the block (auto-scroll lines its own copy of the text up with it).
     var minX: CGFloat = 0
+    /// The block's top on screen (global coordinates), measured with the frame above. The difference to `minY` is
+    /// where the scroll view's space starts on screen, which is not always the same (below the bar or at the top of
+    /// the screen, with the same reported inset and origin). Nil where not measured (tests).
+    var screenMinY: CGFloat? = nil
 }
 
 /// Decides the reading position from block frames measured with a named coordinate space.
@@ -26,23 +30,56 @@ enum VisibleBlockResolver {
     static func topIndex(frames: [Int: BlockFrame], viewportTop: CGFloat = 0, threshold: CGFloat = 4) -> Int? {
         frames.filter { $0.value.maxY > viewportTop + threshold }.keys.min()
     }
+
+    /// How far below the reading line the top block's top may be and still be the block being read: the gap
+    /// between two paragraphs (the line falls between them) with room to spare.
+    static let lineSlack: CGFloat = 24
+
+    /// The block at the reading line, only if one is there: `topIndex`, provided that block's top is not more than
+    /// `lineSlack` below the line. A frame report can hold only some rows (while they are laid out again), and the
+    /// first one "below the line" is then a block far down the screen or off it. Such a report says nothing about the
+    /// position: nil.
+    static func lineIndex(frames: [Int: BlockFrame], viewportTop: CGFloat = 0, threshold: CGFloat = 4) -> Int? {
+        guard let top = topIndex(frames: frames, viewportTop: viewportTop, threshold: threshold),
+              let frame = frames[top], frame.minY <= viewportTop + lineSlack else { return nil }
+        return top
+    }
 }
 
 /// When a programmatic jump (restore, chapter, remote position) has to be re-issued.
 enum RestoreCheck {
+    /// Re-issues (and in-block corrections) for a restore the reader can see.
     static let maxRetries = 3
+    /// The same under a cover (opening, far jump, re-layout), where nobody sees them: a landing that is still being
+    /// laid out gets more checks before the cover lifts. About 2.4 s at the covered pace; most jumps settle in two or
+    /// three checks, and `JumpSettling.maxSettleDuration` caps the cover anyway.
+    static let coveredRetries = 12
 
     /// The block at the top is not the target (or nothing is laid out yet) and retries remain. Near the
     /// end of a book the target may be unable to reach the top; the retries then run out harmlessly.
-    static func needsRetry(top: Int?, target: Int, attempts: Int) -> Bool {
-        attempts < maxRetries && top != target
+    static func needsRetry(top: Int?, target: Int, attempts: Int, limit: Int = maxRetries) -> Bool {
+        attempts < limit && top != target
     }
 
     /// The target block is at the top but the saved line inside it is more than `tolerance` points away
     /// from the top edge, and corrections remain.
     static func needsInBlockRetry(landedMinY: Double, wantedMinY: Double, attempts: Int,
-                                  tolerance: Double = InBlockPosition.tolerance) -> Bool {
-        attempts < maxRetries && abs(landedMinY - wantedMinY) > tolerance
+                                  tolerance: Double = InBlockPosition.tolerance, limit: Int = maxRetries) -> Bool {
+        attempts < limit && abs(landedMinY - wantedMinY) > tolerance
+    }
+
+    /// A covered restore ends only once the target has been in place at two checks in a row, at the same point
+    /// (within `tolerance`): a landing that still moves (blocks above it being measured) is not settled yet.
+    static func isStable(previousMinY: Double?, minY: Double, tolerance: Double = 0.5) -> Bool {
+        guard let previousMinY else { return false }
+        return abs(previousMinY - minY) <= tolerance
+    }
+
+    /// The end of the book is on screen (the last block's bottom within the viewport): a target near the end
+    /// cannot scroll up to the reading line, so its landing below the line is the right one.
+    static func endOfBookOnScreen(lastBlockMaxY: Double?, viewportHeight: Double) -> Bool {
+        guard let lastBlockMaxY, viewportHeight > 0 else { return false }
+        return lastBlockMaxY <= viewportHeight + 1
     }
 }
 
@@ -62,6 +99,14 @@ enum RestoreCheck {
 enum JumpSettling {
     /// After this long under the cover, a small progress indicator shows (most far jumps land before it).
     static let indicatorDelay: UInt64 = 150_000_000
+
+    /// The longest a restore keeps the text covered (seconds): it is then revealed wherever it stands, so the
+    /// cover always lifts, whatever the checks find (or fail to find).
+    static let maxSettleDuration: TimeInterval = 3
+
+    /// How long the checks after a re-layout wait for the first frame of the new layout (seconds) before they go
+    /// on with the frames they have.
+    static let newLayoutWait: TimeInterval = 1
 
     /// Whether a jump to a block must be covered: the reader is already showing text (while the book opens it
     /// is hidden anyway) and the target block is not laid out, so the first scroll cannot land exactly.

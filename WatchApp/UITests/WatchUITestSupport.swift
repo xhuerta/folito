@@ -242,17 +242,72 @@ enum WatchUI {
                                   "readerBlock", title, ",")).element(boundBy: 0)
     }
 
-    /// The first reader block below the top bar: the one being read. Blocks that end less than 4 pt below the
-    /// bar (its frame, or at least the Reading Options button in it) are under it and not counted.
-    static func firstVisibleBlock(in app: XCUIApplication) -> XCUIElement? {
-        let window = app.windows.firstMatch.frame
-        let options = element("readerOptionsButton", in: app)
-        let bar = app.navigationBars.firstMatch
-        var line = options.exists ? options.frame.maxY : window.minY
-        if bar.exists, bar.frame.height > 0, bar.frame.maxY < window.midY { line = max(line, bar.frame.maxY) }
-        let blocks = app.descendants(matching: .any).matching(identifier: "readerBlock").allElementsBoundByIndex
-        return blocks.filter { $0.exists && $0.frame.maxY > line + 4 && $0.frame.minY < window.maxY }
-            .min { $0.frame.minY < $1.frame.minY }
+    // MARK: One snapshot per check
+
+    /// A reader block as one accessibility snapshot saw it.
+    struct BlockShot {
+        let label: String
+        let frame: CGRect
+        let value: String
+    }
+
+    /// The reader as one accessibility snapshot saw it: its blocks (in tree order), the first window, the first
+    /// navigation bar and the first Reading Options button.
+    struct ReaderShot {
+        let blocks: [BlockShot]
+        let window: CGRect
+        let bar: CGRect?
+        let options: CGRect?
+
+        /// The blocks that are at least partly on screen.
+        var onScreen: [BlockShot] {
+            blocks.filter { $0.frame.maxY > window.minY && $0.frame.minY < window.maxY && $0.frame.height > 0 }
+        }
+
+        /// The first block below the top bar: the one being read. Blocks that end less than 4 pt below the bar (its
+        /// frame, or at least the Reading Options button in it) are under it and not counted.
+        var firstVisible: BlockShot? {
+            var line = options?.maxY ?? window.minY
+            if let bar, bar.height > 0, bar.maxY < window.midY { line = max(line, bar.maxY) }
+            return blocks.filter { $0.frame.maxY > line + 4 && $0.frame.minY < window.maxY }
+                .min { $0.frame.minY < $1.frame.minY }
+        }
+
+        /// The first block labelled `label`, if it is in the tree.
+        func block(labelled label: String) -> BlockShot? {
+            blocks.first { $0.label == label }
+        }
+    }
+
+    /// One accessibility snapshot of the reader. With the reader's plain stack every block of the loaded chapters is
+    /// in the tree, and querying them one `XCUIElement` at a time would make each check a query per block. Nil if the
+    /// snapshot fails.
+    static func readerShot(in app: XCUIApplication) -> ReaderShot? {
+        guard let root = try? app.snapshot() else { return nil }
+        var blocks: [BlockShot] = []
+        var window: CGRect?
+        var bar: CGRect?
+        var options: CGRect?
+        // Pre-order, so "first" means first in the tree, as `firstMatch` does.
+        var stack: [XCUIElementSnapshot] = [root]
+        while let node = stack.popLast() {
+            if node.identifier == "readerBlock" {
+                blocks.append(BlockShot(label: node.label, frame: node.frame, value: (node.value as? String) ?? ""))
+            } else if node.identifier == "readerOptionsButton" {
+                if options == nil { options = node.frame }
+            } else if node.elementType == .navigationBar {
+                if bar == nil { bar = node.frame }
+            } else if node.elementType == .window {
+                if window == nil { window = node.frame }
+            }
+            stack.append(contentsOf: node.children.reversed())
+        }
+        return ReaderShot(blocks: blocks, window: window ?? root.frame, bar: bar, options: options)
+    }
+
+    /// The first reader block below the top bar (one snapshot; see `ReaderShot.firstVisible`).
+    static func firstVisibleBlock(in app: XCUIApplication) -> BlockShot? {
+        readerShot(in: app)?.firstVisible
     }
 
     /// Shows the reader's top bar if it is hidden: a tap on the text toggles it (and opens nothing while hidden).
@@ -276,19 +331,36 @@ enum WatchUI {
     /// (showing the bar if needed). `current` is the chapter the Chapters row should read. Returns whether the
     /// chapter was chosen.
     @discardableResult
+    /// `backwardSteps` / `forwardSteps`: how many small drags towards the top / the bottom of the list it may take
+    /// to reach the row (a far jump in a book with dozens of chapters needs more than the defaults).
     static func chooseChapter(_ title: String, current: String, in app: XCUIApplication,
+                              backwardSteps: Int = 6, forwardSteps: Int = 24,
                               file: StaticString = #filePath, line: UInt = #line) -> Bool {
         openReaderMenu(app, file: file, line: line)
         guard openChapters(app, currentChapter: current, file: file, line: line) else { return false }
         let row = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier == %@ AND label == %@", "chapterButton", title)).element(boundBy: 0)
-        // The list opens centred on the current chapter: the next one is below it, the previous one above.
+        // The list opens centred on the current chapter: the next one is below it, the previous one above. With
+        // numbered titles ("Chapter 12.") the visible rows say which way to go, so a drag that flings past the row
+        // (a long list scrolls on after the finger lifts) is followed by one back.
+        if let wanted = chapterNumber(title) {
+            var steps = 0
+            while !(row.exists && row.isHittable) && steps < 2 * (backwardSteps + forwardSteps) {
+                let shown = app.descendants(matching: .any).matching(identifier: "chapterButton")
+                    .allElementsBoundByIndex.compactMap { $0.exists ? chapterNumber($0.label) : nil }
+                guard let first = shown.min(), let last = shown.max() else { break }
+                let down = wanted < first ? true : wanted > last ? false
+                    : row.exists && row.frame.minY < app.windows.firstMatch.frame.midY
+                listStep(app, towardsTop: down)
+                steps += 1
+            }
+        }
         var steps = 0
-        while !(row.exists && row.isHittable) && steps < 6 {
+        while !(row.exists && row.isHittable) && steps < backwardSteps {
             nudgeDown(app)
             steps += 1
         }
-        guard scrollToHittable(row, in: app, maxSteps: 24) else {
+        guard scrollToHittable(row, in: app, maxSteps: forwardSteps) else {
             fail("\(title) is not reachable in the chapter list", in: app, file: file, line: line)
             return false
         }
@@ -298,6 +370,22 @@ enum WatchUI {
             return false
         }
         return true
+    }
+
+    /// A short drag in a list (a tenth of the screen). A third of the screen flings a long chapter list on by about
+    /// four rows after the finger lifts, past the row looked for; a short one moves it by about a row.
+    static func listStep(_ app: XCUIApplication, towardsTop: Bool) {
+        let window = app.windows.firstMatch
+        let a = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45))
+        let b = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55))
+        if towardsTop { a.press(forDuration: 0.05, thenDragTo: b) } else { b.press(forDuration: 0.05, thenDragTo: a) }
+    }
+
+    /// The number in a chapter title like "Chapter 12." (nil for other titles).
+    static func chapterNumber(_ title: String) -> Int? {
+        guard title.hasPrefix("Chapter ") else { return nil }
+        let digits = title.dropFirst("Chapter ".count).prefix { $0.isNumber }
+        return digits.isEmpty ? nil : Int(digits)
     }
 
     /// Closes the sheet on screen (the reader menu) with its close button. Returns whether the reader shows again.
