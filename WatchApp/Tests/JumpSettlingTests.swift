@@ -471,4 +471,34 @@ final class JumpSettlingTests: XCTestCase {
         XCTAssertEqual(model.currentIndex, target)
         XCTAssertEqual(model.currentOffset, 0)
     }
+
+    // MARK: Partial frame reports while reading (#181's forward-reading trace)
+
+    func testLineIndexNeedsABlockAtTheReadingLine() {
+        XCTAssertEqual(VisibleBlockResolver.lineIndex(frames: [3: f(-20, 50), 4: f(60, 120)]), 3)
+        XCTAssertEqual(VisibleBlockResolver.lineIndex(frames: [3: f(-20, 2), 4: f(10, 120)]), 4,
+                       "the line between two paragraphs: the next one")
+        XCTAssertNil(VisibleBlockResolver.lineIndex(frames: [52: f(150.4, 303.4)]), "only a block far below the line")
+        XCTAssertNil(VisibleBlockResolver.lineIndex(frames: [50: f(685.5, 800.5), 51: f(810, 900), 52: f(910, 1000)]),
+                     "only blocks off screen")
+    }
+
+    /// The two steps back of the trace, replayed: a report holding only block 52, its top 150 pt below the line, and
+    /// one holding blocks 50-52 far below the screen. Neither moves the position; a full report afterwards does.
+    @MainActor
+    func testPartialReportsLeaveThePositionWhereItIs() async throws {
+        let model = try await openedReader().model
+        model.blockFramesChanged([58: f(-10, 90), 59: f(100, 200)])
+        XCTAssertEqual(model.currentIndex, 58)
+        let offset = model.currentOffset
+
+        model.blockFramesChanged([52: f(150.4, 303.4)])
+        XCTAssertEqual(model.currentIndex, 58, "a lone block below the line is not the one being read")
+        model.blockFramesChanged([50: f(685.5, 800.5), 51: f(810, 900), 52: f(910, 1000)])
+        XCTAssertEqual(model.currentIndex, 58, "blocks off screen say nothing about the position")
+        XCTAssertEqual(model.currentOffset, offset)
+
+        model.blockFramesChanged([58: f(-120, -20), 59: f(-10, 90)])
+        XCTAssertEqual(model.currentIndex, 59, "reading on still moves the position")
+    }
 }

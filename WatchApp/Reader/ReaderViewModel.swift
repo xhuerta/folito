@@ -455,7 +455,7 @@ final class ReaderViewModel: ObservableObject {
     /// Not restoring, and the saved line is at the top edge (within `InBlockPosition.tolerance`).
     private var showsCurrentLine: Bool {
         guard !isRestoring, currentIndex < flat.count,
-              VisibleBlockResolver.topIndex(frames: lastFrames, viewportTop: viewportTop) == currentIndex,
+              VisibleBlockResolver.lineIndex(frames: lastFrames, viewportTop: viewportTop) == currentIndex,
               let frame = lastFrames[currentIndex] else { return false }
         let fraction = InBlockPosition.fraction(forCharacterOffset: currentOffset, in: flat.blocks[currentIndex].text)
         let wanted = InBlockPosition.wantedMinY(fraction: fraction, blockHeight: Double(frame.maxY - frame.minY),
@@ -621,8 +621,17 @@ final class ReaderViewModel: ObservableObject {
             }
         }
         if !isRestoring { checkEnd(frames) }
-        guard !isRestoring, let top = VisibleBlockResolver.topIndex(frames: frames, viewportTop: viewportTop),
-              top < flat.count, let frame = frames[top] else { return }
+        // Only a block that is at the reading line moves the position: a partial report (some rows only, while the
+        // lazy stack re-lays them) leaves it where it is.
+        guard !isRestoring else { return }
+        guard let top = VisibleBlockResolver.lineIndex(frames: frames, viewportTop: viewportTop),
+              top < flat.count, let frame = frames[top] else {
+            if tracesRestores, !frames.isEmpty {
+                let topText = VisibleBlockResolver.topIndex(frames: frames, viewportTop: viewportTop).map(String.init) ?? "nil"
+                trace("ignored report: no block at the line (first below=\(topText), blocks=\(frames.keys.min() ?? -1)-\(frames.keys.max() ?? -1))")
+            }
+            return
+        }
         let text = flat.blocks[top].text
         let fraction = InBlockPosition.fractionScrolledPast(minY: Double(frame.minY), maxY: Double(frame.maxY),
                                                            viewportTop: Double(viewportTop))

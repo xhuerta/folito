@@ -31,6 +31,21 @@ enum VisibleBlockResolver {
     static func topIndex(frames: [Int: BlockFrame], viewportTop: CGFloat = 0, threshold: CGFloat = 4) -> Int? {
         frames.filter { $0.value.maxY > viewportTop + threshold }.keys.min()
     }
+
+    /// How far below the reading line the top block's top may be and still be the block being read: the gap
+    /// between two paragraphs (the line falls between them) with room to spare.
+    static let lineSlack: CGFloat = 24
+
+    /// The block at the reading line, only if one is there: `topIndex`, provided that block's top is not more than
+    /// `lineSlack` below the line. While the lazy stack re-lays rows, a frame report can hold only some of them, and
+    /// the first one "below the line" is then a block far down the screen or off it (#181's trace while reading
+    /// forward: "back 58 -> 52" from a report holding only block 52, its top 150 pt below the line, then
+    /// "back 52 -> 50" with block 50 at 685 pt). Such a report says nothing about the position: nil.
+    static func lineIndex(frames: [Int: BlockFrame], viewportTop: CGFloat = 0, threshold: CGFloat = 4) -> Int? {
+        guard let top = topIndex(frames: frames, viewportTop: viewportTop, threshold: threshold),
+              let frame = frames[top], frame.minY <= viewportTop + lineSlack else { return nil }
+        return top
+    }
 }
 
 /// When a programmatic jump (restore, chapter, remote position) has to be re-issued.
