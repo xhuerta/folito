@@ -43,13 +43,29 @@ final class ChapterWindowTests: XCTestCase {
                        "nothing before the book's start")
     }
 
-    func testPrependIsNeededOnlyNearTheLoadedStart() {
-        XCTAssertTrue(ChapterWindow.needsPrepend(top: 15, window: 13..<33))
-        XCTAssertTrue(ChapterWindow.needsPrepend(top: 13 + ChapterWindow.prependMargin - 1, window: 13..<33))
-        XCTAssertFalse(ChapterWindow.needsPrepend(top: 13 + ChapterWindow.prependMargin, window: 13..<33))
-        XCTAssertFalse(ChapterWindow.needsPrepend(top: 2, window: 0..<33), "the book's start")
-        XCTAssertFalse(ChapterWindow.needsPrepend(top: nil, window: 13..<33))
-        XCTAssertFalse(ChapterWindow.needsPrepend(top: 5, window: 13..<33), "not in the window")
+    /// A spare chapter stays above the one being read: a prepend is needed once the reader is in the window's first
+    /// chapter.
+    func testPrependIsNeededWithoutASpareChapterAbove() {
+        XCTAssertTrue(ChapterWindow.needsPrepend(top: 15, window: 13..<33, chapterStarts: starts, count: count))
+        XCTAssertTrue(ChapterWindow.needsPrepend(top: 30, window: 13..<38, chapterStarts: starts, count: count),
+                      "anywhere in the first chapter, not only near its start")
+        XCTAssertTrue(ChapterWindow.needsPrepend(top: 11, window: 10..<38, chapterStarts: starts, count: count))
+        XCTAssertFalse(ChapterWindow.needsPrepend(top: 20, window: 10..<38, chapterStarts: starts, count: count),
+                       "a spare chapter above")
+        XCTAssertFalse(ChapterWindow.needsPrepend(top: 2, window: 0..<33, chapterStarts: starts, count: count),
+                       "the book's start")
+        XCTAssertFalse(ChapterWindow.needsPrepend(top: nil, window: 13..<33, chapterStarts: starts, count: count))
+        XCTAssertFalse(ChapterWindow.needsPrepend(top: 5, window: 13..<33, chapterStarts: starts, count: count),
+                       "not in the window")
+    }
+
+    /// Close to the window's first block a prepend cannot wait for the scroll to be idle.
+    func testPrependIsUrgentNearTheLoadedStart() {
+        XCTAssertTrue(ChapterWindow.prependIsUrgent(top: 15, window: 13..<33))
+        XCTAssertTrue(ChapterWindow.prependIsUrgent(top: 13 + ChapterWindow.prependMargin - 1, window: 13..<33))
+        XCTAssertFalse(ChapterWindow.prependIsUrgent(top: 13 + ChapterWindow.prependMargin, window: 13..<38))
+        XCTAssertFalse(ChapterWindow.prependIsUrgent(top: 2, window: 0..<33), "the book's start")
+        XCTAssertFalse(ChapterWindow.prependIsUrgent(top: nil, window: 13..<33))
     }
 
     /// Chapters far below the reader go; the chapter being read, the next one and `minimumBelow` blocks stay.

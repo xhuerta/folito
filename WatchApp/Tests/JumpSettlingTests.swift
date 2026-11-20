@@ -504,36 +504,60 @@ final class JumpSettlingTests: XCTestCase {
 
     // MARK: Reading up (#181 follow-up)
 
-    /// Landing at a chapter's start loads that chapter, then prepends the previous one once idle; reading up near the
-    /// first loaded block prepends the next one up. When the block at the reading line stayed where it was, nothing
-    /// is scrolled after the prepend's own keep-scroll.
+    /// Landing at a chapter's start loads that chapter, then prepends the previous one once idle; reading up into the
+    /// window's first chapter prepends the next one up once idle. When the block at the reading line stayed where it
+    /// was, nothing is scrolled after the prepend's own keep-scroll.
     @MainActor
     func testReadingUpPrependsThePreviousChapterWhenIdle() async throws {
         let model = try await readerReadingUpInChapterTwo()
         let before = model.jumpRequest
-        model.blockFramesChanged([24: f(-10, 90), 25: f(100, 200)]) // block 24 stayed in place
+        model.blockFramesChanged([35: f(-10, 90), 36: f(100, 200)]) // block 35 stayed in place
         try await Task.sleep(nanoseconds: 600_000_000)
         XCTAssertEqual(model.jumpRequest, before, "nothing to correct")
         XCTAssertFalse(model.isRestoring)
-        XCTAssertEqual(model.currentIndex, 24)
-        XCTAssertEqual(model.prependKeep?.index, 24, "the keep-scroll went with the new rows")
+        XCTAssertEqual(model.currentIndex, 35)
+        XCTAssertEqual(model.prependKeep?.index, 35, "the keep-scroll went with the new rows")
     }
 
-    /// If the block at the reading line moved with the prepend, the scroll view is brought back to the same point
-    /// of it, and the moved frames never become the position.
+    /// If the block at the reading line moved with the prepend and nobody scrolled, the scroll view is brought back
+    /// to the same point of it, and the moved frames never become the position.
     @MainActor
     func testAPrependThatMovedTheLineIsCorrected() async throws {
         let model = try await readerReadingUpInChapterTwo()
-        model.blockFramesChanged([24: f(290, 390), 25: f(400, 500)])
+        model.blockFramesChanged([35: f(290, 390), 36: f(400, 500)])
         try await waitUntil { model.isRestoring }
-        XCTAssertEqual(model.jumpRequest?.index, 24)
-        XCTAssertEqual(model.currentIndex, 24, "the moved frames are not read as scrolling")
+        XCTAssertEqual(model.jumpRequest?.index, 35)
+        XCTAssertEqual(model.currentIndex, 35, "the moved frames are not read as scrolling")
     }
 
-    /// A reader that jumped to chapter Three (its chapter loaded, then chapter Two prepended once idle) and read up
-    /// into chapter Two, near the window's first block, until chapter One was prepended.
+    /// Build 51 feedback: a reader scrolling right after a prepend was pulled back to where they were, again and again.
+    /// Once the reader has scrolled since the prepend, the check measures but never corrects.
     @MainActor
-    private func readerReadingUpInChapterTwo() async throws -> ReaderViewModel {
+    func testAPrependsCheckNeverPullsBackAReaderWhoScrolled() async throws {
+        let model = try await readerReadingUpInChapterTwo()
+        model.isUserScrolling = true
+        model.blockFramesChanged([35: f(290, 390), 36: f(400, 500)])
+        model.isUserScrolling = false
+        try await Task.sleep(nanoseconds: 600_000_000)
+        XCTAssertFalse(model.isRestoring, "no pull-back")
+        model.blockFramesChanged([33: f(-10, 90), 34: f(100, 200)])
+        XCTAssertEqual(model.currentIndex, 33, "the reader's own scrolling moves the position")
+    }
+
+    /// Close to the window's first block (a fast fling) the prepend does not wait for the scroll to be idle.
+    @MainActor
+    func testAFlingCloseToTheEdgePrependsAtOnce() async throws {
+        let model = try await readerLandedAtChapterThree()
+        model.isUserScrolling = true
+        model.blockFramesChanged([22: f(-10, 90), 23: f(100, 200)])
+        XCTAssertEqual(model.window.lowerBound, 0, "prepended in the same frame report, mid-fling")
+        XCTAssertEqual(model.prependKeep?.index, 22)
+    }
+
+    /// A reader that jumped to chapter Three: its chapter loaded, then chapter Two prepended once idle (the spare
+    /// chapter above), and its check found nothing moved.
+    @MainActor
+    private func readerLandedAtChapterThree() async throws -> ReaderViewModel {
         let model = try await openedReader().model
         let start = 2 * Self.blocksPerChapter
         model.jump(to: start)
@@ -541,11 +565,18 @@ final class JumpSettlingTests: XCTestCase {
         model.blockFramesChanged([start: f(0, 40), start + 1: f(50, 150)])
         try await waitUntil { !model.isRestoring }
         try await waitUntil(timeout: 3) { model.window.lowerBound == Self.blocksPerChapter }
-        // Its check (`prependCheckDelay`) finds block 40 where it was.
         try await Task.sleep(nanoseconds: 500_000_000)
         XCTAssertFalse(model.isRestoring, "landing, then the prepend: nothing moved")
-        model.blockFramesChanged([24: f(-10, 90), 25: f(100, 200)])
-        XCTAssertEqual(model.currentIndex, 24)
+        return model
+    }
+
+    /// That reader, having read up into chapter Two (now the window's first chapter, not yet near its start), until
+    /// chapter One was prepended once the scroll was idle.
+    @MainActor
+    private func readerReadingUpInChapterTwo() async throws -> ReaderViewModel {
+        let model = try await readerLandedAtChapterThree()
+        model.blockFramesChanged([35: f(-10, 90), 36: f(100, 200)])
+        XCTAssertEqual(model.currentIndex, 35)
         XCTAssertEqual(model.window.lowerBound, Self.blocksPerChapter, "not before the scroll is idle")
         try await waitUntil(timeout: 3) { model.window.lowerBound == 0 }
         return model
