@@ -5,7 +5,7 @@ The text of the App Store product page, in the eight languages the app is locali
 ## Rules
 
 * **Limits** (App Store Connect Help, [App information](https://developer.apple.com/help/app-store-connect/reference/app-information/app-information) and [Platform version information](https://developer.apple.com/help/app-store-connect/reference/app-information/platform-version-information), read 2026-11-11): name 2 to 30 characters, subtitle 30 characters, promotional text 170 characters, description 4000 characters, keywords 100 **bytes** (UTF-8: a Japanese or Chinese character takes 3). `scripts/ci/check_listing.py` checks every field of every language against them and runs in CI (`linux.yml`, job `ci-scripts`), so an edit that goes over a limit fails the pull request.
-* **What's New** is not used for 1.0: Apple says the field "isn't available for the first version of the app but required for all subsequent versions".
+* **What's New** is not used for 1.0: Apple says the field "isn't available for the first version of the app but required for all subsequent versions". The text for each later version is in `WHATS_NEW.md`.
 * **Only what the app does today.** Every claim below is in the app: check the code before adding one.
 * **No third-party names outside the description.** KOReader and Readest appear only in the description, to say what sync is compatible with, next to the "not affiliated" sentence (guideline 5.2, see `REVIEW_RISKS.md`). They are not in the name, subtitle, promotional text or keywords; neither are other apps, stores or competitors. The script checks this.
 * **No price, no purchases.** The listing does not mention a price, a purchase or a subscription.
