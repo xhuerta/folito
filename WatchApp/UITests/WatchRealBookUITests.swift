@@ -262,6 +262,55 @@ final class WatchRealBookUITests: XCTestCase {
         print("[prepends] \(prepends.sorted().joined(separator: "; "))")
     }
 
+    /// Build 51 feedback: fast flings up from the start of "Chapter 4." into Chapter 1. (three chapter starts). The
+    /// position never moves forward between flings (no pull-back after a prepend), never sticks at the edge of the
+    /// loaded chapters (no bounce), and every prepend measured while nobody scrolled kept the block at the reading
+    /// line within 1 pt.
+    @MainActor
+    func testFastFlingsUpAcrossChapterStartsNeverBounceOrPullBack() {
+        guard let launched = launchVariedBook() else { return }
+        let app = launched.app, line = launched.line
+        guard WatchUI.chooseChapter("Chapter 4.", current: "Chapter 1.", in: app, backwardSteps: 0, forwardSteps: 12)
+        else { return }
+        assertHeadingAtTheTop("Chapter 4.", readingLine: line, in: app, step: "jump to Chapter 4.")
+
+        // Flat indices in the varied book: Chapter 2. starts at 35, Chapter 3. at 46, Chapter 4. at 60.
+        let chapterTwoStart = 35
+        var previous = 60
+        var unchanged = 0
+        var prepends = Set<String>()
+        let window = app.windows.firstMatch
+        for fling in 0..<25 {
+            window.swipeDown()
+            sleep(2)
+            guard let value = WatchUI.settledPosition(in: app, timeout: 5), let block = blockIndex(value) else {
+                return WatchUI.fail("Fling \(fling): no settled position. " + diagnostics("Chapter 3.", in: app), in: app)
+            }
+            XCTAssertLessThanOrEqual(block, previous, "Fling \(fling): the text was pulled forward from block "
+                                     + "\(previous) to \(block). " + diagnostics("Chapter 3.", in: app))
+            unchanged = block == previous ? unchanged + 1 : 0
+            XCTAssertLessThan(unchanged, 3, "Fling \(fling): stuck at block \(block) for three flings. "
+                              + diagnostics("Chapter 3.", in: app))
+            previous = block
+            let trace = WatchUI.element("restoreTrace", in: app).value as? String ?? ""
+            for entry in trace.components(separatedBy: " | ") where entry.hasPrefix("prepend kept block") {
+                prepends.insert(entry)
+            }
+            if block < chapterTwoStart { break }
+        }
+        guard previous < chapterTwoStart else {
+            return WatchUI.fail("Flinging up never reached Chapter 1. (block \(previous)). "
+                                + diagnostics("Chapter 2.", in: app), in: app)
+        }
+        XCTAssertGreaterThanOrEqual(prepends.count, 2, "Chapters 3., 2. and 1. are prepended on the way up: "
+                                    + "\(prepends.sorted())")
+        for entry in prepends where !entry.hasSuffix("while scrolling") {
+            let moved = entry.components(separatedBy: "moved=").last.flatMap { Double($0) } ?? .infinity
+            XCTAssertLessThanOrEqual(abs(moved), 1, "A prepend moved the text: \(entry). " + diagnostics("Chapter 2.", in: app))
+        }
+        print("[fling-prepends] \(prepends.sorted().joined(separator: "; "))")
+    }
+
     /// Prints the trace's "window shown" entries (how long a loaded chapter took to show its target) to the test log.
     @MainActor
     private func logWindowCost(in app: XCUIApplication, step: String) {

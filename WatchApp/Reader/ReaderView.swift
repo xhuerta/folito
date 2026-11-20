@@ -198,6 +198,11 @@ struct ReaderView: View {
                 if model.tracesRestores { model.traceScrollOffset = offset }
 #endif
             })
+            // Whether the reader is dragging or a fling is moving the text (watchOS 11+): a prepend's check never
+            // pulls back text the reader has scrolled.
+            .modifier(ScrollPhaseReader { scrolling in
+                if model.isUserScrolling != scrolling { model.isUserScrolling = scrolling }
+            })
             // The scroll view runs under the navigation bar: its top inset is where reading starts.
             .background(GeometryReader { geo in
                 Color.clear
@@ -1035,6 +1040,23 @@ struct ScrollDistanceReader: ViewModifier {
                 return min(max(distance, 0), end)
             } action: { _, offset in
                 action(offset)
+            }
+        } else {
+            content
+        }
+    }
+}
+
+/// Reports whether the scroll view moves because of the reader (dragging, or a fling still decelerating) on every
+/// scroll phase change (watchOS 11+; nothing on watchOS 10).
+struct ScrollPhaseReader: ViewModifier {
+    let action: (Bool) -> Void
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(watchOS 11.0, *) {
+            content.onScrollPhaseChange { _, phase in
+                action(phase == .tracking || phase == .interacting || phase == .decelerating)
             }
         } else {
             content

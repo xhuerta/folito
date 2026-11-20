@@ -13,10 +13,13 @@ import CoreGraphics
 ///   Appending below never moves what is on screen; nothing is ever inserted or removed above it while reading.
 /// - A layout change reloads the current chapter (the scroll view is rebuilt for it anyway): earlier chapters
 ///   appended while reading are trimmed only then, on a jump or when the book is reopened.
-/// - Reading up near the window's first block (and right after landing at a chapter's start) prepends the chapter
-///   before it (`needsPrepend`), once the scroll is idle: the reader scrolls to the same point of the block at the
-///   reading line in the same update as the new rows, and the view model checks it once laid out and corrects it if
-///   it moved. Chapters far below the reader are dropped then (`trimmedBelow`), which never moves what is on screen.
+/// - A spare chapter stays loaded above the one being read: once the reader is in the window's first chapter (right
+///   after landing at a chapter's start, or after reading up into it), the chapter before it is prepended
+///   (`needsPrepend`), as soon as the scroll is idle; within `prependMargin` blocks of the edge (a fast fling) at
+///   once, even while scrolling (`prependIsUrgent`). The reader scrolls to the same point of the block at the reading
+///   line in the same update as the new rows, and the view model checks it once laid out, correcting it only if
+///   nobody scrolled meanwhile. Chapters far below the reader are dropped then (`trimmedBelow`), which never moves
+///   what is on screen.
 ///
 /// Chapters are the book's spine chapters (`FlatBook.chapterStarts`, flat indices). Positions stay global.
 enum ChapterWindow {
@@ -43,7 +46,8 @@ enum ChapterWindow {
         return lower..<upper
     }
 
-    /// Prepend the previous chapter once the block at the reading line is this close to the window's first block.
+    /// Prepend the previous chapter at once, even while scrolling, when the block at the reading line is this close to
+    /// the window's first block.
     static let prependMargin = 12
 
     /// The window a jump to `target` loads: its chapter, extended by the following chapters until at least
@@ -66,9 +70,16 @@ enum ChapterWindow {
         return previous.lowerBound..<window.upperBound
     }
 
-    /// Whether the previous chapter should be prepended: the block at the reading line (`top`) is within
-    /// `prependMargin` blocks of the window's first block, and the book has chapters before it.
-    static func needsPrepend(top: Int?, window: Range<Int>) -> Bool {
+    /// Whether the previous chapter should be prepended: the block at the reading line (`top`) is in the window's
+    /// first chapter (no spare chapter above it), and the book has chapters before it.
+    static func needsPrepend(top: Int?, window: Range<Int>, chapterStarts: [Int], count: Int) -> Bool {
+        guard let top, window.lowerBound > 0, window.contains(top) else { return false }
+        return chapterRange(containing: top, chapterStarts: chapterStarts, count: count).lowerBound == window.lowerBound
+    }
+
+    /// Whether a prepend cannot wait for the scroll to be idle: `top` is within `prependMargin` blocks of the window's
+    /// first block, where a fling would otherwise reach the edge and bounce.
+    static func prependIsUrgent(top: Int?, window: Range<Int>) -> Bool {
         guard let top, window.lowerBound > 0, window.contains(top) else { return false }
         return top - window.lowerBound < prependMargin
     }
