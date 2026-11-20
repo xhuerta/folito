@@ -256,7 +256,9 @@ final class WatchRealBookUITests: XCTestCase {
         XCTAssertFalse(prepends.isEmpty, "Reading up from Chapter 4. prepends Chapters 2. and 1. "
                        + diagnostics("Chapter 2.", in: app))
         for entry in prepends {
-            let moved = entry.components(separatedBy: "moved=").last.flatMap { Double($0) } ?? .infinity
+            // "moved=X" may be followed by " while scrolling"; read only the number.
+            let movedText = entry.components(separatedBy: "moved=").last?.split(separator: " ").first
+            let moved = movedText.flatMap { Double(String($0)) } ?? .infinity
             XCTAssertLessThanOrEqual(abs(moved), 1, "A prepend moved the text: \(entry). " + diagnostics("Chapter 2.", in: app))
         }
         print("[prepends] \(prepends.sorted().joined(separator: "; "))")
@@ -305,7 +307,9 @@ final class WatchRealBookUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(prepends.count, 2, "Chapters 3., 2. and 1. are prepended on the way up: "
                                     + "\(prepends.sorted())")
         for entry in prepends where !entry.hasSuffix("while scrolling") {
-            let moved = entry.components(separatedBy: "moved=").last.flatMap { Double($0) } ?? .infinity
+            // "moved=X" may be followed by " while scrolling"; read only the number.
+            let movedText = entry.components(separatedBy: "moved=").last?.split(separator: " ").first
+            let moved = movedText.flatMap { Double(String($0)) } ?? .infinity
             XCTAssertLessThanOrEqual(abs(moved), 1, "A prepend moved the text: \(entry). " + diagnostics("Chapter 2.", in: app))
         }
         print("[fling-prepends] \(prepends.sorted().joined(separator: "; "))")
