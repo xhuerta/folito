@@ -65,6 +65,15 @@ Library's toolbar: a text bar button keeps a fixed font size and was flagged by 
 `secondaryText`. Audited by `testOnlineMatchSheetAudit`; screenshots at default and AX5 sizes in the
 `online-metadata-screenshots` artifact (docs/ONLINE_METADATA.md).
 
+**Catalogs (OPDS).** The Library's + is a menu (*Import EPUB*, *Catalogs*; an icon bar button labelled *Add
+Books*). *Catalogs* is a sheet with a `NavigationStack`: a `List` of catalogs (title and host, one element; custom
+ones have *Remove* as a swipe, context-menu and rotor action), an *Add Catalog…* action row and an icon close button
+(✕, labelled *Done*). Catalog pages are `List`s whose rows are one element (decorative cover, title, authors or a short
+summary, and "Not available as EPUB" when the book cannot be downloaded); loading, empty and error states use
+`ProgressView` / `ContentUnavailableView`; further pages load from an explicit *Load More* row, not on scroll. A
+book's screen is built like the book details (cards in a `ScrollView`, title as a header, *Download* as an action
+row with a hint, `DetailRow`s). The add form's errors are shown inline and announced. See docs/OPDS.md.
+
 **Dynamic Type.** No fixed point sizes in UI chrome; only text styles. Layouts that would truncate switch
 at accessibility sizes: the size/state line of library rows stacks vertically (`AnyLayout`), slider
 title/value rows use `ViewThatFits`, and the preset grid's minimum column width is a `@ScaledMetric`, so it

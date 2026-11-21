@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<?xml-stylesheet href="https://standardebooks.org/feeds/atom/style" type="text/xsl"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/">
+	<script xmlns="http://www.w3.org/1999/xhtml" src="https://standardebooks.org/scripts/xslt-polyfill.min.js"/>
+	<id>https://standardebooks.org/feeds/atom/new-releases</id>
+	<link href="https://standardebooks.org/feeds/atom/new-releases" rel="self" type="application/atom+xml"/>
+	<title>Standard Ebooks - Newest Ebooks</title>
+	<subtitle>The 15 latest Standard Ebooks, most-recently-released first.</subtitle>
+	<icon>https://standardebooks.org/images/logo.png</icon>
+	<updated>2026-11-20T17:19:38Z</updated>
+	<author>
+		<name>Standard Ebooks</name>
+		<uri>https://standardebooks.org</uri>
+	</author>
+	<link href="https://standardebooks.org/opensearch" rel="search" title="Standard Ebooks" type="application/opensearchdescription+xml"/>
+	<entry>
+		<id>https://standardebooks.org/ebooks/italo-svevo/confessions-of-zeno/beryl-de-zoete</id>
+		<title>Confessions of Zeno</title>
+		<author>
+			<name>Italo Svevo</name>
+			<uri>https://standardebooks.org/ebooks/italo-svevo</uri>
+		</author>
+		<published>2026-11-20T17:17:24Z</published>
+		<updated>2026-11-20T17:17:26Z</updated>
+		<rights>Public domain in the United States. Users located outside of the United States must check their local laws before using this ebook. Original content released to the public domain via the Creative Commons CC0 1.0 Universal Public Domain Dedication.</rights>
+		<summary type="text">To quit smoking, a man writes his memoirs.</summary>
+		<content type="html">&lt;p&gt;Zeno Cosini is a businessman in Trieste. Seeking to quit smoking, he starts treatment with a psychoanalyst, who asks him to write his memoirs, believing this will lead to a cure.&lt;/p&gt; &lt;p&gt;Zeno’s memoirs don’t follow a linear structure, and are instead organized by topic; it soon becomes apparent that he’s an unreliable narrator. He speaks of cigarettes, his studies, his marriage, and his business. Interlaced with his recollections are his ideas about society and the modern world, especially psychoanalysis, a then-new field of science. The character is likely partially based on Svevo himself, who also lived in Trieste and was a heavy smoker. &lt;/p&gt; &lt;p&gt;&lt;i&gt;Confessions of Zeno&lt;/i&gt; is &lt;a href="https://standardebooks.org/ebooks/italo-svevo"&gt;Italo Svevo’s&lt;/a&gt; third and final novel. His previous novels were ignored by critics and the public alike, and this one would have also remained obscure if not for Svevo’s friend and former English tutor, &lt;a href="https://standardebooks.org/ebooks/james-joyce"&gt;James Joyce&lt;/a&gt;. Joyce pushed for the novel to be translated into French; the translation received high praises from critics, leading to Svevo becoming a respected part of the modernist milieu. &lt;/p&gt;</content>
+		<category scheme="http://purl.org/dc/terms/LCSH" term="Adultery--Fiction"/>
+		<category scheme="http://purl.org/dc/terms/LCSH" term="Sisters--Fiction"/>
+		<category scheme="http://purl.org/dc/terms/LCSH" term="Married people--Fiction"/>
+		<category scheme="http://purl.org/dc/terms/LCSH" term="Courtship--Fiction"/>
+		<category scheme="http://purl.org/dc/terms/LCSH" term="Businesspeople--Fiction"/>
+		<category scheme="http://purl.org/dc/terms/LCSH" term="Triangles (Interpersonal relations)--Fiction"/>
+		<category scheme="http://purl.org/dc/terms/LCSH" term="Man-woman relationships--Fiction"/>
+		<category scheme="http://purl.org/dc/terms/LCSH" term="Italian fiction--Translations into English"/>
+		<category scheme="http://purl.org/dc/terms/LCSH" term="Psychiatrists--Fiction"/>
+		<category scheme="http://purl.org/dc/terms/LCSH" term="Sexual ethics--Fiction"/>
+		<category scheme="http://purl.org/dc/terms/LCSH" term="Smoking--Fiction"/>
+		<category scheme="https://standardebooks.org/vocab/subjects" term="Fiction"/>
+		<media:thumbnail height="525" url="https://standardebooks.org/ebooks/italo-svevo/confessions-of-zeno/beryl-de-zoete/downloads/cover-thumbnail.jpg" width="350"/>
+		<link href="https://standardebooks.org/ebooks/italo-svevo/confessions-of-zeno/beryl-de-zoete" rel="alternate" title="This ebook’s page at Standard Ebooks" type="application/xhtml+xml"/>
+		<link href="https://standardebooks.org/ebooks/italo-svevo/confessions-of-zeno/beryl-de-zoete/downloads/italo-svevo_confessions-of-zeno_beryl-de-zoete.epub?source=feed" length="875562" rel="enclosure" title="Recommended compatible epub" type="application/epub+zip"/>
+		<link href="https://standardebooks.org/ebooks/italo-svevo/confessions-of-zeno/beryl-de-zoete/downloads/italo-svevo_confessions-of-zeno_beryl-de-zoete_advanced.epub?source=feed" length="861344" rel="enclosure" title="Advanced epub" type="application/epub+zip"/>
+		<link href="https://standardebooks.org/ebooks/italo-svevo/confessions-of-zeno/beryl-de-zoete/downloads/italo-svevo_confessions-of-zeno_beryl-de-zoete.kepub.epub?source=feed" length="802754" rel="enclosure" title="Kobo Kepub epub" type="application/kepub+zip"/>
+		<link href="https://standardebooks.org/ebooks/italo-svevo/confessions-of-zeno/beryl-de-zoete/downloads/italo-svevo_confessions-of-zeno_beryl-de-zoete.azw3?source=feed" length="1062713" rel="enclosure" title="Amazon Kindle azw3" type="application/x-mobipocket-ebook"/>
+		<link href="https://standardebooks.org/ebooks/italo-svevo/confessions-of-zeno/beryl-de-zoete/text/single-page" length="1007716" rel="enclosure" title="XHTML" type="application/xhtml+xml"/>
+	</entry>
+	<entry>
+		<id>https://standardebooks.org/ebooks/henry-wade/the-duke-of-yorks-steps</id>
+		<title>The Duke of York’s Steps</title>
+		<author>
+			<name>Henry Wade</name>
+			<uri>https://standardebooks.org/ebooks/henry-wade</uri>
+		</author>
+		<published>2026-11-18T16:55:53Z</published>
+		<updated>2026-11-19T21:05:24Z</updated>
+		<rights>Public domain in the United States. Users located outside of the United States must check their local laws before using this ebook. Original content released to the public domain via the Creative Commons CC0 1.0 Universal Public Domain Dedication.</rights>
+		<summary type="text">After a wealthy banker’s sudden death is ruled to have been from natural causes, his daughter’s suspicions prompt a detective to take a second look at the case.</summary>
+		<content type="html">&lt;p&gt;Despite the pleadings of his doctor, family, and friends to consider his aneurysm, Sir Garth Fratten, a wealthy banker, refuses to curtail his work schedule. So it comes as a surprise to no one when he dies suddenly and dramatically on the Duke of York’s Steps—except to Inez, his daughter, who doesn’t accept that he died of natural causes. At her prompting, Detective-Inspector John Poole takes another look, uncovering family secrets and suspicious financial dealings. Could Fratten have been murdered?&lt;/p&gt;</content>
+		<category scheme="http://purl.org/dc/terms/LCSH" term="Detective and mystery stories"/>
+		<category scheme="http://purl.org/dc/terms/LCSH" term="Police--Great Britain--Fiction"/>
+		<category scheme="https://standardebooks.org/vocab/subjects" term="Mystery"/>
+		<media:thumbnail height="525" url="https://standardebooks.org/ebooks/henry-wade/the-duke-of-yorks-steps/downloads/cover-thumbnail.jpg" width="350"/>
+		<link href="https://standardebooks.org/ebooks/henry-wade/the-duke-of-yorks-steps" rel="alternate" title="This ebook’s page at Standard Ebooks" type="application/xhtml+xml"/>
+		<link href="https://standardebooks.org/ebooks/henry-wade/the-duke-of-yorks-steps/downloads/henry-wade_the-duke-of-yorks-steps.epub?source=feed" length="851837" rel="enclosure" title="Recommended compatible epub" type="application/epub+zip"/>
+		<link href="https://standardebooks.org/ebooks/henry-wade/the-duke-of-yorks-steps/downloads/henry-wade_the-duke-of-yorks-steps_advanced.epub?source=feed" length="1720959" rel="enclosure" title="Advanced epub" type="application/epub+zip"/>
+		<link href="https://standardebooks.org/ebooks/henry-wade/the-duke-of-yorks-steps/downloads/henry-wade_the-duke-of-yorks-steps.kepub.epub?source=feed" length="789056" rel="enclosure" title="Kobo Kepub epub" type="application/kepub+zip"/>
+		<link href="https://standardebooks.org/ebooks/henry-wade/the-duke-of-yorks-steps/downloads/henry-wade_the-duke-of-yorks-steps.azw3?source=feed" length="922440" rel="enclosure" title="Amazon Kindle azw3" type="application/x-mobipocket-ebook"/>
+		<link href="https://standardebooks.org/ebooks/henry-wade/the-duke-of-yorks-steps/text/single-page" length="591889" rel="enclosure" title="XHTML" type="application/xhtml+xml"/>
+	</entry>
+	<entry>
+		<id>https://standardebooks.org/ebooks/edgar-rice-burroughs/a-fighting-man-of-mars</id>
+		<title>A Fighting Man of Mars</title>
+		<author>
+			<name>Edgar Rice Burroughs</name>
+			<uri>https://standardebooks.org/ebooks/edgar-rice-burroughs</uri>
+		</author>
+		<published>2026-11-15T17:49:50Z</published>
+		<updated>2026-11-15T17:49:59Z</updated>
+		<rights>Public domain in the United States. Users located outside of the United States must check their local laws before using this ebook. Original content released to the public domain via the Creative Commons CC0 1.0 Universal Public Domain Dedication.</rights>
+		<summary type="text">A courageous warrior of Barsoom seeks to rescue the woman he loves from savage creatures and malevolent tyrants.</summary>
+		<content type="html">&lt;p&gt;On the world of Barsoom, Hadron of Hastor leaps into action when he learns the woman he loves has been abducted. He’s driven by duty and honor despite her rejection of his proposal. He cleverly identifies the kidnappers as agents for Tul Axtar, leader of the world of Jahar. A curious and courageous adventurer, Hadron delves into previously unknown parts of Barsoom, battling savage creatures, evil despots, and even a vengeful mad scientist. He relies on his wits and warrior skills as he enacts daring escapes from ever more dire circumstances. The climactic conflict isn’t simply a battle of good versus evil—rather, it’s heavy with momentous portents due to advances in Martian weaponry, which can be devastating in the wrong hands.&lt;/p&gt; &lt;p&gt;&lt;i&gt;A Fighting Man of Mars&lt;/i&gt; was first serialized in six parts in &lt;i&gt;Blue Book Magazine&lt;/i&gt; from April to September 1930, then published as a novel in 1931.&lt;/p&gt;</content>
+		<category scheme="http://purl.org/dc/terms/LCSH" term="Science fiction"/>
+		<category scheme="http://purl.org/dc/terms/LCSH" term="Mars (Planet)--Fiction"/>
+		<category scheme="http://purl.org/dc/terms/LCSH" term="Life on other planets--Fiction"/>
+		<category scheme="https://standardebooks.org/vocab/subjects" term="Adventure"/>
+		<category scheme="https://standardebooks.org/vocab/subjects" term="Fantasy"/>
+		<category scheme="https://standardebooks.org/vocab/subjects" term="Science Fiction"/>
+		<media:thumbnail height="525" url="https://standardebooks.org/ebooks/edgar-rice-burroughs/a-fighting-man-of-mars/downloads/cover-thumbnail.jpg" width="350"/>
+		<link href="https://standardebooks.org/ebooks/edgar-rice-burroughs/a-fighting-man-of-mars" rel="alternate" title="This ebook’s page at Standard Ebooks" type="application/xhtml+xml"/>
+		<link href="https://standardebooks.org/ebooks/edgar-rice-burroughs/a-fighting-man-of-mars/downloads/edgar-rice-burroughs_a-fighting-man-of-mars.epub?source=feed" length="776651" rel="enclosure" title="Recommended compatible epub" type="application/epub+zip"/>
+		<link href="https://standardebooks.org/ebooks/edgar-rice-burroughs/a-fighting-man-of-mars/downloads/edgar-rice-burroughs_a-fighting-man-of-mars_advanced.epub?source=feed" length="1186287" rel="enclosure" title="Advanced epub" type="application/epub+zip"/>
+		<link href="https://standardebooks.org/ebooks/edgar-rice-burroughs/a-fighting-man-of-mars/downloads/edgar-rice-burroughs_a-fighting-man-of-mars.kepub.epub?source=feed" length="681272" rel="enclosure" title="Kobo Kepub epub" type="application/kepub+zip"/>
+		<link href="https://standardebooks.org/ebooks/edgar-rice-burroughs/a-fighting-man-of-mars/downloads/edgar-rice-burroughs_a-fighting-man-of-mars.azw3?source=feed" length="839462" rel="enclosure" title="Amazon Kindle azw3" type="application/x-mobipocket-ebook"/>
+		<link href="https://standardebooks.org/ebooks/edgar-rice-burroughs/a-fighting-man-of-mars/text/single-page" length="590920" rel="enclosure" title="XHTML" type="application/xhtml+xml"/>
+	</entry>
+</feed>

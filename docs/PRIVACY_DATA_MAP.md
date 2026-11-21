@@ -8,12 +8,13 @@ Summary: the developer operates **no server** and receives **no data**. The App 
 optional sync data (section 3). There is no analytics, advertising,
 crash-reporting or third-party SDK, and no tracking. Network traffic goes only to (a) the progress-sync
 service the user chooses and signs in to (a KOReader Sync server, or Readest Cloud; at most one at a time),
-(b) the reader.dict website when the user downloads a dictionary on the iPhone, and (c) Open Library when the user
-asks the iPhone to look up missing book details (off by default; section 1b-bis). Word lookups are offline.
+(b) the reader.dict website when the user downloads a dictionary on the iPhone, (c) Open Library when the user
+asks the iPhone to look up missing book details (off by default; section 1b-bis), and (d) an OPDS catalog the user
+opens on the iPhone (section 1b-ter). Word lookups are offline.
 
 ## 1. Network traffic (complete list)
 
-Only the sync connectors, the dictionary download and the online book-details lookup use `URLSession`; there are
+Only the sync connectors, the dictionary download, the online book-details lookup and the OPDS catalog browser use `URLSession`; there are
 no other networking APIs (no WebKit,
 no sockets, no Bonjour). Sync connectors are listed in `SyncConnectorRegistry.standard`
 (`Packages/ReaderCore/Sources/ReaderCore/Sync/Connectors/SyncConnector.swift`).
@@ -123,6 +124,27 @@ its text, or anything about other books in the library. Requests are sequential 
 Received data is stored on the iPhone only (section 2). The developer is not a party and receives nothing; Open
 Library handles the request under the Internet Archive's policy (<https://archive.org/about/terms>).
 
+### 1b-ter. OPDS catalogs (iPhone only, on user action only)
+
+Code: `Packages/ReaderCore/Sources/ReaderCore/OPDS/` (`OPDSClient`, `URLSessionOPDSTransport`: ephemeral
+`URLSession`, no cookies, no disk cache, no credential storage) and `iOSApp/Library/CatalogStore.swift`. Details:
+`docs/OPDS.md`. *Library › + › Catalogs* lists two presets (Standard Ebooks' new releases feed,
+`https://standardebooks.org/feeds/atom/new-releases`, and Project Gutenberg, `https://www.gutenberg.org/ebooks.opds/`)
+and the catalogs the user added by address. **Listing them contacts nothing.** A request is made only when the user
+opens a catalog or one of its sections, taps *Load More*, adds a catalog (its address is read once to check it), or
+taps *Download* on a book. The watch never does it.
+
+| Recipient | Request | Data sent |
+|---|---|---|
+| The catalog the user opened (a preset, or the server at the address the user typed) | HTTPS GET (plain `http://` only for local-network hosts, as for KOSync) | The address of the page, `User-Agent: Folito/1.0 (https://folito.app; OPDS catalog browser)` and an `Accept` header, plus the IP address inherent to any request. |
+| Hosts the catalog links to for covers and EPUB files (e.g. `standardebooks.org`, `www.gutenberg.org`) | HTTPS GET | The address the catalog gave; same User-Agent and IP address. |
+
+Not sent: cookies, credentials (addresses with a user name or password are refused; catalogs that need a sign-in
+are not supported yet), anything about the user, the library, other catalogs, reading positions or the device.
+A downloaded EPUB goes through the normal import (and to the watch); the catalog learns only that the file was
+downloaded. Covers are kept in memory while the app runs, not on disk. The developer is not a party and receives
+nothing; each catalog handles requests under its own policy.
+
 ### 1c. Not network, but data movement to document
 
 - iPhone to Apple Watch (WatchConnectivity, local to the user's paired devices, handled by Apple's frameworks):
@@ -153,6 +175,7 @@ Library handles the request under the Internet Archive's policy (<https://archiv
 | Covers and book details of local books (description, series, publisher, year, language, ISBN) | iPhone: `Application Support/Folito/Books/<hash>.cover.jpg` and `<hash>.watch.jpg`, details in `library.json`; watch: `Books/<hash>.cover.jpg` | Read from the EPUB at import. Removed with the book. |
 | Online book details (cover, description, year, publisher, subjects from Open Library; the Open Library record key; when the background lookup last tried the book) | iPhone: the same cover files, `online` / `onlineLookupAt` in `library.json`; the watch gets only the cover thumbnail | Only what the user accepted (or the opt-in background lookup applied), only for fields the EPUB lacks; the EPUB file is never changed. *Remove Online Details* deletes them. Removed with the book. |
 | "Find Missing Details Online" | UserDefaults (`onlineMetadata.autoLookup`) | Off by default. |
+| Catalogs the user added (name, address) | iPhone: UserDefaults (`catalogs.custom`) | Never leaves the iPhone. Removed with *Remove* in Catalogs. |
 | Readest book list and covers (cache) | iPhone: `Application Support/Folito/readest-library.json`, `Caches/ReadestCovers` | So the Library can show Readest books offline. Removed on Sign Out. |
 | "Upload Imported Books Automatically", Library filter | UserDefaults | Off / All by default. |
 | Reading position, typography, device UUID, pending sync queue | UserDefaults | |
@@ -187,6 +210,8 @@ Library handles the request under the Internet Archive's policy (<https://archiv
   collection either: the ISBN or title and author goes to Open Library only to answer that request in real time,
   the developer never receives it, and Open Library is not a partner of the developer (no SDK, no agreement); see
   `docs/appstore/APP_PRIVACY.md`, "Online book details". No data type, tracking domain or manifest entry is added.
+  The same holds for OPDS catalogs (1b-ter): the request names only a page or file of a catalog the user chose,
+  goes to that catalog and not to the developer, and carries no user data; nothing is declared for it.
 
 | Declared type | What it is in Folito | Sent to |
 |---|---|---|
