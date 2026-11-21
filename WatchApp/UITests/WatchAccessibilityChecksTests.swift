@@ -115,6 +115,34 @@ final class WatchAccessibilityChecksTests: XCTestCase {
         try assertInteractiveElementsAreLabelled(app, screen: "Library (one book)")
     }
 
+    /// #156: a book that arrived from the iPhone reads "New, title, author, n% read" until it is opened; back from
+    /// the reader the badge is gone. The book row stays one element.
+    @MainActor
+    func testNewBookBadgeUntilOpened() throws {
+        let app = WatchUI.launch(seedSampleBook: true, extraArguments: ["-UITestingNewBook"])
+        let row = WatchUI.libraryRow(in: app)
+        XCTAssertTrue(row.label.hasPrefix("New"), "Row label should start with \u{201C}New\u{201D}: \(row.label)")
+        XCTAssertTrue(row.label.contains(WatchUI.sampleTitle), "Row label lacks the title: \(row.label)")
+        XCTAssertTrue(row.label.contains("read"), "Row label lacks the progress: \(row.label)")
+        try assertInteractiveElementsAreLabelled(app, screen: "Library (new book)")
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = "watch-library-new-book"
+        shot.lifetime = .keepAlways
+        add(shot)
+
+        WatchUI.openReader(app)
+        let back = WatchUI.element("BackButton", in: app)
+        if !WatchUI.waitForHittable(back, timeout: 5) {
+            // The bar hid: a tap on the text shows it again.
+            app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)).tap()
+        }
+        XCTAssertTrue(WatchUI.waitForHittable(back, timeout: 5), "The back button should show")
+        back.tap()
+        XCTAssertTrue(WatchUI.waitForHittable(row, timeout: 10), "Did not return to the Library")
+        XCTAssertFalse(row.label.hasPrefix("New"), "The badge should go once the book was opened: \(row.label)")
+        XCTAssertTrue(row.label.contains(WatchUI.sampleTitle), "Row label lacks the title: \(row.label)")
+    }
+
     // MARK: Reader
 
     @MainActor

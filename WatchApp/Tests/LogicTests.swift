@@ -909,3 +909,78 @@ final class InBlockReaderTests: XCTestCase {
         XCTAssertEqual(model.localPosition.xpointer, "/body/DocFragment[1]/body/p[2]")
     }
 }
+
+/// #156: a book that arrives from the iPhone shows "New" in the Library until it is first opened.
+@MainActor
+final class NewBookBadgeTests: XCTestCase {
+    /// A fresh directory per test (XCTest makes one instance per test method).
+    private let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+
+    private func makeLibrary() -> BookLibrary {
+        addTeardownBlock { [root] in try? FileManager.default.removeItem(at: root) }
+        let suite = "NewBookBadgeTests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        return BookLibrary(storage: BookStorage(root: root), positions: PositionStore(defaults: defaults))
+    }
+
+    /// Writes the book as the iPhone sends it (LZFSE-compressed JSON) to a file the library may consume.
+    private func receivedFile() throws -> URL {
+        let compressed = try (JSONEncoder().encode(makeBook()) as NSData).compressed(using: .lzfse) as Data
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".book")
+        try compressed.write(to: file)
+        return file
+    }
+
+    func testIndexSavedBeforeTheBadgeCountsAsOpened() throws {
+        let old = try JSONDecoder().decode([LibraryEntry].self, from: Data(
+            #"[{"documentHash":"a","title":"T","author":"A","totalCharacters":3,"addedAt":0}]"#.utf8))
+        XCTAssertNil(old[0].unopened)
+        XCTAssertFalse(old[0].isNew, "books already on the watch before the update are not new")
+    }
+
+    func testArrivalRule() {
+        XCTAssertTrue(LibraryEntry.arrivesUnopened(previous: nil), "a book the watch did not have is new")
+        var previous = LibraryEntry(documentHash: "h", title: "T", author: "A", totalCharacters: 1, addedAt: Date())
+        XCTAssertFalse(LibraryEntry.arrivesUnopened(previous: previous), "sent again after it was opened")
+        previous.unopened = true
+        XCTAssertTrue(LibraryEntry.arrivesUnopened(previous: previous), "sent again before it was opened")
+    }
+
+    func testReceivedBookIsNewUntilOpenedAndTheStateIsPersisted() async throws {
+        let library = makeLibrary()
+        await library.importReceivedFile(at: try receivedFile())
+        XCTAssertEqual(library.entries.map(\.isNew), [true])
+        XCTAssertEqual(BookStorage(root: root).loadIndex().map(\.isNew), [true], "saved with the index")
+
+        library.markOpened("h")
+        XCTAssertEqual(library.entries.map(\.isNew), [false])
+        XCTAssertEqual(BookStorage(root: root).loadIndex().map(\.isNew), [false], "opened state is saved")
+        XCTAssertEqual(makeLibrary().entries.map(\.isNew), [false], "survives a relaunch")
+
+        // Sent again from the iPhone: still opened.
+        await library.importReceivedFile(at: try receivedFile())
+        XCTAssertEqual(library.entries.map(\.isNew), [false])
+
+        // Deleted and sent again: a new arrival.
+        library.delete(documentHash: "h")
+        await library.importReceivedFile(at: try receivedFile())
+        XCTAssertEqual(library.entries.map(\.isNew), [true])
+    }
+
+    func testSentAgainBeforeOpeningStaysNew() async throws {
+        let library = makeLibrary()
+        await library.importReceivedFile(at: try receivedFile())
+        await library.importReceivedFile(at: try receivedFile())
+        XCTAssertEqual(library.entries.map(\.isNew), [true])
+    }
+
+    func testMarkOpenedIgnoresUnknownAndOpenedBooks() async throws {
+        let library = makeLibrary()
+        library.markOpened("missing")
+        await library.importReceivedFile(at: try receivedFile())
+        library.markOpened("h")
+        library.markOpened("h")
+        XCTAssertEqual(library.entries.map(\.isNew), [false])
+    }
+}

@@ -13,6 +13,27 @@ private final class HapticSpy: HapticPlaying {
     func play(_ event: HapticEvent) { events.append(event) }
 }
 
+/// #156: the Library's "New" badge is black text on the accent colour.
+final class NewBadgeContrastTests: XCTestCase {
+    func testBlackOnTheAccentMeetsEnhancedContrast() {
+        let black = ThemePalette.RGB(0, 0, 0)
+        XCTAssertGreaterThanOrEqual(ThemePalette.RGB.contrast(black, NewBadge.accent), 7)
+    }
+
+    /// The constant is the asset's colour (read from the source tree, which the CI runner has).
+    func testAccentConstantMatchesTheAsset() throws {
+        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Assets.xcassets/AccentColor.colorset/Contents.json")
+        guard let data = try? Data(contentsOf: url) else { throw XCTSkip("Asset catalog not reachable from the test") }
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let colors = try XCTUnwrap(json["colors"] as? [[String: Any]])
+        let components = try XCTUnwrap((colors.first?["color"] as? [String: Any])?["components"] as? [String: String])
+        XCTAssertEqual(Double(components["red"] ?? ""), NewBadge.accent.r)
+        XCTAssertEqual(Double(components["green"] ?? ""), NewBadge.accent.g)
+        XCTAssertEqual(Double(components["blue"] ?? ""), NewBadge.accent.b)
+    }
+}
+
 final class ReadingProgressFormatTests: XCTestCase {
     private let en = Locale(identifier: "en_US")
 

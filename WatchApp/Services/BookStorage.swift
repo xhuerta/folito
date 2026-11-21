@@ -12,8 +12,19 @@ struct LibraryEntry: Codable, Identifiable, Equatable {
     /// Read status ("Finished") with the time it was set, synced with the iPhone (last writer wins). Optional:
     /// older indexes decode unchanged.
     var readStatus: ReadStatusMark? = nil
+    /// True from the moment the book arrives from the iPhone until it is first opened on the watch: the Library row
+    /// shows a "New" badge (#156). Optional: indexes saved before this existed decode as nil, which counts as
+    /// opened, so books already on the watch are never shown as new.
+    var unopened: Bool? = nil
     var id: String { documentHash }
     var isFinished: Bool { readStatus?.isFinished == true }
+    var isNew: Bool { unopened == true }
+
+    /// Whether a book that just arrived from the iPhone is new: a book the watch did not have is; a book sent again
+    /// (already in the library) keeps its state, so re-sending a book the user has opened does not mark it new.
+    static func arrivesUnopened(previous: LibraryEntry?) -> Bool {
+        previous.map(\.isNew) ?? true
+    }
 }
 
 enum BookStorageError: Error {
