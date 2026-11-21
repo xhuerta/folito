@@ -60,8 +60,12 @@ final class CatalogsUITests: XCTestCase {
         openCatalogs(app)
         XCTAssertTrue(row(app, "catalogRow", startingWith: "Standard Ebooks").waitForExistence(timeout: 5))
         XCTAssertTrue(row(app, "catalogRow", startingWith: "Project Gutenberg").exists)
-        XCTAssertTrue(row(app, "catalogRow", startingWith: "Home Library").exists, "the added catalog is listed")
         screenshot(app, "\(size)-1-catalogs")
+        let home = row(app, "catalogRow", startingWith: "Home Library")
+        for _ in 0..<6 where !(home.exists && home.isHittable) { app.swipeUp() }
+        XCTAssertTrue(home.exists, "the added catalog is listed")
+        if largestText { screenshot(app, "\(size)-1b-catalogs-added") }
+        for _ in 0..<6 where !row(app, "catalogRow", startingWith: "Project Gutenberg").isHittable { app.swipeDown() }
 
         // A navigation feed.
         row(app, "catalogRow", startingWith: "Project Gutenberg").tap()
@@ -81,7 +85,7 @@ final class CatalogsUITests: XCTestCase {
         mars.tap()
         XCTAssertTrue(app.buttons["catalogDownload"].waitForExistence(timeout: 5), "Book screen did not open")
         screenshot(app, "\(size)-4-book")
-        goBack(app, to: "Standard Ebooks - Newest Ebooks")
+        goBack(app, to: "Standard Ebooks")
         XCTAssertTrue(mars.waitForExistence(timeout: 5))
         goBack(app, to: "Catalogs")
 

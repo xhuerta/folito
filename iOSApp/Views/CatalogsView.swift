@@ -119,7 +119,10 @@ struct CatalogFeedView: View {
 
     var body: some View {
         content
-            .navigationTitle(model.title ?? title)
+            // The name of the row that was tapped: the feed's own title can be long ("Standard Ebooks - Newest
+            // Ebooks"), and an inline navigation title is one line, clipped at large text sizes (audit). The feed's
+            // title, when it differs, heads the list instead, where it wraps.
+            .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .task { await model.loadIfNeeded() }
             .refreshable { await model.load() }
@@ -162,22 +165,33 @@ struct CatalogFeedView: View {
         }
     }
 
+    private var entryRows: some View {
+        ForEach(model.entries) { entry in
+            if entry.kind == .navigation, let url = entry.navigationURL {
+                NavigationLink(value: CatalogRoute.feed(url, title: entry.title)) {
+                    CatalogEntryRow(entry: entry, catalogs: catalogs)
+                }
+                .accessibilityIdentifier("catalogSectionRow")
+            } else {
+                NavigationLink(value: CatalogRoute.book(entry)) {
+                    CatalogEntryRow(entry: entry, catalogs: catalogs)
+                }
+                .accessibilityIdentifier("catalogBookRow")
+            }
+        }
+    }
+
     private var list: some View {
         List {
-            Section {
-                ForEach(model.entries) { entry in
-                    if entry.kind == .navigation, let url = entry.navigationURL {
-                        NavigationLink(value: CatalogRoute.feed(url, title: entry.title)) {
-                            CatalogEntryRow(entry: entry, catalogs: catalogs)
-                        }
-                        .accessibilityIdentifier("catalogSectionRow")
-                    } else {
-                        NavigationLink(value: CatalogRoute.book(entry)) {
-                            CatalogEntryRow(entry: entry, catalogs: catalogs)
-                        }
-                        .accessibilityIdentifier("catalogBookRow")
-                    }
+            // No empty header (an empty header is an unlabelled accessibility element).
+            if let feedTitle = model.title, feedTitle != title {
+                Section {
+                    entryRows
+                } header: {
+                    Text(feedTitle).foregroundStyle(.secondaryText)
                 }
+            } else {
+                Section { entryRows }
             }
             if model.nextURL != nil {
                 Section {
@@ -416,11 +430,14 @@ struct AddCatalogView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .submitLabel(.done)
+                    .accessibilityLabel(Text("Address", comment: "Add Catalog: label of the catalog address field"))
                     .accessibilityIdentifier("catalogAddress")
                     fieldLabel(Text("Name (Optional)", comment: "Add Catalog: label of the optional name field"))
                     TextField(text: $name, prompt: Text(verbatim: "")) {
                         Text("Name (Optional)", comment: "Add Catalog: label of the optional name field")
                     }
+                    // With a prompt, the label closure is not read by VoiceOver: name the field explicitly.
+                    .accessibilityLabel(Text("Name (Optional)", comment: "Add Catalog: label of the optional name field"))
                     .accessibilityIdentifier("catalogName")
                 } footer: {
                     Text("The address of an OPDS catalog, for example a Calibre-Web, Kavita or Komga server. Catalogs that need a sign-in aren’t supported yet.",
