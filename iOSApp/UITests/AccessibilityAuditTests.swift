@@ -592,20 +592,10 @@ final class AccessibilityAuditTests: XCTestCase {
         waitForScrollToSettle(app)
     }
 
-    /// The Catalogs list: the two presets (with the footer) and one added catalog with *Add Catalog…*. At AX5 the
-    /// added catalog was fully on screen only on a page in the middle of the list, where the audit's re-rendering
-    /// at smaller sizes moves it (the artifact under "Rows in the middle of a long list at AX5" in
-    /// docs/ACCESSIBILITY.md): the largest-size pass audits the top of the list and then its end, where the added
-    /// catalog and *Add Catalog…* are the last rows.
+    /// The Catalogs list: the two presets (with the note under them) and one added catalog with *Add Catalog…*.
     @MainActor
     func testCatalogsListAudit() throws {
-        try auditScreen("Catalogs", extraArguments: ["-UITestingMockCatalogs"],
-                        formFooterFindingsAtLargestText: true,
-                        afterScrollAtLargestText: { app in
-                            Self.scrollToEnd(app)
-                            XCTAssertTrue(app.buttons["catalogsAdd"].exists, "Add Catalog… not shown at the end of the list")
-                        },
-                        open: Self.openCatalogs)
+        try auditScreen("Catalogs", extraArguments: ["-UITestingMockCatalogs"], open: Self.openCatalogs)
     }
 
     /// The Add Catalog form (labels above the fields, footer, the Add Catalog action row).

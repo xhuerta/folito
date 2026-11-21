@@ -67,15 +67,15 @@ Library's toolbar: a text bar button keeps a fixed font size and was flagged by 
 
 **Catalogs (OPDS).** The Library's + is a menu (*Import EPUB*, *Catalogs*; an icon bar button labelled *Add
 Books*). *Catalogs* is a sheet with a `NavigationStack`: a `List` of catalogs (title and host, one element; custom
-ones have *Remove* as a swipe, context-menu and rotor action), an *Add Catalog…* action row and an icon close button
-(✕, labelled *Done*). Catalog pages are `List`s whose rows are one element (decorative cover, title, authors or a short
+ones have *Remove* as a context-menu and rotor action), an *Add Catalog…* action row and an icon close button
+(✕, labelled *Done*). Catalog pages hold their rows in a card too; rows are one element (decorative cover, title, authors or a short
 summary, and "Not available as EPUB" when the book cannot be downloaded); loading, empty and error states use
 `ProgressView` / `ContentUnavailableView`; further pages load from an explicit *Load More* row, not on scroll. A
 book's screen is built like the book details (cards in a `ScrollView`, title as a header, *Download* as an action
 row with a hint, `DetailRow`s). The add form's fields have visible labels above them instead of placeholders
 (placeholder text is a light system gray, below 4.5:1); the address field starts with `https://`. Its errors are
 shown inline and announced. Audited by `testCatalogsListAudit`, `testAddCatalogAudit`, `testCatalogPageAudit` and
-`testCatalogBookAudit` (shard `catalogs`). The action rows in lists (*Add Catalog…*, *Load More*) are an icon and a text in a plain stack, not a `Label` (a list label's icon column changes at accessibility sizes; *Load More* was flagged "partially unsupported" and "Text clipped" at AX5), and the Catalogs list's AX5 pass audits the top and then the end of the list, where the added catalog is (the mid-list artifact below; not accepted); screenshots at the default and AX5 sizes in the `catalogs-screenshots`
+`testCatalogBookAudit` (shard `catalogs`). The action rows in lists (*Add Catalog…*, *Load More*) are an icon and a text in a plain stack, not a `Label` (a list label's icon column changes at accessibility sizes; *Load More* was flagged "partially unsupported" and "Text clipped" at AX5), and the Catalogs list and catalog pages are cards in a `ScrollView`, not `List`s: as `List`s, the added catalog's row and *Load More* were flagged "partially unsupported" at AX5 wherever they were not on the first screen, even as the last rows (the mid-list artifact below); as cards nothing is flagged and nothing is accepted; screenshots at the default and AX5 sizes in the `catalogs-screenshots`
 artifact (`CatalogsUITests`). See docs/OPDS.md.
 
 **Dynamic Type.** No fixed point sizes in UI chrome; only text styles. Layouts that would truncate switch

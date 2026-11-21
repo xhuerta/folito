@@ -18,46 +18,50 @@ struct CatalogsView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    ForEach(OPDSCatalog.presets) { catalogRow($0) }
-                } header: {
-                    Text("Free Catalogs", comment: "Catalogs: section header of the built-in catalogs").foregroundStyle(.secondaryText)
-                } footer: {
-                    Text("Folito contacts a catalog only when you open it. Books you download are added to your library and sent to your Apple Watch, like any other import.",
-                         comment: "Catalogs: footer under the built-in catalogs")
-                        .foregroundStyle(.secondaryText)
-                }
-                Section {
-                    ForEach(catalogs.custom) { catalog in
-                        catalogRow(catalog)
-                            .swipeActions {
-                                Button(role: .destructive) { catalogs.remove(catalog) } label: {
-                                    Label { Text("Remove", comment: "Catalogs: remove a catalog the user added") } icon: { Image(systemName: "trash") }
-                                }
+            // Cards in a `ScrollView`, like the book details, not a `List`: at AX5 the audit flagged the rows of a
+            // `List` that were fully on screen only in the middle or at the end of the list ("partially unsupported";
+            // docs/ACCESSIBILITY.md). Cards have one layout at every size.
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        DetailCard(title: Text("Free Catalogs", comment: "Catalogs: section header of the built-in catalogs")) {
+                            ForEach(OPDSCatalog.presets) { catalog in
+                                catalogRow(catalog)
+                                if catalog.id != OPDSCatalog.presets.last?.id { Divider() }
                             }
-                            .contextMenu {
-                                Button(role: .destructive) { catalogs.remove(catalog) } label: {
-                                    Label { Text("Remove", comment: "Catalogs: remove a catalog the user added") } icon: { Image(systemName: "trash") }
-                                }
-                            }
-                            .accessibilityAction(named: Text("Remove", comment: "Catalogs: remove a catalog the user added")) {
-                                catalogs.remove(catalog)
-                            }
+                        }
+                        Text("Folito contacts a catalog only when you open it. Books you download are added to your library and sent to your Apple Watch, like any other import.",
+                             comment: "Catalogs: footer under the built-in catalogs")
+                            .font(.footnote)
+                            .foregroundStyle(.secondaryText)
+                            .padding(.horizontal, 4)
                     }
-                    Button { showAdd = true } label: {
-                        ListActionLabel(Text("Add Catalog…", comment: "Catalogs: button that opens the form to add a catalog by address"),
-                                        systemImage: "plus")
-                            .modifier(ActionLabel())
+                    DetailCard(title: Text("Your Catalogs", comment: "Catalogs: section header of the catalogs the user added")) {
+                        ForEach(catalogs.custom) { catalog in
+                            catalogRow(catalog)
+                                .contextMenu {
+                                    Button(role: .destructive) { catalogs.remove(catalog) } label: {
+                                        Label { Text("Remove", comment: "Catalogs: remove a catalog the user added") } icon: { Image(systemName: "trash") }
+                                    }
+                                }
+                                .accessibilityAction(named: Text("Remove", comment: "Catalogs: remove a catalog the user added")) {
+                                    catalogs.remove(catalog)
+                                }
+                            Divider()
+                        }
+                        Button { showAdd = true } label: {
+                            ListActionLabel(Text("Add Catalog…", comment: "Catalogs: button that opens the form to add a catalog by address"),
+                                            systemImage: "plus")
+                                .modifier(ActionLabel())
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityIdentifier("catalogsAdd")
                     }
-                    // No row-level button styling: a default List/Form button row is flagged "Dynamic Type font sizes are
-                    // partially unsupported" at AX5 (docs/ACCESSIBILITY.md); the label is an action row (ActionLabel).
-                    .buttonStyle(.borderless)
-                    .accessibilityIdentifier("catalogsAdd")
-                } header: {
-                    Text("Your Catalogs", comment: "Catalogs: section header of the catalogs the user added").foregroundStyle(.secondaryText)
                 }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
             }
+            .background(Color(uiColor: .systemGroupedBackground))
             .readableScrollEdges()
             .navigationTitle(Text("Catalogs", comment: "Title of the screen that lists OPDS catalogs"))
             .navigationBarTitleDisplayMode(.inline)
@@ -94,21 +98,40 @@ struct CatalogsView: View {
 
     private func catalogRow(_ catalog: OPDSCatalog) -> some View {
         NavigationLink(value: CatalogRoute.feed(catalog.url, title: catalog.title)) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(catalog.title).font(.body)
-                Text(catalog.url.host ?? catalog.url.absoluteString)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondaryText)
+            CardLinkRow {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(catalog.title).font(.body)
+                    Text(catalog.url.host ?? catalog.url.absoluteString)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondaryText)
+                }
             }
-            .accessibilityElement(children: .combine)
         }
+        .buttonStyle(.plain)
         .accessibilityIdentifier("catalogRow")
     }
 }
 
-/// An action row's label inside a `List`: icon and text in a plain stack. A `Label` in a list gets an icon column
-/// that changes at accessibility sizes, and its text was flagged "Dynamic Type font sizes are partially unsupported"
-/// and "Text clipped" at AX5 (docs/ACCESSIBILITY.md, the compact watch notice).
+/// A row of a card that opens another screen: the content, then a chevron; at least 44 pt tall, one element.
+struct CardLinkRow<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            content.frame(maxWidth: .infinity, alignment: .leading)
+            Image(systemName: "chevron.forward")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(.secondaryText)
+                .accessibilityHidden(true)
+        }
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// An action row's label: icon and text in a plain stack, not a `Label` (in a list a label's icon column changes at
+/// accessibility sizes; docs/ACCESSIBILITY.md, the compact watch notice).
 struct ListActionLabel: View {
     let text: Text
     let systemImage: String
@@ -192,56 +215,70 @@ struct CatalogFeedView: View {
 
     private var entryRows: some View {
         ForEach(model.entries) { entry in
-            if entry.kind == .navigation, let url = entry.navigationURL {
-                NavigationLink(value: CatalogRoute.feed(url, title: entry.title)) {
-                    CatalogEntryRow(entry: entry, catalogs: catalogs)
+            Group {
+                if entry.kind == .navigation, let url = entry.navigationURL {
+                    NavigationLink(value: CatalogRoute.feed(url, title: entry.title)) {
+                        CardLinkRow { CatalogEntryRow(entry: entry, catalogs: catalogs) }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("catalogSectionRow")
+                } else {
+                    NavigationLink(value: CatalogRoute.book(entry)) {
+                        CardLinkRow { CatalogEntryRow(entry: entry, catalogs: catalogs) }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("catalogBookRow")
                 }
-                .accessibilityIdentifier("catalogSectionRow")
-            } else {
-                NavigationLink(value: CatalogRoute.book(entry)) {
-                    CatalogEntryRow(entry: entry, catalogs: catalogs)
-                }
-                .accessibilityIdentifier("catalogBookRow")
             }
+            if entry.id != model.entries.last?.id { Divider() }
         }
     }
 
+    /// Cards in a `ScrollView`, not a `List` (see `CatalogsView`).
     private var list: some View {
-        List {
-            // No empty header (an empty header is an unlabelled accessibility element).
-            if let feedTitle = model.title, feedTitle != title {
-                Section {
-                    entryRows
-                } header: {
-                    Text(feedTitle).foregroundStyle(.secondaryText)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 8) {
+                    // No empty title: the feed's own title heads the card only when it differs from the screen's.
+                    if let feedTitle = model.title, feedTitle != title {
+                        Text(feedTitle)
+                            .font(.headline)
+                            .foregroundStyle(.secondaryText)
+                            .accessibilityAddTraits(.isHeader)
+                            .padding(.horizontal, 4)
+                    }
+                    // Lazy: a page can hold hundreds of entries, and each row loads its cover when it appears.
+                    LazyVStack(alignment: .leading, spacing: 12) { entryRows }
+                        .padding(16)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
                 }
-            } else {
-                Section { entryRows }
-            }
-            if model.nextURL != nil {
-                Section {
-                    if model.isLoadingMore {
-                        HStack(spacing: 8) {
-                            ProgressView()
-                            Text("Loading More…", comment: "Catalogs: the next page of a catalog is loading")
+                if model.nextURL != nil {
+                    DetailCard {
+                        if model.isLoadingMore {
+                            HStack(spacing: 8) {
+                                ProgressView()
+                                Text("Loading More…", comment: "Catalogs: the next page of a catalog is loading")
+                            }
+                            .frame(minHeight: 44)
+                            .accessibilityElement(children: .combine)
+                        } else {
+                            Button { Task { await model.loadMore() } } label: {
+                                ListActionLabel(Text("Load More", comment: "Catalogs: button that loads the next page of a catalog"),
+                                                systemImage: "arrow.down.circle")
+                                    .modifier(ActionLabel())
+                            }
+                            .buttonStyle(.borderless)
+                            .accessibilityIdentifier("catalogLoadMore")
                         }
-                        .frame(minHeight: 44)
-                        .accessibilityElement(children: .combine)
-                    } else {
-                        Button { Task { await model.loadMore() } } label: {
-                            ListActionLabel(Text("Load More", comment: "Catalogs: button that loads the next page of a catalog"),
-                                            systemImage: "arrow.down.circle")
-                                .modifier(ActionLabel())
-                        }
-                        // No row-level button styling: a default List/Form button row is flagged "Dynamic Type font sizes are
-                        // partially unsupported" at AX5 (docs/ACCESSIBILITY.md); the label is an action row (ActionLabel).
-                        .buttonStyle(.borderless)
-                        .accessibilityIdentifier("catalogLoadMore")
                     }
                 }
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
         }
         .readableScrollEdges()
+        .background(Color(uiColor: .systemGroupedBackground))
     }
 }
 

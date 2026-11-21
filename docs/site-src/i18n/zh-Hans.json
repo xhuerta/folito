@@ -126,7 +126,7 @@
   "support.dict_2": "这些词典由 <a href=\"https://www.reader-dict.com\">reader.dict</a> 基于 Wiktionary 编纂；Wiktionary 的内容依据 <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">CC BY-SA 4.0</a> 提供。致谢信息也可在<em>设置 › 致谢</em>中查看。",
   "support.catalogs_title": "来自图书目录的免费图书（OPDS）",
   "support.catalogs_1": "在资料库中轻点 <em>+</em>，然后选取<em>图书目录</em>。打开 <em>Standard Ebooks</em>（最新发布）或 <em>Project Gutenberg</em>，找到一本书并轻点<em>下载</em>：EPUB 会添加到你的资料库并发送到你的手表。仅以其他格式或带 DRM 提供的图书会显示“无 EPUB 格式”。",
-  "support.catalogs_2": "要添加其他图书目录（例如你自己的 Calibre-Web、Kavita 或 Komga 服务器），请轻点<em>添加图书目录…</em>并输入其 OPDS 地址（Calibre-Web 的地址以 <code>/opds</code> 结尾）。暂不支持需要登录的图书目录。要移除你添加的图书目录，请在它上面向左轻扫。",
+  "support.catalogs_2": "要添加其他图书目录（例如你自己的 Calibre-Web、Kavita 或 Komga 服务器），请轻点<em>添加图书目录…</em>并输入其 OPDS 地址（Calibre-Web 的地址以 <code>/opds</code> 结尾）。暂不支持需要登录的图书目录。要移除你添加的图书目录，请按住它，然后轻点<em>移除</em>。",
   "support.dict_3": "如果你在某本书中查词，而手表上没有该书语言的词典，Folito 会告诉你缺少哪种词典以及在哪里下载。在 iPhone 上，如果有该书语言的词典，图书详情中也会提供下载。",
   "support.reading_title": "在手表上阅读",
   "support.reading_1": "在手表或 iPhone 上 Folito 的设置中，<em>排版</em>可设置字体、文字大小、行距、段落间距、字间距、页边距、标题大小和阅读主题。打开<em>匹配系统文字大小</em>后，书中文字会跟随 Apple Watch 的“文字大小”设置。",
