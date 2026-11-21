@@ -75,7 +75,9 @@ final class CatalogsUITests: XCTestCase {
 
         // A page of books.
         let standard = row(app, "catalogRow", startingWith: "Standard Ebooks")
-        XCTAssertTrue(standard.waitForExistence(timeout: 5))
+        // At AX5 the first rows may be above the screen after the scrolling above.
+        for _ in 0..<6 where !(standard.exists && standard.isHittable) { app.swipeDown() }
+        XCTAssertTrue(standard.waitForExistence(timeout: 5), "Standard Ebooks not reachable")
         standard.tap()
         let mars = row(app, "catalogBookRow", startingWith: "A Fighting Man of Mars")
         XCTAssertTrue(mars.waitForExistence(timeout: 10), "Catalog page did not load")

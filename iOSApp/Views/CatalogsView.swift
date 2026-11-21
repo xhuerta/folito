@@ -49,6 +49,9 @@ struct CatalogsView: View {
                         Label { Text("Add Catalog…", comment: "Catalogs: button that opens the form to add a catalog by address") } icon: { Image(systemName: "plus") }
                             .modifier(ActionLabel())
                     }
+                    // No row-level button styling: a default List/Form button row is flagged "Dynamic Type font sizes are
+                    // partially unsupported" at AX5 (docs/ACCESSIBILITY.md); the label is an action row (ActionLabel).
+                    .buttonStyle(.borderless)
                     .accessibilityIdentifier("catalogsAdd")
                 } header: {
                     Text("Your Catalogs", comment: "Catalogs: section header of the catalogs the user added").foregroundStyle(.secondaryText)
@@ -207,6 +210,9 @@ struct CatalogFeedView: View {
                             Label { Text("Load More", comment: "Catalogs: button that loads the next page of a catalog") } icon: { Image(systemName: "arrow.down.circle") }
                                 .modifier(ActionLabel())
                         }
+                        // No row-level button styling: a default List/Form button row is flagged "Dynamic Type font sizes are
+                        // partially unsupported" at AX5 (docs/ACCESSIBILITY.md); the label is an action row (ActionLabel).
+                        .buttonStyle(.borderless)
                         .accessibilityIdentifier("catalogLoadMore")
                     }
                 }
@@ -467,6 +473,9 @@ struct AddCatalogView: View {
                             Text("Add Catalog", comment: "Add Catalog: button that checks the address and adds the catalog")
                                 .modifier(ActionLabel())
                         }
+                        // No row-level button styling: a default List/Form button row is flagged "Dynamic Type font sizes are
+                        // partially unsupported" at AX5 (docs/ACCESSIBILITY.md); the label is an action row (ActionLabel).
+                        .buttonStyle(.borderless)
                         .accessibilityIdentifier("catalogAddConfirm")
                     }
                 }
