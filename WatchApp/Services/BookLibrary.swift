@@ -59,10 +59,13 @@ final class BookLibrary: ObservableObject {
             return entry
         }.value
         guard var entry = result else { return }
+        let previous = entries.first(where: { $0.documentHash == entry.documentHash })
         // A book sent again keeps its read status.
         if entry.readStatus == nil {
-            entry.readStatus = entries.first(where: { $0.documentHash == entry.documentHash })?.readStatus
+            entry.readStatus = previous?.readStatus
         }
+        // "New" until first opened; a book sent again keeps its state (#156).
+        entry.unopened = LibraryEntry.arrivesUnopened(previous: previous) ? true : nil
         covers.removeValue(forKey: entry.documentHash)
         entries.removeAll { $0.documentHash == entry.documentHash }
         entries.insert(entry, at: 0)
@@ -77,6 +80,15 @@ final class BookLibrary: ObservableObject {
               storage.saveCover(data, documentHash: documentHash) else { return }
         entries[i].hasCover = true
         covers.removeValue(forKey: documentHash)
+        storage.saveIndex(entries)
+    }
+
+    // MARK: New books
+
+    /// The book was opened in the reader: its Library row no longer shows "New" (#156). Persisted with the index.
+    func markOpened(_ documentHash: String) {
+        guard let i = entries.firstIndex(where: { $0.documentHash == documentHash }), entries[i].isNew else { return }
+        entries[i].unopened = nil
         storage.saveIndex(entries)
     }
 

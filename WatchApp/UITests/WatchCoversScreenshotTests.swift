@@ -1,7 +1,7 @@
 import XCTest
 
 /// The watch Library with Settings > Show Covers on and off, at the default and the largest accessibility text
-/// size (`-UITestingSeedCovers`: three books with generated covers and the cover-less sample book). Screenshots
+/// size (`-UITestingSeedCovers`: three books with generated covers, the newest one "New", and the cover-less sample book). Screenshots
 /// only; macos.yml runs this on the smallest and the largest watch simulator and exports the `covers-watch`
 /// artifact.
 final class WatchCoversScreenshotTests: XCTestCase {

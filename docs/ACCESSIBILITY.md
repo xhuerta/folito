@@ -314,6 +314,12 @@ behind a `confirmationDialog`.
 **VoiceOver.**
 - Library rows are one element: "title, author, 43% read". *Delete* is also an accessibility action
   (Actions rotor), and it asks for confirmation like the swipe does.
+- A book that arrived from the iPhone and has not been opened on the watch yet (#156) shows a *New* badge
+  above its title until the reader first opens it; the row then reads "New, title, author, 0% read" (first,
+  like Mail's "Unread"). The badge is the word in `.caption2` semibold (scales with Dynamic Type), black on the
+  accent colour (about 8:1, `NewBadgeContrastTests`), so it never relies on colour. The state is stored in the
+  library index (`LibraryEntry.unopened`); books already on the watch before the badge existed decode as opened,
+  and a book sent again keeps its state.
 - With *Settings › Show Covers* on (the default), each row starts with a small
   cover (30 × 45 pt, decorative and hidden from VoiceOver, so the row still reads "title, author, 43% read").
   The cover keeps its size at every text size and the text wraps beside it; a cover-less book gets a tile in
@@ -443,7 +449,7 @@ lists iOS 17, macOS 14, tvOS 17, visionOS 1 and **watchOS 10**; the `.dynamicTyp
 `.trait` audit types exist on watchOS but not on macOS). The watch UI-test target uses it and adds explicit
 checks the audit does not make:
 
-- `WatchAccessibilityAuditTests`: the audit on the empty library, the library with one book, the reader,
+- `WatchAccessibilityAuditTests`: the audit on the empty library, the library with one book (also with a *New* book), the reader,
   *Reading Options*, its chapter list, Settings and Typography. Like on iOS it runs the types `.all` covers one at a time
   (a timed-out type is retried once) and prints every finding with its element in the CI log.
 - `WatchReaderTopBarTests`: the reader's top bar hides after scrolling down, a tap on the text shows it
@@ -461,7 +467,8 @@ checks the audit does not make:
   - every button, switch, stepper, slider and link has a non-empty label that does not look like a raw
     identifier: SF Symbol names (`list.bullet`, `gearshape`), file names (`sample.epub`), camelCase or
     snake_case identifiers, document hashes;
-  - key elements: the book row is one actionable element whose label has title, author and progress; the
+  - key elements: the book row is one actionable element whose label has title, author and progress (and
+    starts with "New" for a book not opened yet, which is gone after opening it: `testNewBookBadgeUntilOpened`); the
     toolbar buttons are labelled *Settings* / *Reading Options*; the text size stepper reads "Text Size" with
     the value "n points"; the *Chapters* row of *Reading Options* reads the current chapter, and in the
     chapter list it pushes the current chapter is *selected* (its checkmark is hidden); the typography preview is labelled "Text preview";
@@ -482,6 +489,9 @@ builds ignore them):
   suite emptied at launch, and WatchConnectivity not started (no iPhone needed, nothing arrives meanwhile).
 - `-UITestingSeedSampleBook`: the same, plus one tiny built-in public-domain sample book, stored exactly as a
   transfer from the iPhone would be (LZFSE-compressed JSON).
+- `-UITestingNewBook` (with `-UITestingSeedSampleBook`): the seeded book has never been opened, so its row shows
+  the *New* badge. The covers seed (`-UITestingSeedCovers`) also marks its newest book new, so the covers
+  screenshots show the badge at the default and the largest text size.
 
 CI runs them in `accessibility.yml` (job `watch`, in parallel with the iOS audit; same triggers: nightly on `main`,
 manual run from the Actions tab, PRs labelled `accessibility`; see "Automated audit" in the iOS section). They
