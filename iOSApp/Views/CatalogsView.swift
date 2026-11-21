@@ -46,7 +46,8 @@ struct CatalogsView: View {
                             }
                     }
                     Button { showAdd = true } label: {
-                        Label { Text("Add Catalog…", comment: "Catalogs: button that opens the form to add a catalog by address") } icon: { Image(systemName: "plus") }
+                        ListActionLabel(Text("Add Catalog…", comment: "Catalogs: button that opens the form to add a catalog by address"),
+                                        systemImage: "plus")
                             .modifier(ActionLabel())
                     }
                     // No row-level button styling: a default List/Form button row is flagged "Dynamic Type font sizes are
@@ -102,6 +103,27 @@ struct CatalogsView: View {
             .accessibilityElement(children: .combine)
         }
         .accessibilityIdentifier("catalogRow")
+    }
+}
+
+/// An action row's label inside a `List`: icon and text in a plain stack. A `Label` in a list gets an icon column
+/// that changes at accessibility sizes, and its text was flagged "Dynamic Type font sizes are partially unsupported"
+/// and "Text clipped" at AX5 (docs/ACCESSIBILITY.md, the compact watch notice).
+struct ListActionLabel: View {
+    let text: Text
+    let systemImage: String
+
+    init(_ text: Text, systemImage: String) {
+        self.text = text
+        self.systemImage = systemImage
+    }
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: systemImage).accessibilityHidden(true)
+            text.frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -207,7 +229,8 @@ struct CatalogFeedView: View {
                         .accessibilityElement(children: .combine)
                     } else {
                         Button { Task { await model.loadMore() } } label: {
-                            Label { Text("Load More", comment: "Catalogs: button that loads the next page of a catalog") } icon: { Image(systemName: "arrow.down.circle") }
+                            ListActionLabel(Text("Load More", comment: "Catalogs: button that loads the next page of a catalog"),
+                                            systemImage: "arrow.down.circle")
                                 .modifier(ActionLabel())
                         }
                         // No row-level button styling: a default List/Form button row is flagged "Dynamic Type font sizes are

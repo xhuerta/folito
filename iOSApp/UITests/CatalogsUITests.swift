@@ -81,8 +81,12 @@ final class CatalogsUITests: XCTestCase {
         standard.tap()
         let mars = row(app, "catalogBookRow", startingWith: "A Fighting Man of Mars")
         XCTAssertTrue(mars.waitForExistence(timeout: 10), "Catalog page did not load")
-        XCTAssertTrue(app.staticTexts["Not available as EPUB"].exists, "the PDF-only book says so")
         screenshot(app, "\(size)-3-page")
+        let noEPUB = app.staticTexts["Not available as EPUB"]
+        for _ in 0..<6 where !(noEPUB.exists && noEPUB.isHittable) { app.swipeUp() }
+        XCTAssertTrue(noEPUB.exists, "the PDF-only book says so")
+        if largestText { screenshot(app, "\(size)-3b-page-end") }
+        for _ in 0..<6 where !(mars.exists && mars.isHittable) { app.swipeDown() }
 
         mars.tap()
         XCTAssertTrue(app.buttons["catalogDownload"].waitForExistence(timeout: 5), "Book screen did not open")

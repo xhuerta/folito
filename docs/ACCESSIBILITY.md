@@ -75,7 +75,7 @@ book's screen is built like the book details (cards in a `ScrollView`, title as 
 row with a hint, `DetailRow`s). The add form's fields have visible labels above them instead of placeholders
 (placeholder text is a light system gray, below 4.5:1); the address field starts with `https://`. Its errors are
 shown inline and announced. Audited by `testCatalogsListAudit`, `testAddCatalogAudit`, `testCatalogPageAudit` and
-`testCatalogBookAudit` (shard `catalogs`); screenshots at the default and AX5 sizes in the `catalogs-screenshots`
+`testCatalogBookAudit` (shard `catalogs`). The action rows in lists (*Add Catalog…*, *Load More*) are an icon and a text in a plain stack, not a `Label` (a list label's icon column changes at accessibility sizes; *Load More* was flagged "partially unsupported" and "Text clipped" at AX5), and the Catalogs list's AX5 pass audits the top and then the end of the list, where the added catalog is (the mid-list artifact below; not accepted); screenshots at the default and AX5 sizes in the `catalogs-screenshots`
 artifact (`CatalogsUITests`). See docs/OPDS.md.
 
 **Dynamic Type.** No fixed point sizes in UI chrome; only text styles. Layouts that would truncate switch
