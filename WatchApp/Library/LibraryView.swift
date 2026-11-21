@@ -25,7 +25,7 @@ struct LibraryView: View {
                         // Finished books after the others (newest first within each group).
                         ForEach(library.displayedEntries) { entry in
                             NavigationLink(value: entry) {
-                                BookRow(entry: entry, fraction: library.progress[entry.documentHash] ?? 0,
+                                BookRow(entry: entry, isNew: entry.isNew, fraction: library.progress[entry.documentHash] ?? 0,
                                         cover: showCovers ? library.cover(for: entry) : nil, showCover: showCovers)
                             }
                             .accessibilityIdentifier("libraryRow")
@@ -106,6 +106,9 @@ extension LibraryEntry: Hashable {
 
 struct BookRow: View {
     let entry: LibraryEntry
+    /// The "New" badge (#156). Passed on its own: `LibraryEntry`'s `==` compares only hash and title, so SwiftUI
+    /// would not redraw the row when only `entry.unopened` changes (opening the book).
+    var isNew = false
     let fraction: Double
     /// The cover thumbnail from the iPhone; nil (with `showCover`) draws a plain tile in the book's colour.
     var cover: UIImage? = nil
@@ -130,7 +133,7 @@ struct BookRow: View {
 
     private var text: some View {
         VStack(alignment: .leading, spacing: 2) {
-            if entry.isNew {
+            if isNew {
                 // First in the row, so VoiceOver reads "New, Title, Author, 0% read" (like Mail's "Unread").
                 NewBadge()
             }
