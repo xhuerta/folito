@@ -330,7 +330,7 @@ final class ReadestLibraryModel {
             // The book keeps the row's id, whatever the partial MD5 of the bytes Readest served.
             if await library.importDownloaded(from: file, fileName: name, identity: BookIdentityOverride(book)) != nil {
                 Announcer.announce(String(localized: "Downloaded “\(book.title)”.",
-                                          comment: "VoiceOver announcement after a book was downloaded from Readest; the placeholder is the title"))
+                                          comment: "VoiceOver announcement after a book was downloaded (from Readest or a catalog); the placeholder is the title"))
             }
         } catch {
             alert = .readestFailed(.download, title: book.title, error: error)

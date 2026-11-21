@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE feed [ <!ENTITY boom "boom boom boom boom boom boom boom boom"> ]>
+<!-- Hand-written: the acquisition cases Folito must skip or accept, from the OPDS 1.2 specification. -->
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:opds="http://opds-spec.org/2010/catalog" xmlns:dcterms="http://purl.org/dc/terms/">
+  <id>urn:example:edge</id>
+  <title>Edge &amp; Cases</title>
+  <updated>2026-11-21T10:00:00Z</updated>
+  <link rel="next" href="javascript:alert(1)" type="application/atom+xml;profile=opds-catalog;kind=acquisition"/>
+  <entry>
+    <title>Adobe DRM</title>
+    <id>urn:example:adept</id>
+    <link rel="http://opds-spec.org/acquisition" href="https://store.example.com/adept/1.acsm" type="application/vnd.adobe.adept+xml">
+      <opds:indirectAcquisition type="application/epub+zip"/>
+    </link>
+  </entry>
+  <entry>
+    <title>LCP</title>
+    <id>urn:example:lcp</id>
+    <link rel="http://opds-spec.org/acquisition" href="https://store.example.com/lcp/2.lcpl" type="application/vnd.readium.lcp.license.v1.0+json"/>
+  </entry>
+  <entry>
+    <title>Bought or Borrowed</title>
+    <id>urn:example:buy</id>
+    <link rel="http://opds-spec.org/acquisition/buy" href="https://store.example.com/buy/3" type="application/epub+zip">
+      <opds:price currencycode="EUR">4.99</opds:price>
+    </link>
+    <link rel="http://opds-spec.org/acquisition/borrow" href="https://library.example.com/borrow/3" type="application/atom+xml;type=entry;profile=opds-catalog">
+      <opds:indirectAcquisition type="application/epub+zip"/>
+    </link>
+    <link rel="http://opds-spec.org/acquisition/sample" href="https://store.example.com/sample/3.epub" type="application/epub+zip"/>
+  </entry>
+  <entry>
+    <title>Open Access</title>
+    <id>urn:example:open</id>
+    <summary type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml">An <b>open</b> book.</div></summary>
+    <link rel="http://opds-spec.org/acquisition/sample" href="https://free.example.com/sample/4.epub" type="application/epub+zip"/>
+    <link rel="http://opds-spec.org/acquisition/open-access" href="../books/4.epub" type="application/epub+zip; charset=binary" length="1234"/>
+    <link rel="http://opds-spec.org/acquisition/open-access" href="file:///etc/passwd" type="application/epub+zip"/>
+    <link rel="http://opds-spec.org/cover" href="covers/4.png" type="image/png"/>
+  </entry>
+  <entry>
+    <title>   Untitled   whitespace
+    </title>
+    <id>urn:example:entry-document</id>
+    <link rel="alternate" href="/entries/5.xml" type="application/atom+xml;type=entry;profile=opds-catalog"/>
+  </entry>
+</feed>

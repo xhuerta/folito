@@ -17,6 +17,10 @@ struct LibraryView: View {
     @State private var showImporter = false
     @State private var deletion = BookDeletion()
     @State private var showOtherSamples = false
+    @State private var showCatalogs = false
+    /// The Catalogs list and catalog downloads; kept while the Library is alive, so a download continues when the
+    /// sheet is closed.
+    @StateObject private var catalogs = UITesting.makeCatalogStore()
     @AppStorage("library.filter") private var filterRaw = LibraryFilter.all.rawValue
     /// Filter menu: leave finished books out of the list.
     @AppStorage("library.hideFinished") private var hideFinished = false
@@ -90,7 +94,7 @@ struct LibraryView: View {
                 || readest?.downloads.isEmpty == false || readest?.uploading.isEmpty == false,
             showsError: library.importError != nil || readest?.alert != nil || readest?.refreshError != nil
                 || readest?.needsSignIn == true,
-            isPresentingModal: showImporter || showOtherSamples || deletion.entry != nil || deletion.choice != nil
+            isPresentingModal: showImporter || showOtherSamples || showCatalogs || deletion.entry != nil || deletion.choice != nil
                 || deletion.readestBook != nil)
     }
 
@@ -231,9 +235,19 @@ struct LibraryView: View {
                 ProgressView()
                     .accessibilityLabel("Importing book")
             } else {
-                Button { showImporter = true } label: {
-                    Label("Import EPUB", systemImage: "plus")
+                // The add menu: a file from the Files app, or a book from an OPDS catalog (docs/OPDS.md).
+                Menu {
+                    Button { showImporter = true } label: {
+                        Label("Import EPUB", systemImage: "doc")
+                    }
+                    Button { showCatalogs = true } label: {
+                        Label { Text("Catalogs", comment: "Library add menu: browse OPDS catalogs") } icon: { Image(systemName: "books.vertical") }
+                    }
+                    .accessibilityIdentifier("libraryCatalogs")
+                } label: {
+                    Label { Text("Add Books", comment: "Library toolbar: the + menu (Import EPUB, Catalogs)") } icon: { Image(systemName: "plus") }
                 }
+                .accessibilityIdentifier("libraryAddMenu")
             }
         }
     }
@@ -243,6 +257,9 @@ struct LibraryView: View {
         content
         .sheet(isPresented: $showOtherSamples) {
             SampleBookPicker(library: library) { _ = library.addSample(language: $0) }
+        }
+        .sheet(isPresented: $showCatalogs) {
+            CatalogsView(catalogs: catalogs, library: library)
         }
         .fileImporter(isPresented: $showImporter, allowedContentTypes: [Self.epubType]) { result in
             switch result {
