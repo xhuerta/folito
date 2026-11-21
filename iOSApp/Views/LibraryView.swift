@@ -20,7 +20,7 @@ struct LibraryView: View {
     @State private var showCatalogs = false
     /// The Catalogs list and catalog downloads; kept while the Library is alive, so a download continues when the
     /// sheet is closed.
-    @StateObject private var catalogs = CatalogStore()
+    @StateObject private var catalogs = UITesting.makeCatalogStore()
     @AppStorage("library.filter") private var filterRaw = LibraryFilter.all.rawValue
     /// Filter menu: leave finished books out of the list.
     @AppStorage("library.hideFinished") private var hideFinished = false

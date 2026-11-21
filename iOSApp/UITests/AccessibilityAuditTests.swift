@@ -565,6 +565,71 @@ final class AccessibilityAuditTests: XCTestCase {
         }
     }
 
+    // MARK: Catalogs (OPDS)
+
+    /// Library › + › Catalogs with `-UITestingMockCatalogs`: fixed feeds built in code, no network (docs/OPDS.md).
+    @MainActor
+    private static func openCatalogs(_ app: XCUIApplication) {
+        let menu = app.buttons["libraryAddMenu"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 5), "Add menu missing")
+        menu.tap()
+        let item = app.buttons["libraryCatalogs"].exists ? app.buttons["libraryCatalogs"] : app.buttons["Catalogs"]
+        XCTAssertTrue(item.waitForExistence(timeout: 5), "Catalogs menu item missing")
+        item.tap()
+        XCTAssertTrue(app.navigationBars["Catalogs"].waitForExistence(timeout: 5), "Catalogs did not open")
+        _ = app.descendants(matching: .any)["catalogRow"].waitForExistence(timeout: 5)
+    }
+
+    /// Opens Standard Ebooks (a page of books from the fixture) and waits for its rows.
+    @MainActor
+    private static func openCatalogPage(_ app: XCUIApplication) {
+        openCatalogs(app)
+        let row = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == 'catalogRow' AND label BEGINSWITH 'Standard Ebooks'")).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 5), "Standard Ebooks not listed")
+        row.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["catalogBookRow"].waitForExistence(timeout: 10), "Catalog page did not load")
+        waitForScrollToSettle(app)
+    }
+
+    /// The Catalogs list: the two presets (with the footer) and one added catalog with *Add Catalog…*.
+    @MainActor
+    func testCatalogsListAudit() throws {
+        try auditScreen("Catalogs", extraArguments: ["-UITestingMockCatalogs"],
+                        formFooterFindingsAtLargestText: true, open: Self.openCatalogs)
+    }
+
+    /// The Add Catalog form (labels above the fields, footer, the Add Catalog action row).
+    @MainActor
+    func testAddCatalogAudit() throws {
+        try auditScreen("Add Catalog", extraArguments: ["-UITestingMockCatalogs"],
+                        formFooterFindingsAtLargestText: true) { app in
+            Self.openCatalogs(app)
+            Self.scrollAndTap(app.buttons["catalogsAdd"], in: app)
+            XCTAssertTrue(app.navigationBars["Add Catalog"].waitForExistence(timeout: 5), "Add Catalog did not open")
+        }
+    }
+
+    /// A page of a catalog: books with covers, one offered only as PDF ("Not available as EPUB"), Load More.
+    @MainActor
+    func testCatalogPageAudit() throws {
+        try auditScreen("Catalog page", extraArguments: ["-UITestingMockCatalogs"], open: Self.openCatalogPage)
+    }
+
+    /// A catalog book: cover, title, author, Download, description and the information card.
+    @MainActor
+    func testCatalogBookAudit() throws {
+        try auditScreen("Catalog book", extraArguments: ["-UITestingMockCatalogs"]) { app in
+            Self.openCatalogPage(app)
+            let row = app.descendants(matching: .any)
+                .matching(NSPredicate(format: "identifier == 'catalogBookRow' AND label BEGINSWITH 'A Fighting Man of Mars'")).firstMatch
+            XCTAssertTrue(row.waitForExistence(timeout: 5), "Book row missing")
+            row.tap()
+            XCTAssertTrue(app.buttons["catalogDownload"].waitForExistence(timeout: 5), "Book screen did not open")
+            Self.waitForScrollToSettle(app)
+        }
+    }
+
     // MARK: Welcome tour
 
     /// The tour's first page (it opens on first launch). Its later pages use the same layout.

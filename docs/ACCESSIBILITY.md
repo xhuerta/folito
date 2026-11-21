@@ -72,7 +72,11 @@ ones have *Remove* as a swipe, context-menu and rotor action), an *Add Catalogâ€
 summary, and "Not available as EPUB" when the book cannot be downloaded); loading, empty and error states use
 `ProgressView` / `ContentUnavailableView`; further pages load from an explicit *Load More* row, not on scroll. A
 book's screen is built like the book details (cards in a `ScrollView`, title as a header, *Download* as an action
-row with a hint, `DetailRow`s). The add form's errors are shown inline and announced. See docs/OPDS.md.
+row with a hint, `DetailRow`s). The add form's fields have visible labels above them instead of placeholders
+(placeholder text is a light system gray, below 4.5:1); the address field starts with `https://`. Its errors are
+shown inline and announced. Audited by `testCatalogsListAudit`, `testAddCatalogAudit`, `testCatalogPageAudit` and
+`testCatalogBookAudit` (shard `catalogs`); screenshots at the default and AX5 sizes in the `catalogs-screenshots`
+artifact (`CatalogsUITests`). See docs/OPDS.md.
 
 **Dynamic Type.** No fixed point sizes in UI chrome; only text styles. Layouts that would truncate switch
 at accessibility sizes: the size/state line of library rows stacks vertically (`AnyLayout`), slider
@@ -111,10 +115,12 @@ handling (any future custom animation must check `accessibilityReduceMotion`).
 `FolitoUITests` (`iOSApp/UITests/AccessibilityAuditTests.swift`) launches the app and calls
 `XCUIApplication.performAccessibilityAudit` on: the empty library, a library with one book, Settings,
 Progress Sync, Acknowledgements, Reading and the book detail screen (`-UITestingSeedCovers`: a book with a cover,
-a series and a long description), and Settings' *Book Details* section alone (`-UITestingSettingsBookDetailsOnly`).
+a series and a long description), Settings' *Book Details* section alone (`-UITestingSettingsBookDetailsOnly`),
+and the Catalogs screens with fixed feeds and no network (`-UITestingMockCatalogs`): the Catalogs list, Add Catalog,
+a catalog page and a catalog book.
 
-**When it runs.** The audit drives the simulator screen by screen and its 13 tests take about 25 minutes on CI
-(run as three parallel shards of `AccessibilityAuditTests`: `library`, `book` and `rest`), so it is not
+**When it runs.** The audit drives the simulator screen by screen and its 17 tests take about 30 minutes on CI
+(run as four parallel shards of `AccessibilityAuditTests`: `library`, `book`, `catalogs` and `rest`), so it is not
 part of the PR-blocking macOS workflow and not a required check. It has its own workflow,
 `.github/workflows/accessibility.yml` ("Accessibility audit"), which runs:
 - every night on `main` (not on every push);

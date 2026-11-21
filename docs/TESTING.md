@@ -19,10 +19,11 @@ test targets.
 | Complication screenshots (`FolitoWatchTests/ComplicationSnapshotTests`: every family as default, tinted, redacted, Always On and placeholder, plus Smart Stack and a contact sheet, rendered with `ImageRenderer`) | macOS runner, Apple Watch simulator, every PR (`watch` job, same test run) | PNG attachments exported as the `complication-screenshots` artifact (UI tier only: `main` and PRs labelled `ui`) | 1 |
 | Welcome tour UI tests (`FolitoUITests/OnboardingUITests`: walk-through, sample book, Skip, Settings) | macOS runner, iPhone simulator; UI tier (`ios` job on `main` and on PRs labelled `ui`) | `xcodebuild test -scheme Folito -only-testing:FolitoUITests/OnboardingUITests`; page screenshots in the `onboarding-screenshots` artifact | 5 |
 | Online book details UI tests (`FolitoUITests/OnlineMetadataUITests`: Settings › Book Details, Find Details Online, confirmation sheet, Remove Online Details; mocked Open Library, no network) | macOS runner, iPhone simulator; UI tier (`ios` job on `main` and on PRs labelled `ui`) | `xcodebuild test -scheme Folito -only-testing:FolitoUITests/OnlineMetadataUITests`; screenshots in the `online-metadata-screenshots` artifact | 6 |
+| Catalogs UI tests (`FolitoUITests/CatalogsUITests`: Catalogs list, a section, a page of books, a book, Add Catalog and its error, at the default and the largest text size; fixed feeds, no network) | macOS runner, iPhone simulator; UI tier (`ios` job on `main` and on PRs labelled `ui`) | `xcodebuild test -scheme Folito -only-testing:FolitoUITests/CatalogsUITests`; screenshots in the `catalogs-screenshots` artifact | 2 |
 | App Store screenshots (`FolitoUITests/AppStoreScreenshotTests`, `FolitoWatchUITests/WatchAppStoreScreenshotTests`: iPhone Library, book details and Reading tab; watch reader, word lookup, Library, sepia reader and reader menu; English here, all eight languages in `app-store-localized.yml`, run by hand) | macOS runner; UI tier. One simulator per App Store display size (two iPhone sizes, one watch size), picked by `scripts/ci/appstore_simulator.py`, status bar overridden | `scripts/ci/appstore_screenshots.sh`; sizes checked by `scripts/ci/check_screenshot_sizes.py`; artifact `app-store-screenshots` (see docs/appstore/SCREENSHOTS.md) | 1 + 2 |
 | Open Library live smoke test (`OpenLibraryLiveTests`: one Books API request by ISBN; skipped on network errors) | Linux (`swift:6.0` container), `openlibrary-smoke` job | `OPENLIBRARY_LIVE_TEST=1 swift test --filter OpenLibraryLiveTests` | 1 |
 | Sample books (`build_samples.py --check`; parsing in ReaderCore `SampleBooksTests`) | Linux | job `samples`; `test-core` | see docs/SAMPLE_BOOKS.md |
-| iOS accessibility audit (`FolitoUITests`) | macOS runner, iPhone simulator; **not on every PR** (see below) | `accessibility.yml`, `xcodebuild test -scheme Folito -only-testing:FolitoUITests/AccessibilityAuditTests`, in three parallel shards | 13 |
+| iOS accessibility audit (`FolitoUITests`) | macOS runner, iPhone simulator; **not on every PR** (see below) | `accessibility.yml`, `xcodebuild test -scheme Folito -only-testing:FolitoUITests/AccessibilityAuditTests`, in four parallel shards | 17 |
 | watchOS accessibility UI tests (`FolitoWatchUITests`: audit + label / trait / AX5 checks, reader top bar, bookmarks, chapter jumps, reading forward and up (also with fast flings) across chapter ends and text size changes on a novel-shaped seed (`WatchRealBookUITests`, `-UITestingSeedVariedBook`: 36 chapters of 8 to 70 paragraphs; the reader's position and, in Debug builds, its restore trace are exposed by `-UITestingReaderPosition` / `-UITestingRestoreTrace`; the chapter window is unit-tested in `ChapterWindowTests`)) | macOS runner, Apple Watch simulator; **not on every PR** (see below) | `accessibility.yml`, `xcodebuild test -scheme FolitoWatch -only-testing:FolitoWatchUITests` | 17 |
 
 ### CI: which workflow runs when
@@ -33,7 +34,7 @@ CI runs in tiers, so that an ordinary PR gets its feedback from the fast tier on
 |---|---|---|
 | Fast | `linux.yml`; `macos.yml` build + unit tests for iOS and watch | every push of a non-draft PR, every push to `main` |
 | UI | The screenshot UI suites, in the same `macos.yml` jobs after the unit tests: iPhone welcome tour, Readest library, covers and online metadata (one `xcodebuild` call); watch covers screenshots (one simulator size on PRs, smallest and largest on `main`); complication screenshots export; App Store screenshots (one watch size in the `watch` job; two iPhone sizes in the parallel job `app-store-iphone`, one runner per size) and the job `app-store-screenshots` that checks and merges them | every push to `main`; PRs with the label **`ui`** (when the label is added and on every later push); manual runs |
-| Accessibility audit | `accessibility.yml`: iPhone audit in three parallel shards, watch accessibility UI tests | nightly on `main`; PRs with the label **`accessibility`**; manual runs |
+| Accessibility audit | `accessibility.yml`: iPhone audit in four parallel shards, watch accessibility UI tests | nightly on `main`; PRs with the label **`accessibility`**; manual runs |
 
 Labels: add `ui` to a PR that changes views or layout, and `accessibility` to one that may affect VoiceOver,
 contrast or text sizes. A label starts its tier at once; no new push is needed.
@@ -56,7 +57,7 @@ own and are never cancelled; `release.yml` and `cla.yml` are unchanged.
 
 Build once: `accessibility.yml` builds the iPhone app once (`build-ios`, `build-for-testing`), uploads
 `DerivedData/Build/Products` (with the `.xctestrun`) as the short-lived artifact `ios-test-products`, and the
-three shards `ios (library|book|rest)` run `test-without-building -xctestrun` on the Xcode version that built it.
+four shards `ios (library|book|catalogs|rest)` run `test-without-building -xctestrun` on the Xcode version that built it.
 
 ### Targeted runs
 

@@ -54,6 +54,7 @@ struct CatalogsView: View {
                     Text("Your Catalogs", comment: "Catalogs: section header of the catalogs the user added").foregroundStyle(.secondaryText)
                 }
             }
+            .readableScrollEdges()
             .navigationTitle(Text("Catalogs", comment: "Title of the screen that lists OPDS catalogs"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -97,6 +98,7 @@ struct CatalogsView: View {
             }
             .accessibilityElement(children: .combine)
         }
+        .accessibilityIdentifier("catalogRow")
     }
 }
 
@@ -168,10 +170,12 @@ struct CatalogFeedView: View {
                         NavigationLink(value: CatalogRoute.feed(url, title: entry.title)) {
                             CatalogEntryRow(entry: entry, catalogs: catalogs)
                         }
+                        .accessibilityIdentifier("catalogSectionRow")
                     } else {
                         NavigationLink(value: CatalogRoute.book(entry)) {
                             CatalogEntryRow(entry: entry, catalogs: catalogs)
                         }
+                        .accessibilityIdentifier("catalogBookRow")
                     }
                 }
             }
@@ -194,6 +198,7 @@ struct CatalogFeedView: View {
                 }
             }
         }
+        .readableScrollEdges()
     }
 }
 
@@ -279,6 +284,7 @@ struct CatalogBookView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
         }
+        .readableScrollEdges()
         .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle(entry.title)
         .navigationBarTitleDisplayMode(.inline)
@@ -389,7 +395,8 @@ struct CatalogBookView: View {
 struct AddCatalogView: View {
     @ObservedObject var catalogs: CatalogStore
     @Environment(\.dismiss) private var dismiss
-    @State private var address = ""
+    /// Starts with the scheme, so the field shows text rather than a low-contrast placeholder.
+    @State private var address = "https://"
     @State private var name = ""
     @State private var problem: String?
     @State private var isChecking = false
@@ -398,7 +405,10 @@ struct AddCatalogView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField(text: $address, prompt: Text(verbatim: "https://example.com/opds")) { // i18n-ignore
+                    // Visible labels above the fields instead of placeholders: placeholder text is a light
+                    // system gray, below 4.5:1 (docs/ACCESSIBILITY.md).
+                    fieldLabel(Text("Address", comment: "Add Catalog: label of the catalog address field"))
+                    TextField(text: $address, prompt: Text(verbatim: "")) {
                         Text("Address", comment: "Add Catalog: label of the catalog address field")
                     }
                     .keyboardType(.URL)
@@ -407,7 +417,8 @@ struct AddCatalogView: View {
                     .autocorrectionDisabled()
                     .submitLabel(.done)
                     .accessibilityIdentifier("catalogAddress")
-                    TextField(text: $name) {
+                    fieldLabel(Text("Name (Optional)", comment: "Add Catalog: label of the optional name field"))
+                    TextField(text: $name, prompt: Text(verbatim: "")) {
                         Text("Name (Optional)", comment: "Add Catalog: label of the optional name field")
                     }
                     .accessibilityIdentifier("catalogName")
@@ -439,11 +450,11 @@ struct AddCatalogView: View {
                             Text("Add Catalog", comment: "Add Catalog: button that checks the address and adds the catalog")
                                 .modifier(ActionLabel())
                         }
-                        .disabled(address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         .accessibilityIdentifier("catalogAddConfirm")
                     }
                 }
             }
+            .readableScrollEdges()
             .navigationTitle(Text("Add Catalog", comment: "Title of the form that adds a catalog by address"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -455,6 +466,11 @@ struct AddCatalogView: View {
                 }
             }
         }
+    }
+
+    private func fieldLabel(_ text: Text) -> some View {
+        text.font(.subheadline).foregroundStyle(.secondaryText)
+            .listRowSeparator(.hidden, edges: .bottom)
     }
 
     private func add() async {
