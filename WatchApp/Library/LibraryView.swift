@@ -130,6 +130,10 @@ struct BookRow: View {
 
     private var text: some View {
         VStack(alignment: .leading, spacing: 2) {
+            if entry.isNew {
+                // First in the row, so VoiceOver reads "New, Title, Author, 0% read" (like Mail's "Unread").
+                NewBadge()
+            }
             Text(entry.title)
                 .font(.headline)
                 .lineLimit(dynamicTypeSize.isAccessibilitySize ? 5 : 3)
@@ -153,8 +157,26 @@ struct BookRow: View {
             }
         }
         .padding(.vertical, 2)
-        // One VoiceOver element: "Title, Author, 43% read" (or "…, Finished").
+        // One VoiceOver element: "Title, Author, 43% read" (or "…, Finished"; "New, …" for a book not opened yet).
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// The "New" badge of a book that arrived from the iPhone and has not been opened yet (#156): the word on a capsule
+/// in the accent colour. Black on the accent (#4DA6FF) is about 8:1 (checked in AccessibilityTests); the word
+/// carries the meaning, not the colour. A text style, so it scales with Dynamic Type.
+struct NewBadge: View {
+    /// The watch app's AccentColor (Assets.xcassets/AccentColor), for the contrast test.
+    static let accent = ThemePalette.RGB(0.302, 0.651, 1.0)
+
+    var body: some View {
+        Text("New", comment: "Library row badge (and its VoiceOver label): the book arrived from the iPhone and has not been opened yet")
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.black)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1)
+            .background(Capsule().fill(Color.accentColor))
+            .accessibilityIdentifier("newBadge")
     }
 }
 
@@ -234,6 +256,7 @@ struct ReaderLoaderView: View {
                 let reader = ReaderViewModel(book: box.book, positions: env.positions, sync: sync,
                                              dictionary: env.dictionary, complications: env.complications)
                 let hash = entry.documentHash
+                library.markOpened(hash)
                 reader.isFinished = library.isFinished(hash)
                 reader.haptics = WatchHaptics()
                 let store = library

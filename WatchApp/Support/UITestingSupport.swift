@@ -38,6 +38,10 @@ enum UITesting {
     /// like a real novel (dozens of chapters of very different lengths, paragraphs from one line to a dozen), so
     /// the lazy reader's estimated heights are far off and far jumps and text-size changes have to settle.
     static let seedVariedBookArgument = "-UITestingSeedVariedBook"
+    /// `-UITestingNewBook` (with `-UITestingSeedSampleBook`): the seeded book has just arrived and was never opened,
+    /// so its Library row shows the "New" badge (#156) until the reader opens it. Other seeds count as opened,
+    /// except the covers seed, whose newest book is new so the covers screenshots show the badge.
+    static let newBookArgument = "-UITestingNewBook"
 
     /// `-UITestingBlockHeights`: each reader block (and each block auto-scroll draws) carries its laid-out
     /// height as its accessibility value ("h=267.5"), so a UI test can compare whole heights even for a block
@@ -110,7 +114,7 @@ enum UITesting {
             let args = ProcessInfo.processInfo.arguments
             let book = args.contains(seedVariedBookArgument) ? variedBook
                 : args.contains(seedLongBookArgument) ? longBook : sampleBook
-            seed(book, into: storage, scratch: root)
+            seed(book, into: storage, scratch: root, unopened: args.contains(newBookArgument))
         }
         // The toggle is an @AppStorage in the standard defaults: set it for this launch either way.
         if ProcessInfo.processInfo.arguments.contains(coversOffArgument) {
@@ -162,6 +166,8 @@ enum UITesting {
             if let jpeg = generatedCover(b.color) {
                 entry.hasCover = storage.saveCover(jpeg, documentHash: b.hash)
             }
+            // The newest book just arrived: its row shows the "New" badge (#156).
+            if i == 0 { entry.unopened = true }
             entries.append(entry)
         }
         storage.saveIndex(entries)
@@ -400,8 +406,9 @@ enum UITesting {
     }
 
     /// Stores `book` exactly as a transfer from the iPhone would (LZFSE-compressed JSON) and indexes it.
-    private static func seed(_ book: ProcessedBook, into storage: BookStorage, scratch: URL) {
-        guard let entry = seedEntry(book, into: storage, scratch: scratch) else { return }
+    private static func seed(_ book: ProcessedBook, into storage: BookStorage, scratch: URL, unopened: Bool = false) {
+        guard var entry = seedEntry(book, into: storage, scratch: scratch) else { return }
+        if unopened { entry.unopened = true }
         storage.saveIndex([entry])
     }
 

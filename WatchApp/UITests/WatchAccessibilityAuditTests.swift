@@ -83,6 +83,13 @@ final class WatchAccessibilityAuditTests: XCTestCase {
         try audit(app)
     }
 
+    /// #156: the row of a book not opened yet, with its "New" badge.
+    @MainActor
+    func testLibraryWithNewBookAudit() throws {
+        let app = WatchUI.launch(seedSampleBook: true, extraArguments: ["-UITestingNewBook"])
+        try audit(app)
+    }
+
     // MARK: Reader
 
     @MainActor
