@@ -40,7 +40,9 @@ final class CatalogTests: XCTestCase {
         </feed>
         """.utf8)
 
-    private func makeStore(_ transport: StubTransport, keychain: KeychainStore = memoryKeychain()) -> (CatalogStore, UserDefaults) {
+    // The default is built in the body: a default argument is evaluated outside the main actor.
+    private func makeStore(_ transport: StubTransport, keychain: KeychainStore? = nil) -> (CatalogStore, UserDefaults) {
+        let keychain = keychain ?? Self.memoryKeychain()
         let suite = "CatalogTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         addTeardownBlock { defaults.removePersistentDomain(forName: suite) }
