@@ -65,6 +65,19 @@ Library's toolbar: a text bar button keeps a fixed font size and was flagged by 
 `secondaryText`. Audited by `testOnlineMatchSheetAudit`; screenshots at default and AX5 sizes in the
 `online-metadata-screenshots` artifact (docs/ONLINE_METADATA.md).
 
+**Catalogs (OPDS).** The Library's + is a menu (*Import EPUB*, *Catalogs*; an icon bar button labelled *Add
+Books*). *Catalogs* is a sheet with a `NavigationStack`: a `List` of catalogs (title and host, one element; custom
+ones have *Remove* as a context-menu and rotor action), an *Add Catalog…* action row and an icon close button
+(✕, labelled *Done*). Catalog pages hold their rows in a card too; rows are one element (decorative cover, title, authors or a short
+summary, and "Not available as EPUB" when the book cannot be downloaded); loading, empty and error states use
+`ProgressView` / `ContentUnavailableView`; further pages load from an explicit *Load More* row, not on scroll. A
+book's screen is built like the book details (cards in a `ScrollView`, title as a header, *Download* as an action
+row with a hint, `DetailRow`s). The add form's fields have visible labels above them instead of placeholders
+(placeholder text is a light system gray, below 4.5:1); the address field starts with `https://`. Its errors are
+shown inline and announced. Audited by `testCatalogsListAudit`, `testAddCatalogAudit`, `testCatalogPageAudit` and
+`testCatalogBookAudit` (shard `catalogs`). The action rows in lists (*Add Catalog…*, *Load More*) are an icon and a text in a plain stack, not a `Label` (a list label's icon column changes at accessibility sizes; *Load More* was flagged "partially unsupported" and "Text clipped" at AX5), and the Catalogs list and catalog pages are cards in a `ScrollView`, not `List`s: as `List`s, the added catalog's row and *Load More* were flagged "partially unsupported" at AX5 wherever they were not on the first screen, even as the last rows (the mid-list artifact below); as cards nothing is flagged and nothing is accepted; screenshots at the default and AX5 sizes in the `catalogs-screenshots`
+artifact (`CatalogsUITests`). See docs/OPDS.md.
+
 **Dynamic Type.** No fixed point sizes in UI chrome; only text styles. Layouts that would truncate switch
 at accessibility sizes: the size/state line of library rows stacks vertically (`AnyLayout`), slider
 title/value rows use `ViewThatFits`, and the preset grid's minimum column width is a `@ScaledMetric`, so it
@@ -102,10 +115,12 @@ handling (any future custom animation must check `accessibilityReduceMotion`).
 `FolitoUITests` (`iOSApp/UITests/AccessibilityAuditTests.swift`) launches the app and calls
 `XCUIApplication.performAccessibilityAudit` on: the empty library, a library with one book, Settings,
 Progress Sync, Acknowledgements, Reading and the book detail screen (`-UITestingSeedCovers`: a book with a cover,
-a series and a long description), and Settings' *Book Details* section alone (`-UITestingSettingsBookDetailsOnly`).
+a series and a long description), Settings' *Book Details* section alone (`-UITestingSettingsBookDetailsOnly`),
+and the Catalogs screens with fixed feeds and no network (`-UITestingMockCatalogs`): the Catalogs list, Add Catalog,
+a catalog page and a catalog book.
 
-**When it runs.** The audit drives the simulator screen by screen and its 13 tests take about 25 minutes on CI
-(run as three parallel shards of `AccessibilityAuditTests`: `library`, `book` and `rest`), so it is not
+**When it runs.** The audit drives the simulator screen by screen and its 17 tests take about 30 minutes on CI
+(run as four parallel shards of `AccessibilityAuditTests`: `library`, `book`, `catalogs` and `rest`), so it is not
 part of the PR-blocking macOS workflow and not a required check. It has its own workflow,
 `.github/workflows/accessibility.yml` ("Accessibility audit"), which runs:
 - every night on `main` (not on every push);

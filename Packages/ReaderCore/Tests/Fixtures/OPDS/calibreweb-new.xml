@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/terms/" xmlns:dcterms="http://purl.org/dc/terms/">
+  <icon>/static/favicon.ico</icon>
+  <id>urn:uuid:2853dacf-ed79-42f5-8e8a-a7bb3d1ae6a2</id>
+  <updated>2026-11-21T09:13:02+00:00</updated>
+  <link rel="self" href="/opds/new?" type="application/atom+xml;profile=opds-catalog;type=feed;kind=navigation"/>
+  <link rel="start" title="Start" href="/opds" type="application/atom+xml;profile=opds-catalog;type=feed;kind=navigation"/>
+  <link rel="up" href="/opds" type="application/atom+xml;profile=opds-catalog;type=feed;kind=navigation"/>
+  <link rel="first" href="/opds/new" type="application/atom+xml;profile=opds-catalog;type=feed;kind=navigation"/>
+  <link rel="next" title="Next" href="/opds/new?offset=30" type="application/atom+xml;profile=opds-catalog;type=feed;kind=navigation"/>
+  <link rel="search" href="/opds/osd" type="application/opensearchdescription+xml"/>
+  <title>Calibre-Web</title>
+  <author>
+    <name>Calibre-Web</name>
+    <uri>https://github.com/janeczku/calibre-web</uri>
+  </author>
+  <entry>
+    <title>The Time Machine</title>
+    <id>urn:uuid:6f5c9a1e-0b1d-4d8f-9a3b-6a0f2a7c1e11</id>
+    <updated>2026-10-02T18:40:11+00:00</updated>
+    <author>
+      <name>H. G. Wells</name>
+    </author>
+    <publisher>
+      <name>Standard Ebooks</name>
+    </publisher>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:issued>1895-01-01</dcterms:issued>
+    <category scheme="http://www.bisg.org/standards/bisac_subject/index.html" term="Science Fiction" label="Science Fiction"/>
+    <summary>&lt;p&gt;A Victorian inventor travels to the year 802,701 and finds humanity &lt;em&gt;split in two&lt;/em&gt;.&lt;/p&gt;</summary>
+    <link type="image/jpeg" href="/opds/cover/12" rel="http://opds-spec.org/image"/>
+    <link type="image/jpeg" href="/opds/cover/12" rel="http://opds-spec.org/image/thumbnail"/>
+    <link rel="http://opds-spec.org/acquisition" href="/opds/download/12/epub/" length="204831" mtime="2026-10-02T18:40:11+00:00" type="application/epub+zip"/>
+    <link rel="http://opds-spec.org/acquisition" href="/opds/download/12/mobi/" length="388102" mtime="2026-10-02T18:40:11+00:00" type="application/x-mobipocket-ebook"/>
+  </entry>
+  <entry>
+    <title>The War of the Worlds</title>
+    <id>urn:uuid:9a1b7c3d-5e6f-4a8b-8c9d-0e1f2a3b4c5d</id>
+    <updated>2026-09-14T07:05:43+00:00</updated>
+    <author>
+      <name>H. G. Wells</name>
+    </author>
+    <author>
+      <name>Warwick Goble</name>
+    </author>
+    <dcterms:language>en</dcterms:language>
+    <summary>Martians invade Surrey.</summary>
+    <link type="image/jpeg" href="/opds/cover/11" rel="http://opds-spec.org/image"/>
+    <link type="image/jpeg" href="/opds/cover/11" rel="http://opds-spec.org/image/thumbnail"/>
+    <link rel="http://opds-spec.org/acquisition" href="/opds/download/11/kepub/" length="301947" mtime="2026-09-14T07:05:43+00:00" type="application/kepub+zip"/>
+    <link rel="http://opds-spec.org/acquisition" href="/opds/download/11/epub/" length="298113" mtime="2026-09-14T07:05:43+00:00" type="application/epub+zip"/>
+  </entry>
+  <entry>
+    <title>Scanned Atlas</title>
+    <id>urn:uuid:1c2d3e4f-5a6b-4c7d-8e9f-a0b1c2d3e4f5</id>
+    <updated>2026-08-30T12:00:00+00:00</updated>
+    <author>
+      <name>Unknown</name>
+    </author>
+    <link rel="http://opds-spec.org/acquisition" href="/opds/download/10/pdf/" length="9412004" mtime="2026-08-30T12:00:00+00:00" type="application/pdf"/>
+  </entry>
+</feed>

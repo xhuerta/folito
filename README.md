@@ -87,9 +87,9 @@ Folito works **without an account and offline** with your own EPUB files. Readin
 
 Sync is **optional**; you don't need any account (Readest, KOReader or otherwise) to read.
 
-1. Import your EPUBs in the iPhone app (the **+** button, or "Open in Folito" from Files or the share sheet). They are sent to the watch automatically.
+1. Import your EPUBs in the iPhone app (**+ › Import EPUB**, or "Open in Folito" from Files or the share sheet), or download free ones from a catalog (**+ › Catalogs**). They are sent to the watch automatically.
 2. Read on the watch. Your position is stored on the watch itself and everything works offline.
-3. With no sync service chosen (*None*), the app makes no sync requests and shows no sync prompts or indicators. The only other network uses are downloading a dictionary when you tap *Download* in *Settings › Dictionaries* (looking words up is offline) and, only if you ask, looking up missing book details on Open Library (*Find Details Online*, or *Settings › Book Details*, off by default).
+3. With no sync service chosen (*None*), the app makes no sync requests and shows no sync prompts or indicators. The only other network uses are downloading a dictionary when you tap *Download* in *Settings › Dictionaries* (looking words up is offline) and, only if you ask, looking up missing book details on Open Library (*Find Details Online*, or *Settings › Book Details*, off by default), and reading a book catalog when you open one in *Catalogs*.
 4. If you later want to sync, go to *Settings › Progress Sync* on the iPhone (see [below](#progress-sync-optional)). You can turn it off at any time with *Turn Off Sync and Remove Login* (*Sign Out* for Readest), which deletes the credentials from the iPhone and the watch and clears pending progress (also available in the watch's Settings → *Remove credentials*).
 
 ## Architecture
@@ -296,6 +296,9 @@ sections stay readable as chapters. Books imported before this need to be import
 - From the iPhone: open an `.epub` with "Open in Folito" (share sheet in Files, Safari, etc.) or use the import button in the app. The app transfers them to the watch.
 - If the watch app wasn't installed yet, nothing is lost: sync settings and pending books are resent automatically when the session activates, the watch app is installed, connectivity changes or you open the iPhone app. The watch reports which books it has, so missing ones are resent.
 - The app exposes its Documents folder in the Files app (`UIFileSharingEnabled`).
+- From an OPDS catalog: **+ › Catalogs** in the Library lists Standard Ebooks (new releases) and Project Gutenberg, and
+  catalogs you add by address (Calibre-Web, Kavita, Komga…; no sign-in yet). Catalogs are contacted only when you open
+  them; *Download* takes the catalog's DRM-free EPUB and imports it like any other file. See [docs/OPDS.md](docs/OPDS.md).
 
 ### Covers and book details
 
@@ -375,6 +378,7 @@ What runs where: [docs/TESTING.md](docs/TESTING.md). Future plans: [ROADMAP.md](
 | [DISCREPANCIES.md](docs/DISCREPANCIES.md) | Compatibility notes vs. KOReader/Readest: document hash, XPointer, KOSync |
 | [PRIVACY_DATA_MAP.md](docs/PRIVACY_DATA_MAP.md) | What data is stored and sent, and where |
 | [ONLINE_METADATA.md](docs/ONLINE_METADATA.md) | Optional lookup of missing covers and details on Open Library |
+| [OPDS.md](docs/OPDS.md) | Browsing OPDS catalogs and downloading EPUBs from them |
 | [EXPORT_COMPLIANCE.md](docs/EXPORT_COMPLIANCE.md) | Export compliance (encryption) |
 | [ROADMAP.md](ROADMAP.md) | Future plans |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute, CLA |

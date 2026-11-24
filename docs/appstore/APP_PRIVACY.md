@@ -131,6 +131,9 @@ advertising and no data broker, so *Tracking* stays **No**.
   (linked, App Functionality, not tracking): no new data type and no change to the privacy manifests.
 * **Online book details** (optional, iPhone only, off by default or on an explicit tap): the book's ISBN, or its
   title and first author, to Open Library; nothing about the user; not collected (see above), no new data type.
+* **OPDS catalogs** (iPhone only, on an explicit tap): the page or file address of a catalog the user opened (a
+  preset or one they added) goes to that catalog; nothing about the user, no cookies or credentials; not collected
+  (the same reasoning as Open Library above), no new data type (`docs/PRIVACY_DATA_MAP.md` 1b-ter).
 * **Dictionaries**: downloaded on the iPhone from `www.reader-dict.com` only when the user taps Download or
   Update (plus a HEAD update check while *Settings › Dictionaries* is open). Lookups run on the watch offline.
 * **Between the user's own devices** (WatchConnectivity): books, dictionaries, typography and the active sync

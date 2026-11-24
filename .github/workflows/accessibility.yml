@@ -1,7 +1,7 @@
 name: Accessibility audit
 
 # Xcode's automated accessibility audit (XCUIApplication.performAccessibilityAudit) in UI tests, for the iPhone
-# app (job ios, split into three parallel shards) and the watch app (job watch, plus label / trait /
+# app (job ios, split into four parallel shards) and the watch app (job watch, plus label / trait /
 # largest-text-size checks). It drives the simulator screen by screen and is slow (about 25 minutes of iPhone
 # audits before sharding), so it is NOT part of the PR-blocking macOS workflow and not a required check. The
 # fast, deterministic accessibility checks (contrast, labels, formatting) are unit
@@ -14,7 +14,7 @@ name: Accessibility audit
 #    for the platforms its changed paths need (scripts/ci/pick_platforms.py, job `scope`);
 #  * targeted: workflow_dispatch with `only_testing` runs just those tests in one job (`targeted`).
 #
-# The iPhone app is built once (`build-ios`, build-for-testing) and the three shards run test-without-building
+# The iPhone app is built once (`build-ios`, build-for-testing) and the four shards run test-without-building
 # against the uploaded products (.xctestrun), on the same Xcode version.
 
 on:
@@ -85,7 +85,7 @@ jobs:
           fi
           python3 scripts/ci/pick_platforms.py --workflow accessibility.yml < changed.txt | tee -a "$GITHUB_OUTPUT"
 
-  # Builds the iPhone app and its test bundles once for the three shards: build-for-testing for a generic
+  # Builds the iPhone app and its test bundles once for the four shards: build-for-testing for a generic
   # simulator and the runner's architecture, uploaded as a tarball (keeps symlinks and permissions) with the
   # .xctestrun file. Same flags as macos.yml.
   build-ios:
@@ -139,15 +139,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Each shard builds the app and runs about a third of AccessibilityAuditTests (roughly 8 minutes of
-        # audits each). `rest` runs every test the other two do not name, so a new audit is never left out.
-        shard: [library, book, rest]
+        # Each shard runs about a quarter of AccessibilityAuditTests (roughly 8 minutes of audits each). `rest`
+        # runs every test the other shards do not name, so a new audit is never left out.
+        shard: [library, book, catalogs, rest]
     env:
       LIBRARY: >-
         testLibraryEmptyStateAudit testLibraryWithReadestAudit testLibraryReadestOfflineAudit
         testLibraryReadestLocalRowAudit
       BOOK: >-
         testLibraryWithBookAudit testBookDetailAudit testOnlineMatchSheetAudit testSettingsBookDetailsAudit
+      CATALOGS: >-
+        testCatalogsListAudit testAddCatalogAudit testCatalogPageAudit testCatalogBookAudit
     steps:
       # Only the scripts are needed from the checkout: no project generation, no package resolution.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -183,8 +185,9 @@ jobs:
           case "${{ matrix.shard }}" in
             library) for t in $LIBRARY; do SELECTION+=("-only-testing:$CLASS/$t"); done ;;
             book)    for t in $BOOK; do SELECTION+=("-only-testing:$CLASS/$t"); done ;;
+            catalogs) for t in $CATALOGS; do SELECTION+=("-only-testing:$CLASS/$t"); done ;;
             rest)    SELECTION+=("-only-testing:$CLASS")
-                     for t in $LIBRARY $BOOK; do SELECTION+=("-skip-testing:$CLASS/$t"); done ;;
+                     for t in $LIBRARY $BOOK $CATALOGS; do SELECTION+=("-skip-testing:$CLASS/$t"); done ;;
           esac
           echo "shard ${{ matrix.shard }}: ${SELECTION[*]}"
           # A standard 6.1"/6.3" iPhone (e.g. "iPhone 16 Pro") on the newest iOS runtime, not whichever iPhone

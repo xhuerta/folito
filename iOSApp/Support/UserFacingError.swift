@@ -160,6 +160,70 @@ struct UserFacingError: Equatable, Identifiable {
         return UserFacingError(title: title, message: message)
     }
 
+    // MARK: Catalogs (OPDS)
+
+    /// Reading a catalog page failed (opening a catalog, a section, the next page, or checking a new address).
+    static func catalogFailed(_ error: Error) -> UserFacingError {
+        UserFacingError(
+            title: String(localized: "Couldn’t Open Catalog", comment: "Error title: an OPDS catalog page could not be read"),
+            message: catalogMessage(for: error))
+    }
+
+    /// Downloading a book from a catalog failed (converting it is reported like any import).
+    static func catalogDownloadFailed(title: String, error: Error) -> UserFacingError {
+        let alertTitle = String(localized: "Couldn’t Download Book", comment: "Alert title: downloading a book from a catalog failed")
+        switch error as? OPDSError {
+        case .notAnEPUB?:
+            return UserFacingError(title: alertTitle, message: String(
+                localized: "The catalog didn’t send an EPUB file for “\(title)”. The book may need a sign-in or be available only in its web page.",
+                comment: "Catalog download error; the placeholder is the book title"))
+        case .tooLarge?:
+            return UserFacingError(title: alertTitle, message: String(
+                localized: "“\(title)” is too large to download. Try another edition of the book.",
+                comment: "Catalog download error; the placeholder is the book title"))
+        default:
+            return UserFacingError(title: alertTitle, message: catalogMessage(for: error))
+        }
+    }
+
+    static func catalogMessage(for error: Error) -> String {
+        guard let e = error as? OPDSError else {
+            return String(localized: "The catalog couldn’t be reached. Check your internet connection, then try again.",
+                          comment: "Catalog error: generic")
+        }
+        switch e {
+        case .offline:
+            return String(localized: "The catalog couldn’t be reached. Check your internet connection, then try again.",
+                          comment: "Catalog error: generic")
+        case .cannotFindHost:
+            return String(localized: "The catalog’s address couldn’t be found. Check the address.",
+                          comment: "Catalog error: unknown host")
+        case .insecureConnection:
+            return String(localized: "A secure connection to the catalog couldn’t be made. Its certificate isn’t trusted by this iPhone.",
+                          comment: "Catalog error: TLS failure")
+        case .httpNotAllowed:
+            return String(localized: "iOS blocked the unencrypted http:// connection. Use an https:// address, or a local-network address (IP address, .local or a name without dots).",
+                          comment: "Sync error")
+        case .authenticationRequired:
+            return String(localized: "This catalog needs a sign-in. Folito can’t sign in to catalogs yet.",
+                          comment: "Catalog error: the server answered 401/403")
+        case .notFound:
+            return String(localized: "The catalog doesn’t have this page any more. Check the address, or go back and try again.",
+                          comment: "Catalog error: 404")
+        case .server(let status):
+            return String(localized: "The server reported an error (HTTP \(status)). Try again later.",
+                          comment: "Sync error; the placeholder is an HTTP status code")
+        case .notAFeed:
+            return String(localized: "This address doesn’t lead to an OPDS catalog. Check that it is the catalog’s address, not its web page.",
+                          comment: "Catalog error: the answer is not an Atom/OPDS feed")
+        case .notAnEPUB:
+            return String(localized: "The catalog didn’t send an EPUB file.", comment: "Catalog error: download is not an EPUB")
+        case .tooLarge:
+            return String(localized: "The catalog sent more data than Folito can read.",
+                          comment: "Catalog error: response too large")
+        }
+    }
+
     static func dictionaryFailed(language: String, error: Error) -> UserFacingError {
         let title = String(localized: "Couldn’t Install Dictionary", comment: "Alert title: downloading or converting a dictionary failed")
         if let e = error as? CocoaError, e.code == .fileWriteOutOfSpace {

@@ -21,6 +21,8 @@ import UIKit
 /// - `UITESTING_BOOK_TEXTS` (environment, with `-UITestingSeedCovers`): a folder of full public-domain texts
 ///   (`AppStoreBooks` in the UI test bundle) that the seeded books are built from, so the Library shows the
 ///   sizes of real books.
+/// - `-UITestingMockCatalogs`: the OPDS client reads fixed feeds built in code (`FixtureOPDSTransport`) instead of the
+///   network, and the Catalogs list has one added catalog ("Home Library"); throw-away defaults. docs/OPDS.md.
 /// - `-UITestingShowOnboarding` (implies `-UITesting`): opens the welcome tour on launch. Every other UI-testing
 ///   launch skips it (`-UITestingSkipOnboarding` says so explicitly); see `OnboardingPolicy`.
 enum UITesting {
@@ -39,6 +41,7 @@ enum UITesting {
     /// audit sees those rows at the top of the screen at every text size (docs/ACCESSIBILITY.md).
     static let settingsBookDetailsOnlyArgument = "-UITestingSettingsBookDetailsOnly"
     static let simulateWatchArgument = "-UITestingSimulateWatch"
+    static let mockCatalogsArgument = "-UITestingMockCatalogs"
     static let simulateTransferArgument = "-UITestingSimulateTransfer"
     /// The seeded *Emma* (`-UITestingSeedCovers`).
     static let emmaHash = "00000000000000000000000000e00a01"
@@ -258,6 +261,21 @@ enum UITesting {
                                    defaults: UserDefaults(suiteName: "uitesting-online-\(UUID().uuidString)") ?? .standard)
     }
 
+    /// The Catalogs list and client. With `-UITestingMockCatalogs` every request is answered by
+    /// `FixtureOPDSTransport` (no network) and one added catalog is listed; any UI-testing launch keeps the added
+    /// catalogs in throw-away defaults.
+    @MainActor
+    static func makeCatalogStore() -> CatalogStore {
+        let args = ProcessInfo.processInfo.arguments
+        let mock = args.contains(mockCatalogsArgument)
+        guard isActive || mock else { return CatalogStore() }
+        let defaults = UserDefaults(suiteName: "uitesting-catalogs-\(UUID().uuidString)") ?? .standard
+        if mock, let data = try? JSONEncoder().encode([FixtureOPDSTransport.homeCatalog]) {
+            defaults.set(data, forKey: CatalogStore.customKey)
+        }
+        return CatalogStore(client: mock ? OPDSClient(transport: FixtureOPDSTransport()) : OPDSClient(), defaults: defaults)
+    }
+
     /// A tiny public-domain text (Lewis Carroll, 1865), built in code: no EPUB file ships in the app.
     static let sampleBook: ProcessedBook = {
         let text = "Alice was beginning to get very tired of sitting by her sister on the bank, and of having nothing to do." // i18n-ignore: UI-test fixture (Debug only)
@@ -288,8 +306,68 @@ enum UITesting {
     static func makeDictionaryManager() -> DictionaryManager { DictionaryManager() }
     @MainActor
     static func makeOnlineMetadata() -> OnlineMetadataModel { OnlineMetadataModel() }
+    @MainActor
+    static func makeCatalogStore() -> CatalogStore { CatalogStore() }
     #endif
 }
+
+#if DEBUG
+/// Fixed OPDS answers for UI tests (`-UITestingMockCatalogs`): Project Gutenberg's root is a navigation feed,
+/// Standard Ebooks' new releases a page of three books (one offered only as PDF) with a next page, the added
+/// "Home Library" a small navigation feed. Covers are generated images. Anything else fails as if offline.
+struct FixtureOPDSTransport: OPDSTransport {
+    static let homeCatalog = OPDSCatalog(id: "uitesting.home", title: "Home Library", // i18n-ignore: UI-test fixture
+                                         url: URL(string: "https://catalog.example.com/opds")!)
+
+    private static let atom = "xmlns=\"http://www.w3.org/2005/Atom\" xmlns:dcterms=\"http://purl.org/dc/terms/\""
+
+    private static let feeds: [String: String] = [
+        OPDSCatalog.projectGutenberg.url.absoluteString: """
+            <feed \(atom)><title>Project Gutenberg</title>
+            <entry><id>popular</id><title>Popular</title><content type="text">Our most popular books.</content>
+            <link rel="subsection" type="application/atom+xml;profile=opds-catalog" href="https://www.gutenberg.org/ebooks/search.opds/?sort_order=downloads"/></entry>
+            <entry><id>latest</id><title>Latest</title><content type="text">Our latest releases.</content>
+            <link rel="subsection" type="application/atom+xml;profile=opds-catalog" href="https://www.gutenberg.org/ebooks/search.opds/?sort_order=release_date"/></entry>
+            </feed>
+            """,
+        OPDSCatalog.standardEbooks.url.absoluteString: """
+            <feed \(atom)><title>Standard Ebooks - Newest Ebooks</title>
+            <link rel="next" type="application/atom+xml" href="https://standardebooks.org/feeds/atom/new-releases?page=2"/>
+            <entry><id>urn:uitesting:mars</id><title>A Fighting Man of Mars</title>
+            <author><name>Edgar Rice Burroughs</name></author>
+            <summary type="text">A courageous warrior of Barsoom seeks to rescue the woman he loves from savage creatures and malevolent tyrants.</summary>
+            <dcterms:publisher>Standard Ebooks</dcterms:publisher><dcterms:issued>1931</dcterms:issued><dcterms:language>en</dcterms:language>
+            <link rel="http://opds-spec.org/image" type="image/png" href="https://covers.example.com/mars.png"/>
+            <link rel="enclosure" type="application/epub+zip" length="776651" href="https://standardebooks.org/uitesting/mars.epub"/></entry>
+            <entry><id>urn:uitesting:zeno</id><title>Confessions of Zeno</title>
+            <author><name>Italo Svevo</name></author>
+            <summary type="text">To quit smoking, a man writes his memoirs.</summary>
+            <link rel="http://opds-spec.org/image/thumbnail" type="image/png" href="https://covers.example.com/zeno.png"/>
+            <link rel="enclosure" type="application/epub+zip" href="https://standardebooks.org/uitesting/zeno.epub"/></entry>
+            <entry><id>urn:uitesting:atlas</id><title>A Scanned Atlas</title>
+            <author><name>Unknown</name></author>
+            <link rel="http://opds-spec.org/acquisition" type="application/pdf" href="https://standardebooks.org/uitesting/atlas.pdf"/></entry>
+            </feed>
+            """,
+        homeCatalog.url.absoluteString: """
+            <feed \(atom)><title>Home Library</title>
+            <entry><id>new</id><title>Recently Added</title><content type="text">The latest books.</content>
+            <link type="application/atom+xml;profile=opds-catalog" href="https://catalog.example.com/opds/new"/></entry>
+            </feed>
+            """,
+    ]
+
+    func get(_ url: URL, headers: [String: String]) async throws -> (data: Data, status: Int, url: URL) {
+        if url.host == "covers.example.com" {
+            let color: UIColor = url.lastPathComponent.hasPrefix("mars") ? .systemOrange : .systemTeal
+            guard let png = UITesting.generatedCover(color) else { throw OPDSError.offline }
+            return (png, 200, url)
+        }
+        guard let feed = Self.feeds[url.absoluteString] else { throw OPDSError.offline }
+        return (Data(feed.utf8), 200, url)
+    }
+}
+#endif
 
 #if DEBUG
 /// A fixed Readest library for UI tests and screenshots: the seeded sample book (so it shows as "in Readest")

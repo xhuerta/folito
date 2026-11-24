@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/terms/" xmlns:dcterms="http://purl.org/dc/terms/">
+  <icon>/static/favicon.ico</icon>
+  <id>urn:uuid:2853dacf-ed79-42f5-8e8a-a7bb3d1ae6a2</id>
+  <updated>2026-11-21T09:12:44+00:00</updated>
+  <link rel="self" href="/opds?" type="application/atom+xml;profile=opds-catalog;type=feed;kind=navigation"/>
+  <link rel="start" title="Start" href="/opds" type="application/atom+xml;profile=opds-catalog;type=feed;kind=navigation"/>
+  <link rel="search" href="/opds/osd" type="application/opensearchdescription+xml"/>
+  <link type="application/atom+xml" rel="search" title="Search" href="/opds/search/{searchTerms}" />
+  <title>Calibre-Web</title>
+  <author>
+    <name>Calibre-Web</name>
+    <uri>https://github.com/janeczku/calibre-web</uri>
+  </author>
+  <entry>
+    <title>Alphabetical Books</title>
+    <link href="/opds/books" type="application/atom+xml;profile=opds-catalog"/>
+    <id>/opds/books</id>
+    <updated>2026-11-21T09:12:44+00:00</updated>
+    <content type="text">Books sorted alphabetically</content>
+  </entry>
+  <entry>
+    <title>Recently added Books</title>
+    <link href="/opds/new" type="application/atom+xml;profile=opds-catalog"/>
+    <id>/opds/new</id>
+    <updated>2026-11-21T09:12:44+00:00</updated>
+    <content type="text">The latest Books</content>
+  </entry>
+  <entry>
+    <title>Authors</title>
+    <link rel="subsection" href="/opds/author" type="application/atom+xml;profile=opds-catalog;type=feed;kind=navigation"/>
+    <id>/opds/author</id>
+    <updated>2026-11-21T09:12:44+00:00</updated>
+    <content type="text">Books ordered by Author</content>
+  </entry>
+</feed>
