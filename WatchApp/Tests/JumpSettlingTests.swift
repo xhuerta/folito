@@ -560,14 +560,17 @@ final class JumpSettlingTests: XCTestCase {
     @MainActor
     func testADragCloseToTheEdgePrependsOnceTheFingerLifts() async throws {
         let model = try await readerLandedAtChapterThree()
+        // The landing prepend's keep-scroll (block 40) stays set until the window changes again.
+        let landingKeep = model.prependKeep
         model.isUserScrolling = true
         model.isUserTouching = true
         model.blockFramesChanged([22: f(-10, 90), 23: f(100, 200)])
         XCTAssertEqual(model.window.lowerBound, Self.blocksPerChapter, "no prepend under the finger")
-        XCTAssertNil(model.prependKeep)
+        XCTAssertEqual(model.prependKeep, landingKeep, "no new keep-scroll under the finger")
         model.blockFramesChanged([21: f(-10, 90), 22: f(100, 200)])
         try await Task.sleep(nanoseconds: 600_000_000)
         XCTAssertEqual(model.window.lowerBound, Self.blocksPerChapter, "still none while the finger stays down")
+        XCTAssertEqual(model.prependKeep, landingKeep)
         model.isUserTouching = false
         XCTAssertEqual(model.window.lowerBound, 0, "prepended as the finger lifts, mid-deceleration")
         XCTAssertEqual(model.prependKeep?.index, 21, "keeping the block at the reading line now")
