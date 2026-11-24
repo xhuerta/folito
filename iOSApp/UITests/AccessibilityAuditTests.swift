@@ -191,11 +191,14 @@ final class AccessibilityAuditTests: XCTestCase {
         return found
     }
 
-    /// Scrolls down until `element` is visible above the tab bar, then taps it.
+    /// Scrolls down until the point where `element` is tapped (its centre) is clear of the bars, then taps it.
+    /// The centre, not the whole frame: at AX5 a catalog row with a saved sign-in is taller than the clear area
+    /// minus one scroll step, so requiring its whole frame between the bars could scroll it past the top (CI run
+    /// 45490867043, "Home Library" in `testEditCatalogAudit`).
     @MainActor
     private static func scrollAndTap(_ element: XCUIElement, in app: XCUIApplication,
                                      file: StaticString = #filePath, line: UInt = #line) {
-        for _ in 0..<10 where !(element.exists && element.isHittable && clearOfBars(element.frame, in: app)) {
+        for _ in 0..<10 where !(element.exists && element.isHittable && tapPointClearOfBars(element.frame, in: app)) {
             scrollDown(app)
         }
         XCTAssertTrue(element.exists && element.isHittable, "\(element) not reachable", file: file, line: line)
@@ -229,6 +232,13 @@ final class AccessibilityAuditTests: XCTestCase {
         let width = app.windows.firstMatch.frame.width
         return !frame.isEmpty && frame.minY >= area.top && frame.maxY <= area.bottom && frame.minX >= 0
             && frame.maxX <= width
+    }
+
+    /// Whether the centre of `frame`, where XCTest taps an element, is between the bars.
+    @MainActor
+    private static func tapPointClearOfBars(_ frame: CGRect, in app: XCUIApplication) -> Bool {
+        let area = clearArea(in: app)
+        return !frame.isEmpty && frame.midY >= area.top && frame.midY <= area.bottom
     }
 
     /// Within 32 pt of the tab bar's top edge, where its scroll edge effect can still lower measured contrast.

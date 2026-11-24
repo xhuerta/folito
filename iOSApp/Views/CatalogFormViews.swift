@@ -99,8 +99,9 @@ struct AddCatalogView: View {
 ///
 /// Cards in a `ScrollView`, not a `Form` (docs/ACCESSIBILITY.md, "Catalogs"): as a `Form`, the rows and footers
 /// that were fully on screen in the middle of the longer edit form were flagged "Dynamic Type font sizes are
-/// partially unsupported" at AX5 (the mid-list artifact), and a swipe did not move the form or close the keyboard,
-/// so the keyboard kept covering *Save*. Dragging the content now closes the keyboard.
+/// partially unsupported" at AX5 (the mid-list artifact). *Save* / *Sign In* is an icon bar button, so the keyboard
+/// never covers it: as a row under the fields it stayed under the keyboard on CI's iPhones, and neither the
+/// `Form` nor the `ScrollView` moved or closed the keyboard on a swipe. Dragging the content also closes the keyboard.
 struct EditCatalogView: View {
     let catalog: OPDSCatalog
     var signInOnly = false
@@ -139,10 +140,11 @@ struct EditCatalogView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
-                    if let problem {
+                    if isChecking {
+                        DetailCard { CatalogCheckingRow() }
+                    } else if let problem {
                         DetailCard { CatalogProblemLabel(message: problem) }
                     }
-                    DetailCard { saveButton }
                     if !signInOnly { removeCard }
                 }
                 .padding(.horizontal, 16)
@@ -163,6 +165,7 @@ struct EditCatalogView: View {
                     .labelStyle(.iconOnly)
                     .accessibilityIdentifier("catalogEditCancel")
                 }
+                ToolbarItem(placement: .confirmationAction) { saveButton }
             }
         }
     }
@@ -178,12 +181,13 @@ struct EditCatalogView: View {
                 .accessibilityIdentifier("catalogEditName")
             }
             Divider()
-            VStack(alignment: .leading, spacing: 4) {
+            // Title above value, like `DetailRow` (a subheadline secondary title was flagged for contrast here).
+            VStack(alignment: .leading, spacing: 2) {
                 Text("Address", comment: "Add Catalog: label of the catalog address field")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondaryText)
+                    .font(.body)
                 Text(verbatim: catalog.url.absoluteString)
                     .font(.body)
+                    .foregroundStyle(.secondaryText)
                     .textSelection(.enabled)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -195,24 +199,23 @@ struct EditCatalogView: View {
         }
     }
 
-    @ViewBuilder
+    /// An icon bar button (a checkmark, labelled *Sign In* or *Save*), like the other bar buttons: a text bar
+    /// button keeps a fixed font size and is flagged by the Dynamic Type audit (docs/ACCESSIBILITY.md).
     private var saveButton: some View {
-        if isChecking {
-            CatalogCheckingRow()
-        } else {
-            Button { Task { await save() } } label: {
-                Group {
-                    if signInOnly {
-                        Text("Sign In", comment: "Catalog sign-in: button that checks and saves the user name and password")
-                    } else {
-                        Text("Save", comment: "Edit Catalog: button that saves the name and sign-in")
-                    }
+        Button { Task { await save() } } label: {
+            Label {
+                if signInOnly {
+                    Text("Sign In", comment: "Catalog sign-in: button that checks and saves the user name and password")
+                } else {
+                    Text("Save", comment: "Edit Catalog: button that saves the name and sign-in")
                 }
-                .modifier(ActionLabel())
+            } icon: {
+                Image(systemName: "checkmark")
             }
-            .buttonStyle(.borderless)
-            .accessibilityIdentifier("catalogEditSave")
         }
+        .labelStyle(.iconOnly)
+        .disabled(isChecking)
+        .accessibilityIdentifier("catalogEditSave")
     }
 
     private var removeCard: some View {

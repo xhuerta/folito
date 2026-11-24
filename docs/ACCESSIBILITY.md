@@ -79,15 +79,18 @@ shown inline and announced. Sign-in (#160): the user name and password fields (a
 `.username` / `.password`) also have visible labels above them; the footer says where the password is kept and sent.
 A page that answers "sign-in needed" shows the message with *Sign In…* (for an added https catalog) and *Try Again*;
 *Sign In…* opens *Edit Catalog* with only the sign-in fields. *Edit Catalog* has the name, the address (one element
-labelled *Address* with the address as its value: a URL as the label was flagged "Label not human-readable"), the
-sign-in fields (the saved password is never shown; an empty password keeps it), *Save*, and *Remove Sign-In* /
+labelled *Address* with the address as its value: a URL as the label was flagged "Label not human-readable"; title
+in primary `.body` above the value, like `DetailRow`, since a subheadline `secondaryText` title was flagged for contrast
+at 6.03:1), the sign-in fields (the saved password is never shown; an empty password keeps it), *Save* (*Sign In* in
+the sign-in form) as an icon bar button (a checkmark) so the keyboard never covers it, and *Remove Sign-In* /
 *Remove Catalog* as action rows in the high-contrast `destructiveText` colour. Errors are shown inline and announced,
 like the add form's. *Edit Catalog* (and so *Sign In*) is cards in a `ScrollView`, not a `Form`: as a `Form`, the
 *Password* label row and both sign-in footers were flagged "Dynamic Type font sizes are partially unsupported" at AX5
 where they were fully on screen in the middle of the longer edit form (the mid-list artifact below; CI run on
-b92d800), and a swipe neither scrolled the form nor closed the keyboard, which covered *Save* on a small iPhone. The
-notes under the sign-in card are footnote text that wraps, and dragging the content closes the keyboard
-(`scrollDismissesKeyboard(.immediately)`). Audited by `testCatalogsListAudit`, `testAddCatalogAudit`, `testCatalogPageAudit`,
+b92d800). *Save* was first a row under the fields: on CI's iPhones it stayed under the keyboard after typing the
+password, and a swipe moved neither the `Form` nor the `ScrollView` nor closed the keyboard (runs on b92d800 and
+f5967fc), hence the bar button. The notes under the sign-in card are footnote text that wraps, and dragging the
+content closes the keyboard (`scrollDismissesKeyboard(.immediately)`). Audited by `testCatalogsListAudit`, `testAddCatalogAudit`, `testCatalogPageAudit`,
 `testCatalogBookAudit`, `testCatalogSignInNeededAudit`, `testCatalogSignInAudit` and `testEditCatalogAudit` (shard
 `catalogs`). The action rows in lists (*Add Catalog…*, *Load More*) are an icon and a text in a plain stack, not a `Label` (a list label's icon column changes at accessibility sizes; *Load More* was flagged "partially unsupported" and "Text clipped" at AX5), and the Catalogs list and catalog pages are cards in a `ScrollView`, not `List`s: as `List`s, the added catalog's row and *Load More* were flagged "partially unsupported" at AX5 wherever they were not on the first screen, even as the last rows (the mid-list artifact below); as cards nothing is flagged and nothing is accepted; screenshots at the default and AX5 sizes in the `catalogs-screenshots`
 artifact (`CatalogsUITests`). See docs/OPDS.md.
