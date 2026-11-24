@@ -369,7 +369,8 @@ struct CatalogCardField<Field: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            label.font(.subheadline).foregroundStyle(.secondaryText)
+            // Primary, not secondaryText: the audit failed the grey label at 5.99:1 (run 45501413904).
+            label.font(.subheadline).foregroundStyle(.primary)
             field
                 .font(.body)
                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
