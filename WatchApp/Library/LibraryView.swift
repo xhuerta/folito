@@ -25,7 +25,7 @@ struct LibraryView: View {
                         // Finished books after the others (newest first within each group).
                         ForEach(library.displayedEntries) { entry in
                             NavigationLink(value: entry) {
-                                BookRow(entry: entry, isNew: entry.isNew, fraction: library.progress[entry.documentHash] ?? 0,
+                                BookRow(entry: entry, isNew: entry.isNew, isFinished: entry.isFinished, fraction: library.progress[entry.documentHash] ?? 0,
                                         cover: showCovers ? library.cover(for: entry) : nil, showCover: showCovers)
                             }
                             .accessibilityIdentifier("libraryRow")
@@ -109,6 +109,9 @@ struct BookRow: View {
     /// The "New" badge (#156). Passed on its own: `LibraryEntry`'s `==` compares only hash and title, so SwiftUI
     /// would not redraw the row when only `entry.unopened` changes (opening the book).
     var isNew = false
+    /// Read status ("Finished"), passed on its own for the same reason as `isNew`: marking a book finished or unread
+    /// changes only `entry.readStatus`, which `==` ignores, so the row would keep showing the old state.
+    var isFinished = false
     let fraction: Double
     /// The cover thumbnail from the iPhone; nil (with `showCover`) draws a plain tile in the book's colour.
     var cover: UIImage? = nil
@@ -145,7 +148,7 @@ struct BookRow: View {
                     .font(.footnote).foregroundStyle(.secondary)
                     .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
             }
-            if entry.isFinished {
+            if isFinished {
                 // A check mark and the word, never colour only.
                 HStack(alignment: .firstTextBaseline, spacing: 3) {
                     Image(systemName: "checkmark.circle.fill")
