@@ -52,6 +52,20 @@ final class ReaderViewModel: ObservableObject {
         }
     }
     private var userScrolledSincePrepend = false
+    /// Set by the view (watchOS 11+, from the scroll phase): a finger is on the text (tracking or dragging). The scroll
+    /// view's pan follows the finger from the offset the drag began at, so a `scrollTo` made meanwhile is undone by the
+    /// next touch move: a prepend's keep-scroll was lost and the text showed a chapter's height higher (the reader
+    /// "jumped" from the start of a chapter into the middle of the previous one). A prepend waits for the finger to
+    /// lift; a fling's deceleration does not hold it back (the keep-scroll stops it where the text is).
+    var isUserTouching = false {
+        didSet {
+            guard oldValue, !isUserTouching, prependWaitsForTouchEnd else { return }
+            prependWaitsForTouchEnd = false
+            prependAfterTouch()
+        }
+    }
+    /// A prepend was due while a finger was on the text (`isUserTouching`): made once it lifts.
+    private var prependWaitsForTouchEnd = false
     private var prependCheckTask: Task<Void, Never>?
     /// How long after a prepend the block at the reading line is checked (seconds): every row has reported its new
     /// place by then. The first frame reports after the rows go in still mix old and new places.
@@ -1274,6 +1288,13 @@ final class ReaderViewModel: ObservableObject {
     private func prepend(keeping block: Int) {
         guard !isRestoring, autoScroll == .off, pendingPrepend == nil, window.contains(block),
               let frame = lastFrames[block] else { return }
+        // Under a finger the keep-scroll would be undone by the drag (`isUserTouching`): once it lifts.
+        guard !isUserTouching else {
+            prependWaitsForTouchEnd = true
+            prependTask?.cancel()
+            prependTask = nil
+            return
+        }
         prependTask?.cancel()
         prependTask = nil
         let spans = lastFrames.mapValues { AutoScroll.Span(minY: Double($0.minY), maxY: Double($0.maxY)) }
@@ -1302,6 +1323,20 @@ final class ReaderViewModel: ObservableObject {
             guard !Task.isCancelled, let self else { return }
             self.prependCheckTask = nil
             self.checkPrepend()
+        }
+    }
+
+    /// The finger lifted with a prepend due: made at once close to the edge (the text may still be decelerating
+    /// towards it), otherwise once the scroll is idle, for the block at the reading line now.
+    private func prependAfterTouch() {
+        guard autoScroll == .off, !isRestoring, pendingPrepend == nil else { return }
+        let top = VisibleBlockResolver.lineIndex(frames: lastFrames, viewportTop: viewportTop) ?? currentIndex
+        guard ChapterWindow.needsPrepend(top: top, window: window, chapterStarts: flat.chapterStarts,
+                                         count: flat.count) else { return }
+        if ChapterWindow.prependIsUrgent(top: top, window: window) {
+            prepend(keeping: top)
+        } else {
+            schedulePrepend()
         }
     }
 
@@ -1342,6 +1377,7 @@ final class ReaderViewModel: ObservableObject {
         prependCheckTask = nil
         pendingPrepend = nil
         userScrolledSincePrepend = false
+        prependWaitsForTouchEnd = false
         prependKeep = nil
     }
 

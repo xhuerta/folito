@@ -554,6 +554,28 @@ final class JumpSettlingTests: XCTestCase {
         XCTAssertEqual(model.prependKeep?.index, 22)
     }
 
+    /// A finger dragging the text close to the window's first block: the prepend waits for it to lift (the drag would
+    /// undo the keep-scroll and show the text a chapter's height higher), then goes in at once, for the block at the
+    /// reading line by then, even while the text still decelerates.
+    @MainActor
+    func testADragCloseToTheEdgePrependsOnceTheFingerLifts() async throws {
+        let model = try await readerLandedAtChapterThree()
+        // The landing prepend's keep-scroll (block 40) stays set until the window changes again.
+        let landingKeep = model.prependKeep
+        model.isUserScrolling = true
+        model.isUserTouching = true
+        model.blockFramesChanged([22: f(-10, 90), 23: f(100, 200)])
+        XCTAssertEqual(model.window.lowerBound, Self.blocksPerChapter, "no prepend under the finger")
+        XCTAssertEqual(model.prependKeep, landingKeep, "no new keep-scroll under the finger")
+        model.blockFramesChanged([21: f(-10, 90), 22: f(100, 200)])
+        try await Task.sleep(nanoseconds: 600_000_000)
+        XCTAssertEqual(model.window.lowerBound, Self.blocksPerChapter, "still none while the finger stays down")
+        XCTAssertEqual(model.prependKeep, landingKeep)
+        model.isUserTouching = false
+        XCTAssertEqual(model.window.lowerBound, 0, "prepended as the finger lifts, mid-deceleration")
+        XCTAssertEqual(model.prependKeep?.index, 21, "keeping the block at the reading line now")
+    }
+
     /// A reader that jumped to chapter Three: its chapter loaded, then chapter Two prepended once idle (the spare
     /// chapter above), and its check found nothing moved.
     @MainActor
