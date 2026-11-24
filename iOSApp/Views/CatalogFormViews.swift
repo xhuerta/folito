@@ -96,6 +96,11 @@ struct AddCatalogView: View {
 /// Edits a catalog the user added: its name and its sign-in, or removes it. With `signInOnly` (opened from a
 /// catalog page that answered "sign-in needed") only the sign-in is shown. The saved password is never shown or
 /// put back into a field: an empty password keeps it.
+///
+/// Cards in a `ScrollView`, not a `Form` (docs/ACCESSIBILITY.md, "Catalogs"): as a `Form`, the rows and footers
+/// that were fully on screen in the middle of the longer edit form were flagged "Dynamic Type font sizes are
+/// partially unsupported" at AX5 (the mid-list artifact), and a swipe did not move the form or close the keyboard,
+/// so the keyboard kept covering *Save*. Dragging the content now closes the keyboard.
 struct EditCatalogView: View {
     let catalog: OPDSCatalog
     var signInOnly = false
@@ -120,82 +125,32 @@ struct EditCatalogView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                if !signInOnly {
-                    Section {
-                        CatalogFieldLabel(text: Text("Name", comment: "Edit Catalog: label of the catalog name field"))
-                        TextField(text: $name, prompt: Text(verbatim: "")) {
-                            Text("Name", comment: "Edit Catalog: label of the catalog name field")
-                        }
-                        .accessibilityLabel(Text("Name", comment: "Edit Catalog: label of the catalog name field"))
-                        .accessibilityIdentifier("catalogEditName")
-                        CatalogFieldLabel(text: Text("Address", comment: "Add Catalog: label of the catalog address field"))
-                        Text(verbatim: catalog.url.absoluteString)
-                            .font(.body)
-                            .textSelection(.enabled)
-                            .accessibilityIdentifier("catalogEditAddress")
-                    }
-                }
-                if canSignIn {
-                    CatalogSignInSection(username: $username, password: $password, savedUsername: savedUsername)
-                } else {
-                    Section {
-                        Text("Sign-in is available only for catalogs with an https:// address, so that the password is never sent unencrypted.",
-                             comment: "Edit Catalog: shown instead of the sign-in fields for a plain http:// catalog")
-                            .font(.body)
-                            .foregroundStyle(.secondaryText)
-                    }
-                }
-                if let problem { CatalogProblemSection(message: problem) }
-                Section {
-                    if isChecking {
-                        CatalogCheckingRow()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    if !signInOnly { catalogCard }
+                    if canSignIn {
+                        CatalogSignInCard(username: $username, password: $password, savedUsername: savedUsername)
                     } else {
-                        Button { Task { await save() } } label: {
-                            Group {
-                                if signInOnly {
-                                    Text("Sign In", comment: "Catalog sign-in: button that checks and saves the user name and password")
-                                } else {
-                                    Text("Save", comment: "Edit Catalog: button that saves the name and sign-in")
-                                }
-                            }
-                            .modifier(ActionLabel())
+                        DetailCard {
+                            Text("Sign-in is available only for catalogs with an https:// address, so that the password is never sent unencrypted.",
+                                 comment: "Edit Catalog: shown instead of the sign-in fields for a plain http:// catalog")
+                                .font(.body)
+                                .foregroundStyle(.secondaryText)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        .buttonStyle(.borderless)
-                        .accessibilityIdentifier("catalogEditSave")
                     }
-                }
-                if !signInOnly {
-                    Section {
-                        if savedUsername != nil {
-                            Button(role: .destructive) {
-                                catalogs.removeSignIn(for: catalog)
-                                username = ""
-                                password = ""
-                                Announcer.announce(String(localized: "Sign-in removed.",
-                                                          comment: "VoiceOver announcement after a catalog's saved sign-in was deleted"))
-                            } label: {
-                                Text("Remove Sign-In", comment: "Edit Catalog: deletes the saved user name and password from the Keychain")
-                                    .foregroundStyle(.destructiveText)
-                                    .modifier(ActionLabel())
-                            }
-                            .buttonStyle(.borderless)
-                            .accessibilityIdentifier("catalogRemoveSignIn")
-                        }
-                        Button(role: .destructive) {
-                            catalogs.remove(catalog)
-                            dismiss()
-                        } label: {
-                            Text("Remove Catalog", comment: "Edit Catalog: removes the catalog (and its sign-in) from the list")
-                                .foregroundStyle(.destructiveText)
-                                .modifier(ActionLabel())
-                        }
-                        .buttonStyle(.borderless)
-                        .accessibilityIdentifier("catalogRemove")
+                    if let problem {
+                        DetailCard { CatalogProblemLabel(message: problem) }
                     }
+                    DetailCard { saveButton }
+                    if !signInOnly { removeCard }
                 }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
             }
+            .scrollDismissesKeyboard(.immediately)
             .readableScrollEdges()
+            .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle(signInOnly
                              ? Text("Sign In", comment: "Title of the form that asks for a catalog's user name and password")
                              : Text("Edit Catalog", comment: "Title of the form that edits a catalog the user added"))
@@ -209,6 +164,85 @@ struct EditCatalogView: View {
                     .accessibilityIdentifier("catalogEditCancel")
                 }
             }
+        }
+    }
+
+    /// The name field and the address, as text (the address cannot be changed).
+    private var catalogCard: some View {
+        DetailCard {
+            CatalogCardField(label: Text("Name", comment: "Edit Catalog: label of the catalog name field")) {
+                TextField(text: $name, prompt: Text(verbatim: "")) {
+                    Text("Name", comment: "Edit Catalog: label of the catalog name field")
+                }
+                .accessibilityLabel(Text("Name", comment: "Edit Catalog: label of the catalog name field"))
+                .accessibilityIdentifier("catalogEditName")
+            }
+            Divider()
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Address", comment: "Add Catalog: label of the catalog address field")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondaryText)
+                Text(verbatim: catalog.url.absoluteString)
+                    .font(.body)
+                    .textSelection(.enabled)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            // One element named "Address" with the address as its value: a URL alone is not a human-readable label.
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text("Address", comment: "Add Catalog: label of the catalog address field"))
+            .accessibilityValue(Text(verbatim: catalog.url.absoluteString))
+            .accessibilityIdentifier("catalogEditAddress")
+        }
+    }
+
+    @ViewBuilder
+    private var saveButton: some View {
+        if isChecking {
+            CatalogCheckingRow()
+        } else {
+            Button { Task { await save() } } label: {
+                Group {
+                    if signInOnly {
+                        Text("Sign In", comment: "Catalog sign-in: button that checks and saves the user name and password")
+                    } else {
+                        Text("Save", comment: "Edit Catalog: button that saves the name and sign-in")
+                    }
+                }
+                .modifier(ActionLabel())
+            }
+            .buttonStyle(.borderless)
+            .accessibilityIdentifier("catalogEditSave")
+        }
+    }
+
+    private var removeCard: some View {
+        DetailCard {
+            if savedUsername != nil {
+                Button(role: .destructive) {
+                    catalogs.removeSignIn(for: catalog)
+                    username = ""
+                    password = ""
+                    Announcer.announce(String(localized: "Sign-in removed.",
+                                              comment: "VoiceOver announcement after a catalog's saved sign-in was deleted"))
+                } label: {
+                    Text("Remove Sign-In", comment: "Edit Catalog: deletes the saved user name and password from the Keychain")
+                        .foregroundStyle(.destructiveText)
+                        .modifier(ActionLabel())
+                }
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("catalogRemoveSignIn")
+                Divider()
+            }
+            Button(role: .destructive) {
+                catalogs.remove(catalog)
+                dismiss()
+            } label: {
+                Text("Remove Catalog", comment: "Edit Catalog: removes the catalog (and its sign-in) from the list")
+                    .foregroundStyle(.destructiveText)
+                    .modifier(ActionLabel())
+            }
+            .buttonStyle(.borderless)
+            .accessibilityIdentifier("catalogRemove")
         }
     }
 
@@ -264,15 +298,78 @@ struct CatalogSignInSection: View {
             .accessibilityLabel(Text("Password", comment: "Catalog form: label of the sign-in password field"))
             .accessibilityIdentifier("catalogPassword")
         } footer: {
-            VStack(alignment: .leading, spacing: 8) {
-                if savedUsername != nil {
-                    Text("A password is saved. Leave the password empty to keep it, or clear both fields to remove the sign-in.",
-                         comment: "Edit Catalog: footer of the sign-in fields when a sign-in is saved")
+            CatalogSignInNotes(savedUsername: savedUsername)
+        }
+    }
+}
+
+/// The sign-in fields as a card with their notes under it, for the card layout of `EditCatalogView`.
+struct CatalogSignInCard: View {
+    @Binding var username: String
+    @Binding var password: String
+    let savedUsername: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            DetailCard {
+                CatalogCardField(label: Text("User Name (Optional)", comment: "Catalog form: label of the optional sign-in user name field")) {
+                    TextField(text: $username, prompt: Text(verbatim: "")) {
+                        Text("User Name", comment: "Catalog form: label of the sign-in user name field")
+                    }
+                    .textContentType(.username)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .accessibilityLabel(Text("User Name", comment: "Catalog form: label of the sign-in user name field"))
+                    .accessibilityIdentifier("catalogUsername")
                 }
-                Text("Only for catalogs that ask for one, such as Calibre, Calibre-Web or Komga. Folito keeps the password in this iPhone’s Keychain and sends it only to this catalog’s server, over an encrypted https:// connection.",
-                     comment: "Catalog form: footer under the sign-in fields")
+                Divider()
+                CatalogCardField(label: Text("Password", comment: "Catalog form: label of the sign-in password field")) {
+                    SecureField(text: $password, prompt: Text(verbatim: "")) {
+                        Text("Password", comment: "Catalog form: label of the sign-in password field")
+                    }
+                    .textContentType(.password)
+                    .accessibilityLabel(Text("Password", comment: "Catalog form: label of the sign-in password field"))
+                    .accessibilityIdentifier("catalogPassword")
+                }
             }
-            .foregroundStyle(.secondaryText)
+            // Footnote text that wraps at every size, like a form footer.
+            CatalogSignInNotes(savedUsername: savedUsername)
+                .font(.footnote)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 4)
+        }
+    }
+}
+
+/// What Folito does with the sign-in, and how to keep or remove a saved one.
+struct CatalogSignInNotes: View {
+    let savedUsername: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if savedUsername != nil {
+                Text("A password is saved. Leave the password empty to keep it, or clear both fields to remove the sign-in.",
+                     comment: "Edit Catalog: footer of the sign-in fields when a sign-in is saved")
+            }
+            Text("Only for catalogs that ask for one, such as Calibre, Calibre-Web or Komga. Folito keeps the password in this iPhone’s Keychain and sends it only to this catalog’s server, over an encrypted https:// connection.",
+                 comment: "Catalog form: footer under the sign-in fields")
+        }
+        .foregroundStyle(.secondaryText)
+    }
+}
+
+/// A field in a card: its visible label above it (placeholder text is below 4.5:1; docs/ACCESSIBILITY.md).
+struct CatalogCardField<Field: View>: View {
+    let label: Text
+    @ViewBuilder var field: Field
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            label.font(.subheadline).foregroundStyle(.secondaryText)
+            field
+                .font(.body)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
         }
     }
 }
@@ -282,15 +379,22 @@ struct CatalogProblemSection: View {
     let message: String
 
     var body: some View {
-        Section {
-            Label {
-                Text(message).font(.body)
-            } icon: {
-                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-            }
-            .accessibilityElement(children: .combine)
-            .accessibilityIdentifier("catalogProblem")
+        Section { CatalogProblemLabel(message: message) }
+    }
+}
+
+/// The problem found when checking a catalog: a warning icon and the message, one element.
+struct CatalogProblemLabel: View {
+    let message: String
+
+    var body: some View {
+        Label {
+            Text(message).font(.body)
+        } icon: {
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("catalogProblem")
     }
 }
 
