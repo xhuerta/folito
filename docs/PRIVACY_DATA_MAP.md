@@ -127,20 +127,30 @@ Library handles the request under the Internet Archive's policy (<https://archiv
 ### 1b-ter. OPDS catalogs (iPhone only, on user action only)
 
 Code: `Packages/ReaderCore/Sources/ReaderCore/OPDS/` (`OPDSClient`, `URLSessionOPDSTransport`: ephemeral
-`URLSession`, no cookies, no disk cache, no credential storage) and `iOSApp/Library/CatalogStore.swift`. Details:
+`URLSession`, no cookies, no disk cache, no credential storage; `OPDSAuth.swift`: sign-in policy) and
+`iOSApp/Library/CatalogStore.swift`. Details:
 `docs/OPDS.md`. *Library › + › Catalogs* lists two presets (Standard Ebooks' new releases feed,
 `https://standardebooks.org/feeds/atom/new-releases`, and Project Gutenberg, `https://www.gutenberg.org/ebooks.opds/`)
 and the catalogs the user added by address. **Listing them contacts nothing.** A request is made only when the user
-opens a catalog or one of its sections, taps *Load More*, adds a catalog (its address is read once to check it), or
-taps *Download* on a book. The watch never does it.
+opens a catalog or one of its sections, taps *Load More*, adds or edits a catalog (its address, and the sign-in if
+one was entered, is read once to check it), or taps *Download* on a book. The watch never does it.
 
 | Recipient | Request | Data sent |
 |---|---|---|
 | The catalog the user opened (a preset, or the server at the address the user typed) | HTTPS GET (plain `http://` only for local-network hosts, as for KOSync) | The address of the page, `User-Agent: Folito/1.0 (https://folito.app; OPDS catalog browser)` and an `Accept` header, plus the IP address inherent to any request. |
-| Hosts the catalog links to for covers and EPUB files (e.g. `standardebooks.org`, `www.gutenberg.org`) | HTTPS GET | The address the catalog gave; same User-Agent and IP address. |
+| A self-hosted catalog the user added **with a sign-in** (Calibre, Calibre-Web, Komga, ...) | HTTPS GET only | As above, plus `Authorization: Basic` with the user name and password the user entered for that server. |
+| Hosts the catalog links to for covers and EPUB files (e.g. `standardebooks.org`, `www.gutenberg.org`) | HTTPS GET | The address the catalog gave; same User-Agent and IP address. The sign-in only if that host is the catalog's own server (same scheme, host and port). |
 
-Not sent: cookies, credentials (addresses with a user name or password are refused; catalogs that need a sign-in
-are not supported yet), anything about the user, the library, other catalogs, reading positions or the device.
+**Sign-in (#160).** Optional, per server (scheme, host and port), for catalogs the user added. The user name and
+password are sent only as HTTP Basic auth, only to that server, and only over `https://`: the client attaches them
+only to requests for the same `https` origin (`OPDSSignInPolicy.mayAuthorize`), a redirect to another host, port or
+to `http://` drops the header (`OPDSSignInPolicy.redirected`), and a sign-in for a plain-`http://` catalog is
+refused before anything is sent (no "accept the risk" option: Basic auth is only Base64, readable by anyone on the
+network). TLS is validated by the system; there is no trust override. A 401 answer is shown as "needs a sign-in"
+(with *Sign In…* for an added https catalog); nothing is retried automatically with other credentials.
+
+Not sent: cookies, credentials other than that sign-in (addresses with a user name or password in them are refused),
+anything about the user, the library, other catalogs, reading positions or the device.
 A downloaded EPUB goes through the normal import (and to the watch); the catalog learns only that the file was
 downloaded. Covers are kept in memory while the app runs, not on disk. The developer is not a party and receives
 nothing; each catalog handles requests under its own policy.
@@ -175,7 +185,8 @@ nothing; each catalog handles requests under its own policy.
 | Covers and book details of local books (description, series, publisher, year, language, ISBN) | iPhone: `Application Support/Folito/Books/<hash>.cover.jpg` and `<hash>.watch.jpg`, details in `library.json`; watch: `Books/<hash>.cover.jpg` | Read from the EPUB at import. Removed with the book. |
 | Online book details (cover, description, year, publisher, subjects from Open Library; the Open Library record key; when the background lookup last tried the book) | iPhone: the same cover files, `online` / `onlineLookupAt` in `library.json`; the watch gets only the cover thumbnail | Only what the user accepted (or the opt-in background lookup applied), only for fields the EPUB lacks; the EPUB file is never changed. *Remove Online Details* deletes them. Removed with the book. |
 | "Find Missing Details Online" | UserDefaults (`onlineMetadata.autoLookup`) | Off by default. |
-| Catalogs the user added (name, address) | iPhone: UserDefaults (`catalogs.custom`) | Never leaves the iPhone. Removed with *Remove* in Catalogs. |
+| Catalogs the user added (name, address) | iPhone: UserDefaults (`catalogs.custom`) | Never leaves the iPhone. Removed with *Remove* in Catalogs. No user name or password is stored here. |
+| Catalog sign-ins (user name and password, per server) | iPhone Keychain only: service `com.xlahuerta.folito.opds`, account `https://host:port`, `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`, not synchronizable | Sent only to that server over https (1b-ter). Never in UserDefaults, files, logs, iCloud Keychain or the watch; *ThisDeviceOnly* items are not restored onto another device from a backup. In memory while the app runs (`OPDSCredentialVault`). Deleted with *Remove Sign-In* or when the last catalog on that server is removed. |
 | Readest book list and covers (cache) | iPhone: `Application Support/Folito/readest-library.json`, `Caches/ReadestCovers` | So the Library can show Readest books offline. Removed on Sign Out. |
 | "Upload Imported Books Automatically", Library filter | UserDefaults | Off / All by default. |
 | Reading position, typography, device UUID, pending sync queue | UserDefaults | |
@@ -211,7 +222,9 @@ nothing; each catalog handles requests under its own policy.
   the developer never receives it, and Open Library is not a partner of the developer (no SDK, no agreement); see
   `docs/appstore/APP_PRIVACY.md`, "Online book details". No data type, tracking domain or manifest entry is added.
   The same holds for OPDS catalogs (1b-ter): the request names only a page or file of a catalog the user chose,
-  goes to that catalog and not to the developer, and carries no user data; nothing is declared for it.
+  goes to that catalog and not to the developer, and carries no user data; nothing is declared for it. A catalog
+  sign-in is a credential for the user's own server, sent only to it and never to the developer; it is not
+  collected either.
 
 | Declared type | What it is in Folito | Sent to |
 |---|---|---|

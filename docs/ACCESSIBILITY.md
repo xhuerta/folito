@@ -68,14 +68,22 @@ Library's toolbar: a text bar button keeps a fixed font size and was flagged by 
 **Catalogs (OPDS).** The Library's + is a menu (*Import EPUB*, *Catalogs*; an icon bar button labelled *Add
 Books*). *Catalogs* is a sheet with a `NavigationStack`: a `List` of catalogs (title and host, one element; custom
 ones have *Remove* as a context-menu and rotor action), an *Add Catalog…* action row and an icon close button
-(✕, labelled *Done*). Catalog pages hold their rows in a card too; rows are one element (decorative cover, title, authors or a short
+(✕, labelled *Done*). An added catalog with a saved sign-in says *Signed in as …* in its row; *Edit…* (context menu
+and rotor action, and an icon *Edit Catalog* bar button on the catalog's own page) opens *Edit Catalog*. Catalog pages hold their rows in a card too; rows are one element (decorative cover, title, authors or a short
 summary, and "Not available as EPUB" when the book cannot be downloaded); loading, empty and error states use
 `ProgressView` / `ContentUnavailableView`; further pages load from an explicit *Load More* row, not on scroll. A
 book's screen is built like the book details (cards in a `ScrollView`, title as a header, *Download* as an action
 row with a hint, `DetailRow`s). The add form's fields have visible labels above them instead of placeholders
 (placeholder text is a light system gray, below 4.5:1); the address field starts with `https://`. Its errors are
-shown inline and announced. Audited by `testCatalogsListAudit`, `testAddCatalogAudit`, `testCatalogPageAudit` and
-`testCatalogBookAudit` (shard `catalogs`). The action rows in lists (*Add Catalog…*, *Load More*) are an icon and a text in a plain stack, not a `Label` (a list label's icon column changes at accessibility sizes; *Load More* was flagged "partially unsupported" and "Text clipped" at AX5), and the Catalogs list and catalog pages are cards in a `ScrollView`, not `List`s: as `List`s, the added catalog's row and *Load More* were flagged "partially unsupported" at AX5 wherever they were not on the first screen, even as the last rows (the mid-list artifact below); as cards nothing is flagged and nothing is accepted; screenshots at the default and AX5 sizes in the `catalogs-screenshots`
+shown inline and announced. Sign-in (#160): the user name and password fields (a `SecureField`, `textContentType`
+`.username` / `.password`) also have visible labels above them; the footer says where the password is kept and sent.
+A page that answers "sign-in needed" shows the message with *Sign In…* (for an added https catalog) and *Try Again*;
+*Sign In…* opens the same form with only the sign-in fields. *Edit Catalog* has the name, the address as text, the
+sign-in fields (the saved password is never shown; an empty password keeps it), *Save*, and *Remove Sign-In* /
+*Remove Catalog* as action rows in the high-contrast `destructiveText` colour. Errors are shown inline and announced,
+like the add form's. Audited by `testCatalogsListAudit`, `testAddCatalogAudit`, `testCatalogPageAudit`,
+`testCatalogBookAudit`, `testCatalogSignInNeededAudit`, `testCatalogSignInAudit` and `testEditCatalogAudit` (shard
+`catalogs`). The action rows in lists (*Add Catalog…*, *Load More*) are an icon and a text in a plain stack, not a `Label` (a list label's icon column changes at accessibility sizes; *Load More* was flagged "partially unsupported" and "Text clipped" at AX5), and the Catalogs list and catalog pages are cards in a `ScrollView`, not `List`s: as `List`s, the added catalog's row and *Load More* were flagged "partially unsupported" at AX5 wherever they were not on the first screen, even as the last rows (the mid-list artifact below); as cards nothing is flagged and nothing is accepted; screenshots at the default and AX5 sizes in the `catalogs-screenshots`
 artifact (`CatalogsUITests`). See docs/OPDS.md.
 
 **Dynamic Type.** No fixed point sizes in UI chrome; only text styles. Layouts that would truncate switch
@@ -117,9 +125,9 @@ handling (any future custom animation must check `accessibilityReduceMotion`).
 Progress Sync, Acknowledgements, Reading and the book detail screen (`-UITestingSeedCovers`: a book with a cover,
 a series and a long description), Settings' *Book Details* section alone (`-UITestingSettingsBookDetailsOnly`),
 and the Catalogs screens with fixed feeds and no network (`-UITestingMockCatalogs`): the Catalogs list, Add Catalog,
-a catalog page and a catalog book.
+a catalog page, a catalog book, a page that needs a sign-in, the Sign In form and Edit Catalog.
 
-**When it runs.** The audit drives the simulator screen by screen and its 17 tests take about 30 minutes on CI
+**When it runs.** The audit drives the simulator screen by screen and its 20 tests take about 30 minutes on CI
 (run as four parallel shards of `AccessibilityAuditTests`: `library`, `book`, `catalogs` and `rest`), so it is not
 part of the PR-blocking macOS workflow and not a required check. It has its own workflow,
 `.github/workflows/accessibility.yml` ("Accessibility audit"), which runs:
@@ -151,7 +159,7 @@ xcodebuild test -project Folito.xcodeproj -scheme Folito \
 | Element | Audit type | Why it is accepted |
 |---|---|---|
 | Reading preview (`typographyPreview`) | Dynamic Type, Contrast, Text clipped | It is content, not chrome: it renders the book text exactly as the watch will, at the reader's chosen point size and theme colours (for example the *Dim* theme). Scaling it with Dynamic Type would make the preview wrong. Its accessibility value describes the settings in words. |
-| No element, on *Settings* and *Acknowledgements* at AX5 only | Dynamic Type ("Dynamic Type font sizes are unsupported" / "partially unsupported"), Text clipped ("Text clipped") | Caused by the system's `Form` / `List` section footers (see below). The footer texts are standard `Text` in a section footer; they do scale (a footer grows to 267 pt tall at AX5) and nothing is cut off on screen. Accepted only with no element, those exact descriptions, those two screens and the largest-size pass (`formFooterFindingsAtLargestText`). |
+| No element, on the `Form` screens with section footers (*Settings*, *Settings* › *Book Details*, *Acknowledgements*, *Add Catalog*, *Edit Catalog*, catalog *Sign In*) at AX5 only | Dynamic Type ("Dynamic Type font sizes are unsupported" / "partially unsupported"), Text clipped ("Text clipped") | Caused by the system's `Form` / `List` section footers (see below). The footer texts are standard `Text` in a section footer; they do scale (a footer grows to 267 pt tall at AX5) and nothing is cut off on screen. Accepted only with no element, those exact descriptions, those screens and the largest-size pass (`formFooterFindingsAtLargestText`; the catalog forms use the same rule as *Add Catalog* did since #159, unchanged). |
 
 How the footer finding was found (PR #39, CI runs on commits 15ef124 and 1ae099f): temporary launch switches
 removed one suspect at a time and the AX5 audit was repeated for each. Removing only the section footer texts

@@ -236,6 +236,53 @@
         }
       }
     },
+    "A password is saved. Leave the password empty to keep it, or clear both fields to remove the sign-in." : {
+      "comment" : "Edit Catalog: footer of the sign-in fields when a sign-in is saved",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein Passwort ist gesichert. Lass das Passwortfeld leer, um es zu behalten, oder leere beide Felder, um die Anmeldung zu entfernen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hay una contraseña guardada. Deja la contraseña vacía para conservarla o vacía los dos campos para eliminar el inicio de sesión."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un mot de passe est enregistré. Laissez le mot de passe vide pour le conserver, ou videz les deux champs pour supprimer l’identifiant."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "È salvata una password. Lascia vuota la password per mantenerla, oppure svuota entrambi i campi per rimuovere l’accesso."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "パスワードが保存されています。そのまま使う場合はパスワードを空のままにし、サインイン情報を削除する場合は両方の欄を空にしてください。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Há uma senha salva. Deixe a senha vazia para mantê-la ou apague os dois campos para remover o login."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已存储密码。将密码留空即可保留，清空两个栏可移除登录信息。"
+          }
+        }
+      }
+    },
     "A secure connection to the server couldn’t be made. The server’s certificate isn’t trusted by this iPhone." : {
       "comment" : "Sync error",
       "localizations" : {
@@ -279,6 +326,53 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无法与服务器建立安全连接。此 iPhone 不信任该服务器的证书。"
+          }
+        }
+      }
+    },
+    "A user name can’t contain a colon (:)." : {
+      "comment" : "Catalog sign-in: HTTP Basic user names cannot contain a colon",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein Benutzername darf keinen Doppelpunkt (:) enthalten."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un nombre de usuario no puede contener dos puntos (:)."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un nom d’utilisateur ne peut pas contenir de deux-points (:)."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un nome utente non può contenere i due punti (:)."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ユーザ名にコロン（:）は使えません。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Um nome de usuário não pode conter dois-pontos (:)."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用户名不能包含冒号（:）。"
           }
         }
       }
@@ -1539,6 +1633,241 @@
         }
       }
     },
+    "Edit" : {
+      "comment" : "Catalogs: VoiceOver action that edits the name and sign-in of a catalog the user added",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bearbeiten"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifier"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifica"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "編集"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editar"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑"
+          }
+        }
+      }
+    },
+    "Edit Catalog" : {
+      "comment" : "Title of the form that edits a catalog the user added; also the catalog page's toolbar button that opens it",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Katalog bearbeiten"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editar catálogo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifier le catalogue"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifica catalogo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カタログを編集"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editar catálogo"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑图书目录"
+          }
+        }
+      }
+    },
+    "Edit…" : {
+      "comment" : "Catalogs: edit the name and sign-in of a catalog the user added",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bearbeiten …"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editar…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifier…"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifica…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "編集…"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editar…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑…"
+          }
+        }
+      }
+    },
+    "Enter the password, or leave both sign-in fields empty." : {
+      "comment" : "Catalog sign-in: a user name was typed without a password",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gib das Passwort ein oder lass beide Anmeldefelder leer."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Introduce la contraseña o deja vacíos los dos campos de inicio de sesión."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saisissez le mot de passe ou laissez vides les deux champs de connexion."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inserisci la password o lascia vuoti entrambi i campi di accesso."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "パスワードを入力するか、サインインの欄を両方とも空にしてください。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Digite a senha ou deixe os dois campos de login vazios."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请输入密码，或将两个登录栏都留空。"
+          }
+        }
+      }
+    },
+    "Enter the user name, or leave both sign-in fields empty." : {
+      "comment" : "Catalog sign-in: a password was typed without a user name",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gib den Benutzernamen ein oder lass beide Anmeldefelder leer."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Introduce el nombre de usuario o deja vacíos los dos campos de inicio de sesión."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saisissez le nom d’utilisateur ou laissez vides les deux champs de connexion."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inserisci il nome utente o lascia vuoti entrambi i campi di accesso."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ユーザ名を入力するか、サインインの欄を両方とも空にしてください。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Digite o nome de usuário ou deixe os dois campos de login vazios."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请输入用户名，或将两个登录栏都留空。"
+          }
+        }
+      }
+    },
     "Enter your username and password. Leave the server URL empty to use the default server." : {
       "comment" : "Sync form validation message",
       "localizations" : {
@@ -1816,6 +2145,53 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已读完，%@"
+          }
+        }
+      }
+    },
+    "Folito sends a user name and password only over a secure connection. Use the catalog’s https:// address." : {
+      "comment" : "Catalog error: a sign-in was needed or entered for a plain http:// catalog; Folito refuses to send it",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Folito sendet Benutzername und Passwort nur über eine sichere Verbindung. Verwende die https://-Adresse des Katalogs."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Folito solo envía un nombre de usuario y una contraseña a través de una conexión segura. Usa la dirección https:// del catálogo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Folito n’envoie un nom d’utilisateur et un mot de passe que par une connexion sécurisée. Utilisez l’adresse https:// du catalogue."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Folito invia nome utente e password solo tramite una connessione sicura. Usa l’indirizzo https:// del catalogo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Folitoはユーザ名とパスワードを安全な接続でのみ送信します。カタログのhttps://アドレスを使用してください。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Folito envia nome de usuário e senha somente por uma conexão segura. Use o endereço https:// do catálogo."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Folito 只会通过安全连接发送用户名和密码。请使用图书目录的 https:// 地址。"
           }
         }
       }
@@ -3033,6 +3409,53 @@
         }
       }
     },
+    "Name" : {
+      "comment" : "Edit Catalog: label of the catalog name field",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nombre"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nom"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nome"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名前"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nome"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名称"
+          }
+        }
+      }
+    },
     "Night" : {
       "comment" : "Reading style preset",
       "localizations" : {
@@ -3450,6 +3873,53 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在 Apple Watch 上"
+          }
+        }
+      }
+    },
+    "Only for catalogs that ask for one, such as Calibre, Calibre-Web or Komga. Folito keeps the password in this iPhone’s Keychain and sends it only to this catalog’s server, over an encrypted https:// connection." : {
+      "comment" : "Catalog form: footer under the sign-in fields",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nur für Kataloge, die eine Anmeldung verlangen, etwa Calibre, Calibre-Web oder Komga. Folito bewahrt das Passwort im Schlüsselbund dieses iPhone auf und sendet es nur an den Server dieses Katalogs, über eine verschlüsselte https://-Verbindung."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo para catálogos que lo piden, como Calibre, Calibre-Web o Komga. Folito guarda la contraseña en el llavero de este iPhone y solo la envía al servidor de este catálogo, a través de una conexión https:// cifrada."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uniquement pour les catalogues qui en demandent un, comme Calibre, Calibre-Web ou Komga. Folito conserve le mot de passe dans le trousseau de cet iPhone et ne l’envoie qu’au serveur de ce catalogue, par une connexion https:// chiffrée."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo per i cataloghi che lo richiedono, come Calibre, Calibre-Web o Komga. Folito conserva la password nel portachiavi di questo iPhone e la invia solo al server di questo catalogo, tramite una connessione https:// crittografata."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calibre、Calibre-Web、Komgaなど、サインインを求めるカタログでのみ使用します。FolitoはパスワードをこのiPhoneのキーチェーンに保管し、暗号化されたhttps://接続でこのカタログのサーバにのみ送信します。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Só para catálogos que pedem login, como Calibre, Calibre-Web ou Komga. O Folito guarda a senha nas Chaves deste iPhone e a envia somente ao servidor deste catálogo, por uma conexão https:// criptografada."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仅用于需要登录的图书目录，例如 Calibre、Calibre-Web 或 Komga。Folito 将密码保存在此 iPhone 的钥匙串中，并且只通过加密的 https:// 连接发送给此图书目录的服务器。"
           }
         }
       }
@@ -4195,6 +4665,100 @@
         }
       }
     },
+    "Remove Catalog" : {
+      "comment" : "Edit Catalog: removes the catalog (and its sign-in) from the list",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Katalog entfernen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitar catálogo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirer le catalogue"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rimuovi catalogo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カタログを削除"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remover catálogo"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除图书目录"
+          }
+        }
+      }
+    },
+    "Remove Sign-In" : {
+      "comment" : "Edit Catalog: deletes the saved user name and password from the Keychain",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anmeldung entfernen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar inicio de sesión"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer l’identifiant"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rimuovi accesso"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サインイン情報を削除"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remover login"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "移除登录信息"
+          }
+        }
+      }
+    },
     "Removed on Apple Watch" : {
       "comment" : "Library row: the user deleted the book on the watch, so it is not sent automatically",
       "localizations" : {
@@ -4423,6 +4987,53 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "圆体"
+          }
+        }
+      }
+    },
+    "Save" : {
+      "comment" : "Edit Catalog: button that saves the name and sign-in",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sichern"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enregistrer"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Salva"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Salvar"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存"
           }
         }
       }
@@ -5077,6 +5688,241 @@
         }
       }
     },
+    "Sign In" : {
+      "comment" : "Catalog sign-in: title of the form and button that checks and saves the user name and password",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anmelden"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Iniciar sesión"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se connecter"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accedi"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サインイン"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entrar"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登录"
+          }
+        }
+      }
+    },
+    "Sign In…" : {
+      "comment" : "Catalog page: opens the form for the catalog's user name and password",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anmelden …"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Iniciar sesión…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se connecter…"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accedi…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サインイン…"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entrar…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登录…"
+          }
+        }
+      }
+    },
+    "Sign-in is available only for catalogs with an https:// address, so that the password is never sent unencrypted." : {
+      "comment" : "Edit Catalog: shown instead of the sign-in fields for a plain http:// catalog",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eine Anmeldung ist nur bei Katalogen mit einer https://-Adresse möglich, damit das Passwort nie unverschlüsselt gesendet wird."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo se puede iniciar sesión en catálogos con una dirección https://, para que la contraseña nunca se envíe sin cifrar."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La connexion n’est possible que pour les catalogues dont l’adresse commence par https://, afin que le mot de passe ne soit jamais envoyé en clair."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’accesso è disponibile solo per i cataloghi con un indirizzo https://, così la password non viene mai inviata senza crittografia."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "パスワードが暗号化されずに送信されることのないよう、サインインはhttps://アドレスのカタログでのみ使用できます。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O login só está disponível para catálogos com endereço https://, para que a senha nunca seja enviada sem criptografia."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "只有 https:// 地址的图书目录才能登录，以确保密码绝不会以未加密方式发送。"
+          }
+        }
+      }
+    },
+    "Sign-in removed." : {
+      "comment" : "VoiceOver announcement after a catalog's saved sign-in was deleted",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anmeldung entfernt."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inicio de sesión eliminado."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Identifiant supprimé."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accesso rimosso."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サインイン情報を削除しました。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Login removido."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已移除登录信息。"
+          }
+        }
+      }
+    },
+    "Signed in as %@" : {
+      "comment" : "Catalogs: caption of a catalog with a saved sign-in; the placeholder is the user name",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Angemeldet als %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sesión iniciada como %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connecté en tant que %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accesso come %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@としてサインイン済み"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectado como %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已登录为 %@"
+          }
+        }
+      }
+    },
     "Size" : {
       "comment" : "Text size slider title (short)",
       "localizations" : {
@@ -5685,6 +6531,53 @@
         }
       }
     },
+    "The address of an OPDS catalog, for example a Calibre, Calibre-Web, Kavita or Komga server." : {
+      "comment" : "Add Catalog: footer under the address and name fields",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Adresse eines OPDS-Katalogs, zum Beispiel eines Calibre-, Calibre-Web-, Kavita- oder Komga-Servers."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La dirección de un catálogo OPDS, por ejemplo de un servidor Calibre, Calibre-Web, Kavita o Komga."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’adresse d’un catalogue OPDS, par exemple d’un serveur Calibre, Calibre-Web, Kavita ou Komga."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’indirizzo di un catalogo OPDS, ad esempio di un server Calibre, Calibre-Web, Kavita o Komga."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OPDSカタログのアドレス（Calibre、Calibre-Web、Kavita、Komgaのサーバなど）。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O endereço de um catálogo OPDS, por exemplo de um servidor Calibre, Calibre-Web, Kavita ou Komga."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OPDS 图书目录的地址，例如 Calibre、Calibre-Web、Kavita 或 Komga 服务器。"
+          }
+        }
+      }
+    },
     "The book is also removed from your Apple Watch, together with its reading position there." : {
       "localizations" : {
         "de" : {
@@ -5727,6 +6620,100 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "该图书也会从你的 Apple Watch 中移除，连同其在手表上的阅读位置。"
+          }
+        }
+      }
+    },
+    "The catalog didn’t accept the user name and password. Check them, then try again." : {
+      "comment" : "Catalog error: the server answered 401 to the saved or entered sign-in",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Katalog hat Benutzername und Passwort nicht akzeptiert. Prüfe sie und versuche es erneut."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El catálogo no ha aceptado el nombre de usuario y la contraseña. Compruébalos y vuelve a intentarlo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le catalogue n’a pas accepté le nom d’utilisateur et le mot de passe. Vérifiez-les, puis réessayez."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il catalogo non ha accettato nome utente e password. Controllali e riprova."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カタログがユーザ名とパスワードを受け付けませんでした。確認してからもう一度お試しください。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O catálogo não aceitou o nome de usuário e a senha. Verifique-os e tente novamente."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "图书目录未接受该用户名和密码。请检查后再试一次。"
+          }
+        }
+      }
+    },
+    "The catalog doesn’t let this account open this page." : {
+      "comment" : "Catalog error: the server answered 403 to a signed-in request",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Katalog erlaubt diesem Konto nicht, diese Seite zu öffnen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El catálogo no permite que esta cuenta abra esta página."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le catalogue ne permet pas à ce compte d’ouvrir cette page."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il catalogo non consente a questo account di aprire questa pagina."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このアカウントではカタログのこのページを開けません。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O catálogo não permite que esta conta abra esta página."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "图书目录不允许此账户打开此页面。"
           }
         }
       }
@@ -6199,6 +7186,100 @@
         }
       }
     },
+    "The sign-in couldn’t be saved to this iPhone’s Keychain. Restart your iPhone and try again." : {
+      "comment" : "Catalogs: saving a catalog's user name and password in the Keychain failed",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Anmeldung konnte nicht im Schlüsselbund dieses iPhone gesichert werden. Starte dein iPhone neu und versuche es erneut."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se ha podido guardar el inicio de sesión en el llavero de este iPhone. Reinicia el iPhone y vuelve a intentarlo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible d’enregistrer l’identifiant dans le trousseau de cet iPhone. Redémarrez votre iPhone et réessayez."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile salvare l’accesso nel portachiavi di questo iPhone. Riavvia iPhone e riprova."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サインイン情報をこのiPhoneのキーチェーンに保存できませんでした。iPhoneを再起動してもう一度お試しください。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível salvar o login nas Chaves deste iPhone. Reinicie o iPhone e tente novamente."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法将登录信息存储到此 iPhone 的钥匙串中。请重新启动 iPhone 后再试一次。"
+          }
+        }
+      }
+    },
+    "The user name or password contains a line break or another invisible character. Type it again." : {
+      "comment" : "Catalog sign-in: control characters in the user name or password",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Benutzername oder Passwort enthält einen Zeilenumbruch oder ein anderes unsichtbares Zeichen. Gib es erneut ein."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El nombre de usuario o la contraseña contiene un salto de línea u otro carácter invisible. Vuelve a escribirlo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le nom d’utilisateur ou le mot de passe contient un saut de ligne ou un autre caractère invisible. Saisissez-le à nouveau."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il nome utente o la password contiene un a capo o un altro carattere invisibile. Digitalo di nuovo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ユーザ名またはパスワードに改行などの見えない文字が含まれています。もう一度入力してください。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O nome de usuário ou a senha contém uma quebra de linha ou outro caractere invisível. Digite novamente."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用户名或密码包含换行符或其他不可见字符。请重新输入。"
+          }
+        }
+      }
+    },
     "Theme" : {
       "comment" : "Reader colour theme picker",
       "localizations" : {
@@ -6336,6 +7417,53 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这本书加入你的 Readest 书库后，就会同步进度。"
+          }
+        }
+      }
+    },
+    "This catalog needs a sign-in with a user name and password." : {
+      "comment" : "Catalog error: the server answered 401/403 to a request without a sign-in",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Katalog erfordert eine Anmeldung mit Benutzername und Passwort."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este catálogo requiere iniciar sesión con un nombre de usuario y una contraseña."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce catalogue demande une connexion avec un nom d’utilisateur et un mot de passe."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo catalogo richiede l’accesso con nome utente e password."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このカタログにはユーザ名とパスワードでのサインインが必要です。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este catálogo exige login com nome de usuário e senha."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此图书目录需要使用用户名和密码登录。"
           }
         }
       }
@@ -6755,6 +7883,100 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "请使用你已有的账户。如需账户，请直接在同步服务器上创建，例如在 KOReader 中（工具 › 进度同步 › 注册）或在你自己的服务器上。"
+          }
+        }
+      }
+    },
+    "User Name" : {
+      "comment" : "Catalog form: label of the sign-in user name field",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Benutzername"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nombre de usuario"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nom d’utilisateur"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nome utente"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ユーザ名"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nome de usuário"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用户名"
+          }
+        }
+      }
+    },
+    "User Name (Optional)" : {
+      "comment" : "Catalog form: label of the optional sign-in user name field",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Benutzername (optional)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nombre de usuario (opcional)"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nom d’utilisateur (facultatif)"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nome utente (facoltativo)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ユーザ名（オプション）"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nome de usuário (opcional)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用户名（可选）"
           }
         }
       }
@@ -17728,53 +18950,6 @@
         }
       }
     },
-    "The address of an OPDS catalog, for example a Calibre-Web, Kavita or Komga server. Catalogs that need a sign-in aren’t supported yet." : {
-      "comment" : "Add Catalog: footer under the address and name fields",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Die Adresse eines OPDS-Katalogs, zum Beispiel eines Calibre-Web-, Kavita- oder Komga-Servers. Kataloge mit Anmeldung werden noch nicht unterstützt."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La dirección de un catálogo OPDS, por ejemplo un servidor Calibre-Web, Kavita o Komga. Todavía no se admiten los catálogos que requieren iniciar sesión."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "L’adresse d’un catalogue OPDS, par exemple un serveur Calibre-Web, Kavita ou Komga. Les catalogues qui demandent une connexion ne sont pas encore pris en charge."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "L’indirizzo di un catalogo OPDS, ad esempio un server Calibre-Web, Kavita o Komga. I cataloghi che richiedono l’accesso non sono ancora supportati."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OPDSカタログのアドレス（Calibre-Web、Kavita、Komgaのサーバなど）。サインインが必要なカタログにはまだ対応していません。"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "O endereço de um catálogo OPDS, por exemplo um servidor Calibre-Web, Kavita ou Komga. Catálogos que exigem login ainda não são compatíveis."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OPDS 图书目录的地址，例如 Calibre-Web、Kavita 或 Komga 服务器。暂不支持需要登录的图书目录。"
-          }
-        }
-      }
-    },
     "Checking Catalog…" : {
       "comment" : "Add Catalog: the address is being checked",
       "localizations" : {
@@ -18241,53 +19416,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无法与图书目录建立安全连接。此 iPhone 不信任其证书。"
-          }
-        }
-      }
-    },
-    "This catalog needs a sign-in. Folito can’t sign in to catalogs yet." : {
-      "comment" : "Catalog error: the server answered 401/403",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dieser Katalog erfordert eine Anmeldung. Folito kann sich noch nicht bei Katalogen anmelden."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Este catálogo requiere iniciar sesión. Folito todavía no puede iniciar sesión en catálogos."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ce catalogue demande une connexion. Folito ne peut pas encore se connecter aux catalogues."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Questo catalogo richiede l’accesso. Folito non può ancora accedere ai cataloghi."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "このカタログにはサインインが必要です。Folitoはまだカタログへのサインインに対応していません。"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Este catálogo exige login. O Folito ainda não consegue fazer login em catálogos."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此图书目录需要登录。Folito 暂不支持登录图书目录。"
           }
         }
       }

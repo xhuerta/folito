@@ -592,7 +592,8 @@ final class AccessibilityAuditTests: XCTestCase {
         waitForScrollToSettle(app)
     }
 
-    /// The Catalogs list: the two presets (with the note under them) and one added catalog with *Add Catalog…*.
+    /// The Catalogs list: the two presets (with the note under them) and two added catalogs, one signed in
+    /// ("Signed in as"), with *Add Catalog…*.
     @MainActor
     func testCatalogsListAudit() throws {
         try auditScreen("Catalogs", extraArguments: ["-UITestingMockCatalogs"], open: Self.openCatalogs)
@@ -626,6 +627,51 @@ final class AccessibilityAuditTests: XCTestCase {
             row.tap()
             XCTAssertTrue(app.buttons["catalogDownload"].waitForExistence(timeout: 5), "Book screen did not open")
             Self.waitForScrollToSettle(app)
+        }
+    }
+
+    /// Opens the added "Family Server", which answers 401 without a sign-in, and waits for its Sign In button.
+    @MainActor
+    private static func openSignInNeeded(_ app: XCUIApplication) {
+        openCatalogs(app)
+        let row = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == 'catalogRow' AND label BEGINSWITH 'Family Server'")).firstMatch
+        scrollAndTap(row, in: app)
+        XCTAssertTrue(app.buttons["catalogSignIn"].waitForExistence(timeout: 10), "Sign In not offered")
+        waitForScrollToSettle(app)
+    }
+
+    /// A catalog page that needs a sign-in: the message, Sign In… and Try Again.
+    @MainActor
+    func testCatalogSignInNeededAudit() throws {
+        try auditScreen("Catalog sign-in needed", extraArguments: ["-UITestingMockCatalogs"], open: Self.openSignInNeeded)
+    }
+
+    /// The Sign In form (user name and password with labels above them, the footer, the Sign In action row).
+    @MainActor
+    func testCatalogSignInAudit() throws {
+        try auditScreen("Catalog sign-in", extraArguments: ["-UITestingMockCatalogs"],
+                        formFooterFindingsAtLargestText: true) { app in
+            Self.openSignInNeeded(app)
+            Self.scrollAndTap(app.buttons["catalogSignIn"], in: app)
+            XCTAssertTrue(app.navigationBars["Sign In"].waitForExistence(timeout: 5), "Sign In did not open")
+        }
+    }
+
+    /// Edit Catalog for "Home Library", which has a saved sign-in: name, address, sign-in fields and footers,
+    /// Save, Remove Sign-In and Remove Catalog. Opened from the catalog page's Edit button.
+    @MainActor
+    func testEditCatalogAudit() throws {
+        try auditScreen("Edit Catalog", extraArguments: ["-UITestingMockCatalogs"],
+                        formFooterFindingsAtLargestText: true) { app in
+            Self.openCatalogs(app)
+            let row = app.descendants(matching: .any)
+                .matching(NSPredicate(format: "identifier == 'catalogRow' AND label BEGINSWITH 'Home Library'")).firstMatch
+            Self.scrollAndTap(row, in: app)
+            let edit = app.buttons["catalogEdit"]
+            XCTAssertTrue(edit.waitForExistence(timeout: 10), "Edit not offered")
+            edit.tap()
+            XCTAssertTrue(app.navigationBars["Edit Catalog"].waitForExistence(timeout: 5), "Edit Catalog did not open")
         }
     }
 

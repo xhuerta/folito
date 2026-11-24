@@ -297,7 +297,8 @@ sections stay readable as chapters. Books imported before this need to be import
 - If the watch app wasn't installed yet, nothing is lost: sync settings and pending books are resent automatically when the session activates, the watch app is installed, connectivity changes or you open the iPhone app. The watch reports which books it has, so missing ones are resent.
 - The app exposes its Documents folder in the Files app (`UIFileSharingEnabled`).
 - From an OPDS catalog: **+ › Catalogs** in the Library lists Standard Ebooks (new releases) and Project Gutenberg, and
-  catalogs you add by address (Calibre-Web, Kavita, Komga…; no sign-in yet). Catalogs are contacted only when you open
+  catalogs you add by address (Calibre, Calibre-Web, Kavita, Komga…, with an optional user name and password kept in
+  the iPhone Keychain and sent only to that server over https). Catalogs are contacted only when you open
   them; *Download* takes the catalog's DRM-free EPUB and imports it like any other file. See [docs/OPDS.md](docs/OPDS.md).
 
 ### Covers and book details

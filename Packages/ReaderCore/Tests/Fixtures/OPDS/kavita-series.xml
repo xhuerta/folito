@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns:dc="http://purl.org/dc/terms/" xmlns:opds="http://opds-spec.org/2010/catalog" xmlns:pse="http://vaemendis.net/opds-pse/ns" xmlns="http://www.w3.org/2005/Atom">
+  <id>series-3</id>
+  <title>Persuasion</title>
+  <updated>2026-11-22T09:41:12Z</updated>
+  <author>
+    <name>Kavita</name>
+    <uri>https://kavitareader.com</uri>
+  </author>
+  <link rel="self" type="application/atom+xml;profile=opds-catalog;kind=navigation" href="/api/opds/00000000-0000-0000-0000-00000000test/series/3"/>
+  <link rel="start" type="application/atom+xml;profile=opds-catalog;kind=navigation" href="/api/opds/00000000-0000-0000-0000-00000000test"/>
+  <entry>
+    <id>5</id>
+    <title>Persuasion</title>
+    <updated>2026-11-22T09:41:12Z</updated>
+    <author>
+      <name>Jane Austen</name>
+    </author>
+    <summary type="text">Anne Elliot meets again the naval officer she was persuaded to refuse eight years before.</summary>
+    <dc:language>en</dc:language>
+    <link rel="http://opds-spec.org/image" type="image/jpeg" href="/api/image/chapter-cover?chapterId=5&amp;apiKey=00000000-0000-0000-0000-00000000test"/>
+    <link rel="http://opds-spec.org/image/thumbnail" type="image/jpeg" href="/api/image/chapter-cover?chapterId=5&amp;apiKey=00000000-0000-0000-0000-00000000test"/>
+    <link rel="http://opds-spec.org/acquisition/open-access" type="application/epub+zip" title="Persuasion.epub" length="402311" href="/api/opds/00000000-0000-0000-0000-00000000test/series/3/volume/4/chapter/5/download/Persuasion.epub"/>
+  </entry>
+</feed>

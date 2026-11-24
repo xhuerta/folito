@@ -2,8 +2,9 @@ import XCTest
 
 /// OPDS catalogs (docs/OPDS.md) with fixed feeds built in code (`-UITestingMockCatalogs`, Debug builds only; no
 /// network): Library › + › Catalogs, a section of Project Gutenberg, a page of Standard Ebooks with Load More, a
-/// book, the Add Catalog form and its error. Each screen is attached at the default and the largest accessibility
-/// text size; macos.yml exports them as the `catalogs-screenshots` artifact.
+/// book, the Add Catalog form and its error, and the sign-in of a self-hosted catalog (a 401 page, Sign In with a
+/// wrong and the right password, Edit Catalog, Remove Sign-In). Each screen is attached at the default and the
+/// largest accessibility text size; macos.yml exports them as the `catalogs-screenshots` artifact.
 final class CatalogsUITests: XCTestCase {
     override func setUp() {
         super.setUp()
@@ -108,6 +109,89 @@ final class CatalogsUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Enter a web address'"))
                         .firstMatch.waitForExistence(timeout: 5), "an empty address is explained")
         screenshot(app, "\(size)-6-add-error")
+    }
+
+    /// Types into a field after clearing it (a secure field cannot be read back, so it is cleared by deleting).
+    @MainActor
+    private func type(_ text: String, into field: XCUIElement, in app: XCUIApplication) {
+        for _ in 0..<6 where !(field.exists && field.isHittable) { app.swipeUp() }
+        XCTAssertTrue(field.exists, "\(field) missing")
+        field.tap()
+        if let current = field.value as? String, !current.isEmpty {
+            field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count + 20))
+        } else {
+            field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 30))
+        }
+        field.typeText(text)
+    }
+
+    @MainActor
+    private func tapReachable(_ element: XCUIElement, in app: XCUIApplication) {
+        for _ in 0..<6 where !(element.exists && element.isHittable) { app.swipeUp() }
+        XCTAssertTrue(element.exists && element.isHittable, "\(element) not reachable")
+        element.tap()
+    }
+
+    @MainActor
+    private func signInFlow(largestText: Bool) {
+        let size = largestText ? "ax5" : "default"
+        let app = launch(largestText: largestText)
+        openCatalogs(app)
+
+        // "Home Library" has a saved sign-in: its row says so.
+        let home = row(app, "catalogRow", startingWith: "Home Library")
+        for _ in 0..<6 where !(home.exists && home.isHittable) { app.swipeUp() }
+        XCTAssertTrue(home.label.contains("Signed in as reader"), "the row shows the saved user name: \(home.label)")
+
+        // "Family Server" answers 401: the page offers Sign In.
+        let family = row(app, "catalogRow", startingWith: "Family Server")
+        tapReachable(family, in: app)
+        let signIn = app.buttons["catalogSignIn"]
+        XCTAssertTrue(signIn.waitForExistence(timeout: 10), "a 401 page offers Sign In")
+        screenshot(app, "\(size)-7-sign-in-needed")
+        tapReachable(signIn, in: app)
+        XCTAssertTrue(app.navigationBars["Sign In"].waitForExistence(timeout: 5), "Sign In did not open")
+        screenshot(app, "\(size)-8-sign-in")
+
+        // A wrong password is refused and nothing is saved.
+        type("reader", into: app.textFields["catalogUsername"], in: app)
+        type("wrong", into: app.secureTextFields["catalogPassword"], in: app)
+        tapReachable(app.buttons["catalogEditSave"], in: app)
+        let refused = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'The catalog didn’t accept'")).firstMatch
+        XCTAssertTrue(refused.waitForExistence(timeout: 10), "a wrong password is explained")
+        screenshot(app, "\(size)-9-sign-in-refused")
+
+        // The right one is saved, and the page loads with it.
+        type("fixture-password", into: app.secureTextFields["catalogPassword"], in: app)
+        tapReachable(app.buttons["catalogEditSave"], in: app)
+        XCTAssertTrue(row(app, "catalogSectionRow", startingWith: "Shared Books").waitForExistence(timeout: 10),
+                      "the page loads after signing in")
+        screenshot(app, "\(size)-10-signed-in")
+
+        // Edit Catalog from the page's toolbar: the saved user name, never the password; Remove Sign-In.
+        let edit = app.buttons["catalogEdit"]
+        XCTAssertTrue(edit.waitForExistence(timeout: 5), "an added catalog's page has Edit")
+        edit.tap()
+        XCTAssertTrue(app.navigationBars["Edit Catalog"].waitForExistence(timeout: 5), "Edit Catalog did not open")
+        XCTAssertEqual(app.textFields["catalogUsername"].value as? String, "reader")
+        screenshot(app, "\(size)-11-edit")
+        tapReachable(app.buttons["catalogRemoveSignIn"], in: app)
+        XCTAssertFalse(app.buttons["catalogRemoveSignIn"].waitForExistence(timeout: 2), "the sign-in is gone")
+        app.buttons["catalogEditCancel"].tap()
+        goBack(app, to: "Catalogs")
+        XCTAssertTrue(row(app, "catalogRow", startingWith: "Family Server").waitForExistence(timeout: 5))
+        XCTAssertFalse(row(app, "catalogRow", startingWith: "Family Server").label.contains("Signed in"),
+                       "removed from the list too")
+    }
+
+    @MainActor
+    func testCatalogSignInAtDefaultSize() throws {
+        signInFlow(largestText: false)
+    }
+
+    @MainActor
+    func testCatalogSignInAtLargestTextSize() throws {
+        signInFlow(largestText: true)
     }
 
     @MainActor

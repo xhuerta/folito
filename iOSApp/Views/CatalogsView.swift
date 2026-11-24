@@ -15,6 +15,7 @@ struct CatalogsView: View {
     @ObservedObject var library: LibraryStore
     @Environment(\.dismiss) private var dismiss
     @State private var showAdd = false
+    @State private var editing: OPDSCatalog?
 
     var body: some View {
         NavigationStack {
@@ -40,9 +41,15 @@ struct CatalogsView: View {
                         ForEach(catalogs.custom) { catalog in
                             catalogRow(catalog)
                                 .contextMenu {
+                                    Button { editing = catalog } label: {
+                                        Label { Text("Edit…", comment: "Catalogs: edit the name and sign-in of a catalog the user added") } icon: { Image(systemName: "pencil") }
+                                    }
                                     Button(role: .destructive) { catalogs.remove(catalog) } label: {
                                         Label { Text("Remove", comment: "Catalogs: remove a catalog the user added") } icon: { Image(systemName: "trash") }
                                     }
+                                }
+                                .accessibilityAction(named: Text("Edit", comment: "Catalogs: VoiceOver action that edits the name and sign-in of a catalog the user added")) {
+                                    editing = catalog
                                 }
                                 .accessibilityAction(named: Text("Remove", comment: "Catalogs: remove a catalog the user added")) {
                                     catalogs.remove(catalog)
@@ -86,6 +93,9 @@ struct CatalogsView: View {
             .sheet(isPresented: $showAdd) {
                 AddCatalogView(catalogs: catalogs)
             }
+            .sheet(item: $editing) { catalog in
+                EditCatalogView(catalog: catalog, catalogs: catalogs)
+            }
             .alert(catalogs.alert?.title ?? "",
                    isPresented: Binding(get: { catalogs.alert != nil }, set: { if !$0 { catalogs.alert = nil } }),
                    presenting: catalogs.alert) { _ in
@@ -104,6 +114,11 @@ struct CatalogsView: View {
                     Text(catalog.url.host ?? catalog.url.absoluteString)
                         .font(.subheadline)
                         .foregroundStyle(.secondaryText)
+                    if let user = catalogs.signIn(for: catalog) {
+                        Text("Signed in as \(user)", comment: "Catalogs: caption of a catalog with a saved sign-in; the placeholder is the user name")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondaryText)
+                    }
                 }
             }
         }
@@ -158,6 +173,14 @@ struct CatalogFeedView: View {
     let title: String
     @ObservedObject var catalogs: CatalogStore
     @StateObject private var model: CatalogFeedModel
+    /// The added catalog being edited from this page (its root page's Edit button, or Sign In after a 401).
+    @State private var editing: CatalogEdit?
+
+    struct CatalogEdit: Identifiable {
+        let catalog: OPDSCatalog
+        let signInOnly: Bool
+        var id: String { catalog.id + (signInOnly ? ".signin" : "") }
+    }
 
     init(url: URL, title: String, catalogs: CatalogStore) {
         self.title = title
@@ -174,6 +197,27 @@ struct CatalogFeedView: View {
             .navigationBarTitleDisplayMode(.inline)
             .task { await model.loadIfNeeded() }
             .refreshable { await model.load() }
+            .toolbar {
+                // On an added catalog's own page: edit its name and sign-in.
+                if let catalog = catalogs.custom.first(where: { $0.url == model.url }) {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button { editing = CatalogEdit(catalog: catalog, signInOnly: false) } label: {
+                            Label { Text("Edit Catalog", comment: "Catalog page: toolbar button that edits the catalog's name and sign-in") } icon: { Image(systemName: "pencil") }
+                        }
+                        .labelStyle(.iconOnly)
+                        .accessibilityIdentifier("catalogEdit")
+                    }
+                }
+            }
+            .sheet(item: $editing, onDismiss: {
+                // After a sign-in was saved, read the page again with it.
+                if model.failedForSignIn, let catalog = catalogs.signInCatalog(for: model.url),
+                   catalogs.signIn(for: catalog) != nil {
+                    Task { await model.load() }
+                }
+            }) { edit in
+                EditCatalogView(catalog: edit.catalog, signInOnly: edit.signInOnly, catalogs: catalogs)
+            }
             .alert(model.moreError?.title ?? "",
                    isPresented: Binding(get: { model.moreError != nil }, set: { if !$0 { model.moreError = nil } }),
                    presenting: model.moreError) { _ in
@@ -197,6 +241,13 @@ struct CatalogFeedView: View {
             } description: {
                 Text(error.message).foregroundStyle(.secondaryText)
             } actions: {
+                // A page of an added https catalog that wants a sign-in (or refused the saved one): ask for it.
+                if model.failedForSignIn, let catalog = catalogs.signInCatalog(for: model.url) {
+                    Button { editing = CatalogEdit(catalog: catalog, signInOnly: true) } label: {
+                        Text("Sign In…", comment: "Catalog page: opens the form for the catalog's user name and password").frame(minHeight: 44)
+                    }
+                    .accessibilityIdentifier("catalogSignIn")
+                }
                 Button { Task { await model.load() } } label: { Text("Try Again").frame(minHeight: 44) }
             }
         case .loaded:
@@ -469,105 +520,3 @@ struct CatalogBookView: View {
     }
 }
 
-// MARK: - Add
-
-/// Adds a catalog by address (no sign-in yet). The address is checked by reading the catalog once.
-struct AddCatalogView: View {
-    @ObservedObject var catalogs: CatalogStore
-    @Environment(\.dismiss) private var dismiss
-    /// Starts with the scheme, so the field shows text rather than a low-contrast placeholder.
-    @State private var address = "https://"
-    @State private var name = ""
-    @State private var problem: String?
-    @State private var isChecking = false
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    // Visible labels above the fields instead of placeholders: placeholder text is a light
-                    // system gray, below 4.5:1 (docs/ACCESSIBILITY.md).
-                    fieldLabel(Text("Address", comment: "Add Catalog: label of the catalog address field"))
-                    TextField(text: $address, prompt: Text(verbatim: "")) {
-                        Text("Address", comment: "Add Catalog: label of the catalog address field")
-                    }
-                    .keyboardType(.URL)
-                    .textContentType(.URL)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .submitLabel(.done)
-                    .accessibilityLabel(Text("Address", comment: "Add Catalog: label of the catalog address field"))
-                    .accessibilityIdentifier("catalogAddress")
-                    fieldLabel(Text("Name (Optional)", comment: "Add Catalog: label of the optional name field"))
-                    TextField(text: $name, prompt: Text(verbatim: "")) {
-                        Text("Name (Optional)", comment: "Add Catalog: label of the optional name field")
-                    }
-                    // With a prompt, the label closure is not read by VoiceOver: name the field explicitly.
-                    .accessibilityLabel(Text("Name (Optional)", comment: "Add Catalog: label of the optional name field"))
-                    .accessibilityIdentifier("catalogName")
-                } footer: {
-                    Text("The address of an OPDS catalog, for example a Calibre-Web, Kavita or Komga server. Catalogs that need a sign-in aren’t supported yet.",
-                         comment: "Add Catalog: footer under the address and name fields")
-                        .foregroundStyle(.secondaryText)
-                }
-                if let problem {
-                    Section {
-                        Label {
-                            Text(problem).font(.body)
-                        } icon: {
-                            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                        }
-                        .accessibilityElement(children: .combine)
-                    }
-                }
-                Section {
-                    if isChecking {
-                        HStack(spacing: 8) {
-                            ProgressView()
-                            Text("Checking Catalog…", comment: "Add Catalog: the address is being checked")
-                        }
-                        .frame(minHeight: 44)
-                        .accessibilityElement(children: .combine)
-                    } else {
-                        Button { Task { await add() } } label: {
-                            Text("Add Catalog", comment: "Add Catalog: button that checks the address and adds the catalog")
-                                .modifier(ActionLabel())
-                        }
-                        // No row-level button styling: a default List/Form button row is flagged "Dynamic Type font sizes are
-                        // partially unsupported" at AX5 (docs/ACCESSIBILITY.md); the label is an action row (ActionLabel).
-                        .buttonStyle(.borderless)
-                        .accessibilityIdentifier("catalogAddConfirm")
-                    }
-                }
-            }
-            .readableScrollEdges()
-            .navigationTitle(Text("Add Catalog", comment: "Title of the form that adds a catalog by address"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button { dismiss() } label: {
-                        Label { Text("Cancel") } icon: { Image(systemName: "xmark") }
-                    }
-                    .labelStyle(.iconOnly)
-                }
-            }
-        }
-    }
-
-    private func fieldLabel(_ text: Text) -> some View {
-        text.font(.subheadline).foregroundStyle(.secondaryText)
-            .listRowSeparator(.hidden, edges: .bottom)
-    }
-
-    private func add() async {
-        problem = nil
-        isChecking = true
-        defer { isChecking = false }
-        if let message = await catalogs.add(address: address, name: name) {
-            problem = message
-            Announcer.announce(message)
-        } else {
-            dismiss()
-        }
-    }
-}
