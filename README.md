@@ -38,7 +38,7 @@ A full reading app, designed for the smallest screen you own.
     <td width="33%" valign="top">
       <img src="docs/readme/books.svg" width="44" height="44" alt=""><br>
       <b>Your books, on your wrist</b><br>
-      Import <code>.epub</code> books on your iPhone (Files, share sheet or the import button); they are sent to your watch, where you read them, offline. Covers, series and descriptions come from the EPUB itself; a large library can be searched, sorted and browsed by author or series. The reader estimates the time left in the chapter and the book from your own reading speed, and a watch-face complication or the Smart Stack shows your progress and takes you back to your page.
+      Import <code>.epub</code> books on your iPhone (Files, share sheet or the import button); they are sent to your watch, where you read them, offline. Covers, series and descriptions come from the EPUB itself; a large library can be searched, sorted, browsed by author or series and organised into your own collections. The reader estimates the time left in the chapter and the book from your own reading speed, and a watch-face complication or the Smart Stack shows your progress and takes you back to your page.
     </td>
     <td width="33%" valign="top">
       <img src="docs/readme/typography.svg" width="44" height="44" alt=""><br>
@@ -354,6 +354,13 @@ language, ISBN, the progress and time left reported by the watch, and the same a
 - **Browse**: *All Books*, *By Author* (a section per author; a book with two authors is in both) or *By Series* (a
   section per series, books in series order, fractional positions such as 2.5 included, then *Not in a Series*).
   Series come from the EPUB, or for a book only in Readest from its Readest metadata.
+- **Collections** (*By Collection* in the *Browse* menu): your own groups of books, such as "To Read" or
+  "Book Club". A book can be in several collections. Add a book from its context menu (*Add to Collection…*) or
+  from its details, or several at once with *Add Books to a Collection*; take it out the same ways (*Remove from
+  Collection*). *Manage Collections* creates, renames, reorders (*Edit*) and deletes them; deleting a collection
+  asks first and never deletes its books. *By Collection* lists a section per collection, in your order, then the
+  books in none under *Not in a Collection*. Collections are kept on the iPhone only (not sent to the watch or to
+  Readest).
 - Search, sort and browse combine with the filter menu (*All*, *On This iPhone*, *In Readest*, *Hide Finished*).
   The sort order and the browse mode are remembered. The watch Library is unchanged.
 

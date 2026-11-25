@@ -15,15 +15,18 @@ public struct LibraryBookFacts: Sendable, Equatable {
     /// The last reading activity known for the book (watch position, read status, Readest row change).
     public var lastReadAt: Date?
     public var isFinished: Bool
+    /// The ids of the user collections the book is in (`BookCollections`, #164).
+    public var collectionIDs: [String]
 
     public init(title: String, authors: [String] = [], series: BookSeries? = nil, addedAt: Date? = nil,
-                lastReadAt: Date? = nil, isFinished: Bool = false) {
+                lastReadAt: Date? = nil, isFinished: Bool = false, collectionIDs: [String] = []) {
         self.title = title
         self.authors = authors
         self.series = series
         self.addedAt = addedAt
         self.lastReadAt = lastReadAt
         self.isFinished = isFinished
+        self.collectionIDs = collectionIDs
     }
 
     /// The newest of `lastReadAt` and `addedAt`: a book just added counts as just touched.
@@ -50,11 +53,13 @@ public enum LibrarySortOrder: String, CaseIterable, Sendable {
 }
 
 /// How the Library lists its rows. Each mode other than `books` groups the rows into sections; a book can be in
-/// several sections (one per author). A user collection would be one more grouping (#164).
+/// several sections (one per author, one per collection).
 public enum LibraryBrowseMode: String, CaseIterable, Sendable {
     case books
     case authors
     case series
+    /// A section per user collection, in the user's order (#164).
+    case collections
 }
 
 /// One section of the Library.
@@ -68,6 +73,10 @@ public struct LibrarySection<Item>: Identifiable {
         case unknownAuthor
         /// The books without a series (browse mode `series`), after the series.
         case noSeries
+        /// A user collection (browse mode `collections`): its id and its name.
+        case collection(id: String, name: String)
+        /// The books in no collection (browse mode `collections`), after the collections.
+        case noCollection
     }
 
     public var kind: Kind
@@ -86,6 +95,8 @@ public struct LibrarySection<Item>: Identifiable {
         case .series(let name): return "series:" + LibrarySearch.normalize(name)
         case .unknownAuthor: return "unknownAuthor"
         case .noSeries: return "noSeries"
+        case .collection(let id, _): return "collection:" + id
+        case .noCollection: return "noCollection"
         }
     }
 }
@@ -223,11 +234,14 @@ public enum LibraryBrowsing {
     /// - `authors`: one section per author, A to Z, the books in `order` (a book with two authors is in both),
     ///   then the books without an author;
     /// - `series`: one section per series, A to Z, the books by their position in it (then title), then the books
-    ///   without a series, in `order`.
+    ///   without a series, in `order`;
+    /// - `collections`: one section per collection of `collections`, in that order (the user's), the books in
+    ///   `order` (a book in two collections is in both), then the books in no collection (`collectionIDs` names none
+    ///   of `collections`), in `order`.
     /// Names are grouped in their folded form (`LibrarySearch.normalize`): "Le Guin" and "le guin" are one
     /// section, named as the first book in `order` writes it. Empty sections are never returned.
     public static func sections<T>(_ items: [T], mode: LibraryBrowseMode, order: LibrarySortOrder,
-                                   locale: Locale = .current,
+                                   collections: [BookCollection] = [], locale: Locale = .current,
                                    facts: (T) -> LibraryBookFacts) -> [LibrarySection<T>] {
         let ordered = sorted(items, by: order, locale: locale, facts: facts)
         switch mode {
@@ -268,6 +282,22 @@ public enum LibraryBrowsing {
                 return LibrarySection(kind: .series(group.name), items: inSeries)
             }
             if !none.isEmpty { result.append(LibrarySection(kind: .noSeries, items: none)) }
+            return result
+        case .collections:
+            let known = Set(collections.map(\.id))
+            var members: [String: [T]] = [:]
+            var none: [T] = []
+            for item in ordered {
+                var seen = Set<String>()
+                let ids = facts(item).collectionIDs.filter { known.contains($0) && seen.insert($0).inserted }
+                if ids.isEmpty { none.append(item); continue }
+                for id in ids { members[id, default: []].append(item) }
+            }
+            var result = collections.compactMap { collection -> LibrarySection<T>? in
+                guard let items = members[collection.id], !items.isEmpty else { return nil }
+                return LibrarySection(kind: .collection(id: collection.id, name: collection.name), items: items)
+            }
+            if !none.isEmpty { result.append(LibrarySection(kind: .noCollection, items: none)) }
             return result
         }
     }

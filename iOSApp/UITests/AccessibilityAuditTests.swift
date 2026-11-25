@@ -692,6 +692,60 @@ final class AccessibilityAuditTests: XCTestCase {
                         afterScrollAtLargestText: Self.scrollToLastRow, open: Self.openSeries)
     }
 
+    // MARK: Collections (#164, shard `browse`)
+
+    /// The three `-UITestingSeedCovers` books and two collections (`-UITestingSeedCollections`): *To Read* (Emma,
+    /// The Gods of Mars), *Book Club* (The Gods of Mars), then *Not in a Collection* (the sample book), under the
+    /// Manage Collections and Add Books rows.
+    private static let collectionsArguments = ["-UITestingSeedCovers", "-UITestingSeedCollections",
+                                               "-library.browse", "collections"]
+
+    @MainActor
+    private static func openCollections(_ app: XCUIApplication) {
+        waitForWatchStatus(app)
+        let toRead = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == 'librarySectionHeader' AND label == 'To Read'")).firstMatch
+        XCTAssertTrue(toRead.waitForExistence(timeout: 10), "To Read section not shown")
+    }
+
+    /// The Collections screen (a sheet): the two collections, New Collection, Edit and Done.
+    @MainActor
+    private static func openManageCollections(_ app: XCUIApplication) {
+        waitForWatchStatus(app)
+        let manage = app.buttons["libraryManageCollections"]
+        XCTAssertTrue(manage.waitForExistence(timeout: 10), "Manage Collections not shown")
+        RowNavigation.reveal(manage, in: app)
+        manage.tap()
+        XCTAssertTrue(app.buttons.matching(identifier: "collectionRow").firstMatch.waitForExistence(timeout: 5),
+                      "Collections screen did not open")
+        waitForScrollToSettle(app)
+    }
+
+    /// *By Collection* at the default size. The two sizes are two tests, as for the other browse modes.
+    @MainActor
+    func testLibraryCollectionsAudit() throws {
+        try auditScreen("Library (by collection)", extraArguments: Self.collectionsArguments, sizes: .defaultOnly,
+                        open: Self.openCollections)
+    }
+
+    @MainActor
+    func testLibraryCollectionsLargestTextAudit() throws {
+        try auditScreen("Library (by collection)", extraArguments: Self.collectionsArguments, sizes: .largestOnly,
+                        afterScrollAtLargestText: Self.scrollToLastRow, open: Self.openCollections)
+    }
+
+    @MainActor
+    func testManageCollectionsAudit() throws {
+        try auditScreen("Collections", extraArguments: Self.collectionsArguments, sizes: .defaultOnly,
+                        open: Self.openManageCollections)
+    }
+
+    @MainActor
+    func testManageCollectionsLargestTextAudit() throws {
+        try auditScreen("Collections", extraArguments: Self.collectionsArguments, sizes: .largestOnly,
+                        open: Self.openManageCollections)
+    }
+
     // MARK: Book detail
 
     /// The detail screen of a book with a cover, series and description (`-UITestingSeedCovers`).

@@ -31,6 +31,12 @@ struct LibraryView: View {
     private var browseRaw = LibraryBrowseMode.books.rawValue
     /// The search field's text: filters the rows as it is typed (title, author, series).
     @State private var query = ""
+    /// Collections (#164): the picker for a book's *Add to Collection…*, the Collections screen, the multi-select
+    /// screen and the name form of the first collection.
+    @State private var collectionTarget: CollectionTarget?
+    @State private var showManageCollections = false
+    @State private var showSelectBooks = false
+    @State private var showNewCollection = false
 
     /// The search field is shown from this many books on (and while it holds a search): a smaller library fits
     /// on a screen or two.
@@ -57,7 +63,10 @@ struct LibraryView: View {
     }
 
     private func browseRows(_ items: [MergedLibraryItem<LibraryEntry>]) -> [BrowseRow] {
-        items.map { BrowseRow(item: $0, facts: LibraryBrowseFacts.facts($0, readStatus: readStatus(of: $0))) }
+        let collections = library.collections
+        return items.map {
+            BrowseRow(item: $0, facts: LibraryBrowseFacts.facts($0, readStatus: readStatus(of: $0), collections: collections))
+        }
     }
 
     private func isFinished(_ item: MergedLibraryItem<LibraryEntry>) -> Bool {
@@ -118,7 +127,8 @@ struct LibraryView: View {
             showsError: library.importError != nil || readest?.alert != nil || readest?.refreshError != nil
                 || readest?.needsSignIn == true,
             isPresentingModal: showImporter || showOtherSamples || showCatalogs || deletion.entry != nil || deletion.choice != nil
-                || deletion.readestBook != nil)
+                || deletion.readestBook != nil || collectionTarget != nil || showManageCollections || showSelectBooks
+                || showNewCollection)
     }
 
     /// The rows the filter menu lets through, then those the search matches, sorted and grouped as the Sort and
@@ -140,7 +150,11 @@ struct LibraryView: View {
             } else if shown.isEmpty {
                 emptyFilterSection
             } else {
-                bookSections(LibraryBrowsing.sections(found, mode: browseMode, order: sortOrder) { $0.facts })
+                if browseMode == .collections && !isSearching {
+                    collectionsSection
+                }
+                bookSections(LibraryBrowsing.sections(found, mode: browseMode, order: sortOrder,
+                                                      collections: library.collections.collections) { $0.facts })
             }
             if all.isEmpty, ReadestFooter.hasMessage(readest, hasCloudOnly: false) {
                 Section {} footer: { ReadestFooter(readest: readest, hasCloudOnly: false) }
@@ -189,6 +203,53 @@ struct LibraryView: View {
                 }
                 .frame(minHeight: 44)
             }
+        }
+    }
+
+    /// *By Collection* (#164): with no collection yet, what collections are and *New Collection*; else the ways to
+    /// manage them and to add several books at once. Each button is a row of its own (one tap target per row).
+    @ViewBuilder
+    private var collectionsSection: some View {
+        if library.collections.isEmpty {
+            Section {
+                CollectionsEmptyState { showNewCollection = true }
+            }
+        } else {
+            Section {
+                Button { showManageCollections = true } label: {
+                    collectionsToolRow(Text("Manage Collections", comment: "Library, By Collection: opens the screen that creates, renames, reorders and deletes collections"),
+                                       systemImage: "folder")
+                }
+                .accessibilityIdentifier("libraryManageCollections")
+                Button { showSelectBooks = true } label: {
+                    collectionsToolRow(Text("Add Books to a Collection", comment: "Library, By Collection: opens the screen that chooses several books to add to a collection"),
+                                       systemImage: "folder.badge.plus")
+                }
+                .accessibilityIdentifier("librarySelectForCollection")
+            }
+        }
+    }
+
+    /// One layout at every text size (not a `Label`, whose icon column changes at accessibility sizes in a list).
+    private func collectionsToolRow(_ title: Text, systemImage: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Image(systemName: systemImage)
+                .accessibilityHidden(true)
+            title
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .font(.body)
+        .foregroundStyle(.tint)
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
+    }
+
+    /// The rows offered by *Add Books to a Collection*: every book in the Library, in the current sort order.
+    private var selectableBooks: [SelectableBook] {
+        LibraryBrowsing.sorted(browseRows(items), by: sortOrder) { $0.facts }.map { row in
+            let item = row.item
+            return SelectableBook(id: item.hash, title: item.local?.title ?? item.cloud?.title ?? "",
+                                  author: item.local?.author ?? item.cloud?.author ?? "")
         }
     }
 
@@ -243,6 +304,8 @@ struct LibraryView: View {
             case .author(let name), .series(let name): Text(verbatim: name)
             case .unknownAuthor: Text(verbatim: BookDisplay.author(from: []))
             case .noSeries: Text("Not in a Series", comment: "Library, By Series: header of the books that belong to no series")
+            case .collection(_, let name): Text(verbatim: name)
+            case .noCollection: Text("Not in a Collection", comment: "Library, By Collection: header of the books that belong to no collection")
             }
         }
         .foregroundStyle(.secondaryText)
@@ -374,6 +437,8 @@ struct LibraryView: View {
                                 .tag(LibraryBrowseMode.authors.rawValue)
                             Label { Text(Self.name(of: LibraryBrowseMode.series)) } icon: { Image(systemName: "square.stack") }
                                 .tag(LibraryBrowseMode.series.rawValue)
+                            Label { Text(Self.name(of: LibraryBrowseMode.collections)) } icon: { Image(systemName: "folder") }
+                                .tag(LibraryBrowseMode.collections.rawValue)
                         } label: {
                             Text("Browse", comment: "Library: Sort and Browse menu, heading of the browse modes (All Books, By Author, By Series)")
                         }
@@ -443,6 +508,18 @@ struct LibraryView: View {
         .sheet(isPresented: $showCatalogs) {
             CatalogsView(catalogs: catalogs, library: library)
         }
+        .sheet(item: $collectionTarget) { target in
+            CollectionPicker(target: target, library: library)
+        }
+        .sheet(isPresented: $showManageCollections) {
+            CollectionsManagerView(library: library)
+        }
+        .sheet(isPresented: $showSelectBooks) {
+            BookSelectionView(books: selectableBooks, library: library)
+        }
+        .sheet(isPresented: $showNewCollection) {
+            CollectionNameForm(mode: .create(books: []), library: library)
+        }
         .fileImporter(isPresented: $showImporter, allowedContentTypes: [Self.epubType]) { result in
             switch result {
             case .success(let url): library.importEPUB(from: url)
@@ -481,6 +558,7 @@ struct LibraryView: View {
         case .books: return String(localized: "All Books", comment: "Library browse mode: one list of every book")
         case .authors: return String(localized: "By Author", comment: "Library browse mode: a section per author")
         case .series: return String(localized: "By Series", comment: "Library browse mode: a section per series, books in series order")
+        case .collections: return String(localized: "By Collection", comment: "Library browse mode: a section per user collection (#164)")
         }
     }
 
@@ -522,6 +600,7 @@ struct LibraryView: View {
         let canUpload = readestOn && !inReadest && !isUploading
         let finished = ReadStatusActions.mark(of: entry, cloud: inReadest ? cloud : nil)?.isFinished == true
         let toggleTitle = ReadStatusActions.toggleTitle(isFinished: finished)
+        let memberships = library.collections.collections(containing: entry.documentHash)
         // Tapping the row opens the book's details (cover, description, series, actions); the swipe,
         // context-menu and rotor actions stay on the row.
         return NavigationLink(value: BookDetailRoute(hash: entry.documentHash)) {
@@ -547,6 +626,12 @@ struct LibraryView: View {
                     Button("Upload to Readest") { upload(entry) }
                 }
                 Button(toggleTitle) { toggleFinished(entry, cloud: inReadest ? cloud : nil, finished: finished) }
+                Button(CollectionText.addTitle) { chooseCollections(entry.documentHash, title: entry.title) }
+                ForEach(memberships) { collection in
+                    Button(CollectionText.removeTitle(collection.name)) {
+                        library.removeBooks([entry.documentHash], fromCollection: collection.id)
+                    }
+                }
                 if inReadest {
                     Button("Remove Download") { library.delete(entry) }
                 }
@@ -582,11 +667,39 @@ struct LibraryView: View {
                 Button { toggleFinished(entry, cloud: inReadest ? cloud : nil, finished: finished) } label: {
                     Label(toggleTitle, systemImage: ReadStatusActions.toggleImage(isFinished: finished))
                 }
+                collectionMenuItems(entry.documentHash, title: entry.title, memberships: memberships)
                 if inReadest {
                     Button { library.delete(entry) } label: { Label("Remove Download", systemImage: "xmark.icloud") }
                 }
                 Button(role: .destructive) { requestDelete(entry, inReadest: inReadest) } label: { Label("Delete", systemImage: "trash") }
             }
+    }
+
+    /// Opens the collection picker for one book.
+    private func chooseCollections(_ hash: String, title: String) {
+        collectionTarget = CollectionTarget(hashes: [hash], title: title)
+    }
+
+    /// The context-menu items of collections: *Add to Collection…*, and *Remove from Collection* with the
+    /// collections the book is in.
+    @ViewBuilder
+    private func collectionMenuItems(_ hash: String, title: String, memberships: [BookCollection]) -> some View {
+        Button { chooseCollections(hash, title: title) } label: {
+            Label(CollectionText.addTitle, systemImage: "folder.badge.plus")
+        }
+        if !memberships.isEmpty {
+            Menu {
+                ForEach(memberships) { collection in
+                    Button { library.removeBooks([hash], fromCollection: collection.id) } label: {
+                        Text(verbatim: collection.name)
+                    }
+                }
+            } label: {
+                Label { Text("Remove from Collection", comment: "Book context menu: submenu listing the collections the book is in, to take it out of one") } icon: {
+                    Image(systemName: "folder.badge.minus")
+                }
+            }
+        }
     }
 
     private func toggleFinished(_ entry: LibraryEntry, cloud: ReadestCloudBook?, finished: Bool) {
@@ -638,10 +751,17 @@ struct LibraryView: View {
     private func cloudRowActions<Content: View>(_ content: Content, book: ReadestCloudBook, downloading: Bool,
                                                 finished: Bool) -> some View {
         let toggleTitle = ReadStatusActions.toggleTitle(isFinished: finished)
+        let memberships = library.collections.collections(containing: book.hash)
         return content
             .accessibilityActions {
                 if !downloading { Button("Download") { download(book) } }
                 Button(toggleTitle) { toggleFinished(book, finished: finished) }
+                Button(CollectionText.addTitle) { chooseCollections(book.hash, title: book.title) }
+                ForEach(memberships) { collection in
+                    Button(CollectionText.removeTitle(collection.name)) {
+                        library.removeBooks([book.hash], fromCollection: collection.id)
+                    }
+                }
                 Button("Delete from Readest") { deletion.readestBook = book }
             }
             .swipeActions(edge: .trailing) {
@@ -661,6 +781,7 @@ struct LibraryView: View {
                 Button { toggleFinished(book, finished: finished) } label: {
                     Label(toggleTitle, systemImage: ReadStatusActions.toggleImage(isFinished: finished))
                 }
+                collectionMenuItems(book.hash, title: book.title, memberships: memberships)
                 Button(role: .destructive) { deletion.readestBook = book } label: {
                     Label("Delete from Readest", systemImage: "trash")
                 }

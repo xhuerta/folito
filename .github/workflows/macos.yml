@@ -215,7 +215,7 @@ jobs:
       #  * CatalogsUITests (`-UITestingMockCatalogs`, no network): Catalogs, a section, a page, a book, Add Catalog,
       #    sign-in, search.
       #  * LibraryBrowseUITests (`-UITestingSeedLargeLibrary`): Library search, sort orders, By Author, By Series,
-      #    and a book opened from the search results and back.
+      #    a book opened from the search results and back, and collections (create, add, By Collection, delete).
       # The accessibility audits in the same bundle run in accessibility.yml.
       - name: UI tests (welcome tour, Readest library, covers, online metadata, catalogs, library browse)
         if: env.UI_TIER == 'true' && matrix.platform == 'ios'

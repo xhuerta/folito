@@ -94,4 +94,55 @@ final class LibraryBrowseFactsTests: XCTestCase {
         let modes = Set(LibraryBrowseMode.allCases.map { LibraryView.name(of: $0) })
         XCTAssertEqual(modes.count, LibraryBrowseMode.allCases.count)
     }
+
+    // MARK: Collections (#164)
+
+    @MainActor
+    func testCollectionsPersistNextToTheLibraryAndNeverDeleteBooks() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let books = dir.appendingPathComponent("Books", isDirectory: true)
+        try FileManager.default.createDirectory(at: books, withIntermediateDirectories: true)
+        let entries = [entry("a"), entry("b")]
+        for e in entries { try Data([1]).write(to: books.appendingPathComponent(e.fileName)) }
+        try JSONEncoder().encode(entries).write(to: dir.appendingPathComponent("library.json"))
+
+        let store = LibraryStore(rootDirectory: dir)
+        XCTAssertTrue(store.collections.isEmpty, "no collections.json yet")
+        let toRead = try store.createCollection(named: "To Read", books: ["a"]).get()
+        let club = try store.createCollection(named: "Book Club").get()
+        XCTAssertEqual(store.createCollection(named: " to read "), .failure(.duplicate("To Read")))
+        store.addBooks(["a", "b"], toCollection: club.id)
+        store.moveCollection(club.id, by: -1)
+        XCTAssertNil(store.renameCollection(toRead.id, to: "Up Next"))
+
+        let reloaded = LibraryStore(rootDirectory: dir)
+        XCTAssertEqual(reloaded.collections.collections.map(\.name), ["Book Club", "Up Next"])
+        XCTAssertEqual(reloaded.collections.ids(containing: "a"), [club.id, toRead.id])
+
+        reloaded.deleteCollection(club.id)
+        XCTAssertEqual(reloaded.entries.count, 2, "deleting a collection keeps its books")
+        XCTAssertEqual(LibraryStore(rootDirectory: dir).collections.collections.map(\.name), ["Up Next"])
+
+        // A book deleted from the iPhone keeps its memberships (a Readest copy has the same hash).
+        reloaded.delete(entries[0])
+        XCTAssertEqual(reloaded.collections.ids(containing: "a"), [toRead.id])
+    }
+
+    @MainActor
+    func testUnreadableCollectionsFileIsNoCollections() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try Data("not json".utf8).write(to: dir.appendingPathComponent("collections.json"))
+        XCTAssertTrue(LibraryStore(rootDirectory: dir).collections.isEmpty)
+    }
+
+    func testFactsCarryTheCollectionsOfTheRow() throws {
+        var collections = BookCollections()
+        let one = try collections.create(named: "One", books: ["a"]).get()
+        let item = MergedLibraryItem<LibraryEntry>(hash: "a", local: entry("a"), cloud: nil)
+        XCTAssertEqual(LibraryBrowseFacts.facts(item, readStatus: nil, collections: collections).collectionIDs, [one.id])
+        XCTAssertEqual(LibraryBrowseFacts.facts(item, readStatus: nil).collectionIDs, [])
+    }
 }
