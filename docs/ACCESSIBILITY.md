@@ -119,9 +119,13 @@ when matching books are hidden by the filter menu). The ↑↓ toolbar menu (an 
 Browse*, its value the current choice, e.g. "Title, All Books") holds two titled groups of options, *Sort By* and
 *Browse*. *By Author* and *By Series* are `Section`s whose headers (the author or series as written, in
 `secondaryText`) the system exposes as headers; the rows are the same rows, with the same actions. Audited by
-`testLibrarySearchAudit`, `testLibraryNoResultsAudit`, `testLibraryAuthorsAudit` and `testLibrarySeriesAudit`
-(shard `browse`; at the largest size they audit the top of the list and then its end, like the one-book audit,
-see "Rows in the middle of a long list at AX5"). The open menu itself is a system menu and is not audited.
+`testLibrarySearchAudit`, `testLibraryNoResultsAudit` / `testLibraryNoResultsLargestTextAudit`,
+`testLibraryAuthorsAudit` / `testLibraryAuthorsLargestTextAudit` and `testLibrarySeriesAudit` /
+`testLibrarySeriesLargestTextAudit` (shard `browse`; the two sizes of a browse mode are two tests, as together they
+went past the 180 s per-test allowance). At the largest size the compact "No Apple Watch" notice under the field
+fills the first screen and the results start below it (rows below the screen are not in the accessibility tree), so
+the search passes scroll to the results and audit from the end of the list, and the browse passes audit the top of
+the list and then its end, like the one-book audit (see "Rows in the middle of a long list at AX5"). The open menu itself is a system menu and is not audited.
 
 **Dynamic Type.** No fixed point sizes in UI chrome; only text styles. Layouts that would truncate switch
 at accessibility sizes: the size/state line of library rows stacks vertically (`AnyLayout`), slider

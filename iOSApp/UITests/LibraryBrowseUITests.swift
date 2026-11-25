@@ -101,20 +101,45 @@ final class LibraryBrowseUITests: XCTestCase {
                       "clearing the search did not bring the books back")
     }
 
-    /// The same round trip at the largest text size, where the field and the rows are far taller.
+    /// The same round trip at the largest text size, where the field and the rows are far taller: the "No Apple
+    /// Watch" notice under the field fills the screen and the results start below it, and List rows below the
+    /// screen are not in the accessibility tree, so each check scrolls to what it looks for.
     @MainActor
     func testSearchRoundTripAtLargestTextSize() throws {
         let app = launch(Self.largestText)
         let field = search("verne\n", in: app)
         let verne = row(app, "Vingt mille")
+        RowNavigation.reveal(verne, in: app)
         XCTAssertTrue(verne.waitForExistence(timeout: 5), "author search found nothing")
+        XCTAssertFalse(row(app, "Emma").exists, "a book that does not match is still listed")
         screenshot(app, "library-search-3-ax5")
         RowNavigation.open(verne, in: app, expecting: app.descendants(matching: .any)["bookDetail"])
+        XCTAssertTrue(app.descendants(matching: .any)["bookDetail"].waitForExistence(timeout: 5), "Book details did not open")
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertTrue(app.navigationBars["Library"].waitForExistence(timeout: 5), "Library came back without its navigation bar")
+        // The results are where they were left.
+        RowNavigation.reveal(row(app, "Vingt mille"), in: app)
+        XCTAssertTrue(row(app, "Vingt mille").waitForExistence(timeout: 5), "the results were lost")
+        // The field is the first row of the list: back to the top (a tap on the status bar).
+        scrollToTop(app, until: field)
         XCTAssertTrue(field.waitForExistence(timeout: 5), "Library came back without its search field")
-        XCTAssertEqual(field.value as? String, "verne")
-        XCTAssertTrue(row(app, "Vingt mille").exists, "the results were lost")
+        XCTAssertEqual(field.value as? String, "verne", "the search was lost")
+        screenshot(app, "library-search-3b-ax5-back-at-top")
+    }
+
+    /// Scrolls the list to its top with a tap on the status bar until `element` is in the tree, then waits for
+    /// it to settle. Slow, held drags downwards as a fallback (no fling past the top).
+    @MainActor
+    private func scrollToTop(_ app: XCUIApplication, until element: XCUIElement) {
+        let window = app.windows.firstMatch
+        window.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: window.frame.width * 0.2, dy: 20)).tap()
+        RowNavigation.waitForSettle(app)
+        for _ in 0..<10 where !element.exists {
+            let start = window.coordinate(withNormalizedOffset: CGVector(dx: 0.02, dy: 0.35))
+            start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: 300)),
+                        withVelocity: .slow, thenHoldForDuration: 0.3)
+            RowNavigation.waitForSettle(app)
+        }
     }
 
     @MainActor
