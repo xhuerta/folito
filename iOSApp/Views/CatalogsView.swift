@@ -1,3 +1,20 @@
+    private func submitSearch() {
+        guard let link = model.search else { return }
+        let terms = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !terms.isEmpty else { return }
+        let request = CatalogSearchRequest(link: link, terms: terms, pageURL: model.url)
+        guard isSearchPresented else { return openSearch(request) }
+        // End the search before pushing the results. Pushed while the search was still active, the page came
+        // back without its navigation bar (no title, back button or search field; PR #193, CI job
+        // 139027425473, screen recording of `testCatalogSearchAtDefaultSize`). Ending it hides the keyboard;
+        // the results are pushed once the field has gone back to the navigation bar.
+        isSearchPresented = false
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            openSearch(request)
+        }
+    }
+
 import SwiftUI
 import UIKit
 import ReaderCore
@@ -191,6 +208,8 @@ struct CatalogFeedView: View {
     /// The added catalog being edited from this page (its root page's Edit button, or Sign In after a 401).
     @State private var editing: CatalogEdit?
     @State private var query = ""
+    /// Whether the search field is active (focused, or showing its Cancel button).
+    @State private var isSearchPresented = false
     /// Pushes the results of a search (onto the Catalogs stack's path).
     private let openSearch: (CatalogSearchRequest) -> Void
 
@@ -262,7 +281,8 @@ struct CatalogFeedView: View {
             } message: { error in
                 Text(error.message)
             }
-            .modifier(CatalogSearchField(isEnabled: model.search != nil, text: $query, submit: submitSearch))
+            .modifier(CatalogSearchField(isEnabled: model.search != nil, text: $query, isPresented: $isSearchPresented,
+                                         submit: submitSearch))
     }
 
     @ViewBuilder
@@ -378,13 +398,14 @@ struct CatalogFeedView: View {
 private struct CatalogSearchField: ViewModifier {
     let isEnabled: Bool
     @Binding var text: String
+    @Binding var isPresented: Bool
     let submit: () -> Void
 
     @ViewBuilder
     func body(content: Content) -> some View {
         if isEnabled {
             content
-                .searchable(text: $text, placement: .navigationBarDrawer(displayMode: .always),
+                .searchable(text: $text, isPresented: $isPresented, placement: .navigationBarDrawer(displayMode: .always),
                             prompt: Text("Search Catalog", comment: "Catalog page: placeholder of the search field"))
                 .onSubmit(of: .search, submit)
         } else {

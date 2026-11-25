@@ -229,8 +229,11 @@ final class CatalogsUITests: XCTestCase {
         goBack(app, to: "Search Results")
         goBack(app, to: "Home Library")
 
+        // Back on the page, its navigation bar and search field are there again (pushed while the search was still
+        // active, the page came back without them).
+        XCTAssertTrue(app.navigationBars["Home Library"].waitForExistence(timeout: 5), "the page lost its navigation bar")
         // A search that finds nothing.
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        XCTAssertTrue(field.waitForExistence(timeout: 5), "the page lost its search field")
         field.tap()
         let clear = field.buttons.firstMatch
         if clear.exists { clear.tap() }
