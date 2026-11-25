@@ -230,6 +230,15 @@ reaches further than the navigation bar's. So a contrast finding within 32 pt of
 a bar (`nearTabBar`). The text still has to pass the audit clear of the bars, with the usual 16 pt margin, on
 another page.
 
+Below a collapsed (inline) navigation bar the effect also reaches past 16 pt. *Edit Catalog*'s content at the
+default size is a few points taller than CI's iPhone screen, so after the audit's drag it rests about 12 pt up,
+with the first card's top edge under the bar (screen recording and failure screenshot of CI run 45508887501). Its
+first label, *Name*, 17 pt below the bar's bottom edge, was flagged for contrast at 21.00:1 measured from the
+screenshot (black on the white card; 5.99:1 with `secondaryText`, the same artefact), while it passed at rest on the
+first page. So a contrast finding within 32 pt below a collapsed navigation bar is also treated as under a bar
+(`nearNavigationBar`); not with the expanded large title, where nothing is scrolled under the bar. As above, the
+same text must still pass the audit clear of the bars, with the usual 16 pt margin, on another page.
+
 **Settings › Book Details at AX5** (PR #47) hit the same artifact. The AX5 Settings audit flagged *Look Up
 Missing Details Now* (`onlineBulkStart`): "Dynamic Type font sizes are partially unsupported", on one page
 only, where the button was fully on screen in the middle of the list; the toggle above it and the link below
