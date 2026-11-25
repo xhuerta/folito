@@ -24,6 +24,17 @@ struct LibraryView: View {
     @AppStorage("library.filter") private var filterRaw = LibraryFilter.all.rawValue
     /// Filter menu: leave finished books out of the list.
     @AppStorage("library.hideFinished") private var hideFinished = false
+    /// Sort and Browse menu (#114); throw-away defaults in UI-testing launches (`UITesting.libraryViewDefaults`).
+    @AppStorage("library.sort", store: UITesting.libraryViewDefaults)
+    private var sortRaw = LibrarySortOrder.recentlyRead.rawValue
+    @AppStorage("library.browse", store: UITesting.libraryViewDefaults)
+    private var browseRaw = LibraryBrowseMode.books.rawValue
+    /// The search field's text: filters the rows as it is typed (title, author, series).
+    @State private var query = ""
+
+    /// The search field is shown from this many books on (and while it holds a search): a smaller library fits
+    /// on a screen or two.
+    static let searchFieldMinimumBooks = 8
 
     private static let epubType = UTType("org.idpf.epub-container") ?? UTType(filenameExtension: "epub") ?? .data
 
@@ -31,10 +42,22 @@ struct LibraryView: View {
         readest?.isAvailable == true ? (LibraryFilter(rawValue: filterRaw) ?? .all) : .all
     }
 
-    /// Finished books come after the others, each group in its usual order.
+    /// Every row, local books first (newest first), then the books only in Readest; `bookList` sorts them.
     private var items: [MergedLibraryItem<LibraryEntry>] {
-        let merged = readest?.merged(library.entries) ?? LibraryMerge.merge(local: library.entries, hash: \.documentHash, cloud: [])
-        return ReadStatusRules.finishedLast(merged) { isFinished($0) }
+        readest?.merged(library.entries) ?? LibraryMerge.merge(local: library.entries, hash: \.documentHash, cloud: [])
+    }
+
+    private var sortOrder: LibrarySortOrder { LibrarySortOrder(rawValue: sortRaw) ?? .recentlyRead }
+    private var browseMode: LibraryBrowseMode { LibraryBrowseMode(rawValue: browseRaw) ?? .books }
+
+    /// A row with what search, sort and browse know about it, worked out once per update.
+    private struct BrowseRow {
+        let item: MergedLibraryItem<LibraryEntry>
+        let facts: LibraryBookFacts
+    }
+
+    private func browseRows(_ items: [MergedLibraryItem<LibraryEntry>]) -> [BrowseRow] {
+        items.map { BrowseRow(item: $0, facts: LibraryBrowseFacts.facts($0, readStatus: readStatus(of: $0))) }
     }
 
     private func isFinished(_ item: MergedLibraryItem<LibraryEntry>) -> Bool {
@@ -98,22 +121,132 @@ struct LibraryView: View {
                 || deletion.readestBook != nil)
     }
 
+    /// The rows the filter menu lets through, then those the search matches, sorted and grouped as the Sort and
+    /// Browse menu says (`LibraryBrowsing`).
     private var bookList: some View {
-        let all = items
-        let shown = all.filter { filter.includes($0.availability) && !(hideFinished && isFinished($0)) }
+        let all = browseRows(items)
+        let shown = all.filter { filter.includes($0.item.availability) && !(hideFinished && $0.facts.isFinished) }
+        let found = LibrarySearch.filter(shown, query: query) { $0.facts }
+        let isSearching = !LibrarySearch.terms(query).isEmpty
         return List {
+            if all.count >= Self.searchFieldMinimumBooks || !query.isEmpty {
+                searchSection
+            }
             WatchStatusSection(status: connectivity.status, compact: !all.isEmpty)
             if all.isEmpty {
                 emptyLibrarySection
+            } else if isSearching && found.isEmpty {
+                noResultsSection(hiddenByFilter: !LibrarySearch.filter(all, query: query) { $0.facts }.isEmpty)
             } else if shown.isEmpty {
                 emptyFilterSection
             } else {
-                booksSection(shown)
+                bookSections(LibraryBrowsing.sections(found, mode: browseMode, order: sortOrder) { $0.facts })
             }
             if all.isEmpty, ReadestFooter.hasMessage(readest, hasCloudOnly: false) {
                 Section {} footer: { ReadestFooter(readest: readest, hasCloudOnly: false) }
             }
         }
+        // Dragging the results closes the keyboard, so every row can be reached while searching.
+        .scrollDismissesKeyboard(.immediately)
+    }
+
+    /// The search field: a row at the top of the list with a visible label above the field (placeholder text is
+    /// below 4.5:1), as in the catalog pages. Not `.searchable`: on iOS 26 the system field (at the bottom of the
+    /// screen on iPhone) did not survive pushing a screen from an active search, and every result row pushes the
+    /// book's details (PR #193, docs/OPDS.md). A field in the content has no presentation state of its own to
+    /// lose; the search stays as typed when the user comes back from a book.
+    private var searchSection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Search Library", comment: "Library: label of the search field (searches titles, authors and series)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondaryText)
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundStyle(.secondaryText)
+                        .accessibilityHidden(true)
+                    TextField(text: $query, prompt: Text(verbatim: "")) {
+                        Text("Search Library", comment: "Library: label of the search field (searches titles, authors and series)")
+                    }
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .submitLabel(.search)
+                    // With a prompt, the label closure is not read by VoiceOver: name the field explicitly.
+                    .accessibilityLabel(Text("Search Library", comment: "Library: label of the search field (searches titles, authors and series)"))
+                    .accessibilityHint(Text("Finds books by title, author or series.", comment: "VoiceOver hint of the Library's search field"))
+                    .accessibilityIdentifier("librarySearchField")
+                    if !query.isEmpty {
+                        // Borderless: in a List row, plain buttons all fire on a tap anywhere in the row.
+                        Button { query = "" } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.secondaryText)
+                                .minimumHitArea()
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityLabel(Text("Clear Search", comment: "Library: button that empties the search field"))
+                        .accessibilityIdentifier("librarySearchClear")
+                    }
+                }
+                .frame(minHeight: 44)
+            }
+        }
+    }
+
+    /// Nothing matches the search; `hiddenByFilter` when books that match are left out by the filter menu.
+    private func noResultsSection(hiddenByFilter: Bool) -> some View {
+        Section {
+            ContentUnavailableView {
+                Label { Text("No Results", comment: "Library: nothing matches the search") } icon: {
+                    Image(systemName: "magnifyingglass")
+                }
+            } description: {
+                if hiddenByFilter {
+                    Text("The books that match “\(query)” are hidden by the filter. Change it in the filter menu to see them.",
+                         comment: "Library search: the matching books are filtered out; the placeholder is the search text")
+                        .foregroundStyle(.secondaryText)
+                } else {
+                    Text("No book’s title, author or series matches “\(query)”. Check the spelling or try another search.",
+                         comment: "Library search found nothing; the placeholder is the search text")
+                        .foregroundStyle(.secondaryText)
+                }
+            }
+            .accessibilityIdentifier("libraryNoResults")
+        }
+    }
+
+    /// One section with every row (*All Books*), or a section per author or series (*By Author*, *By Series*).
+    /// In the grouped modes the Readest messages are a footer of their own after the last section.
+    @ViewBuilder
+    private func bookSections(_ sections: [LibrarySection<BrowseRow>]) -> some View {
+        if sections.count == 1, sections[0].kind == .all {
+            booksSection(sections[0].items.map(\.item))
+        } else {
+            let hasCloudOnly = sections.contains { $0.items.contains { $0.item.availability == .readestOnly } }
+            ForEach(sections) { section in
+                Section {
+                    bookRows(section.items.map(\.item))
+                } header: {
+                    sectionHeader(section.kind)
+                }
+            }
+            if ReadestFooter.hasMessage(readest, hasCloudOnly: hasCloudOnly) {
+                Section {} footer: { ReadestFooter(readest: readest, hasCloudOnly: hasCloudOnly) }
+            }
+        }
+    }
+
+    /// A section header (the system exposes it as a header): the author or series as written in the books.
+    private func sectionHeader(_ kind: LibrarySection<BrowseRow>.Kind) -> some View {
+        Group {
+            switch kind {
+            case .all: Text("Books")
+            case .author(let name), .series(let name): Text(verbatim: name)
+            case .unknownAuthor: Text(verbatim: BookDisplay.author(from: []))
+            case .noSeries: Text("Not in a Series", comment: "Library, By Series: header of the books that belong to no series")
+            }
+        }
+        .foregroundStyle(.secondaryText)
+        .accessibilityIdentifier("librarySectionHeader")
     }
 
     private var emptyLibrarySection: some View {
@@ -206,8 +339,57 @@ struct LibraryView: View {
         }
     }
 
+    /// The Sort and Browse menu is offered once there are two books to order, and while a choice other than the
+    /// default is set (so it can always be put back).
+    private var showsSortMenu: Bool {
+        items.count >= 2 || sortOrder != .recentlyRead || browseMode != .books
+    }
+
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
+        if showsSortMenu {
+            ToolbarItem(placement: .topBarLeading) {
+                Menu {
+                    Section {
+                        Picker(selection: $sortRaw) {
+                            Label { Text(Self.name(of: LibrarySortOrder.recentlyRead)) } icon: { Image(systemName: "clock") }
+                                .tag(LibrarySortOrder.recentlyRead.rawValue)
+                            Label { Text(Self.name(of: LibrarySortOrder.recentlyAdded)) } icon: { Image(systemName: "calendar.badge.plus") }
+                                .tag(LibrarySortOrder.recentlyAdded.rawValue)
+                            Label { Text(Self.name(of: LibrarySortOrder.title)) } icon: { Image(systemName: "textformat") }
+                                .tag(LibrarySortOrder.title.rawValue)
+                            Label { Text(Self.name(of: LibrarySortOrder.author)) } icon: { Image(systemName: "person") }
+                                .tag(LibrarySortOrder.author.rawValue)
+                        } label: {
+                            Text("Sort By", comment: "Library: Sort and Browse menu, heading of the sort orders")
+                        }
+                    } header: {
+                        Text("Sort By", comment: "Library: Sort and Browse menu, heading of the sort orders")
+                    }
+                    Section {
+                        Picker(selection: $browseRaw) {
+                            Label { Text(Self.name(of: LibraryBrowseMode.books)) } icon: { Image(systemName: "books.vertical") }
+                                .tag(LibraryBrowseMode.books.rawValue)
+                            Label { Text(Self.name(of: LibraryBrowseMode.authors)) } icon: { Image(systemName: "person.2") }
+                                .tag(LibraryBrowseMode.authors.rawValue)
+                            Label { Text(Self.name(of: LibraryBrowseMode.series)) } icon: { Image(systemName: "square.stack") }
+                                .tag(LibraryBrowseMode.series.rawValue)
+                        } label: {
+                            Text("Browse", comment: "Library: Sort and Browse menu, heading of the browse modes (All Books, By Author, By Series)")
+                        }
+                    } header: {
+                        Text("Browse", comment: "Library: Sort and Browse menu, heading of the browse modes (All Books, By Author, By Series)")
+                    }
+                } label: {
+                    Label { Text("Sort and Browse", comment: "Library toolbar: menu of the sort orders and browse modes") } icon: {
+                        Image(systemName: "arrow.up.arrow.down")
+                    }
+                }
+                .accessibilityValue(String(localized: "\(Self.name(of: sortOrder)), \(Self.name(of: browseMode))",
+                                           comment: "VoiceOver value of the Library's Sort and Browse menu: the sort order, then the browse mode (e.g. Recently Read, All Books)"))
+                .accessibilityIdentifier("librarySortMenu")
+            }
+        }
         if showsFilterMenu {
             ToolbarItem(placement: .topBarLeading) {
                 Menu {
@@ -282,6 +464,23 @@ struct LibraryView: View {
             Button("OK", role: .cancel) {}
         } message: { error in
             Text(error.message)
+        }
+    }
+
+    static func name(of order: LibrarySortOrder) -> String {
+        switch order {
+        case .recentlyRead: return String(localized: "Recently Read", comment: "Library sort order (default): the books read most recently first")
+        case .recentlyAdded: return String(localized: "Recently Added", comment: "Library sort order: the books added most recently first")
+        case .title: return String(localized: "Title", comment: "Library sort order: by title, A to Z")
+        case .author: return String(localized: "Author", comment: "Library sort order: by author, A to Z")
+        }
+    }
+
+    static func name(of mode: LibraryBrowseMode) -> String {
+        switch mode {
+        case .books: return String(localized: "All Books", comment: "Library browse mode: one list of every book")
+        case .authors: return String(localized: "By Author", comment: "Library browse mode: a section per author")
+        case .series: return String(localized: "By Series", comment: "Library browse mode: a section per series, books in series order")
         }
     }
 

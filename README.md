@@ -38,7 +38,7 @@ A full reading app, designed for the smallest screen you own.
     <td width="33%" valign="top">
       <img src="docs/readme/books.svg" width="44" height="44" alt=""><br>
       <b>Your books, on your wrist</b><br>
-      Import <code>.epub</code> books on your iPhone (Files, share sheet or the import button); they are sent to your watch, where you read them, offline. Covers, series and descriptions come from the EPUB itself. The reader estimates the time left in the chapter and the book from your own reading speed, and a watch-face complication or the Smart Stack shows your progress and takes you back to your page.
+      Import <code>.epub</code> books on your iPhone (Files, share sheet or the import button); they are sent to your watch, where you read them, offline. Covers, series and descriptions come from the EPUB itself; a large library can be searched, sorted and browsed by author or series. The reader estimates the time left in the chapter and the book from your own reading speed, and a watch-face complication or the Smart Stack shows your progress and takes you back to your page.
     </td>
     <td width="33%" valign="top">
       <img src="docs/readme/typography.svg" width="44" height="44" alt=""><br>
@@ -341,6 +341,21 @@ Tap a book in the Library for its details: a large cover, title, authors, series
 `calibre:series` or EPUB 3 `belongs-to-collection`), the description with a **More** button, publisher, year,
 language, ISBN, the progress and time left reported by the watch, and the same actions as the row's menu.
 *Upload to Readest* also uploads the cover (`cover.png`), so the Readest apps show it.
+
+### Search, sort and browse (iPhone)
+
+- **Search.** From eight books on, the Library has a search field at the top (*Search Library*). It filters as you
+  type, by title, author and series, ignoring case and accents ("miserables" finds *Les Misérables*), and covers the
+  books only in Readest too. Several words must all be found (in any of the three). Opening a book from the
+  results and coming back keeps the search.
+- **Sort** (the ↑↓ *Sort and Browse* menu): *Recently Read* (default; unfinished books first, then by the last
+  reading activity: a new position reported by the watch, a read status change, a change of the Readest row, or
+  the import), *Recently Added*, *Title* and *Author* (A to Z, as the names are written, then series order).
+- **Browse**: *All Books*, *By Author* (a section per author; a book with two authors is in both) or *By Series* (a
+  section per series, books in series order, fractional positions such as 2.5 included, then *Not in a Series*).
+  Series come from the EPUB, or for a book only in Readest from its Readest metadata.
+- Search, sort and browse combine with the filter menu (*All*, *On This iPhone*, *In Readest*, *Hide Finished*).
+  The sort order and the browse mode are remembered. The watch Library is unchanged.
 
 **Missing details from Open Library (optional, iPhone only).** For a book whose EPUB has no cover or description,
 *Find Details Online* in its details looks it up on [Open Library](https://openlibrary.org) (free, no key, run by

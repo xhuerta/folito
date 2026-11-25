@@ -107,6 +107,26 @@ call and reuses its last snapshot between drags, because each query costs a roun
 pushed `testCatalogsAtLargestTextSize` past the 180 s per-test allowance. XCTest then restarted the test runner and
 xcodebuild failed although every test passed. `CatalogsUITests` now allows 300 s per test.
 
+**Library search, sort and browse** (#114). From eight books on, the Library's first row is a search field with a
+visible label above it (*Search Library*; placeholder text is below 4.5:1), as on the catalog pages, and a *Clear
+Search* button (44 pt) once it holds text; the field has a hint ("Finds books by title, author or series."). It is
+not `.searchable`: on iOS 26 the system field, at the bottom of the screen on iPhone, did not survive pushing a
+screen from an active search (PR #193), and every result row pushes the book's details; `LibraryBrowseUITests`
+opens a book from the results and checks that the navigation bar, the field, the search and the results are still
+there when it comes back, at the default and the largest text size. Dragging the list closes the keyboard. A
+search that finds nothing shows *No Results* (`ContentUnavailableView`, the description in `secondaryText`; it says
+when matching books are hidden by the filter menu). The ↑↓ toolbar menu (an icon bar button labelled *Sort and
+Browse*, its value the current choice, e.g. "Title, All Books") holds two titled groups of options, *Sort By* and
+*Browse*. *By Author* and *By Series* are `Section`s whose headers (the author or series as written, in
+`secondaryText`) the system exposes as headers; the rows are the same rows, with the same actions. Audited by
+`testLibrarySearchAudit`, `testLibraryNoResultsAudit` / `testLibraryNoResultsLargestTextAudit`,
+`testLibraryAuthorsAudit` / `testLibraryAuthorsLargestTextAudit` and `testLibrarySeriesAudit` /
+`testLibrarySeriesLargestTextAudit` (shard `browse`; the two sizes of a browse mode are two tests, as together they
+went past the 180 s per-test allowance). At the largest size the compact "No Apple Watch" notice under the field
+fills the first screen and the results start below it (rows below the screen are not in the accessibility tree), so
+the search passes scroll to the results and audit from the end of the list, and the browse passes audit the top of
+the list and then its end, like the one-book audit (see "Rows in the middle of a long list at AX5"). The open menu itself is a system menu and is not audited.
+
 **Dynamic Type.** No fixed point sizes in UI chrome; only text styles. Layouts that would truncate switch
 at accessibility sizes: the size/state line of library rows stacks vertically (`AnyLayout`), slider
 title/value rows use `ViewThatFits`, and the preset grid's minimum column width is a `@ScaledMetric`, so it
@@ -149,7 +169,7 @@ and the Catalogs screens with fixed feeds and no network (`-UITestingMockCatalog
 a catalog page, a catalog book, a page that needs a sign-in, the Sign In form and Edit Catalog.
 
 **When it runs.** The audit drives the simulator screen by screen and its 20 tests take about 30 minutes on CI
-(run as five parallel shards of `AccessibilityAuditTests`: `library`, `book`, `catalogs`, `signin` and `rest`), so it is not
+(run as six parallel shards of `AccessibilityAuditTests`: `library`, `book`, `catalogs`, `signin`, `browse` and `rest`), so it is not
 part of the PR-blocking macOS workflow and not a required check. It has its own workflow,
 `.github/workflows/accessibility.yml` ("Accessibility audit"), which runs:
 - every night on `main` (not on every push);

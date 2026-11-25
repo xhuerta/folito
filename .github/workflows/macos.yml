@@ -238,6 +238,8 @@ jobs:
       #    Details Online, the confirmation sheet, Remove Online Details.
       #  * CatalogsUITests (`-UITestingMockCatalogs`, no network): Catalogs, a section, a page, a book, Add Catalog,
       #    sign-in, search.
+      #  * LibraryBrowseUITests (`-UITestingSeedLargeLibrary`): Library search, sort orders, By Author, By Series,
+      #    and a book opened from the search results and back.
       # The accessibility audits in the same bundle run in accessibility.yml, the App Store screenshots in
       # app-store-iphone.
       - name: UI tests (shard ${{ matrix.ui_shard }})
@@ -318,6 +320,16 @@ jobs:
           name: catalogs-screenshots
           path: |
             catalogs-screenshots
+            ios-ui-tests.log
+          if-no-files-found: ignore
+
+      - name: Upload library browse screenshots
+        if: always() && env.UI_TIER == 'true' && contains(steps.ui.outputs.artifacts, 'library-browse-screenshots ')
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: library-browse-screenshots
+          path: |
+            library-browse-screenshots
             ios-ui-tests.log
           if-no-files-found: ignore
 

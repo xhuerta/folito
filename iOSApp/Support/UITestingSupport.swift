@@ -24,6 +24,11 @@ import UIKit
 /// - `-UITestingMockCatalogs`: the OPDS client reads fixed feeds built in code (`FixtureOPDSTransport`) instead of the
 ///   network, and the Catalogs list has two added catalogs: "Home Library", signed in, and "Family Server", which asks
 ///   for a sign-in; throw-away defaults and an in-memory Keychain. docs/OPDS.md.
+/// - `-UITestingSeedLargeLibrary` (implies `-UITesting`): the `-UITestingSeedCovers` books plus five more with
+///   authors and series (eight in all, so the Library shows its search field, #114).
+/// - Any UI-testing launch keeps the Library's sort order and browse mode in throw-away defaults
+///   (`libraryViewDefaults`), so a test that changes them never leaks into the next launch; pass
+///   `-library.sort` / `-library.browse` to start in another one.
 /// - `-UITestingShowOnboarding` (implies `-UITesting`): opens the welcome tour on launch. Every other UI-testing
 ///   launch skips it (`-UITestingSkipOnboarding` says so explicitly); see `OnboardingPolicy`.
 enum UITesting {
@@ -34,6 +39,8 @@ enum UITesting {
     /// `-UITestingSeedCovers` (implies `-UITesting`): the sample book (no cover: placeholder) plus two books with
     /// generated covers and full details (series, description, publisher), for the covers screenshots.
     static let seedCoversArgument = "-UITestingSeedCovers"
+    /// `-UITestingSeedLargeLibrary` (implies `-UITesting`): see the type comment.
+    static let seedLargeLibraryArgument = "-UITestingSeedLargeLibrary"
     /// `-UITestingMockOnlineMetadata`: *Find Details Online* asks `MockOnlineMetadataProvider` instead of Open
     /// Library (no network). With `-UITestingOnlineMetadataSeveral` it offers three matches, with
     /// `-UITestingOnlineMetadataEmpty` none, with `-UITestingOnlineMetadataOffline` it fails as if offline.
@@ -53,7 +60,13 @@ enum UITesting {
         let args = ProcessInfo.processInfo.arguments
         return args.contains(isolateArgument) || args.contains(seedSampleBookArgument)
             || args.contains(OnboardingPolicy.showArgument) || args.contains(seedCoversArgument)
+            || args.contains(seedLargeLibraryArgument)
     }
+
+    /// Where the Library keeps its sort order and browse mode: a throw-away suite in UI-testing launches, the
+    /// standard defaults (nil) otherwise.
+    static let libraryViewDefaults: UserDefaults? = isActive
+        ? UserDefaults(suiteName: "uitesting-library-view-\(UUID().uuidString)") : nil
 
     /// Root directory for `LibraryStore`; nil means the normal Application Support location.
     static var libraryRoot: URL? {
@@ -68,8 +81,12 @@ enum UITesting {
         if ProcessInfo.processInfo.arguments.contains(seedSampleBookArgument) {
             try? store.addForUITesting(sampleBook, fileName: "sample.epub")
         }
-        if ProcessInfo.processInfo.arguments.contains(seedCoversArgument) {
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains(seedCoversArgument) || args.contains(seedLargeLibraryArgument) {
             seedCovers(into: store)
+        }
+        if args.contains(seedLargeLibraryArgument) {
+            seedLargeLibrary(into: store)
         }
         return store
     }
@@ -135,6 +152,31 @@ enum UITesting {
                                                         language: "en", subjects: ["Science fiction"], // i18n-ignore: UI-test fixture
                                                         series: BookSeries(name: "Barsoom", index: 2)), // i18n-ignore: UI-test fixture
                                    sentToWatch: true)
+    }
+
+    /// Five more public-domain books for `-UITestingSeedLargeLibrary`: two more of Barsoom (so the series has
+    /// books 1 to 3), a second Jane Austen, and two titles with accents, for searches that ignore them.
+    @MainActor
+    private static func seedLargeLibrary(into store: LibraryStore) {
+        let books: [(hash: String, title: String, author: String, series: BookSeries?)] = [
+            ("00000000000000000000000000e00b01", "A Princess of Mars", "Edgar Rice Burroughs", BookSeries(name: "Barsoom", index: 1)), // i18n-ignore: UI-test fixture
+            ("00000000000000000000000000e00b02", "The Warlord of Mars", "Edgar Rice Burroughs", BookSeries(name: "Barsoom", index: 3)), // i18n-ignore: UI-test fixture
+            ("00000000000000000000000000e00b03", "Persuasion", "Jane Austen", nil), // i18n-ignore: UI-test fixture
+            ("00000000000000000000000000e00b04", "Les Misérables", "Victor Hugo", nil), // i18n-ignore: UI-test fixture
+            ("00000000000000000000000000e00b05", "Vingt mille lieues sous les mers", "Jules Verne", nil), // i18n-ignore: UI-test fixture
+        ]
+        let colors: [UIColor] = [.systemRed, .systemBrown, .systemPurple, .systemIndigo, .systemBlue]
+        for (book, color) in zip(books, colors) {
+            let text = "Chapter one." // i18n-ignore: UI-test fixture (Debug only)
+            let processed = ProcessedBook(metadata: BookMetadata(title: book.title, authors: [book.author]),
+                                          documentHash: book.hash, metaHash: book.hash + "m",
+                                          chapters: [Chapter(spineIndex: 1, title: nil, blocks: [
+                                              Block(text: text, xpointer: "/body/DocFragment[1]/body/p", globalOffset: 0)])],
+                                          totalCharacters: text.count)
+            try? store.addForUITesting(processed, fileName: "\(book.hash).epub", coverPNG: generatedCover(color),
+                                       details: EPUBDetails(title: book.title, creators: [BookCreator(name: book.author, role: "aut")],
+                                                            series: book.series))
+        }
     }
 
     /// The App Store Library of one language (`UITESTING_APPSTORE_SEED`): the language's sample book on top, with
@@ -303,6 +345,7 @@ enum UITesting {
     #else
     /// Release builds have no UI-testing launches.
     static var isActive: Bool { false }
+    static let libraryViewDefaults: UserDefaults? = nil
     static var settingsShowsOnlyBookDetails: Bool { false }
     @MainActor
     static func makeLibrary() -> LibraryStore { LibraryStore() }

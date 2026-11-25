@@ -8,7 +8,8 @@ runs in `--matrix`, i.e. in macos.yml's `scope` job, and in linux.yml's `ci-scri
 The `ios` job runs shard ui-1 after the unit tests, on the app it built for them; the `ios-ui-2` job (the same
 `test` job of macos.yml, another matrix leg) builds the app and runs shard ui-2 only. The shards are balanced by
 the duration of the classes on CI (main, Nov 2026): Onboarding 3 min, OnlineMetadata 3.5, Covers 2.5,
-ReadestLibrary 2, Catalogs about 11 (with search). ui-1 also waits for the unit tests (about 1.5 min).
+ReadestLibrary 2, Catalogs about 11 (with search); LibraryBrowse (6 tests, new in #211) goes with Catalogs
+in ui-2, as ui-1 also waits for the unit tests (about 1.5 min).
 
 Usage: scripts/ci/ui_test_shards.py --check
        scripts/ci/ui_test_shards.py --only-testing ui-1      # -only-testing arguments, one per line
@@ -28,7 +29,7 @@ BUNDLE = "FolitoUITests"
 
 SHARDS = {
     "ui-1": ["OnboardingUITests", "ReadestLibraryUITests", "CoversUITests", "OnlineMetadataUITests"],
-    "ui-2": ["CatalogsUITests"],
+    "ui-2": ["CatalogsUITests", "LibraryBrowseUITests"],
 }
 # Screenshot artifact of each class (one artifact per suite).
 ARTIFACTS = {
@@ -37,6 +38,7 @@ ARTIFACTS = {
     "CoversUITests": "covers-iphone",
     "OnlineMetadataUITests": "online-metadata-screenshots",
     "CatalogsUITests": "catalogs-screenshots",
+    "LibraryBrowseUITests": "library-browse-screenshots",
 }
 # Classes of the bundle that the UI tier does not run, and where they run.
 RUN_ELSEWHERE = {

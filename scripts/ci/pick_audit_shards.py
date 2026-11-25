@@ -22,6 +22,7 @@ Shards (accessibility.yml, job `ios`):
   book      Library with one book, Book detail, Find Details Online, Settings > Book Details
   catalogs  Catalogs list, Add Catalog (two sizes), a catalog page, a catalog book
   signin    Sign-in needed, Sign In, Edit Catalog, catalog search
+  browse    Library search, no results (two sizes), By Author and By Series (two sizes each)
   rest      every other audit: welcome tour, Settings, Progress Sync, Acknowledgements, Reading
 
 Usage: scripts/ci/pick_audit_shards.py < changed-paths.txt
@@ -38,7 +39,7 @@ from pick_platforms import BOTH, affected  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 WORKFLOW = "accessibility.yml"
-ALL_SHARDS = ["library", "book", "catalogs", "signin", "rest"]
+ALL_SHARDS = ["library", "book", "catalogs", "signin", "browse", "rest"]
 CATALOG_SHARDS = ["catalogs", "signin"]
 
 # Paths of the iPhone app whose screens only some shards audit. The types these files declare were checked for
@@ -60,6 +61,9 @@ SHARDS_FOR_PATH = {
     "iOSApp/Views/TintedLabel.swift": ["rest"],
     "iOSApp/Views/TypographySettingsView.swift": ["rest"],
     "iOSApp/Onboarding/OnboardingView.swift": ["rest"],
+    # What search, sort and By Author / By Series know about each Library row: every Library list with books
+    # (the Readest rows of `library`, the one book of `book`) and the browse audits.
+    "iOSApp/Library/LibraryBrowseFacts.swift": ["library", "book", "browse"],
     # The sample book's badge on Library rows.
     "iOSApp/Views/SampleBadge.swift": ["library", "book"],
 }
@@ -118,6 +122,8 @@ def self_test():
         (["iOSApp/Views/TypographySettingsView.swift"], ["ios"], ["rest"]),
         (["iOSApp/Resources/Acknowledgements/License-X.txt"], ["ios"], ["rest"]),
         (["iOSApp/Views/CatalogsView.swift", "iOSApp/Views/SyncSettingsView.swift"], ["ios"], ["catalogs", "signin", "rest"]),
+        (["iOSApp/Library/LibraryBrowseFacts.swift"], ["ios"], ["library", "book", "browse"]),
+        (["iOSApp/Library/LibraryBrowseFacts.swift", "iOSApp/Views/SettingsView.swift"], ["ios"], ["library", "book", "browse", "rest"]),
         # Shared or unknown: every shard.
         (["iOSApp/Views/LibraryView.swift"], ["ios"], a),
         (["iOSApp/Views/BookDetailView.swift"], ["ios"], a),
@@ -127,6 +133,8 @@ def self_test():
         (["iOSApp/UITests/AccessibilityAuditTests.swift"], ["ios"], a),
         (["iOSApp/UITests/RowNavigation.swift"], ["ios"], a),
         (["iOSApp/UITests/CatalogsUITests.swift"], ["ios"], a),
+        (["iOSApp/UITests/LibraryBrowseUITests.swift"], ["ios"], a),
+        (["iOSApp/Library/LibraryStore.swift"], ["ios"], a),
         (["Packages/ReaderCore/Sources/ReaderCore/OPDS.swift"], BOTH, a),
         (["Shared/X.swift"], BOTH, a),
         (["project.yml"], BOTH, a),

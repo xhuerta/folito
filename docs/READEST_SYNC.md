@@ -252,6 +252,13 @@ signed in before this feature have no library session: the Library asks them to 
   A local book with no row of its hash is paired with an unclaimed row of the same `meta_hash`, else with the only
   unclaimed row of the same title and author (case, accents and punctuation ignored) when no other local book
   shares them. The last list and the covers are cached for offline use.
+- **Search, sort and browse** (#114, README "Search, sort and browse"). A Readest-only book is found by its row's
+  `title` and `author`; its series is read from the row's `metadata` (a JSON string, or an object in a cached
+  row): Readest's `series` and `seriesIndex`, else foliate-js's `belongsTo.series` (`{name, position}` or a list
+  of them); a position may be a number or a numeric string ("2.5"). *Recently Added* uses `created_at` (else
+  `uploaded_at`), *Recently Read* the row's `updated_at` and `reading_status_updated_at`
+  (`ReadestCloudBook.series` / `createdAt`, `LibraryBrowseFacts`). A local book whose EPUB has no series takes its
+  row's.
 - **Download** = presigned GET, then the normal import pipeline, except that the book takes the row's `book_hash`
   and `meta_hash` as its ids instead of those computed from the bytes. Readest's `book_hash` is not always the
   partial MD5 of the file `/storage/download` serves (seen with a real account, issue #103: the downloaded book was
