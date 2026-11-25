@@ -150,7 +150,8 @@ jobs:
       BOOK: >-
         testLibraryWithBookAudit testBookDetailAudit testOnlineMatchSheetAudit testSettingsBookDetailsAudit
       CATALOGS: >-
-        testCatalogsListAudit testAddCatalogAudit testCatalogPageAudit testCatalogBookAudit
+        testCatalogsListAudit testAddCatalogAudit testAddCatalogLargestTextAudit testCatalogPageAudit
+        testCatalogBookAudit
       SIGNIN: >-
         testCatalogSignInNeededAudit testCatalogSignInAudit testEditCatalogAudit testCatalogSearchAudit
     steps:

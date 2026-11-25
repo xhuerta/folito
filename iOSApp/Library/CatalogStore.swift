@@ -295,13 +295,12 @@ final class CatalogStore: ObservableObject {
 }
 
 /// What the user asked a catalog page's search for: pushed as a results screen (docs/OPDS.md, "Search").
-struct CatalogSearchRequest: Hashable, Identifiable {
+struct CatalogSearchRequest: Hashable {
     let link: OPDSSearchLink
     let terms: String
     /// The page that offered the search (its sign-in, if it needs one, is the catalog's).
     let pageURL: URL
 
-    var id: Self { self }
 }
 
 /// One catalog page being browsed, or the results of a search, with their following pages appended as the user

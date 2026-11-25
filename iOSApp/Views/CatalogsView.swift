@@ -6,6 +6,8 @@ import ReaderCore
 enum CatalogRoute: Hashable {
     case feed(URL, title: String)
     case book(OPDSEntry)
+    /// The results of a catalog page's search.
+    case search(CatalogSearchRequest)
 }
 
 /// The Catalogs sheet (Library › + › Catalogs): the preset catalogs, the ones the user added, and browsing them.
@@ -16,9 +18,14 @@ struct CatalogsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showAdd = false
     @State private var editing: OPDSCatalog?
+    /// The pushed screens. Search results are pushed onto it as a `CatalogRoute` value, like every other screen:
+    /// pushed with `navigationDestination(item:)` from the catalog page instead, the results screen's own
+    /// value-based rows (`NavigationLink(value: CatalogRoute.book)`) did nothing when tapped (PR #193, CI job
+    /// 139005494662).
+    @State private var path = NavigationPath()
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             // Cards in a `ScrollView`, like the book details, not a `List`: at AX5 the audit flagged the rows of a
             // `List` that were fully on screen only in the middle or at the end of the list ("partially unsupported";
             // docs/ACCESSIBILITY.md). Cards have one layout at every size.
@@ -85,9 +92,13 @@ struct CatalogsView: View {
             .navigationDestination(for: CatalogRoute.self) { route in
                 switch route {
                 case .feed(let url, let title):
-                    CatalogFeedView(url: url, title: title, catalogs: catalogs)
+                    CatalogFeedView(url: url, title: title, catalogs: catalogs) { request in
+                        path.append(CatalogRoute.search(request))
+                    }
                 case .book(let entry):
                     CatalogBookView(entry: entry, catalogs: catalogs, library: library)
+                case .search(let request):
+                    CatalogFeedView(search: request, catalogs: catalogs)
                 }
             }
             .sheet(isPresented: $showAdd) {
@@ -171,7 +182,7 @@ struct ListActionLabel: View {
 /// the catalog is never asked for more than the user looks at.
 ///
 /// A page whose feed offers search (`rel="search"`, docs/OPDS.md) has a search field; submitting it pushes the
-/// results, shown by this same view (rows, Load More, errors and Sign In alike). The catalog is asked only when
+/// results (a `CatalogRoute.search` on the Catalogs stack), shown by this same view (rows, Load More, errors and Sign In alike). The catalog is asked only when
 /// the user submits a search.
 struct CatalogFeedView: View {
     let title: String
@@ -180,7 +191,8 @@ struct CatalogFeedView: View {
     /// The added catalog being edited from this page (its root page's Edit button, or Sign In after a 401).
     @State private var editing: CatalogEdit?
     @State private var query = ""
-    @State private var searching: CatalogSearchRequest?
+    /// Pushes the results of a search (onto the Catalogs stack's path).
+    private let openSearch: (CatalogSearchRequest) -> Void
 
     struct CatalogEdit: Identifiable {
         let catalog: OPDSCatalog
@@ -188,9 +200,11 @@ struct CatalogFeedView: View {
         var id: String { catalog.id + (signInOnly ? ".signin" : "") }
     }
 
-    init(url: URL, title: String, catalogs: CatalogStore) {
+    init(url: URL, title: String, catalogs: CatalogStore,
+         openSearch: @escaping (CatalogSearchRequest) -> Void = { _ in }) {
         self.title = title
         self.catalogs = catalogs
+        self.openSearch = openSearch
         _model = StateObject(wrappedValue: CatalogFeedModel(url: url, client: catalogs.client))
     }
 
@@ -198,6 +212,7 @@ struct CatalogFeedView: View {
     init(search request: CatalogSearchRequest, catalogs: CatalogStore) {
         self.title = String(localized: "Search Results", comment: "Catalog search: title of the screen with the results")
         self.catalogs = catalogs
+        self.openSearch = { _ in }
         _model = StateObject(wrappedValue: CatalogFeedModel(search: request, client: catalogs.client))
     }
 
@@ -207,7 +222,7 @@ struct CatalogFeedView: View {
         guard !terms.isEmpty else { return }
         // Hide the keyboard: the results screen is pushed, and the keyboard would cover its rows.
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-        searching = CatalogSearchRequest(link: link, terms: terms, pageURL: model.url)
+        openSearch(CatalogSearchRequest(link: link, terms: terms, pageURL: model.url))
     }
 
     var body: some View {
@@ -248,9 +263,6 @@ struct CatalogFeedView: View {
                 Text(error.message)
             }
             .modifier(CatalogSearchField(isEnabled: model.search != nil, text: $query, submit: submitSearch))
-            .navigationDestination(item: $searching) { request in
-                CatalogFeedView(search: request, catalogs: catalogs)
-            }
     }
 
     @ViewBuilder
