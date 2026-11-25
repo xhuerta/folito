@@ -51,6 +51,7 @@ struct FolitoApp: App {
             .onAppear(perform: wire)
             .onChange(of: connectivity.watchProgress) { _, progress in
                 reviewPrompt.watchReported(progress: progress)
+                library.noteWatchProgress(progress)
             }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {

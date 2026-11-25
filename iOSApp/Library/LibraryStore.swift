@@ -95,6 +95,8 @@ final class LibraryStore: ObservableObject {
         relinked.removedOnWatch = entry.removedOnWatch
         relinked.readStatus = entry.readStatus
         relinked.syncSwitch = entry.syncSwitch
+        relinked.lastReadAt = entry.lastReadAt
+        relinked.lastReadFraction = entry.lastReadFraction
         if entry.online?.hasCover == true {
             // The accepted Open Library cover lives next to the book under its id.
             let names: [(String) -> String] = [CoverStore.coverFileName(forHash:), CoverStore.watchFileName(forHash:)]
@@ -411,6 +413,22 @@ final class LibraryStore: ObservableObject {
         save()
         onReadStatusChanged?()
         return result.changed
+    }
+
+    // MARK: Reading activity (#114)
+
+    /// The watch reported its reading positions (`PhoneConnectivity.watchProgress`): a book whose fraction moved
+    /// (`ReadingActivity.hasMoved`) was read now. Saves only when something changed.
+    func noteWatchProgress(_ progress: [String: Double], now: Date = Date()) {
+        var changed = false
+        for i in entries.indices {
+            guard let fraction = progress[entries[i].documentHash],
+                  ReadingActivity.hasMoved(from: entries[i].lastReadFraction, to: fraction) else { continue }
+            entries[i].lastReadFraction = fraction
+            entries[i].lastReadAt = now
+            changed = true
+        }
+        if changed { save() }
     }
 
     // MARK: Per-book sync switch (#167)

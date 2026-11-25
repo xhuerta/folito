@@ -43,6 +43,11 @@ struct LibraryEntry: Codable, Identifiable, Equatable, Sendable {
     /// "Sync Progress for This Book" (#167) with the time it was set; nil = never changed (on). Synced with the
     /// watch, last writer wins. Optional, so libraries saved before it existed decode unchanged.
     var syncSwitch: BookSyncSwitch? = nil
+    /// When the watch last reported a new reading position for the book (the Library's "Recently Read" order,
+    /// #114), and the fraction it reported then (to tell a new position from a repeated report). nil = no move
+    /// seen yet. Optional, so libraries saved before they existed decode unchanged.
+    var lastReadAt: Date? = nil
+    var lastReadFraction: Double? = nil
 
     var isSample: Bool { sampleLanguage != nil }
 

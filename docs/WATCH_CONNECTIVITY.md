@@ -192,7 +192,9 @@ Optional key `bookSync`: the per-book sync switches of the books stored on the w
 
 Optional key `progress`: `{ "<documentHash>": <Int percent 0...100>, ... }`, the percentage read of each book with a
 reading position on the watch (whole percent, so small moves do not produce a new context), shown in the iPhone's
-book details.
+book details. A change of a book's percentage from the one last seen (`ReadingActivity.hasMoved`; a first report
+counts from 0) also stamps the book's `lastReadAt` on the iPhone, which orders the Library's *Recently Read* sort
+(#114); the same report again changes nothing.
 
 ## Typography (both directions, last writer wins)
 `ReaderTypography` (ReaderCore) is a versioned, clamped, tolerant-decoding Codable: font family, size, line
