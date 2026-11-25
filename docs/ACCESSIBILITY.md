@@ -68,15 +68,41 @@ Library's toolbar: a text bar button keeps a fixed font size and was flagged by 
 **Catalogs (OPDS).** The Library's + is a menu (*Import EPUB*, *Catalogs*; an icon bar button labelled *Add
 Books*). *Catalogs* is a sheet with a `NavigationStack`: a `List` of catalogs (title and host, one element; custom
 ones have *Remove* as a context-menu and rotor action), an *Add Catalog…* action row and an icon close button
-(✕, labelled *Done*). Catalog pages hold their rows in a card too; rows are one element (decorative cover, title, authors or a short
+(✕, labelled *Done*). An added catalog with a saved sign-in says *Signed in as …* in its row; *Edit…* (context menu
+and rotor action, and an icon *Edit Catalog* bar button on the catalog's own page) opens *Edit Catalog*. Catalog pages hold their rows in a card too; rows are one element (decorative cover, title, authors or a short
 summary, and "Not available as EPUB" when the book cannot be downloaded); loading, empty and error states use
 `ProgressView` / `ContentUnavailableView`; further pages load from an explicit *Load More* row, not on scroll. A
 book's screen is built like the book details (cards in a `ScrollView`, title as a header, *Download* as an action
 row with a hint, `DetailRow`s). The add form's fields have visible labels above them instead of placeholders
 (placeholder text is a light system gray, below 4.5:1); the address field starts with `https://`. Its errors are
-shown inline and announced. Audited by `testCatalogsListAudit`, `testAddCatalogAudit`, `testCatalogPageAudit` and
-`testCatalogBookAudit` (shard `catalogs`). The action rows in lists (*Add Catalog…*, *Load More*) are an icon and a text in a plain stack, not a `Label` (a list label's icon column changes at accessibility sizes; *Load More* was flagged "partially unsupported" and "Text clipped" at AX5), and the Catalogs list and catalog pages are cards in a `ScrollView`, not `List`s: as `List`s, the added catalog's row and *Load More* were flagged "partially unsupported" at AX5 wherever they were not on the first screen, even as the last rows (the mid-list artifact below); as cards nothing is flagged and nothing is accepted; screenshots at the default and AX5 sizes in the `catalogs-screenshots`
-artifact (`CatalogsUITests`). See docs/OPDS.md.
+shown inline and announced. Sign-in (#160): the user name and password fields (a `SecureField`, `textContentType`
+`.username` / `.password`) also have visible labels above them; the footer says where the password is kept and sent.
+A page that answers "sign-in needed" shows the message with *Sign In…* (for an added https catalog) and *Try Again*;
+*Sign In…* opens *Edit Catalog* with only the sign-in fields. *Edit Catalog* has the name, the address (one element
+labelled *Address* with the address as its value: a URL as the label was flagged "Label not human-readable"; title
+in primary `.body` above the value, like `DetailRow`, since a subheadline `secondaryText` title was flagged for contrast
+at 6.03:1), the sign-in fields (the saved password is never shown; an empty password keeps it), *Save* (*Sign In* in
+the sign-in form) as an icon bar button (a checkmark) so the keyboard never covers it, and *Remove Sign-In* /
+*Remove Catalog* as action rows in the high-contrast `destructiveText` colour. Errors are shown inline and announced,
+like the add form's. *Edit Catalog* (and so *Sign In*) is cards in a `ScrollView`, not a `Form`: as a `Form`, the
+*Password* label row and both sign-in footers were flagged "Dynamic Type font sizes are partially unsupported" at AX5
+where they were fully on screen in the middle of the longer edit form (the mid-list artifact below; CI run on
+b92d800). *Save* was first a row under the fields: on CI's iPhones it stayed under the keyboard after typing the
+password, and a swipe moved neither the `Form` nor the `ScrollView` nor closed the keyboard (runs on b92d800 and
+f5967fc), hence the bar button. The notes under the sign-in card are footnote text that wraps, and dragging the
+content closes the keyboard (`scrollDismissesKeyboard(.immediately)`). Audited by `testCatalogsListAudit`, `testAddCatalogAudit`, `testCatalogPageAudit`,
+`testCatalogBookAudit`, `testCatalogSignInNeededAudit`, `testCatalogSignInAudit` and `testEditCatalogAudit` (shard
+`catalogs`). The action rows in lists (*Add Catalog…*, *Load More*) are an icon and a text in a plain stack, not a `Label` (a list label's icon column changes at accessibility sizes; *Load More* was flagged "partially unsupported" and "Text clipped" at AX5), and the Catalogs list and catalog pages are cards in a `ScrollView`, not `List`s: as `List`s, the added catalog's row and *Load More* were flagged "partially unsupported" at AX5 wherever they were not on the first screen, even as the last rows (the mid-list artifact below); as cards nothing is flagged and nothing is accepted; screenshots at the default and AX5 sizes in the `catalogs-screenshots`
+artifact (`CatalogsUITests`). See docs/OPDS.md. Catalog rows are reached and opened in both `CatalogsUITests` and the audits with
+`RowNavigation` (iOSApp/UITests/RowNavigation.swift): at AX5 a row is up to about 380 pt tall, and swiping until
+a row was "hittable" was flaky. A slow drag that started on a row became a tap and opened the wrong catalog (CI run
+45522603339), and a fling left a row's centre under the navigation bar, so the tap did nothing (job 138876470109).
+Drags now start in the left margin, where no row is, move by a computed distance and hold before lifting. The loop
+stops once the row's centre is between the bars and above the keyboard, read after the content has stopped moving.
+A tap that did not navigate is repeated once, and the tests still assert the destination. The helper reads the clear area once per
+call and reuses its last snapshot between drags, because each query costs a round trip. The slower first version
+pushed `testCatalogsAtLargestTextSize` past the 180 s per-test allowance. XCTest then restarted the test runner and
+xcodebuild failed although every test passed. `CatalogsUITests` now allows 300 s per test.
 
 **Dynamic Type.** No fixed point sizes in UI chrome; only text styles. Layouts that would truncate switch
 at accessibility sizes: the size/state line of library rows stacks vertically (`AnyLayout`), slider
@@ -117,10 +143,10 @@ handling (any future custom animation must check `accessibilityReduceMotion`).
 Progress Sync, Acknowledgements, Reading and the book detail screen (`-UITestingSeedCovers`: a book with a cover,
 a series and a long description), Settings' *Book Details* section alone (`-UITestingSettingsBookDetailsOnly`),
 and the Catalogs screens with fixed feeds and no network (`-UITestingMockCatalogs`): the Catalogs list, Add Catalog,
-a catalog page and a catalog book.
+a catalog page, a catalog book, a page that needs a sign-in, the Sign In form and Edit Catalog.
 
-**When it runs.** The audit drives the simulator screen by screen and its 17 tests take about 30 minutes on CI
-(run as four parallel shards of `AccessibilityAuditTests`: `library`, `book`, `catalogs` and `rest`), so it is not
+**When it runs.** The audit drives the simulator screen by screen and its 20 tests take about 30 minutes on CI
+(run as five parallel shards of `AccessibilityAuditTests`: `library`, `book`, `catalogs`, `signin` and `rest`), so it is not
 part of the PR-blocking macOS workflow and not a required check. It has its own workflow,
 `.github/workflows/accessibility.yml` ("Accessibility audit"), which runs:
 - every night on `main` (not on every push);
@@ -151,7 +177,7 @@ xcodebuild test -project Folito.xcodeproj -scheme Folito \
 | Element | Audit type | Why it is accepted |
 |---|---|---|
 | Reading preview (`typographyPreview`) | Dynamic Type, Contrast, Text clipped | It is content, not chrome: it renders the book text exactly as the watch will, at the reader's chosen point size and theme colours (for example the *Dim* theme). Scaling it with Dynamic Type would make the preview wrong. Its accessibility value describes the settings in words. |
-| No element, on *Settings* and *Acknowledgements* at AX5 only | Dynamic Type ("Dynamic Type font sizes are unsupported" / "partially unsupported"), Text clipped ("Text clipped") | Caused by the system's `Form` / `List` section footers (see below). The footer texts are standard `Text` in a section footer; they do scale (a footer grows to 267 pt tall at AX5) and nothing is cut off on screen. Accepted only with no element, those exact descriptions, those two screens and the largest-size pass (`formFooterFindingsAtLargestText`). |
+| No element, on the `Form` screens with section footers (*Settings*, *Settings* › *Book Details*, *Acknowledgements*, *Add Catalog*, *Edit Catalog*, catalog *Sign In*) at AX5 only | Dynamic Type ("Dynamic Type font sizes are unsupported" / "partially unsupported"), Text clipped ("Text clipped") | Caused by the system's `Form` / `List` section footers (see below). The footer texts are standard `Text` in a section footer; they do scale (a footer grows to 267 pt tall at AX5) and nothing is cut off on screen. Accepted only with no element, those exact descriptions, those screens and the largest-size pass (`formFooterFindingsAtLargestText`; the catalog forms use the same rule as *Add Catalog* did since #159, unchanged). |
 
 How the footer finding was found (PR #39, CI runs on commits 15ef124 and 1ae099f): temporary launch switches
 removed one suspect at a time and the AX5 audit was repeated for each. Removing only the section footer texts
@@ -212,6 +238,16 @@ and was flagged for contrast, although a screenshot measured 5.64:1 (PR #124). T
 reaches further than the navigation bar's. So a contrast finding within 32 pt of the tab bar is treated as under
 a bar (`nearTabBar`). The text still has to pass the audit clear of the bars, with the usual 16 pt margin, on
 another page.
+
+Below a collapsed (inline) navigation bar the effect also reaches past 16 pt. *Edit Catalog*'s content at the
+default size is a few points taller than CI's iPhone screen, so after the audit's drag it rests about 12 pt up,
+with the first card's top edge under the bar (screen recording and failure screenshot of CI run 45508887501). Its
+first label, *Name*, 17 pt below the bar's bottom edge, was flagged for contrast at 21.00:1 measured from the
+screenshot (black on the white card; 5.99:1 with `secondaryText`, the same artefact), while it passed at rest on the
+first page. So a contrast finding within 40 pt below a collapsed navigation bar is also treated as under a bar (the label's top
+was 33 pt below the bar's frame, 126 to 159 pt, so the tab bar's 32 pt missed it by 1 pt in run 45516248728)
+(`nearNavigationBar`); not with the expanded large title, where nothing is scrolled under the bar. As above, the
+same text must still pass the audit clear of the bars, with the usual 16 pt margin, on another page.
 
 **Settings › Book Details at AX5** (PR #47) hit the same artifact. The AX5 Settings audit flagged *Look Up
 Missing Details Now* (`onlineBulkStart`): "Dynamic Type font sizes are partially unsupported", on one page

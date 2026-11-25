@@ -22,7 +22,8 @@ import UIKit
 ///   (`AppStoreBooks` in the UI test bundle) that the seeded books are built from, so the Library shows the
 ///   sizes of real books.
 /// - `-UITestingMockCatalogs`: the OPDS client reads fixed feeds built in code (`FixtureOPDSTransport`) instead of the
-///   network, and the Catalogs list has one added catalog ("Home Library"); throw-away defaults. docs/OPDS.md.
+///   network, and the Catalogs list has two added catalogs: "Home Library", signed in, and "Family Server", which asks
+///   for a sign-in; throw-away defaults and an in-memory Keychain. docs/OPDS.md.
 /// - `-UITestingShowOnboarding` (implies `-UITesting`): opens the welcome tour on launch. Every other UI-testing
 ///   launch skips it (`-UITestingSkipOnboarding` says so explicitly); see `OnboardingPolicy`.
 enum UITesting {
@@ -262,18 +263,25 @@ enum UITesting {
     }
 
     /// The Catalogs list and client. With `-UITestingMockCatalogs` every request is answered by
-    /// `FixtureOPDSTransport` (no network) and one added catalog is listed; any UI-testing launch keeps the added
-    /// catalogs in throw-away defaults.
+    /// `FixtureOPDSTransport` (no network) and two added catalogs are listed, the first with a saved sign-in; any
+    /// UI-testing launch keeps the added catalogs in throw-away defaults and their sign-ins in memory.
     @MainActor
     static func makeCatalogStore() -> CatalogStore {
         let args = ProcessInfo.processInfo.arguments
         let mock = args.contains(mockCatalogsArgument)
         guard isActive || mock else { return CatalogStore() }
         let defaults = UserDefaults(suiteName: "uitesting-catalogs-\(UUID().uuidString)") ?? .standard
-        if mock, let data = try? JSONEncoder().encode([FixtureOPDSTransport.homeCatalog]) {
+        var keychain = CatalogStore.makeKeychain()
+        keychain.memory = MemoryKeychain()
+        if mock, let data = try? JSONEncoder().encode([FixtureOPDSTransport.homeCatalog, FixtureOPDSTransport.familyCatalog]) {
             defaults.set(data, forKey: CatalogStore.customKey)
+            if let origin = OPDSOrigin(FixtureOPDSTransport.homeCatalog.url),
+               let json = try? JSONEncoder().encode(FixtureOPDSTransport.credentials) {
+                try? keychain.set(String(decoding: json, as: UTF8.self), account: origin.description)
+            }
         }
-        return CatalogStore(client: mock ? OPDSClient(transport: FixtureOPDSTransport()) : OPDSClient(), defaults: defaults)
+        return CatalogStore(client: mock ? OPDSClient(transport: FixtureOPDSTransport()) : OPDSClient(), defaults: defaults,
+                            keychain: keychain)
     }
 
     /// A tiny public-domain text (Lewis Carroll, 1865), built in code: no EPUB file ships in the app.
@@ -314,10 +322,15 @@ enum UITesting {
 #if DEBUG
 /// Fixed OPDS answers for UI tests (`-UITestingMockCatalogs`): Project Gutenberg's root is a navigation feed,
 /// Standard Ebooks' new releases a page of three books (one offered only as PDF) with a next page, the added
-/// "Home Library" a small navigation feed. Covers are generated images. Anything else fails as if offline.
+/// "Home Library" and "Family Server" small navigation feeds that answer 401 unless the request carries
+/// `credentials` (HTTP Basic). Covers are generated images. Anything else fails as if offline.
 struct FixtureOPDSTransport: OPDSTransport {
     static let homeCatalog = OPDSCatalog(id: "uitesting.home", title: "Home Library", // i18n-ignore: UI-test fixture
                                          url: URL(string: "https://catalog.example.com/opds")!)
+    static let familyCatalog = OPDSCatalog(id: "uitesting.family", title: "Family Server", // i18n-ignore: UI-test fixture
+                                           url: URL(string: "https://family.example.com/opds")!)
+    /// The sign-in both fixture servers accept (UI tests only, Debug builds only).
+    static let credentials = OPDSCredentials(username: "reader", password: "fixture-password") // i18n-ignore: UI-test fixture
 
     private static let atom = "xmlns=\"http://www.w3.org/2005/Atom\" xmlns:dcterms=\"http://purl.org/dc/terms/\""
 
@@ -355,13 +368,26 @@ struct FixtureOPDSTransport: OPDSTransport {
             <link type="application/atom+xml;profile=opds-catalog" href="https://catalog.example.com/opds/new"/></entry>
             </feed>
             """,
+        familyCatalog.url.absoluteString: """
+            <feed \(atom)><title>Family Server</title>
+            <entry><id>shared</id><title>Shared Books</title><content type="text">Books the family shares.</content>
+            <link type="application/atom+xml;profile=opds-catalog" href="https://family.example.com/opds/shared"/></entry>
+            </feed>
+            """,
     ]
+
+    /// The servers that answer 401 without the fixture sign-in.
+    private static let lockedHosts: Set<String> = ["catalog.example.com", "family.example.com"]
 
     func get(_ url: URL, headers: [String: String]) async throws -> (data: Data, status: Int, url: URL) {
         if url.host == "covers.example.com" {
             let color: UIColor = url.lastPathComponent.hasPrefix("mars") ? .systemOrange : .systemTeal
             guard let png = UITesting.generatedCover(color) else { throw OPDSError.offline }
             return (png, 200, url)
+        }
+        if let host = url.host, Self.lockedHosts.contains(host),
+           headers["Authorization"] != Self.credentials.authorizationHeader {
+            return (Data(), 401, url)
         }
         guard let feed = Self.feeds[url.absoluteString] else { throw OPDSError.offline }
         return (Data(feed.utf8), 200, url)

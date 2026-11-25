@@ -1,0 +1,42 @@
+<?xml version='1.0' encoding='utf-8'?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/terms/" xmlns:opds="http://opds-spec.org/2010/catalog">
+  <id>calibre-navcatalog:4f6e6577657374</id>
+  <title>Books sorted by date</title>
+  <author>
+    <name>calibre</name>
+    <uri>https://calibre-ebook.com</uri>
+  </author>
+  <updated>2026-11-22T10:04:51+00:00</updated>
+  <link href="/opds?library_id=Calibre_Library" rel="start" type="application/atom+xml;profile=opds-catalog;kind=navigation"/>
+  <link href="/opds/navcatalog/4f6e6577657374?library_id=Calibre_Library&amp;offset=25" rel="next" title="Next" type="application/atom+xml;profile=opds-catalog;kind=acquisition"/>
+  <entry>
+    <title>Emma</title>
+    <author>
+      <name>Jane Austen</name>
+    </author>
+    <id>urn:uuid:3f2a8c4e-6b1d-4e7a-9c0f-1d2e3f4a5b6c</id>
+    <updated>2026-11-20T08:12:30+00:00</updated>
+    <published>2026-11-20T08:12:30+00:00</published>
+    <link href="/get/epub/3/Calibre_Library" length="512345" mtime="2026-11-20T08:12:30+00:00" rel="http://opds-spec.org/acquisition" type="application/epub+zip"/>
+    <link href="/get/mobi/3/Calibre_Library" length="801234" mtime="2026-11-20T08:12:30+00:00" rel="http://opds-spec.org/acquisition" type="application/x-mobipocket-ebook"/>
+    <link href="/get/cover/3/Calibre_Library" rel="http://opds-spec.org/cover" type="image/jpeg"/>
+    <link href="/get/thumb/3/Calibre_Library" rel="http://opds-spec.org/thumbnail" type="image/jpeg"/>
+    <content type="xhtml">
+      <div xmlns="http://www.w3.org/1999/xhtml">TAGS: Fiction, Classics<br/><p class="description">Emma Woodhouse, handsome, clever and rich, meddles in the love lives of her friends.</p></div>
+    </content>
+  </entry>
+  <entry>
+    <title>A Study in Scarlet</title>
+    <author>
+      <name>Arthur Conan Doyle</name>
+    </author>
+    <id>urn:uuid:7c6b5a49-3827-4f16-a5e4-d3c2b1a09f8e</id>
+    <updated>2026-11-19T21:40:02+00:00</updated>
+    <link href="/get/pdf/2/Calibre_Library" length="1302456" rel="http://opds-spec.org/acquisition" type="application/pdf"/>
+    <link href="/get/cover/2/Calibre_Library" rel="http://opds-spec.org/cover" type="image/jpeg"/>
+    <link href="/get/thumb/2/Calibre_Library" rel="http://opds-spec.org/thumbnail" type="image/jpeg"/>
+    <content type="xhtml">
+      <div xmlns="http://www.w3.org/1999/xhtml">TAGS: Mystery</div>
+    </content>
+  </entry>
+</feed>

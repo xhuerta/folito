@@ -2,12 +2,16 @@ import XCTest
 
 /// OPDS catalogs (docs/OPDS.md) with fixed feeds built in code (`-UITestingMockCatalogs`, Debug builds only; no
 /// network): Library › + › Catalogs, a section of Project Gutenberg, a page of Standard Ebooks with Load More, a
-/// book, the Add Catalog form and its error. Each screen is attached at the default and the largest accessibility
-/// text size; macos.yml exports them as the `catalogs-screenshots` artifact.
+/// book, the Add Catalog form and its error, and the sign-in of a self-hosted catalog (a 401 page, Sign In with a
+/// wrong and the right password, Edit Catalog, Remove Sign-In). Each screen is attached at the default and the
+/// largest accessibility text size; macos.yml exports them as the `catalogs-screenshots` artifact.
 final class CatalogsUITests: XCTestCase {
     override func setUp() {
         super.setUp()
         continueAfterFailure = false
+        // The AX5 walk-through makes some 25 drags and takes about 2.5 minutes on CI, close to the default 180 s
+        // allowance; past it XCTest restarts the test runner and xcodebuild fails although the test passed.
+        executionTimeAllowance = 300
     }
 
     @MainActor
@@ -61,34 +65,33 @@ final class CatalogsUITests: XCTestCase {
         XCTAssertTrue(row(app, "catalogRow", startingWith: "Standard Ebooks").waitForExistence(timeout: 5))
         XCTAssertTrue(row(app, "catalogRow", startingWith: "Project Gutenberg").exists)
         screenshot(app, "\(size)-1-catalogs")
+        // Rows are reached and opened with `RowNavigation` (deterministic drags; a catalog row is up to 380 pt
+        // tall at AX5, see its comment).
         let home = row(app, "catalogRow", startingWith: "Home Library")
-        for _ in 0..<6 where !(home.exists && home.isHittable) { app.swipeUp() }
+        RowNavigation.reveal(home, in: app)
         XCTAssertTrue(home.exists, "the added catalog is listed")
         if largestText { screenshot(app, "\(size)-1b-catalogs-added") }
-        for _ in 0..<6 where !row(app, "catalogRow", startingWith: "Project Gutenberg").isHittable { app.swipeDown() }
 
         // A navigation feed.
-        row(app, "catalogRow", startingWith: "Project Gutenberg").tap()
-        XCTAssertTrue(row(app, "catalogSectionRow", startingWith: "Popular").waitForExistence(timeout: 10))
+        let popular = row(app, "catalogSectionRow", startingWith: "Popular")
+        RowNavigation.open(row(app, "catalogRow", startingWith: "Project Gutenberg"), in: app, expecting: popular)
+        XCTAssertTrue(popular.waitForExistence(timeout: 10))
         screenshot(app, "\(size)-2-gutenberg")
         goBack(app, to: "Catalogs")
 
         // A page of books.
         let standard = row(app, "catalogRow", startingWith: "Standard Ebooks")
-        // At AX5 the first rows may be above the screen after the scrolling above.
-        for _ in 0..<6 where !(standard.exists && standard.isHittable) { app.swipeDown() }
         XCTAssertTrue(standard.waitForExistence(timeout: 5), "Standard Ebooks not reachable")
-        standard.tap()
         let mars = row(app, "catalogBookRow", startingWith: "A Fighting Man of Mars")
+        RowNavigation.open(standard, in: app, expecting: mars)
         XCTAssertTrue(mars.waitForExistence(timeout: 10), "Catalog page did not load")
         screenshot(app, "\(size)-3-page")
         let noEPUB = app.staticTexts["Not available as EPUB"]
-        for _ in 0..<6 where !(noEPUB.exists && noEPUB.isHittable) { app.swipeUp() }
+        RowNavigation.reveal(noEPUB, in: app)
         XCTAssertTrue(noEPUB.exists, "the PDF-only book says so")
         if largestText { screenshot(app, "\(size)-3b-page-end") }
-        for _ in 0..<6 where !(mars.exists && mars.isHittable) { app.swipeDown() }
 
-        mars.tap()
+        RowNavigation.open(mars, in: app, expecting: app.buttons["catalogDownload"])
         XCTAssertTrue(app.buttons["catalogDownload"].waitForExistence(timeout: 5), "Book screen did not open")
         screenshot(app, "\(size)-4-book")
         goBack(app, to: "Standard Ebooks")
@@ -97,17 +100,99 @@ final class CatalogsUITests: XCTestCase {
 
         // Add Catalog, and the error for an address that is not one.
         let add = app.buttons["catalogsAdd"]
-        for _ in 0..<6 where !(add.exists && add.isHittable) { app.swipeUp() }
-        add.tap()
+        RowNavigation.open(add, in: app, expecting: app.navigationBars["Add Catalog"], timeout: 5)
         XCTAssertTrue(app.navigationBars["Add Catalog"].waitForExistence(timeout: 5), "Add Catalog did not open")
         XCTAssertEqual(app.textFields["catalogAddress"].value as? String, "https://")
         screenshot(app, "\(size)-5-add")
         let confirm = app.buttons["catalogAddConfirm"]
-        for _ in 0..<6 where !(confirm.exists && confirm.isHittable) { app.swipeUp() }
+        RowNavigation.reveal(confirm, in: app)
         confirm.tap()
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Enter a web address'"))
                         .firstMatch.waitForExistence(timeout: 5), "an empty address is explained")
         screenshot(app, "\(size)-6-add-error")
+    }
+
+    /// Types into a field after clearing it (a secure field cannot be read back, so it is cleared by deleting).
+    @MainActor
+    private func type(_ text: String, into field: XCUIElement, in app: XCUIApplication) {
+        RowNavigation.reveal(field, in: app)
+        XCTAssertTrue(field.exists, "\(field) missing")
+        field.tap()
+        if let current = field.value as? String, !current.isEmpty {
+            field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count + 20))
+        } else {
+            field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 30))
+        }
+        field.typeText(text)
+    }
+
+    @MainActor
+    private func tapReachable(_ element: XCUIElement, in app: XCUIApplication) {
+        RowNavigation.reveal(element, in: app)
+        XCTAssertTrue(element.exists && element.isHittable, "\(element) not reachable")
+        element.tap()
+    }
+
+    @MainActor
+    private func signInFlow(largestText: Bool) {
+        let size = largestText ? "ax5" : "default"
+        let app = launch(largestText: largestText)
+        openCatalogs(app)
+
+        // "Home Library" has a saved sign-in: its row says so.
+        let home = row(app, "catalogRow", startingWith: "Home Library")
+        RowNavigation.reveal(home, in: app)
+        XCTAssertTrue(home.label.contains("Signed in as reader"), "the row shows the saved user name: \(home.label)")
+
+        // "Family Server" answers 401: the page offers Sign In.
+        let family = row(app, "catalogRow", startingWith: "Family Server")
+        tapReachable(family, in: app)
+        let signIn = app.buttons["catalogSignIn"]
+        XCTAssertTrue(signIn.waitForExistence(timeout: 10), "a 401 page offers Sign In")
+        screenshot(app, "\(size)-7-sign-in-needed")
+        tapReachable(signIn, in: app)
+        XCTAssertTrue(app.navigationBars["Sign In"].waitForExistence(timeout: 5), "Sign In did not open")
+        screenshot(app, "\(size)-8-sign-in")
+
+        // A wrong password is refused and nothing is saved.
+        type("reader", into: app.textFields["catalogUsername"], in: app)
+        type("wrong", into: app.secureTextFields["catalogPassword"], in: app)
+        tapReachable(app.buttons["catalogEditSave"], in: app)
+        let refused = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'The catalog didn’t accept'")).firstMatch
+        XCTAssertTrue(refused.waitForExistence(timeout: 10), "a wrong password is explained")
+        screenshot(app, "\(size)-9-sign-in-refused")
+
+        // The right one is saved, and the page loads with it.
+        type("fixture-password", into: app.secureTextFields["catalogPassword"], in: app)
+        tapReachable(app.buttons["catalogEditSave"], in: app)
+        XCTAssertTrue(row(app, "catalogSectionRow", startingWith: "Shared Books").waitForExistence(timeout: 10),
+                      "the page loads after signing in")
+        screenshot(app, "\(size)-10-signed-in")
+
+        // Edit Catalog from the page's toolbar: the saved user name, never the password; Remove Sign-In.
+        let edit = app.buttons["catalogEdit"]
+        XCTAssertTrue(edit.waitForExistence(timeout: 5), "an added catalog's page has Edit")
+        edit.tap()
+        XCTAssertTrue(app.navigationBars["Edit Catalog"].waitForExistence(timeout: 5), "Edit Catalog did not open")
+        XCTAssertEqual(app.textFields["catalogUsername"].value as? String, "reader")
+        screenshot(app, "\(size)-11-edit")
+        tapReachable(app.buttons["catalogRemoveSignIn"], in: app)
+        XCTAssertFalse(app.buttons["catalogRemoveSignIn"].waitForExistence(timeout: 2), "the sign-in is gone")
+        app.buttons["catalogEditCancel"].tap()
+        goBack(app, to: "Catalogs")
+        XCTAssertTrue(row(app, "catalogRow", startingWith: "Family Server").waitForExistence(timeout: 5))
+        XCTAssertFalse(row(app, "catalogRow", startingWith: "Family Server").label.contains("Signed in"),
+                       "removed from the list too")
+    }
+
+    @MainActor
+    func testCatalogSignInAtDefaultSize() throws {
+        signInFlow(largestText: false)
+    }
+
+    @MainActor
+    func testCatalogSignInAtLargestTextSize() throws {
+        signInFlow(largestText: true)
     }
 
     @MainActor

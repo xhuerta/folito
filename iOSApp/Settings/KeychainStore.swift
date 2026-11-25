@@ -4,6 +4,9 @@ import Security
 /// Minimal generic-password Keychain wrapper. No access groups (free Personal Team).
 struct KeychainStore {
     var service: String = "com.xlahuerta.folito.kosync"
+    /// `kSecAttrAccessible` of new items. Catalog sign-ins use `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`
+    /// (`CatalogStore.makeKeychain`): never synced to iCloud Keychain and never restored onto another device.
+    var accessibility: String = kSecAttrAccessibleAfterFirstUnlock as String
     #if DEBUG
     /// UI testing only (`UITesting.makeSyncSettings`): items live in memory. The simulator builds that CI tests
     /// are not code-signed, so the real Keychain refuses them and a mocked sign-in would not be kept.
@@ -20,7 +23,8 @@ struct KeychainStore {
         if status == errSecItemNotFound {
             var add = query
             add[kSecValueData as String] = data
-            add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+            add[kSecAttrAccessible as String] = accessibility
+            add[kSecAttrSynchronizable as String] = false
             let addStatus = SecItemAdd(add as CFDictionary, nil)
             guard addStatus == errSecSuccess else { throw KeychainError.status(addStatus) }
         } else if status != errSecSuccess {

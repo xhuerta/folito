@@ -191,15 +191,24 @@ final class AccessibilityAuditTests: XCTestCase {
         return found
     }
 
-    /// Scrolls down until `element` is visible above the tab bar, then taps it.
+    /// Scrolls until the point where `element` is tapped (its centre) is clear of the bars, then taps it, with
+    /// `RowNavigation` (shared with CatalogsUITests): drags from the left margin, where no row is, by a computed
+    /// distance without a fling. With drags from the middle of the screen, a slow drag on an AX5 catalog row
+    /// became a tap and opened the wrong catalog (CI run 45522603339, `testCatalogSignInAudit`); and requiring the
+    /// whole frame between the bars could scroll a row taller than the clear area minus one step past the top
+    /// (CI run 45490867043). With `expecting`, the tap is repeated once if it did not navigate (the element is
+    /// still there and the destination did not appear); the caller still asserts the destination.
     @MainActor
     private static func scrollAndTap(_ element: XCUIElement, in app: XCUIApplication,
+                                     expecting destination: XCUIElement? = nil,
                                      file: StaticString = #filePath, line: UInt = #line) {
-        for _ in 0..<10 where !(element.exists && element.isHittable && clearOfBars(element.frame, in: app)) {
-            scrollDown(app)
-        }
+        RowNavigation.reveal(element, in: app)
         XCTAssertTrue(element.exists && element.isHittable, "\(element) not reachable", file: file, line: line)
-        element.tap()
+        if let destination {
+            RowNavigation.open(element, in: app, expecting: destination)
+        } else {
+            element.tap()
+        }
     }
 
     // MARK: Bars and the scroll edge effect
@@ -229,6 +238,19 @@ final class AccessibilityAuditTests: XCTestCase {
         let width = app.windows.firstMatch.frame.width
         return !frame.isEmpty && frame.minY >= area.top && frame.maxY <= area.bottom && frame.minX >= 0
             && frame.maxX <= width
+    }
+
+    /// Within 40 pt below the navigation bar's bottom edge while it shows its collapsed (inline) bar, where the
+    /// hard scroll edge effect can still lower measured contrast once content is scrolled under the bar. Edit
+    /// Catalog's default-size content is a few points taller than the screen: after a drag it rests about 12 pt
+    /// up, the first card's top edge under the bar, and its first label ("Name", top 33 pt below the bar's frame,
+    /// 126 to 159 pt) was flagged although a screenshot measured 21:1 there and the same label passed at rest (CI runs
+    /// 45508887501, 45516248728; 32 pt, as for the tab bar, missed it by 1 pt).
+    @MainActor
+    private static func nearNavigationBar(_ frame: CGRect, in app: XCUIApplication) -> Bool {
+        let navigationBar = app.navigationBars.firstMatch
+        return navigationBar.exists && navigationBar.frame.height < largeTitleBarMinHeight
+            && frame.minY < navigationBar.frame.maxY + 40
     }
 
     /// Within 32 pt of the tab bar's top edge, where its scroll edge effect can still lower measured contrast.
@@ -353,9 +375,11 @@ final class AccessibilityAuditTests: XCTestCase {
         // Above the tab bar the effect reaches further: "327 bytes" on Book detail, ending 2.7 pt inside the
         // 16 pt margin, failed the audit although a screenshot measured 5.64:1 (PR #124). So a contrast finding
         // within 32 pt of the tab bar also counts as under a bar. It is still verified: the same text must pass
-        // clear of the bars, with the usual 16 pt margin, on another page.
+        // clear of the bars, with the usual 16 pt margin, on another page. The same applies within 40 pt below a
+        // collapsed navigation bar (`nearNavigationBar`; "Name" on Edit Catalog, 33 pt below the bar, measured 21:1).
         if issue.auditType == .contrast,
-           !clearOfBars(element.frame, in: app) || nearTabBar(element.frame, in: app) {
+           !clearOfBars(element.frame, in: app) || nearTabBar(element.frame, in: app)
+            || nearNavigationBar(element.frame, in: app) {
             return .underBar
         }
         return .fails
@@ -592,7 +616,8 @@ final class AccessibilityAuditTests: XCTestCase {
         waitForScrollToSettle(app)
     }
 
-    /// The Catalogs list: the two presets (with the note under them) and one added catalog with *Add Catalog…*.
+    /// The Catalogs list: the two presets (with the note under them) and two added catalogs, one signed in
+    /// ("Signed in as"), with *Add Catalog…*.
     @MainActor
     func testCatalogsListAudit() throws {
         try auditScreen("Catalogs", extraArguments: ["-UITestingMockCatalogs"], open: Self.openCatalogs)
@@ -604,7 +629,7 @@ final class AccessibilityAuditTests: XCTestCase {
         try auditScreen("Add Catalog", extraArguments: ["-UITestingMockCatalogs"],
                         formFooterFindingsAtLargestText: true) { app in
             Self.openCatalogs(app)
-            Self.scrollAndTap(app.buttons["catalogsAdd"], in: app)
+            Self.scrollAndTap(app.buttons["catalogsAdd"], in: app, expecting: app.navigationBars["Add Catalog"])
             XCTAssertTrue(app.navigationBars["Add Catalog"].waitForExistence(timeout: 5), "Add Catalog did not open")
         }
     }
@@ -626,6 +651,51 @@ final class AccessibilityAuditTests: XCTestCase {
             row.tap()
             XCTAssertTrue(app.buttons["catalogDownload"].waitForExistence(timeout: 5), "Book screen did not open")
             Self.waitForScrollToSettle(app)
+        }
+    }
+
+    /// Opens the added "Family Server", which answers 401 without a sign-in, and waits for its Sign In button.
+    @MainActor
+    private static func openSignInNeeded(_ app: XCUIApplication) {
+        openCatalogs(app)
+        let row = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == 'catalogRow' AND label BEGINSWITH 'Family Server'")).firstMatch
+        scrollAndTap(row, in: app, expecting: app.buttons["catalogSignIn"])
+        XCTAssertTrue(app.buttons["catalogSignIn"].waitForExistence(timeout: 10), "Sign In not offered")
+        waitForScrollToSettle(app)
+    }
+
+    /// A catalog page that needs a sign-in: the message, Sign In… and Try Again.
+    @MainActor
+    func testCatalogSignInNeededAudit() throws {
+        try auditScreen("Catalog sign-in needed", extraArguments: ["-UITestingMockCatalogs"], open: Self.openSignInNeeded)
+    }
+
+    /// The Sign In form (user name and password with labels above them, the footer, the Sign In action row).
+    @MainActor
+    func testCatalogSignInAudit() throws {
+        try auditScreen("Catalog sign-in", extraArguments: ["-UITestingMockCatalogs"],
+                        formFooterFindingsAtLargestText: true) { app in
+            Self.openSignInNeeded(app)
+            Self.scrollAndTap(app.buttons["catalogSignIn"], in: app)
+            XCTAssertTrue(app.navigationBars["Sign In"].waitForExistence(timeout: 5), "Sign In did not open")
+        }
+    }
+
+    /// Edit Catalog for "Home Library", which has a saved sign-in: name, address, sign-in fields and footers,
+    /// Save, Remove Sign-In and Remove Catalog. Opened from the catalog page's Edit button.
+    @MainActor
+    func testEditCatalogAudit() throws {
+        try auditScreen("Edit Catalog", extraArguments: ["-UITestingMockCatalogs"],
+                        formFooterFindingsAtLargestText: true) { app in
+            Self.openCatalogs(app)
+            let row = app.descendants(matching: .any)
+                .matching(NSPredicate(format: "identifier == 'catalogRow' AND label BEGINSWITH 'Home Library'")).firstMatch
+            Self.scrollAndTap(row, in: app, expecting: app.buttons["catalogEdit"])
+            let edit = app.buttons["catalogEdit"]
+            XCTAssertTrue(edit.waitForExistence(timeout: 10), "Edit not offered")
+            edit.tap()
+            XCTAssertTrue(app.navigationBars["Edit Catalog"].waitForExistence(timeout: 5), "Edit Catalog did not open")
         }
     }
 

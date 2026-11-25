@@ -205,8 +205,17 @@ struct UserFacingError: Equatable, Identifiable {
             return String(localized: "iOS blocked the unencrypted http:// connection. Use an https:// address, or a local-network address (IP address, .local or a name without dots).",
                           comment: "Sync error")
         case .authenticationRequired:
-            return String(localized: "This catalog needs a sign-in. Folito can’t sign in to catalogs yet.",
-                          comment: "Catalog error: the server answered 401/403")
+            return String(localized: "This catalog needs a sign-in with a user name and password.",
+                          comment: "Catalog error: the server answered 401/403 to a request without a sign-in")
+        case .credentialsRejected:
+            return String(localized: "The catalog didn’t accept the user name and password. Check them, then try again.",
+                          comment: "Catalog error: the server answered 401 to the saved or entered sign-in")
+        case .accessDenied:
+            return String(localized: "The catalog doesn’t let this account open this page.",
+                          comment: "Catalog error: the server answered 403 to a signed-in request")
+        case .signInRequiresHTTPS:
+            return String(localized: "Folito sends a user name and password only over a secure connection. Use the catalog’s https:// address.",
+                          comment: "Catalog error: a sign-in was needed or entered for a plain http:// catalog; Folito refuses to send it")
         case .notFound:
             return String(localized: "The catalog doesn’t have this page any more. Check the address, or go back and try again.",
                           comment: "Catalog error: 404")

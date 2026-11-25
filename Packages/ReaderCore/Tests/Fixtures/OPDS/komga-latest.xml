@@ -1,0 +1,38 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:opds="http://opds-spec.org/2010/catalog" xmlns:pse="http://vaemendis.net/opds-pse/ns" xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/">
+  <id>latestBooks</id>
+  <title>Latest books</title>
+  <updated>2026-11-22T09:30:00Z</updated>
+  <author>
+    <name>Komga</name>
+    <uri>https://github.com/gotson/komga</uri>
+  </author>
+  <link type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="self" href="/opds/v1.2/books/latest"/>
+  <link type="application/atom+xml;profile=opds-catalog;kind=navigation" rel="start" href="/opds/v1.2/catalog"/>
+  <link type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="next" href="/opds/v1.2/books/latest?page=1"/>
+  <entry>
+    <title>Northanger Abbey</title>
+    <updated>2026-11-21T17:02:11Z</updated>
+    <id>0J5Q2TB1A3F9K</id>
+    <content>Catherine Morland, a reader of Gothic novels, visits Bath and Northanger Abbey.</content>
+    <author>
+      <name>Jane Austen</name>
+    </author>
+    <link type="image/jpeg" rel="http://opds-spec.org/image" href="/opds/v1.2/books/0J5Q2TB1A3F9K/thumbnail"/>
+    <link type="image/jpeg" rel="http://opds-spec.org/image/thumbnail" href="/opds/v1.2/books/0J5Q2TB1A3F9K/thumbnail/small"/>
+    <link type="application/epub+zip" rel="http://opds-spec.org/acquisition" href="/opds/v1.2/books/0J5Q2TB1A3F9K/file/Northanger%20Abbey.epub"/>
+  </entry>
+  <entry>
+    <title>Little Nemo 1905-10-15</title>
+    <updated>2026-11-20T11:45:09Z</updated>
+    <id>0J5Q2TB1A3F9M</id>
+    <content/>
+    <author>
+      <name>Winsor McCay</name>
+    </author>
+    <link type="image/jpeg" rel="http://opds-spec.org/image" href="/opds/v1.2/books/0J5Q2TB1A3F9M/thumbnail"/>
+    <link type="image/jpeg" rel="http://opds-spec.org/image/thumbnail" href="/opds/v1.2/books/0J5Q2TB1A3F9M/thumbnail/small"/>
+    <link type="application/vnd.comicbook+zip" rel="http://opds-spec.org/acquisition" href="/opds/v1.2/books/0J5Q2TB1A3F9M/file/Little%20Nemo%201905-10-15.cbz"/>
+    <link type="image/jpeg" rel="http://vaemendis.net/opds-pse/stream" href="/api/v1/books/0J5Q2TB1A3F9M/pages/{pageNumber}?zero_based=true" pse:count="12"/>
+  </entry>
+</feed>

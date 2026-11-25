@@ -71,7 +71,7 @@
 <div class="doc">
 <h1>隐私政策</h1>
 <p class="translation-note">本译文借助机器翻译完成，仅供参考。如与原文有任何出入，以<a href="../privacy.html" hreflang="en">英文版本</a>为准。</p>
-<p class="muted">最后更新：2026 年 11 月 21 日。适用于 iPhone 和 Apple Watch 版 Folito App。</p>
+<p class="muted">最后更新：2026 年 11 月 24 日。适用于 iPhone 和 Apple Watch 版 Folito App。</p>
 <div class="card note lead-card"><span class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2.8 19 5.6v5.7c0 4.6-3 8.3-7 9.9-4-1.6-7-5.3-7-9.9V5.6z"/><path d="m8.8 12.1 2.2 2.2 4.3-4.5"/></svg></span><p>简而言之：Folito 无需任何账户即可使用。它没有分析、广告或跟踪，开发者不运营任何服务器，也不接收任何数据。App 只会在你选择设置同步服务器时与之通信，并在你下载词典时访问下文所述的下载网站。如果你要求，iPhone 还会在 Open Library 上查找图书缺少的信息（见下文）。只有在你打开图书目录时，App 才会连接它（见下文）。</p></div>
 
 <section class="group">
@@ -135,7 +135,8 @@
 <section class="group">
 <h2>图书目录（OPDS，可选，仅限 iPhone）</h2>
 <div class="card">
-<p>在资料库中，<em>+ › 图书目录</em>会列出两个免费图书目录 <strong>Standard Ebooks</strong>（standardebooks.org）和 <strong>Project Gutenberg</strong>（www.gutenberg.org），以及你通过地址添加的 OPDS 图书目录。显示列表不会连接任何服务器。只有当你打开某个图书目录或其分类、轻点<em>载入更多</em>、添加图书目录（会读取一次其地址以进行检查），或在图书上轻点<em>下载</em>时，iPhone 才会通过 HTTPS 向该图书目录请求相应的页面、封面或 EPUB 文件（未加密的 http 仅限本地网络中的地址）。请求中只包含页面或文件的地址，以及标明 App 名称的 User-Agent：不含 Cookie，不登录，也不包含任何关于你、你的资料库、你的阅读或你的其他图书目录的信息。开发者不会收到任何数据。图书目录以及它所链接的封面或文件所在的服务器可以看到你的 IP 地址，并按照其自身的政策进行处理。你添加的图书目录仅储存在你的 iPhone 上。下载的图书会像其他 EPUB 一样导入，并发送到你的手表。</p>
+<p>在资料库中，<em>+ › 图书目录</em>会列出两个免费图书目录 <strong>Standard Ebooks</strong>（standardebooks.org）和 <strong>Project Gutenberg</strong>（www.gutenberg.org），以及你通过地址添加的 OPDS 图书目录。显示列表不会连接任何服务器。只有当你打开某个图书目录或其分类、轻点<em>载入更多</em>、添加图书目录（会读取一次其地址以进行检查），或在图书上轻点<em>下载</em>时，iPhone 才会通过 HTTPS 向该图书目录请求相应的页面、封面或 EPUB 文件（未加密的 http 仅限本地网络中的地址）。请求中只包含页面或文件的地址，以及标明 App 名称的 User-Agent：不含 Cookie，不登录（除非你为该图书目录存储了登录信息，见下文），也不包含任何关于你、你的资料库、你的阅读或你的其他图书目录的信息。开发者不会收到任何数据。图书目录以及它所链接的封面或文件所在的服务器可以看到你的 IP 地址，并按照其自身的政策进行处理。你添加的图书目录仅储存在你的 iPhone 上。下载的图书会像其他 EPUB 一样导入，并发送到你的手表。</p>
+<p><strong>登录你自己的服务器。</strong>对于你添加的图书目录（例如你自己的 Calibre、Calibre-Web 或 Komga 服务器），你可以输入用户名和密码。它们只储存在你 iPhone 的钥匙串中，并且只在此设备上（不在 iCloud 钥匙串、App 设置或手表上），也只会通过加密的 https:// 连接发送到该图书目录自己的服务器；绝不会发送到它所链接的其他服务器，也绝不会发送给开发者。对于地址以 http:// 开头的图书目录，Folito 会拒绝登录。轻点<em>移除登录信息</em>或移除该图书目录，即可将其从钥匙串中删除。</p>
 </div>
 </section>
 <section class="group">
