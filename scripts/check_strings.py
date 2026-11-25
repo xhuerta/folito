@@ -38,7 +38,8 @@ TARGETS = {
     ),
     "FolitoWatch (watchOS)": (
         "WatchApp/Resources/Localizable.xcstrings",
-        ["WatchApp/Resources/InfoPlist.xcstrings"],
+        # AppShortcuts.xcstrings: the Siri phrases of the App Shortcuts (WatchApp/Intents, #68).
+        ["WatchApp/Resources/InfoPlist.xcstrings", "WatchApp/Resources/AppShortcuts.xcstrings"],
         ["WatchApp", "Shared", "WidgetShared"],
         {"Tests", "UITests"},
     ),
@@ -55,6 +56,8 @@ TARGETS = {
 # printf-style specifiers as used by Foundation (%@, %lld, %1$@, %.2f ...). "%%" is a literal percent.
 SPEC_RE = re.compile(r"%(?:(\d+)\$)?[-+ #0']*\d*(?:\.\d+)?(hh|h|ll|l|q|z|t|j|L)?([@dDiuUxXoOfFeEgGcCsSpaA])")
 PERCENT_ESCAPE_RE = re.compile(r"%%")
+# App Shortcut phrase placeholders (AppShortcuts.xcstrings): ${applicationName}, ${parameter}.
+PHRASE_PLACEHOLDER_RE = re.compile(r"\$\{(\w+)\}")
 
 
 def specifiers(text: str) -> dict[int, str]:
@@ -133,6 +136,10 @@ def check_catalog(path: Path, errors: list[str]) -> dict:
                 elif specs != source_specs:
                     errors.append(f"{where}: format specifiers {sorted(specs.items())} "
                                   f"don't match the source {sorted(source_specs.items())}")
+                placeholders = sorted(PHRASE_PLACEHOLDER_RE.findall(value))
+                if placeholders != sorted(PHRASE_PLACEHOLDER_RE.findall(key)):
+                    errors.append(f"{where}: phrase placeholders {placeholders} "
+                                  f"don't match the source {sorted(PHRASE_PLACEHOLDER_RE.findall(key))}")
     return data
 
 
@@ -144,13 +151,16 @@ def check_catalog(path: Path, errors: list[str]) -> dict:
 LOCALIZED_CALLS = [
     "Text", "Label", "Button", "Section", "Toggle", "Picker", "TextField", "SecureField", "NavigationLink",
     "LabeledContent", "ContentUnavailableView", "Stepper", "Link", "Menu", "TintedLabel", "adaptivePicker",
-    "slider", "LocalizedStringKey", "LocalizedStringResource",
+    "slider", "LocalizedStringKey", "LocalizedStringResource", "IntentDescription",
     ".navigationTitle", ".accessibilityLabel", ".accessibilityHint", ".accessibilityValue",
     ".confirmationDialog", ".alert", ".help", ".badge",
 ]
 CALL_RE = re.compile(r"(?<![\w.])(" + "|".join(re.escape(c) for c in LOCALIZED_CALLS if not c.startswith("."))
                      + r")\(\s*\"|(" + "|".join(re.escape(c) for c in LOCALIZED_CALLS if c.startswith("."))
-                     + r")\(\s*\"|\b(localized|named):\s*(?:Text\(\s*)?\"")
+                     + r")\(\s*\"|\b(localized|named):\s*(?:Text\(\s*)?\""
+                     # App Intents (WatchApp/Intents): titles, parameter names and App Shortcut titles.
+                     + r"|\bLocalizedStringResource\s*=\s*\"|\bTypeDisplayRepresentation\(\s*name:\s*\""
+                     + r"|@Parameter\(\s*title:\s*\"|\bshortTitle:\s*\"")
 VERBATIM_RE = re.compile(r"\bverbatim:\s*\"")
 ASSIGN_RE = re.compile(r"\b\w*(?:[eE]rror|[mM]essage|[tT]itle|[tT]ext|[wW]arning|[hH]int)\s*=\s*\"")
 

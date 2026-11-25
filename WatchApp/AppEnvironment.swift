@@ -49,7 +49,7 @@ final class AppEnvironment: ObservableObject {
         let complications = ComplicationPublisher(
             store: UITesting.isActive ? ReadingSnapshotStore(defaults: nil) : .shared,
             localStore: ReadingSnapshotStore(defaults: UITesting.isActive ? nil : .standard,
-                                             key: "complication.localSnapshot"))
+                                             key: ComplicationPublisher.localSnapshotKey))
         self.complications = complications
         library.onBookFinished = { complications.bookFinished($0) }
         library.syncedFraction = { sync.remoteMemory.synced(for: $0)?.percentage }
@@ -63,12 +63,23 @@ final class AppEnvironment: ObservableObject {
             })
         refresher.onChange = { library.reloadProgress() }
         self.syncedProgress = refresher
+        // "Continue Reading" / "Open Book" (App Intents, #68) open books through the complications' deep links.
+        IntentRouter.shared.attach { [weak self] link in
+            self?.deepLink = DeepLinkRequest(link: link)
+        }
     }
 
     /// A complication was tapped (`folito://book/<id>` or `folito://library`).
     func handle(url: URL) {
         guard let link = FolitoDeepLink(url: url) else { return }
         deepLink = DeepLinkRequest(link: link)
+    }
+
+    /// A book was opened in the reader: tells the system "Continue Reading" was useful now (Smart Stack and Siri
+    /// suggestions, #68). Not in UI tests.
+    func bookOpened() {
+        guard !UITesting.isActive else { return }
+        ReadingIntentSignals.bookOpened()
     }
 
     /// Launch and foreground: refresh the synced position of the complications' book, then ask watchOS for
@@ -122,7 +133,11 @@ final class AppEnvironment: ObservableObject {
         let complications = self.complications
         library.onBookDeleted = { sync.discard(document: $0); complications.bookRemoved($0) }
         library.onUserDeletedBook = { [weak receiver] in receiver?.reportUserRemoval(of: $0) }
-        library.onLibraryChanged = { [weak receiver] in receiver?.publishLibrary() }
+        library.onLibraryChanged = { [weak receiver] in
+            receiver?.publishLibrary()
+            ReadingIntentSignals.libraryChanged()
+        }
+        ReadingIntentSignals.libraryChanged()
         receiver.start()
         connectivity = receiver
     }

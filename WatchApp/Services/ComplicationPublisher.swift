@@ -26,6 +26,16 @@ final class ComplicationPublisher {
         self.lastReloaded = store.load()
     }
 
+    /// Key of the reader's own snapshot in the standard UserDefaults (`localStore`).
+    nonisolated static let localSnapshotKey = "complication.localSnapshot"
+
+    /// The book last read on this watch, without a publisher (App Intents, #68): the reader's own snapshot, else
+    /// what the complications show.
+    nonisolated static func storedLocalSnapshot(defaults: UserDefaults = .standard,
+                                                shared: ReadingSnapshotStore = .shared) -> ReadingSnapshot? {
+        ReadingSnapshotStore(defaults: defaults, key: localSnapshotKey).load() ?? shared.load()
+    }
+
     /// What the complications show now.
     var current: ReadingSnapshot? { store.load() }
 
