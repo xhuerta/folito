@@ -5272,7 +5272,7 @@
       }
     },
     "Search Catalog" : {
-      "comment" : "Catalog page: placeholder of the search field",
+      "comment" : "Catalog page: label of the search field",
       "localizations" : {
         "de" : {
           "stringUnit" : {

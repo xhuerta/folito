@@ -89,8 +89,9 @@ address contains the user's API key, `https://host/api/opds/<key>`).
 
 ## Search (part 3, #161)
 
-- **Where.** A page whose feed has a `rel="search"` link gets a search field (`.searchable`, always shown under the
-  title). Submitting it pushes *Search Results*, the same screen as a catalog page: book and section rows, *Load
+- **Where.** A page whose feed has a `rel="search"` link gets a search field, a card at the top of the page with a
+  visible label ("Search Catalog") like the catalog forms. It is not `.searchable`: on iOS 26 its field did not
+  survive pushing the results (the page came back without its navigation bar, or without the field). Submitting it pushes *Search Results*, the same screen as a catalog page: book and section rows, *Load
   More* (`rel="next"`), errors, and *Sign In…* after a 401. The heading says what was searched ("Results for
   “mars”"); nothing found shows the system's "No Results" view. The results screen has no search field of its own.
 - **Two forms of the link.** An OpenSearch description document (`type="application/opensearchdescription+xml"`:

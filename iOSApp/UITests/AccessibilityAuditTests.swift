@@ -722,15 +722,15 @@ final class AccessibilityAuditTests: XCTestCase {
         }
     }
 
-    /// Search results of the signed-in "Home Library" (its feed offers OpenSearch): the search field, the
-    /// heading with the terms, book rows with covers and Load More.
+    /// Search results of the signed-in "Home Library" (its feed offers OpenSearch), reached through the page's
+    /// search field: the heading with the terms, book rows with covers and Load More.
     @MainActor
     func testCatalogSearchAudit() throws {
         try auditScreen("Catalog search", extraArguments: ["-UITestingMockCatalogs"]) { app in
             Self.openCatalogs(app)
             let row = app.descendants(matching: .any)
                 .matching(NSPredicate(format: "identifier == 'catalogRow' AND label BEGINSWITH 'Home Library'")).firstMatch
-            let field = app.searchFields.firstMatch
+            let field = app.textFields["catalogSearchField"]
             Self.scrollAndTap(row, in: app, expecting: field)
             XCTAssertTrue(field.waitForExistence(timeout: 10), "Search field missing")
             field.tap()

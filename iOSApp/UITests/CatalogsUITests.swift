@@ -190,16 +190,16 @@ final class CatalogsUITests: XCTestCase {
     @MainActor
     private func openSearchableCatalog(_ app: XCUIApplication) -> XCUIElement {
         openCatalogs(app)
-        let field = app.searchFields.firstMatch
+        let field = app.textFields["catalogSearchField"]
         RowNavigation.open(row(app, "catalogRow", startingWith: "Home Library"), in: app, expecting: field)
         XCTAssertTrue(field.waitForExistence(timeout: 10), "a catalog with search shows a search field")
         return field
     }
 
+    /// Replaces the field's text with `terms` and submits it (the keyboard's Search key).
     @MainActor
-    private func search(_ terms: String, in field: XCUIElement) {
-        field.tap()
-        field.typeText(terms + "\n")
+    private func search(_ terms: String, in field: XCUIElement, in app: XCUIApplication) {
+        type(terms + "\n", into: field, in: app)
     }
 
     @MainActor
@@ -211,7 +211,7 @@ final class CatalogsUITests: XCTestCase {
         screenshot(app, "\(size)-12-search-field")
 
         // Results reuse the page: book rows, then Load More for the next page.
-        search("mars", in: field)
+        search("mars", in: field, in: app)
         let princess = row(app, "catalogBookRow", startingWith: "A Princess of Mars")
         XCTAssertTrue(princess.waitForExistence(timeout: 10), "the results did not appear")
         XCTAssertTrue(app.navigationBars["Search Results"].exists, "results have their own screen")
@@ -229,15 +229,12 @@ final class CatalogsUITests: XCTestCase {
         goBack(app, to: "Search Results")
         goBack(app, to: "Home Library")
 
-        // Back on the page, its navigation bar and search field are there again (pushed while the search was still
-        // active, the page came back without them).
+        // Back on the page, its navigation bar and search field are there again (with `.searchable`, iOS 26 brought
+        // the page back without one or the other).
         XCTAssertTrue(app.navigationBars["Home Library"].waitForExistence(timeout: 5), "the page lost its navigation bar")
         // A search that finds nothing.
         XCTAssertTrue(field.waitForExistence(timeout: 5), "the page lost its search field")
-        field.tap()
-        let clear = field.buttons.firstMatch
-        if clear.exists { clear.tap() }
-        field.typeText("zzz\n")
+        search("zzz", in: field, in: app)
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'zzz'")).firstMatch
                         .waitForExistence(timeout: 10), "an empty search says so")
         XCTAssertFalse(app.descendants(matching: .any)["catalogBookRow"].exists)

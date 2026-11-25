@@ -181,9 +181,9 @@ struct ListActionLabel: View {
 /// One catalog page: sections that lead further, and books. Further pages are loaded on request (Load More), so
 /// the catalog is never asked for more than the user looks at.
 ///
-/// A page whose feed offers search (`rel="search"`, docs/OPDS.md) has a search field; submitting it pushes the
-/// results (a `CatalogRoute.search` on the Catalogs stack), shown by this same view (rows, Load More, errors and Sign In alike). The catalog is asked only when
-/// the user submits a search.
+/// A page whose feed offers search (`rel="search"`, docs/OPDS.md) has a search field at the top; submitting it
+/// pushes the results (a `CatalogRoute.search` on the Catalogs stack), shown by this same view (rows, Load More,
+/// errors and Sign In alike). The catalog is asked only when the user submits a search.
 struct CatalogFeedView: View {
     let title: String
     @ObservedObject var catalogs: CatalogStore
@@ -191,10 +191,7 @@ struct CatalogFeedView: View {
     /// The added catalog being edited from this page (its root page's Edit button, or Sign In after a 401).
     @State private var editing: CatalogEdit?
     @State private var query = ""
-    /// Whether the search field is active (focused, or showing its Cancel button).
-    @State private var isSearchPresented = false
-    /// A submitted search waiting for the field to end before its results are pushed.
-    @State private var pendingSearch: CatalogSearchRequest?
+    @FocusState private var searchFocused: Bool
     /// Pushes the results of a search (onto the Catalogs stack's path).
     private let openSearch: (CatalogSearchRequest) -> Void
 
@@ -224,25 +221,9 @@ struct CatalogFeedView: View {
         guard let link = model.search else { return }
         let terms = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !terms.isEmpty else { return }
-        let request = CatalogSearchRequest(link: link, terms: terms, pageURL: model.url)
-        guard isSearchPresented else { return openSearch(request) }
-        // End the search before pushing the results. Pushed while the search was still active, the page came
-        // back without its navigation bar (no title, back button or search field; PR #193, CI job
-        // 139027425473, screen recording of `testCatalogSearchAtDefaultSize`). Ending it hides the keyboard;
-        // the results are pushed when `isSearchPresented` turns false (`onChange` in `body`).
-        pendingSearch = request
-        isSearchPresented = false
-        // Fallback, only if the field never reports the change.
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
-            pushPendingSearch()
-        }
-    }
-
-    private func pushPendingSearch() {
-        guard let request = pendingSearch else { return }
-        pendingSearch = nil
-        openSearch(request)
+        // Hide the keyboard; the results are pushed like any other screen.
+        searchFocused = false
+        openSearch(CatalogSearchRequest(link: link, terms: terms, pageURL: model.url))
     }
 
     var body: some View {
@@ -281,11 +262,6 @@ struct CatalogFeedView: View {
                 Button("OK", role: .cancel) {}
             } message: { error in
                 Text(error.message)
-            }
-            .modifier(CatalogSearchField(isEnabled: model.search != nil, text: $query, isPresented: $isSearchPresented,
-                                         submit: submitSearch))
-            .onChange(of: isSearchPresented) { _, presented in
-                if !presented { pushPendingSearch() }
             }
     }
 
@@ -349,10 +325,45 @@ struct CatalogFeedView: View {
         }
     }
 
+    /// The search field of a page whose feed offers search: a card at the top of the page, with a visible label
+    /// above the field like the catalog forms (placeholder text is below 4.5:1). Submitting pushes the results;
+    /// typing alone contacts nothing.
+    ///
+    /// Not `.searchable`: on iOS 26 its field (moved to the bottom of the screen on iPhone) did not survive
+    /// pushing the results. Pushed with the search active, the page came back without its navigation bar;
+    /// with the search ended first, the bar came back but the field was gone for good (PR #193, CI jobs
+    /// 139027425473 and 139054160332, screen recordings of `testCatalogSearchAt…Size`). A field in the content has
+    /// no presentation state of its own to lose.
+    private var searchField: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            CatalogFieldLabel(text: Text("Search Catalog", comment: "Catalog page: label of the search field"))
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondaryText)
+                    .accessibilityHidden(true)
+                TextField(text: $query, prompt: Text(verbatim: "")) {
+                    Text("Search Catalog", comment: "Catalog page: label of the search field")
+                }
+                .autocorrectionDisabled()
+                .submitLabel(.search)
+                .focused($searchFocused)
+                .onSubmit(submitSearch)
+                // With a prompt, the label closure is not read by VoiceOver: name the field explicitly.
+                .accessibilityLabel(Text("Search Catalog", comment: "Catalog page: label of the search field"))
+                .accessibilityIdentifier("catalogSearchField")
+            }
+            .frame(minHeight: 44)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+    }
+
     /// Cards in a `ScrollView`, not a `List` (see `CatalogsView`).
     private var list: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
+                if model.search != nil { searchField }
                 VStack(alignment: .leading, spacing: 8) {
                     // No empty title: the feed's own title heads the card only when it differs from the screen's.
                     if let feedTitle = model.title, feedTitle != title {
@@ -394,27 +405,6 @@ struct CatalogFeedView: View {
         }
         .readableScrollEdges()
         .background(Color(uiColor: .systemGroupedBackground))
-    }
-}
-
-/// The search field of a catalog page whose feed offers search (always shown under the title, so it is found
-/// without scrolling up). Submitting runs the search; typing alone contacts nothing.
-private struct CatalogSearchField: ViewModifier {
-    let isEnabled: Bool
-    @Binding var text: String
-    @Binding var isPresented: Bool
-    let submit: () -> Void
-
-    @ViewBuilder
-    func body(content: Content) -> some View {
-        if isEnabled {
-            content
-                .searchable(text: $text, isPresented: $isPresented, placement: .navigationBarDrawer(displayMode: .always),
-                            prompt: Text("Search Catalog", comment: "Catalog page: placeholder of the search field"))
-                .onSubmit(of: .search, submit)
-        } else {
-            content
-        }
     }
 }
 
