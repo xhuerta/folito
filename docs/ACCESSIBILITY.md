@@ -235,7 +235,8 @@ default size is a few points taller than CI's iPhone screen, so after the audit'
 with the first card's top edge under the bar (screen recording and failure screenshot of CI run 45508887501). Its
 first label, *Name*, 17 pt below the bar's bottom edge, was flagged for contrast at 21.00:1 measured from the
 screenshot (black on the white card; 5.99:1 with `secondaryText`, the same artefact), while it passed at rest on the
-first page. So a contrast finding within 32 pt below a collapsed navigation bar is also treated as under a bar
+first page. So a contrast finding within 40 pt below a collapsed navigation bar is also treated as under a bar (the label's top
+was 33 pt below the bar's frame, 126 to 159 pt, so the tab bar's 32 pt missed it by 1 pt in run 45516248728)
 (`nearNavigationBar`); not with the expanded large title, where nothing is scrolled under the bar. As above, the
 same text must still pass the audit clear of the bars, with the usual 16 pt margin, on another page.
 

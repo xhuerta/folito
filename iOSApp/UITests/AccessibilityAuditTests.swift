@@ -241,16 +241,17 @@ final class AccessibilityAuditTests: XCTestCase {
         return !frame.isEmpty && frame.midY >= area.top && frame.midY <= area.bottom
     }
 
-    /// Within 32 pt below the navigation bar's bottom edge while it shows its collapsed (inline) bar, where the
+    /// Within 40 pt below the navigation bar's bottom edge while it shows its collapsed (inline) bar, where the
     /// hard scroll edge effect can still lower measured contrast once content is scrolled under the bar. Edit
     /// Catalog's default-size content is a few points taller than the screen: after a drag it rests about 12 pt
-    /// up, the first card's top edge under the bar, and its first label ("Name", 17 pt below the bar's edge) was
-    /// flagged although a screenshot measured 21:1 there and the same label passed at rest (CI run 45508887501).
+    /// up, the first card's top edge under the bar, and its first label ("Name", top 33 pt below the bar's frame,
+    /// 126 to 159 pt) was flagged although a screenshot measured 21:1 there and the same label passed at rest (CI runs
+    /// 45508887501, 45516248728; 32 pt, as for the tab bar, missed it by 1 pt).
     @MainActor
     private static func nearNavigationBar(_ frame: CGRect, in app: XCUIApplication) -> Bool {
         let navigationBar = app.navigationBars.firstMatch
         return navigationBar.exists && navigationBar.frame.height < largeTitleBarMinHeight
-            && frame.minY < navigationBar.frame.maxY + 32
+            && frame.minY < navigationBar.frame.maxY + 40
     }
 
     /// Within 32 pt of the tab bar's top edge, where its scroll edge effect can still lower measured contrast.
@@ -375,8 +376,8 @@ final class AccessibilityAuditTests: XCTestCase {
         // Above the tab bar the effect reaches further: "327 bytes" on Book detail, ending 2.7 pt inside the
         // 16 pt margin, failed the audit although a screenshot measured 5.64:1 (PR #124). So a contrast finding
         // within 32 pt of the tab bar also counts as under a bar. It is still verified: the same text must pass
-        // clear of the bars, with the usual 16 pt margin, on another page. The same 32 pt applies below a collapsed
-        // navigation bar (`nearNavigationBar`; "Name" on Edit Catalog, 17 pt below the bar, measured 21:1).
+        // clear of the bars, with the usual 16 pt margin, on another page. The same applies within 40 pt below a
+        // collapsed navigation bar (`nearNavigationBar`; "Name" on Edit Catalog, 33 pt below the bar, measured 21:1).
         if issue.auditType == .contrast,
            !clearOfBars(element.frame, in: app) || nearTabBar(element.frame, in: app)
             || nearNavigationBar(element.frame, in: app) {
