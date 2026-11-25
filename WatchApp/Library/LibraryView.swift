@@ -260,7 +260,8 @@ struct ReaderLoaderView: View {
             do {
                 let box = try await library.loadBook(entry)
                 let reader = ReaderViewModel(book: box.book, positions: env.positions, sync: sync,
-                                             dictionary: env.dictionary, complications: env.complications)
+                                             dictionary: env.dictionary, complications: env.complications,
+                                             imageFiles: library.storage.imageFiles(entry.documentHash))
                 let hash = entry.documentHash
                 library.markOpened(hash)
                 env.bookOpened()

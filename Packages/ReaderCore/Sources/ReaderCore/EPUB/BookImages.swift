@@ -28,15 +28,18 @@ public struct ImageLimits: Sendable, Equatable {
     public var maxPixels: Int
     /// Longer side once half of `maxTotalBytes` is used, or when a picture is too heavy at `maxPixels` (2x zoom).
     public var reducedMaxPixels: Int
+    /// Longer side once three quarters of `maxTotalBytes` are used (1.5x zoom), the last try for a heavy picture.
+    public var smallMaxPixels: Int
     /// One picture, after resizing. Heavier ones are tried at `reducedMaxPixels`, then left out.
     public var maxImageBytes: Int
     /// All the pictures of one book. Pictures past it are left out: their blocks show the alt text.
     public var maxTotalBytes: Int
 
-    public init(maxPixels: Int = 1248, reducedMaxPixels: Int = 832, maxImageBytes: Int = 350 * 1024,
-                maxTotalBytes: Int = 8 * 1024 * 1024) {
+    public init(maxPixels: Int = 1248, reducedMaxPixels: Int = 832, smallMaxPixels: Int = 624,
+                maxImageBytes: Int = 350 * 1024, maxTotalBytes: Int = 8 * 1024 * 1024) {
         self.maxPixels = maxPixels
         self.reducedMaxPixels = min(reducedMaxPixels, maxPixels)
+        self.smallMaxPixels = min(smallMaxPixels, self.reducedMaxPixels)
         self.maxImageBytes = maxImageBytes
         self.maxTotalBytes = maxTotalBytes
     }
@@ -267,14 +270,17 @@ struct ImageEmbedder {
         let remaining = limits.maxTotalBytes - totalBytes
         guard remaining > 0 else { return nil }
         let budget = min(limits.maxImageBytes, remaining)
-        // Past half the budget, the rest of the book's pictures are sent smaller (2x zoom instead of 3x).
-        let full = totalBytes * 2 < limits.maxTotalBytes
-        if full, let p = preparer.prepare(data, mediaType: mediaType, maxPixels: limits.maxPixels), p.data.count <= budget {
-            return p
+        // Past half the budget the rest of the book's pictures are sent smaller (2x zoom instead of 3x), past three
+        // quarters smaller still (1.5x). A picture too heavy at its size is tried at the next one.
+        var sizes = [limits.maxPixels, limits.reducedMaxPixels, limits.smallMaxPixels]
+        if totalBytes * 4 >= limits.maxTotalBytes * 3 { sizes.removeFirst(2) }
+        else if totalBytes * 2 >= limits.maxTotalBytes { sizes.removeFirst() }
+        var tried: Set<Int> = []
+        for size in sizes where tried.insert(size).inserted {
+            guard let p = preparer.prepare(data, mediaType: mediaType, maxPixels: size) else { return nil }
+            if p.data.count <= budget { return p }
         }
-        guard let p = preparer.prepare(data, mediaType: mediaType, maxPixels: limits.reducedMaxPixels),
-              p.data.count <= budget else { return nil }
-        return p
+        return nil
     }
 }
 

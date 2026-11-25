@@ -381,6 +381,17 @@ behind a `confirmationDialog`.
 - Reader: every block (paragraph, heading, quote, list item) is one element; headings carry `.isHeader`
   and their level (`accessibilityHeading(.h1…)`), so the rotor's *Headings* jumps between chapter titles.
   Every block also has the action *Look Up a Word*, even with *Tap Paragraph to Look Up* turned off.
+- Pictures in the text (#71): each picture is one element that reads its `alt` text with the *Image* trait, or
+  just "Image" when the book gives none, with the hint "Opens the image full screen."; the default action
+  (double-tap) opens it. It has no *Look Up a Word* action. A picture that cannot be shown (SVG, a damaged file,
+  over the transfer cap) is drawn as its description in a frame, in the reader's body font, so it follows the
+  reader's text size. The small "opens" badge on a picture is decorative and hidden.
+- Picture viewer: the picture full screen on black, one element with the same label, value "150%" (the zoom)
+  and the hint "Swipe up or down to zoom." (adjustable: swipe up / down zooms in 50 % steps, so it works
+  without the Digital Crown). The Digital Crown zooms from 1x to 3x with detents, a drag pans, a double tap
+  switches between fit and 2.5x (animated, at once with Reduce Motion). The close button (top left) is
+  labelled *Close*, at least 40 × 40 pt, its symbol in `.body` so it grows with Dynamic Type; the two-finger
+  scrub closes too. Closing returns to the same line: the reader is not scrolled underneath.
 - The sync status glyph sits on the *Reading Options* button (never in the back button's slot); the button's
   VoiceOver value is the status ("Syncing reading progress", "Offline. Progress will sync when you're
   connected.", "Sync failed. Check the server in Settings."), and *Reading Options* opens with a note that
@@ -474,6 +485,8 @@ app's and the extension's catalogs.
 - ReaderCore (`swift test`, also on Linux): `ReaderAccessibilityTests`: contrast of every palette,
   palette selection, Bold Text / Dynamic Type in `spec(for:accessibility:)`, migration of version-1
   typography JSON, tolerant decoding and the wire format of `matchSystemTextSize`.
+- Watch (`WatchApp/Tests/InlineImageTests.swift`, #71): the viewer's zoom steps and clamping, which pictures stay
+  decoded, the reader's actions on image blocks.
 - Watch (`WatchApp/Tests/AccessibilityTests.swift`): percent formatting, error-message mapping, the
   adjustable word cursor and its haptics (spy), accessibility-aware render styles and the style cache.
 - Watch UI tests (`FolitoWatchUITests`, `WatchApp/UITests/`): see *Automated checks* below.
@@ -489,11 +502,16 @@ lists iOS 17, macOS 14, tvOS 17, visionOS 1 and **watchOS 10**; the `.dynamicTyp
 checks the audit does not make:
 
 - `WatchAccessibilityAuditTests`: the audit on the empty library, the library with one book (also with a *New* book), the reader,
-  *Reading Options*, its chapter list, Settings and Typography. Like on iOS it runs the types `.all` covers one at a time
+  *Reading Options*, its chapter list, Settings and Typography, and, on the illustrated seed (`-UITestingSeedIllustratedBook`, #71), the reader with a picture
+  and the picture viewer, at the default size and at AX5. Like on iOS it runs the types `.all` covers one at a time
   (a timed-out type is retried once) and prints every finding with its element in the CI log.
 - `WatchReaderTopBarTests`: the reader's top bar hides after scrolling down, a tap on the text shows it
   again without opening the word picker (the hidden-bar screenshot is attached to the result). The
   left-edge swipe back does not work in the reader yet and is tracked in #118.
+- `WatchImageViewerUITests` (#71): the picture is in the text with its description as its label, one without a
+  description reads "Image", a tap opens the viewer (screenshots `watch-image-viewer`, `-zoomed` after a double
+  tap), and *Close* returns to the reader at the same position. `WatchAccessibilityChecksTests` also opens the viewer
+  at AX5: *Close* is labelled and hittable and every control has a label.
 - `WatchAutoScrollUITests`: *Start Auto-Scroll* moves the text by itself, a tap pauses it (the text stays
   put, screenshot `watch-autoscroll-paused`) and *Stop Auto-Scroll* in the menu stops it.
 - `WatchBookmarksUITests`: *Add Bookmark* turns into *Bookmarked*, *All Bookmarks* lists the bookmark

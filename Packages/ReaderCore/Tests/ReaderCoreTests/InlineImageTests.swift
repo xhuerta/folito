@@ -238,6 +238,18 @@ final class InlineImageTests: XCTestCase {
         XCTAssertEqual(e.images.map(\.id), ["i1", "i2", "i3", "i4"])
     }
 
+    func testThreeSizesAsTheBudgetFills() {
+        var e = ImageEmbedder(preparer: SizedPreparer(bytesPerPixel: 100),
+                              limits: ImageLimits(maxPixels: 1200, reducedMaxPixels: 800, smallMaxPixels: 400,
+                                                  maxImageBytes: 200_000, maxTotalBytes: 400_000))
+        var widths: [Int?] = []
+        for i in 0..<6 { widths.append(e.embed(path: "p\(i)", data: Self.png(2000, 2000), mediaType: "image/png")?.width) }
+        // 120 KB and 120 KB at full size, 80 KB once past half (240 KB), 40 KB once past three quarters (320 KB),
+        // 40 KB more to exactly 400 KB, then nothing.
+        XCTAssertEqual(widths, [1200, 1200, 800, 400, 400, nil])
+        XCTAssertEqual(ImageLimits.watch.smallMaxPixels, 624)
+    }
+
     func testPictureOverTheCapShowsItsAltText() throws {
         let b = try book("<p>t</p><p><img src=\"a.png\" alt=\"First\"/></p><p><img src=\"b.png\" alt=\"Second\"/></p>",
                          pictures: ["a.png": Self.png(1000, 1000), "b.png": Self.png(1000, 1000)],

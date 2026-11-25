@@ -205,6 +205,36 @@ enum WatchUI {
         start.press(forDuration: 0.05, thenDragTo: end)
     }
 
+    // MARK: Images (#71, `-UITestingSeedIllustratedBook`)
+
+    /// Launch arguments of the illustrated seed (with `seedSampleBook: true`).
+    static let illustratedBookArguments = ["-UITestingSeedIllustratedBook"]
+    /// The description of the seed's picture, which is its VoiceOver label.
+    static let illustrationLabel = "A white rabbit with a pocket watch"
+
+    /// The seed's picture in the text.
+    static func illustration(in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: "readerBlock")
+            .matching(NSPredicate(format: "label == %@", illustrationLabel)).element(boundBy: 0)
+    }
+
+    /// Reader (illustrated seed) -> the picture full screen. Returns whether the viewer opened.
+    @discardableResult
+    static func openImageViewer(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) -> Bool {
+        let picture = illustration(in: app)
+        guard scrollToHittable(picture, in: app) else {
+            fail("The picture is not on screen", in: app, file: file, line: line)
+            return false
+        }
+        picture.tap()
+        let close = element("imageViewerClose", in: app)
+        guard close.waitForExistence(timeout: 5) else {
+            fail("The image viewer did not open", in: app, file: file, line: line)
+            return false
+        }
+        return true
+    }
+
     // MARK: Reading position (`-UITestingReaderPosition`)
 
     /// Launch argument that makes the reader expose its saved position (`readerPosition`).
