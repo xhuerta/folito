@@ -1,20 +1,3 @@
-    private func submitSearch() {
-        guard let link = model.search else { return }
-        let terms = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !terms.isEmpty else { return }
-        let request = CatalogSearchRequest(link: link, terms: terms, pageURL: model.url)
-        guard isSearchPresented else { return openSearch(request) }
-        // End the search before pushing the results. Pushed while the search was still active, the page came
-        // back without its navigation bar (no title, back button or search field; PR #193, CI job
-        // 139027425473, screen recording of `testCatalogSearchAtDefaultSize`). Ending it hides the keyboard;
-        // the results are pushed once the field has gone back to the navigation bar.
-        isSearchPresented = false
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 400_000_000)
-            openSearch(request)
-        }
-    }
-
 import SwiftUI
 import UIKit
 import ReaderCore
@@ -210,6 +193,8 @@ struct CatalogFeedView: View {
     @State private var query = ""
     /// Whether the search field is active (focused, or showing its Cancel button).
     @State private var isSearchPresented = false
+    /// A submitted search waiting for the field to end before its results are pushed.
+    @State private var pendingSearch: CatalogSearchRequest?
     /// Pushes the results of a search (onto the Catalogs stack's path).
     private let openSearch: (CatalogSearchRequest) -> Void
 
@@ -239,9 +224,25 @@ struct CatalogFeedView: View {
         guard let link = model.search else { return }
         let terms = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !terms.isEmpty else { return }
-        // Hide the keyboard: the results screen is pushed, and the keyboard would cover its rows.
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-        openSearch(CatalogSearchRequest(link: link, terms: terms, pageURL: model.url))
+        let request = CatalogSearchRequest(link: link, terms: terms, pageURL: model.url)
+        guard isSearchPresented else { return openSearch(request) }
+        // End the search before pushing the results. Pushed while the search was still active, the page came
+        // back without its navigation bar (no title, back button or search field; PR #193, CI job
+        // 139027425473, screen recording of `testCatalogSearchAtDefaultSize`). Ending it hides the keyboard;
+        // the results are pushed when `isSearchPresented` turns false (`onChange` in `body`).
+        pendingSearch = request
+        isSearchPresented = false
+        // Fallback, only if the field never reports the change.
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            pushPendingSearch()
+        }
+    }
+
+    private func pushPendingSearch() {
+        guard let request = pendingSearch else { return }
+        pendingSearch = nil
+        openSearch(request)
     }
 
     var body: some View {
@@ -283,6 +284,9 @@ struct CatalogFeedView: View {
             }
             .modifier(CatalogSearchField(isEnabled: model.search != nil, text: $query, isPresented: $isSearchPresented,
                                          submit: submitSearch))
+            .onChange(of: isSearchPresented) { _, presented in
+                if !presented { pushPendingSearch() }
+            }
     }
 
     @ViewBuilder
