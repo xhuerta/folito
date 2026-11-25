@@ -254,12 +254,17 @@ private final class GateClock: SyncClock, @unchecked Sendable {
         pending.forEach { $0.resume() }
     }
 
-    /// Waits until a timer is sleeping on this clock.
-    func waitForSleeper() async {
-        for _ in 0..<1_000 {
+    /// Waits until a timer is sleeping on this clock. A fixed number of yields was not enough on a loaded runner
+    /// (issue #194): the wait gave up before the timer task reached `sleep`, so the test ended the request first.
+    /// It now waits up to 10 seconds of wall-clock time and fails loudly instead of returning silently.
+    func waitForSleeper(file: StaticString = #filePath, line: UInt = #line) async {
+        let deadline = Date().addingTimeInterval(10)
+        while Date() < deadline {
             lock.lock(); let count = sleepers; lock.unlock()
             if count > 0 { return }
             await Task.yield()
+            try? await Task.sleep(nanoseconds: 1_000_000)
         }
+        XCTFail("no timer started sleeping on the clock within 10 seconds", file: file, line: line)
     }
 }
