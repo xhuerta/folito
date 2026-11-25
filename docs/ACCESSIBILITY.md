@@ -99,7 +99,10 @@ a row was "hittable" was flaky. A slow drag that started on a row became a tap a
 45522603339), and a fling left a row's centre under the navigation bar, so the tap did nothing (job 138876470109).
 Drags now start in the left margin, where no row is, move by a computed distance and hold before lifting. The loop
 stops once the row's centre is between the bars and above the keyboard, read after the content has stopped moving.
-A tap that did not navigate is repeated once, and the tests still assert the destination.
+A tap that did not navigate is repeated once, and the tests still assert the destination. The helper reads the clear area once per
+call and reuses its last snapshot between drags, because each query costs a round trip. The slower first version
+pushed `testCatalogsAtLargestTextSize` past the 180 s per-test allowance. XCTest then restarted the test runner and
+xcodebuild failed although every test passed. `CatalogsUITests` now allows 300 s per test.
 
 **Dynamic Type.** No fixed point sizes in UI chrome; only text styles. Layouts that would truncate switch
 at accessibility sizes: the size/state line of library rows stacks vertically (`AnyLayout`), slider

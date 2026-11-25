@@ -9,6 +9,9 @@ final class CatalogsUITests: XCTestCase {
     override func setUp() {
         super.setUp()
         continueAfterFailure = false
+        // The AX5 walk-through makes some 25 drags and takes about 2.5 minutes on CI, close to the default 180 s
+        // allowance; past it XCTest restarts the test runner and xcodebuild fails although the test passed.
+        executionTimeAllowance = 300
     }
 
     @MainActor

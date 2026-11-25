@@ -37,32 +37,49 @@ enum RowNavigation {
     }
 
     /// Scrolls until the centre of `element` is in `clearRange`, or the content stops moving.
+    ///
+    /// Kept cheap on purpose: every query and snapshot is a round trip to the app (0.1 to 0.3 s on CI), and a
+    /// walk through the catalogs at AX5 makes some 25 drags. With a fresh clear area, bar check and before/after
+    /// snapshots per drag, `testCatalogsAtLargestTextSize` took 206 s, over the 180 s per-test allowance of CI
+    /// (`-default-test-execution-time-allowance 180`). XCTest then let the test finish but killed and restarted
+    /// the test runner while launching the next test, and xcodebuild exited 65 although every test passed
+    /// (PR #190, jobs 138920508962 and 138956279104). So the clear area and the bars are read once per call
+    /// (scrolling does not move them), a drag reuses the snapshot that ended the previous wait, and a drag covers
+    /// most of the clear area.
     @MainActor
     static func reveal(_ element: XCUIElement, in app: XCUIApplication, maxDrags: Int = 15) {
-        waitForSettle(app)
-        let step = app.windows.firstMatch.frame.height * 0.4
+        let range = clearRange(in: app)
+        let bars = barFrames(in: app)
+        // When the element is not loaded yet, a drag moves most of the clear area, so that what was just below
+        // it comes into it and nothing is skipped.
+        let step = max(40, (range.upperBound - range.lowerBound) * 0.8)
+        var current = waitForSettle(app)
         for _ in 0..<maxDrags {
-            let range = clearRange(in: app)
             let distance: CGFloat
             if element.exists, !element.frame.isEmpty {
                 let frame = element.frame
-                if range.contains(frame.midY) || inBar(frame, in: app) { return }
+                let centre = CGPoint(x: frame.midX, y: frame.midY)
+                if range.contains(centre.y) || bars.contains(where: { $0.contains(centre) }) { return }
                 // Positive: the row is below the clear area, so the content moves up.
-                distance = frame.midY - (range.lowerBound + range.upperBound) / 2
+                distance = centre.y - (range.lowerBound + range.upperBound) / 2
             } else {
                 distance = step // not loaded yet: further down
             }
-            guard drag(app, by: max(-step, min(step, distance))) else { return }
+            guard let moved = drag(app, by: max(-step, min(step, distance)), in: range, from: current) else { return }
+            current = moved
         }
     }
 
-    /// A button of the navigation bar or the tab bar (such as *Save* in Edit Catalog) is not scrolled.
+    /// The navigation bar and the (visible) tab bar: a button there (such as *Save* in Edit Catalog) is not
+    /// scrolled.
     @MainActor
-    private static func inBar(_ frame: CGRect, in app: XCUIApplication) -> Bool {
+    private static func barFrames(in app: XCUIApplication) -> [CGRect] {
+        var frames: [CGRect] = []
         let navigationBar = app.navigationBars.firstMatch
+        if navigationBar.exists { frames.append(navigationBar.frame) }
         let tabBar = app.tabBars.firstMatch
-        return (navigationBar.exists && navigationBar.frame.contains(CGPoint(x: frame.midX, y: frame.midY)))
-            || (tabBar.exists && tabBar.isHittable && tabBar.frame.contains(CGPoint(x: frame.midX, y: frame.midY)))
+        if tabBar.exists, tabBar.isHittable { frames.append(tabBar.frame) }
+        return frames
     }
 
     /// Scrolls `element` into reach (see `reveal`), taps it and waits for `destination`. If the destination did
@@ -82,13 +99,13 @@ enum RowNavigation {
         return destination.waitForExistence(timeout: timeout)
     }
 
-    /// Drags the content up by about `distance` points (down when negative), from the left margin, holding at the
-    /// end so that it does not keep moving. Returns whether the content moved.
+    /// Drags the content up by about `distance` points (down when negative) within `range`, from the left
+    /// margin, holding at the end so that it does not keep moving. `before` is the signature of the screen before
+    /// the drag; returns the one after it, or nil when the content did not move.
     @MainActor
-    @discardableResult
-    static func drag(_ app: XCUIApplication, by distance: CGFloat) -> Bool {
-        guard abs(distance) >= 1 else { return false }
-        let range = clearRange(in: app)
+    private static func drag(_ app: XCUIApplication, by distance: CGFloat, in range: ClosedRange<CGFloat>,
+                             from before: [String]) -> [String]? {
+        guard abs(distance) >= 1 else { return nil }
         let centre = (range.lowerBound + range.upperBound) / 2
         let half = min((abs(distance) + slop) / 2, (range.upperBound - range.lowerBound) / 2)
         let origin = app.windows.firstMatch.coordinate(withNormalizedOffset: .zero)
@@ -96,37 +113,42 @@ enum RowNavigation {
         let endY = distance > 0 ? centre - half : centre + half
         let start = origin.withOffset(CGVector(dx: dragX, dy: startY))
         let end = origin.withOffset(CGVector(dx: dragX, dy: endY))
-        let before = signature(app)
-        start.press(forDuration: 0.1, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.3)
-        waitForSettle(app)
-        return signature(app) != before
+        // The hold at the end stops the finger before it lifts, so the list does not fling whatever the speed.
+        start.press(forDuration: 0.1, thenDragTo: end, withVelocity: XCUIGestureVelocity(800),
+                    thenHoldForDuration: 0.3)
+        let after = waitForSettle(app)
+        return after == before ? nil : after
     }
 
-    /// Waits until the texts on screen stop moving.
+    /// Waits until the texts on screen stop moving, and returns their signature then.
     @MainActor
-    static func waitForSettle(_ app: XCUIApplication) {
+    @discardableResult
+    static func waitForSettle(_ app: XCUIApplication) -> [String] {
         var previous = signature(app)
         for _ in 0..<12 {
-            Thread.sleep(forTimeInterval: 0.25)
+            Thread.sleep(forTimeInterval: 0.15)
             let current = signature(app)
-            if current == previous { return }
+            if current == previous { return current }
             previous = current
         }
+        return previous
     }
 
     /// Labels and positions of the texts on screen, from one snapshot.
     @MainActor
     private static func signature(_ app: XCUIApplication) -> [String] {
-        guard let snapshot = try? app.snapshot() else { return [] }
-        let screen = app.windows.firstMatch.frame
-        var texts: [String] = []
-        var stack = [snapshot]
-        while let node = stack.popLast() {
-            if node.elementType == .staticText, node.frame.intersects(screen) {
-                texts.append("\(node.label)@\(Int(node.frame.minY))")
+        autoreleasepool { () -> [String] in
+            guard let snapshot = try? app.snapshot() else { return [] }
+            let screen = snapshot.frame
+            var texts: [String] = []
+            var stack = [snapshot]
+            while let node = stack.popLast() {
+                if node.elementType == .staticText, node.frame.intersects(screen) {
+                    texts.append("\(node.label)@\(Int(node.frame.minY))")
+                }
+                stack.append(contentsOf: node.children)
             }
-            stack.append(contentsOf: node.children)
+            return texts
         }
-        return texts
     }
 }
