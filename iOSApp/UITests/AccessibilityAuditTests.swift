@@ -191,18 +191,24 @@ final class AccessibilityAuditTests: XCTestCase {
         return found
     }
 
-    /// Scrolls down until the point where `element` is tapped (its centre) is clear of the bars, then taps it.
-    /// The centre, not the whole frame: at AX5 a catalog row with a saved sign-in is taller than the clear area
-    /// minus one scroll step, so requiring its whole frame between the bars could scroll it past the top (CI run
-    /// 45490867043, "Home Library" in `testEditCatalogAudit`).
+    /// Scrolls until the point where `element` is tapped (its centre) is clear of the bars, then taps it, with
+    /// `RowNavigation` (shared with CatalogsUITests): drags from the left margin, where no row is, by a computed
+    /// distance without a fling. With drags from the middle of the screen, a slow drag on an AX5 catalog row
+    /// became a tap and opened the wrong catalog (CI run 45522603339, `testCatalogSignInAudit`); and requiring the
+    /// whole frame between the bars could scroll a row taller than the clear area minus one step past the top
+    /// (CI run 45490867043). With `expecting`, the tap is repeated once if it did not navigate (the element is
+    /// still there and the destination did not appear); the caller still asserts the destination.
     @MainActor
     private static func scrollAndTap(_ element: XCUIElement, in app: XCUIApplication,
+                                     expecting destination: XCUIElement? = nil,
                                      file: StaticString = #filePath, line: UInt = #line) {
-        for _ in 0..<10 where !(element.exists && element.isHittable && tapPointClearOfBars(element.frame, in: app)) {
-            scrollDown(app)
-        }
+        RowNavigation.reveal(element, in: app)
         XCTAssertTrue(element.exists && element.isHittable, "\(element) not reachable", file: file, line: line)
-        element.tap()
+        if let destination {
+            RowNavigation.open(element, in: app, expecting: destination)
+        } else {
+            element.tap()
+        }
     }
 
     // MARK: Bars and the scroll edge effect
@@ -232,13 +238,6 @@ final class AccessibilityAuditTests: XCTestCase {
         let width = app.windows.firstMatch.frame.width
         return !frame.isEmpty && frame.minY >= area.top && frame.maxY <= area.bottom && frame.minX >= 0
             && frame.maxX <= width
-    }
-
-    /// Whether the centre of `frame`, where XCTest taps an element, is between the bars.
-    @MainActor
-    private static func tapPointClearOfBars(_ frame: CGRect, in app: XCUIApplication) -> Bool {
-        let area = clearArea(in: app)
-        return !frame.isEmpty && frame.midY >= area.top && frame.midY <= area.bottom
     }
 
     /// Within 40 pt below the navigation bar's bottom edge while it shows its collapsed (inline) bar, where the
@@ -630,7 +629,7 @@ final class AccessibilityAuditTests: XCTestCase {
         try auditScreen("Add Catalog", extraArguments: ["-UITestingMockCatalogs"],
                         formFooterFindingsAtLargestText: true) { app in
             Self.openCatalogs(app)
-            Self.scrollAndTap(app.buttons["catalogsAdd"], in: app)
+            Self.scrollAndTap(app.buttons["catalogsAdd"], in: app, expecting: app.navigationBars["Add Catalog"])
             XCTAssertTrue(app.navigationBars["Add Catalog"].waitForExistence(timeout: 5), "Add Catalog did not open")
         }
     }
@@ -661,7 +660,7 @@ final class AccessibilityAuditTests: XCTestCase {
         openCatalogs(app)
         let row = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier == 'catalogRow' AND label BEGINSWITH 'Family Server'")).firstMatch
-        scrollAndTap(row, in: app)
+        scrollAndTap(row, in: app, expecting: app.buttons["catalogSignIn"])
         XCTAssertTrue(app.buttons["catalogSignIn"].waitForExistence(timeout: 10), "Sign In not offered")
         waitForScrollToSettle(app)
     }
@@ -692,7 +691,7 @@ final class AccessibilityAuditTests: XCTestCase {
             Self.openCatalogs(app)
             let row = app.descendants(matching: .any)
                 .matching(NSPredicate(format: "identifier == 'catalogRow' AND label BEGINSWITH 'Home Library'")).firstMatch
-            Self.scrollAndTap(row, in: app)
+            Self.scrollAndTap(row, in: app, expecting: app.buttons["catalogEdit"])
             let edit = app.buttons["catalogEdit"]
             XCTAssertTrue(edit.waitForExistence(timeout: 10), "Edit not offered")
             edit.tap()
