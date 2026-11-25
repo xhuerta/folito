@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:opds="http://opds-spec.org/2010/catalog" xmlns:pse="http://vaemendis.net/opds-pse/ns" xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/">
+  <id>search</id>
+  <title>Search results</title>
+  <updated>2026-11-24T18:07:02Z</updated>
+  <author>
+    <name>Komga</name>
+    <uri>https://github.com/gotson/komga</uri>
+  </author>
+  <link type="application/atom+xml;profile=opds-catalog;kind=navigation" rel="self" href="/opds/v1.2/search?search=austen"/>
+  <link type="application/atom+xml;profile=opds-catalog;kind=navigation" rel="start" href="/opds/v1.2/catalog"/>
+  <link type="application/opensearchdescription+xml" rel="search" href="/opds/v1.2/search"/>
+  <entry>
+    <title>Persuasion</title>
+    <updated>2026-11-20T10:11:12Z</updated>
+    <id>0BWJ8M1QH4ZR6</id>
+    <content></content>
+    <link type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="subsection" href="/opds/v1.2/series/0BWJ8M1QH4ZR6"/>
+  </entry>
+</feed>

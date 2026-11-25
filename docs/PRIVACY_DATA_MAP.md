@@ -132,14 +132,20 @@ Code: `Packages/ReaderCore/Sources/ReaderCore/OPDS/` (`OPDSClient`, `URLSessionO
 `docs/OPDS.md`. *Library › + › Catalogs* lists two presets (Standard Ebooks' new releases feed,
 `https://standardebooks.org/feeds/atom/new-releases`, and Project Gutenberg, `https://www.gutenberg.org/ebooks.opds/`)
 and the catalogs the user added by address. **Listing them contacts nothing.** A request is made only when the user
-opens a catalog or one of its sections, taps *Load More*, adds or edits a catalog (its address, and the sign-in if
-one was entered, is read once to check it), or taps *Download* on a book. The watch never does it.
+opens a catalog or one of its sections, taps *Load More*, submits a search (#161), adds or edits a catalog (its
+address, and the sign-in if one was entered, is read once to check it), or taps *Download* on a book. The watch never
+does it.
 
 | Recipient | Request | Data sent |
 |---|---|---|
 | The catalog the user opened (a preset, or the server at the address the user typed) | HTTPS GET (plain `http://` only for local-network hosts, as for KOSync) | The address of the page, `User-Agent: Folito/1.0 (https://folito.app; OPDS catalog browser)` and an `Accept` header, plus the IP address inherent to any request. |
 | A self-hosted catalog the user added **with a sign-in** (Calibre, Calibre-Web, Komga, ...) | HTTPS GET only | As above, plus `Authorization: Basic` with the user name and password the user entered for that server. |
 | Hosts the catalog links to for covers and EPUB files (e.g. `standardebooks.org`, `www.gutenberg.org`) | HTTPS GET | The address the catalog gave; same User-Agent and IP address. The sign-in only if that host is the catalog's own server (same scheme, host and port). |
+
+**Search (#161).** On a page whose feed offers OpenSearch, the terms the user submits are sent, percent-encoded in
+the search address, to the catalog: first its OpenSearch description is read (once per launch), then the results
+page and, on *Load More*, the next ones. Nothing is sent while typing; the terms are not stored. The sign-in rules
+below apply unchanged (a template on another host or on plain http gets no `Authorization`).
 
 **Sign-in (#160).** Optional, per server (scheme, host and port), for catalogs the user added. The user name and
 password are sent only as HTTP Basic auth, only to that server, and only over `https://`: the client attaches them

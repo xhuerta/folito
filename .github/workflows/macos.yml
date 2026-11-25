@@ -212,7 +212,8 @@ jobs:
       #  * CoversUITests (`-UITestingSeedCovers`): Library with covers, placeholder, book detail, largest text.
       #  * OnlineMetadataUITests (`-UITestingMockOnlineMetadata`, no network): Settings > Book Details, Find
       #    Details Online, the confirmation sheet, Remove Online Details.
-      #  * CatalogsUITests (`-UITestingMockCatalogs`, no network): Catalogs, a section, a page, a book, Add Catalog.
+      #  * CatalogsUITests (`-UITestingMockCatalogs`, no network): Catalogs, a section, a page, a book, Add Catalog,
+      #    sign-in, search.
       # The accessibility audits in the same bundle run in accessibility.yml.
       - name: UI tests (welcome tour, Readest library, covers, online metadata, catalogs)
         if: env.UI_TIER == 'true' && matrix.platform == 'ios'

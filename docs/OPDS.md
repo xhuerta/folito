@@ -1,7 +1,8 @@
 # OPDS catalogs
 
 The iPhone app can browse OPDS 1.2 catalogs and download DRM-free EPUBs from them (issue #159, part 1 of #64), including
-self-hosted servers that ask for a user name and password (issue #160, part 2).
+self-hosted servers that ask for a user name and password (issue #160, part 2), and searches catalogs that offer
+OpenSearch (issue #161, part 3).
 Downloads go through the normal import, so a book from a catalog is processed, kept and sent to the Apple Watch
 like any EPUB the user imports.
 
@@ -11,12 +12,13 @@ like any EPUB the user imports.
 | --- | --- |
 | Feed model, acquisition rules, page merging | `Packages/ReaderCore/Sources/ReaderCore/OPDS/OPDSFeed.swift` |
 | Atom/OPDS parser | `Packages/ReaderCore/Sources/ReaderCore/OPDS/OPDSParser.swift` |
-| Client (feeds, covers, EPUB downloads) and errors | `Packages/ReaderCore/Sources/ReaderCore/OPDS/OPDSClient.swift` |
+| OpenSearch: search links, description documents, filling templates | `Packages/ReaderCore/Sources/ReaderCore/OPDS/OPDSSearch.swift` |
+| Client (feeds, search, covers, EPUB downloads) and errors | `Packages/ReaderCore/Sources/ReaderCore/OPDS/OPDSClient.swift` |
 | Sign-in: credentials, origins, where they may be sent, the in-memory vault | `Packages/ReaderCore/Sources/ReaderCore/OPDS/OPDSAuth.swift` |
 | Presets, address normalisation | `Packages/ReaderCore/Sources/ReaderCore/OPDS/OPDSCatalog.swift` |
-| Catalog list, sign-ins (Keychain), downloads, page model | `iOSApp/Library/CatalogStore.swift` |
+| Catalog list, sign-ins (Keychain), downloads, page and search-results model | `iOSApp/Library/CatalogStore.swift` |
 | Screens | `iOSApp/Views/CatalogsView.swift` (Library › + › Catalogs), `iOSApp/Views/CatalogFormViews.swift` (Add Catalog, Edit Catalog, Sign In) |
-| Tests | `Packages/ReaderCore/Tests/ReaderCoreTests/OPDSTests.swift` and `OPDSAuthTests.swift`, fixtures in `Tests/Fixtures/OPDS/`; `iOSApp/Tests/CatalogTests.swift`; `iOSApp/UITests/CatalogsUITests.swift` and the `catalogs` shard of `AccessibilityAuditTests` |
+| Tests | `Packages/ReaderCore/Tests/ReaderCoreTests/OPDSTests.swift`, `OPDSAuthTests.swift` and `OPDSSearchTests.swift`, fixtures in `Tests/Fixtures/OPDS/`; `iOSApp/Tests/CatalogTests.swift`; `iOSApp/UITests/CatalogsUITests.swift` and the `catalogs` and `signin` shards of `AccessibilityAuditTests` (`testCatalogSearchAudit` is in `signin`) |
 
 ## Behaviour
 
@@ -82,7 +84,39 @@ address contains the user's API key, `https://host/api/opds/<key>`).
 - **Editing.** The edit screen shows the saved user name, never the password. An empty password keeps the saved one;
   both fields empty (or *Remove Sign-In*) deletes it. Removing the last catalog on a server deletes its Keychain item.
 - **UI tests.** `-UITestingMockCatalogs` adds "Home Library" (signed in) and "Family Server" (answers 401) with an
-  in-memory Keychain; the fixture sign-in is `reader` / `fixture-password` (Debug builds only).
+  in-memory Keychain; the fixture sign-in is `reader` / `fixture-password` (Debug builds only). "Home Library" offers
+  search through a description: "mars" finds two books and a next page, anything else nothing.
+
+## Search (part 3, #161)
+
+- **Where.** A page whose feed has a `rel="search"` link gets a search field (`.searchable`, always shown under the
+  title). Submitting it pushes *Search Results*, the same screen as a catalog page: book and section rows, *Load
+  More* (`rel="next"`), errors, and *Sign In…* after a 401. The heading says what was searched ("Results for
+  “mars”"); nothing found shows the system's "No Results" view. The results screen has no search field of its own.
+- **Two forms of the link.** An OpenSearch description document (`type="application/opensearchdescription+xml"`:
+  Calibre-Web, Project Gutenberg, Komga, Kavita, Standard Ebooks), or a template given directly
+  (`type="application/atom+xml"` and an `href` with `{searchTerms}`: Calibre's content server, Calibre-Web). When a
+  feed has both, the direct template is used (one request fewer). The `href` of a template is kept as written and
+  resolved only after it is filled (resolving it first would percent-encode the braces).
+- **Description documents.** The template is the first `Url` whose `type` is `application/atom+xml` (any parameters;
+  one with `profile=opds-catalog` wins) and whose `rel` is `results` (the default). `text/html`, RSS and
+  `suggestions` templates are ignored. Relative templates are resolved against the address the description was
+  served from. A description is read the first time the user searches and kept in memory (per client, so per
+  launch). One without a usable Atom template is `OPDSError.searchNotSupported` ("Folito can't use this catalog's
+  search").
+- **Filling.** `{searchTerms}` gets the trimmed terms with everything but `A–Z a–z 0–9 - . _ ~` percent-encoded
+  (UTF-8; a space is `%20`, `/` is `%2F`), so a term is safe in a path segment (`/opds/search/{searchTerms}`) as in
+  a query. Optional parameters (`{name?}`) are left empty. Required standard ones get first-page values:
+  `{startIndex}` the `indexOffset` (default 1), `{startPage}` the `pageOffset` (default 1), `{language}` `*`,
+  `{inputEncoding}` / `{outputEncoding}` `UTF-8`. A template with another required parameter (`{count}`, or a
+  server's own extension), without `{searchTerms}`, or whose result is not an `http`/`https` address is not used.
+- **Requests and sign-in.** The description and the results are read by the same `OPDSClient` as any page, so the
+  rules of part 2 apply unchanged: a saved sign-in goes only to its own `https` server (a template on another host
+  or on plain http gets no `Authorization`), and a redirect off the origin drops it. Nothing is requested while the
+  user types: only when a search is submitted (empty terms send nothing).
+- **Standard Ebooks.** The new releases feed links their description; its Atom template
+  (`/feeds/atom/all?query=`) may, like their full OPDS catalog, be limited to Patrons Circle members, in which case
+  the results screen shows the sign-in message.
 
 ## Privacy
 
@@ -100,10 +134,14 @@ entries. Project Gutenberg answered 503 (maintenance) on that day and Calibre-We
 (content server: links without `rel`, `/get/epub/<id>/<library>`, the older `opds-spec.org/cover` and `/thumbnail`
 rels, XHTML content), `komga-*.xml` (`/opds/v1.2/...`, a CBZ comic with an OPDS-PSE page stream next to an EPUB) and
 `kavita-series.xml` (API key in the path, `acquisition/open-access`) are written by hand in the shape those servers
-produce. No live server is contacted by the tests; the client's sign-in rules and the URLSession transport are
+produce. The search fixtures, `opensearch-*.xml` (description documents of Calibre-Web, Project Gutenberg, Komga,
+Kavita and Standard Ebooks, plus `opensearch-unusable.xml` with templates Folito must refuse) and
+`search-*-results.xml` (Calibre-Web, Project Gutenberg and Komga result pages), are also written by hand in the shape
+those servers produce. No live server is contacted by the tests; the client's sign-in rules and the URLSession transport are
 tested with a mock transport and a mocked `URLProtocol` (`OPDSAuthTests`, `CatalogTests`).
 
 ## Not yet (later parts of #64)
 
-OPDS authentication documents, Digest auth, OpenSearch, facets, OPDS 2.0 (JSON), download progress. Kavita's API key is
+OPDS authentication documents, Digest auth, search suggestions and OpenSearch paging parameters beyond the first page
+(results pages are followed through `rel="next"`), facets, OPDS 2.0 (JSON), download progress. Kavita's API key is
 part of the catalog address and so is stored with the address (UserDefaults), not in the Keychain.

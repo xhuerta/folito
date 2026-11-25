@@ -70,7 +70,7 @@
 <main id="main">
 <div class="doc">
 <h1>Privacy Policy</h1>
-<p class="muted">Last updated: 24 November 2026. Applies to the Folito apps for iPhone and Apple Watch.</p>
+<p class="muted">Last updated: 25 November 2026. Applies to the Folito apps for iPhone and Apple Watch.</p>
 <div class="card note lead-card"><span class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2.8 19 5.6v5.7c0 4.6-3 8.3-7 9.9-4-1.6-7-5.3-7-9.9V5.6z"/><path d="m8.8 12.1 2.2 2.2 4.3-4.5"/></svg></span><p>In short: Folito works without any account. It has no analytics, no advertising and no tracking, and the developer runs no server and receives no data. The app only contacts a sync server if you choose to set one up, and the dictionary download site named below when you download a dictionary. If you ask it to, the iPhone also looks up missing book details on Open Library (see below). Book catalogs are contacted only when you open one (see below).</p></div>
 
 <section class="group">
@@ -136,6 +136,7 @@
 <div class="card">
 <p>In the Library, <em>+ › Catalogs</em> lists two free catalogs, <strong>Standard Ebooks</strong> (standardebooks.org) and <strong>Project Gutenberg</strong> (www.gutenberg.org), and any OPDS catalog you add by its address. Listing them contacts nothing. Only when you open a catalog or one of its sections, tap <em>Load More</em>, add a catalog (its address is read once to check it) or tap <em>Download</em> on a book does the iPhone request that page, cover or EPUB file from the catalog over HTTPS (plain http only for addresses on your local network). The request contains only the address of the page or file and a User-Agent naming the app: no cookies, no login (unless you saved one for that catalog, see below), and nothing about you, your library, your reading or your other catalogs. The developer receives nothing. The catalog, and any server it links covers or files to, sees your IP address and handles it under its own policy. Catalogs you add are stored only on your iPhone. A book you download is imported like any other EPUB and sent to your watch.</p>
 <p><strong>Sign-in for your own server.</strong> For a catalog you add, such as your own Calibre, Calibre-Web or Komga server, you can enter a user name and password. They are stored only in your iPhone’s Keychain, on this device only (not in iCloud Keychain, not in the app’s settings, not on the watch), and are sent only to that catalog’s own server, only over an encrypted https:// connection; never to other servers it links to, and never to the developer. Folito refuses a sign-in for a catalog whose address starts with http://. <em>Remove Sign-In</em>, or removing the catalog, deletes it from the Keychain.</p>
+<p><strong>Search.</strong> A catalog that offers search (OpenSearch) shows a search field. What you type is sent to that catalog, as part of the search address, only when you submit the search, never while you type, and to no one else; it is not stored by Folito. A saved sign-in is sent with it only if the search is on the catalog’s own https server.</p>
 </div>
 </section>
 <section class="group">

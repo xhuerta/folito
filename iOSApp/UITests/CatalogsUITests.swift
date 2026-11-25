@@ -3,7 +3,8 @@ import XCTest
 /// OPDS catalogs (docs/OPDS.md) with fixed feeds built in code (`-UITestingMockCatalogs`, Debug builds only; no
 /// network): Library › + › Catalogs, a section of Project Gutenberg, a page of Standard Ebooks with Load More, a
 /// book, the Add Catalog form and its error, and the sign-in of a self-hosted catalog (a 401 page, Sign In with a
-/// wrong and the right password, Edit Catalog, Remove Sign-In). Each screen is attached at the default and the
+/// wrong and the right password, Edit Catalog, Remove Sign-In), and search in the signed-in "Home Library" (the
+/// search field, results with Load More, a book from the results, a search that finds nothing). Each screen is attached at the default and the
 /// largest accessibility text size; macos.yml exports them as the `catalogs-screenshots` artifact.
 final class CatalogsUITests: XCTestCase {
     override func setUp() {
@@ -183,6 +184,71 @@ final class CatalogsUITests: XCTestCase {
         XCTAssertTrue(row(app, "catalogRow", startingWith: "Family Server").waitForExistence(timeout: 5))
         XCTAssertFalse(row(app, "catalogRow", startingWith: "Family Server").label.contains("Signed in"),
                        "removed from the list too")
+    }
+
+    /// Opens the signed-in "Home Library", whose feed offers search, and returns its search field.
+    @MainActor
+    private func openSearchableCatalog(_ app: XCUIApplication) -> XCUIElement {
+        openCatalogs(app)
+        let field = app.searchFields.firstMatch
+        RowNavigation.open(row(app, "catalogRow", startingWith: "Home Library"), in: app, expecting: field)
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "a catalog with search shows a search field")
+        return field
+    }
+
+    @MainActor
+    private func search(_ terms: String, in field: XCUIElement) {
+        field.tap()
+        field.typeText(terms + "\n")
+    }
+
+    @MainActor
+    private func searchFlow(largestText: Bool) {
+        let size = largestText ? "ax5" : "default"
+        let app = launch(largestText: largestText)
+        let field = openSearchableCatalog(app)
+        XCTAssertTrue(row(app, "catalogSectionRow", startingWith: "Recently Added").waitForExistence(timeout: 10))
+        screenshot(app, "\(size)-12-search-field")
+
+        // Results reuse the page: book rows, then Load More for the next page.
+        search("mars", in: field)
+        let princess = row(app, "catalogBookRow", startingWith: "A Princess of Mars")
+        XCTAssertTrue(princess.waitForExistence(timeout: 10), "the results did not appear")
+        XCTAssertTrue(app.navigationBars["Search Results"].exists, "results have their own screen")
+        XCTAssertTrue(app.staticTexts["Results for “mars”"].exists, "the results say what was searched")
+        screenshot(app, "\(size)-13-search-results")
+        let more = app.buttons["catalogLoadMore"]
+        tapReachable(more, in: app)
+        let warlord = row(app, "catalogBookRow", startingWith: "The Warlord of Mars")
+        XCTAssertTrue(warlord.waitForExistence(timeout: 10), "Load More appends the next page of results")
+        if largestText { screenshot(app, "\(size)-13b-search-results-end") }
+
+        // A book from the results.
+        RowNavigation.open(warlord, in: app, expecting: app.buttons["catalogDownload"])
+        XCTAssertTrue(app.buttons["catalogDownload"].waitForExistence(timeout: 5), "Book screen did not open")
+        goBack(app, to: "Search Results")
+        goBack(app, to: "Home Library")
+
+        // A search that finds nothing.
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        let clear = field.buttons.firstMatch
+        if clear.exists { clear.tap() }
+        field.typeText("zzz\n")
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'zzz'")).firstMatch
+                        .waitForExistence(timeout: 10), "an empty search says so")
+        XCTAssertFalse(app.descendants(matching: .any)["catalogBookRow"].exists)
+        screenshot(app, "\(size)-14-search-empty")
+    }
+
+    @MainActor
+    func testCatalogSearchAtDefaultSize() throws {
+        searchFlow(largestText: false)
+    }
+
+    @MainActor
+    func testCatalogSearchAtLargestTextSize() throws {
+        searchFlow(largestText: true)
     }
 
     @MainActor

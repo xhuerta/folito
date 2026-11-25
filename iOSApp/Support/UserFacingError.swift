@@ -169,6 +169,11 @@ struct UserFacingError: Equatable, Identifiable {
             message: catalogMessage(for: error))
     }
 
+    /// Searching a catalog failed (reading its search description or the results).
+    static var catalogSearchFailedTitle: String {
+        String(localized: "Couldn’t Search Catalog", comment: "Error title: searching an OPDS catalog failed")
+    }
+
     /// Downloading a book from a catalog failed (converting it is reported like any import).
     static func catalogDownloadFailed(title: String, error: Error) -> UserFacingError {
         let alertTitle = String(localized: "Couldn’t Download Book", comment: "Alert title: downloading a book from a catalog failed")
@@ -225,6 +230,9 @@ struct UserFacingError: Equatable, Identifiable {
         case .notAFeed:
             return String(localized: "This address doesn’t lead to an OPDS catalog. Check that it is the catalog’s address, not its web page.",
                           comment: "Catalog error: the answer is not an Atom/OPDS feed")
+        case .searchNotSupported:
+            return String(localized: "Folito can’t use this catalog’s search. Browse its sections instead.",
+                          comment: "Catalog error: the catalog's OpenSearch description has no search Folito can use")
         case .notAnEPUB:
             return String(localized: "The catalog didn’t send an EPUB file.", comment: "Catalog error: download is not an EPUB")
         case .tooLarge:

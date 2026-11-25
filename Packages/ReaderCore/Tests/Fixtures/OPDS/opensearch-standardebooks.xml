@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/">
+	<ShortName>Standard Ebooks</ShortName>
+	<Description>Search the Standard Ebooks catalog.</Description>
+	<Url type="text/html" template="https://standardebooks.org/ebooks?query={searchTerms}&amp;per-page={count?}&amp;page={startPage?}"/>
+	<Url type="application/atom+xml" template="https://standardebooks.org/feeds/atom/all?query={searchTerms}"/>
+	<Url type="application/rss+xml" template="https://standardebooks.org/feeds/rss/all?query={searchTerms}"/>
+	<Image height="16" width="16" type="image/x-icon">https://standardebooks.org/favicon.ico</Image>
+</OpenSearchDescription>

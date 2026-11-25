@@ -323,7 +323,9 @@ enum UITesting {
 /// Fixed OPDS answers for UI tests (`-UITestingMockCatalogs`): Project Gutenberg's root is a navigation feed,
 /// Standard Ebooks' new releases a page of three books (one offered only as PDF) with a next page, the added
 /// "Home Library" and "Family Server" small navigation feeds that answer 401 unless the request carries
-/// `credentials` (HTTP Basic). Covers are generated images. Anything else fails as if offline.
+/// `credentials` (HTTP Basic). "Home Library" offers search through an OpenSearch description: "mars" finds two
+/// books and a next page with a third, anything else nothing. Covers are generated images. Anything else fails
+/// as if offline.
 struct FixtureOPDSTransport: OPDSTransport {
     static let homeCatalog = OPDSCatalog(id: "uitesting.home", title: "Home Library", // i18n-ignore: UI-test fixture
                                          url: URL(string: "https://catalog.example.com/opds")!)
@@ -364,8 +366,36 @@ struct FixtureOPDSTransport: OPDSTransport {
             """,
         homeCatalog.url.absoluteString: """
             <feed \(atom)><title>Home Library</title>
+            <link rel="search" type="application/opensearchdescription+xml" href="https://catalog.example.com/opds/osd"/>
             <entry><id>new</id><title>Recently Added</title><content type="text">The latest books.</content>
             <link type="application/atom+xml;profile=opds-catalog" href="https://catalog.example.com/opds/new"/></entry>
+            </feed>
+            """,
+        "https://catalog.example.com/opds/osd": """
+            <OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/"><ShortName>Home Library</ShortName>
+            <Url type="text/html" template="https://catalog.example.com/search?q={searchTerms}"/>
+            <Url type="application/atom+xml;profile=opds-catalog;kind=acquisition" template="/opds/search?q={searchTerms}"/>
+            </OpenSearchDescription>
+            """,
+        "https://catalog.example.com/opds/search?q=mars": """
+            <feed \(atom)><title>Home Library</title>
+            <link rel="next" type="application/atom+xml;profile=opds-catalog" href="https://catalog.example.com/opds/search?q=mars&amp;page=2"/>
+            <entry><id>urn:uitesting:princess</id><title>A Princess of Mars</title>
+            <author><name>Edgar Rice Burroughs</name></author>
+            <summary type="text">John Carter wakes on Barsoom.</summary>
+            <link rel="http://opds-spec.org/image/thumbnail" type="image/png" href="https://covers.example.com/mars-princess.png"/>
+            <link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="https://catalog.example.com/opds/download/1/epub"/></entry>
+            <entry><id>urn:uitesting:gods</id><title>The Gods of Mars</title>
+            <author><name>Edgar Rice Burroughs</name></author>
+            <link rel="http://opds-spec.org/image/thumbnail" type="image/png" href="https://covers.example.com/mars-gods.png"/>
+            <link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="https://catalog.example.com/opds/download/2/epub"/></entry>
+            </feed>
+            """,
+        "https://catalog.example.com/opds/search?q=mars&page=2": """
+            <feed \(atom)><title>Home Library</title>
+            <entry><id>urn:uitesting:warlord</id><title>The Warlord of Mars</title>
+            <author><name>Edgar Rice Burroughs</name></author>
+            <link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="https://catalog.example.com/opds/download/3/epub"/></entry>
             </feed>
             """,
         familyCatalog.url.absoluteString: """
@@ -388,6 +418,10 @@ struct FixtureOPDSTransport: OPDSTransport {
         if let host = url.host, Self.lockedHosts.contains(host),
            headers["Authorization"] != Self.credentials.authorizationHeader {
             return (Data(), 401, url)
+        }
+        if url.host == "catalog.example.com", url.path == "/opds/search", Self.feeds[url.absoluteString] == nil {
+            // A search that finds nothing.
+            return (Data("<feed \(Self.atom)><title>Home Library</title></feed>".utf8), 200, url)
         }
         guard let feed = Self.feeds[url.absoluteString] else { throw OPDSError.offline }
         return (Data(feed.utf8), 200, url)

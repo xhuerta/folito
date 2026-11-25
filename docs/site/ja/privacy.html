@@ -71,7 +71,7 @@
 <div class="doc">
 <h1>プライバシーポリシー</h1>
 <p class="translation-note">この翻訳は機械翻訳の支援を受けて作成された参考訳です。内容に相違がある場合は、<a href="../privacy.html" hreflang="en">英語版</a>が優先されます。</p>
-<p class="muted">最終更新日：2026年11月24日。iPhone および Apple Watch 用の Folito アプリに適用されます。</p>
+<p class="muted">最終更新日：2026年11月25日。iPhone および Apple Watch 用の Folito アプリに適用されます。</p>
 <div class="card note lead-card"><span class="tile t-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 2.8 19 5.6v5.7c0 4.6-3 8.3-7 9.9-4-1.6-7-5.3-7-9.9V5.6z"/><path d="m8.8 12.1 2.2 2.2 4.3-4.5"/></svg></span><p>要約：Folito はアカウントなしで使えます。分析、広告、トラッキングはなく、開発者はサーバを運営せず、データを受け取りません。アプリが通信するのは、設定した場合の同期サーバと、辞書をダウンロードするときの下記のダウンロードサイトだけです。また、指定した場合に限り、iPhone はブックに不足している詳細を Open Library で検索します（下記参照）。ブックのカタログには、あなたが開いたときにだけ接続します（下記参照）。</p></div>
 
 <section class="group">
@@ -137,6 +137,7 @@
 <div class="card">
 <p>ライブラリの <em>+ › カタログ</em> には、2つの無料カタログ <strong>Standard Ebooks</strong>（standardebooks.org）と <strong>Project Gutenberg</strong>（www.gutenberg.org）、およびアドレスで追加した OPDS カタログが表示されます。一覧を表示しても、どこにも接続しません。カタログやそのセクションを開いたとき、<em>さらに読み込む</em> をタップしたとき、カタログを追加したとき（確認のためにアドレスを一度読み込みます）、またはブックの <em>ダウンロード</em> をタップしたときにだけ、iPhone はそのページ、表紙、または EPUB ファイルを HTTPS でカタログに要求します（暗号化されていない http はローカルネットワーク上のアドレスに限ります）。要求に含まれるのは、ページまたはファイルのアドレスと、アプリ名を示す User-Agent だけです。Cookie、ログイン（そのカタログ用に保存したサインイン情報を除きます。下記参照）、あなた自身、ライブラリ、読書、ほかのカタログに関する情報は送信されません。開発者は何も受け取りません。カタログと、表紙やファイルのリンク先のサーバは、あなたの IP アドレスを確認でき、それぞれのポリシーに従って取り扱います。追加したカタログは iPhone にのみ保存されます。ダウンロードしたブックはほかの EPUB と同じように読み込まれ、Apple Watch に送信されます。</p>
 <p><strong>自分のサーバへのサインイン。</strong>自分の Calibre、Calibre-Web、Komga のサーバなど、追加したカタログにはユーザ名とパスワードを入力できます。これらは iPhone のキーチェーンにのみ、このデバイス上にのみ保存され（iCloud キーチェーン、アプリの設定、Apple Watch には保存されません）、暗号化された https:// 接続でそのカタログ自身のサーバにのみ送信されます。リンク先のほかのサーバや開発者に送信されることはありません。アドレスが http:// で始まるカタログでは、Folito はサインインを受け付けません。<em>サインイン情報を削除</em> するか、カタログを削除すると、キーチェーンから消去されます。</p>
+<p><strong>検索。</strong>検索（OpenSearch）に対応したカタログには検索フィールドが表示されます。入力した語句は、検索を実行したときにだけ、検索アドレスの一部としてそのカタログに送信されます。入力中に送信されることはなく、ほかの誰にも送信されず、Folito に保存されることもありません。保存したサインイン情報が一緒に送信されるのは、検索先がそのカタログ自身の https サーバの場合だけです。</p>
 </div>
 </section>
 <section class="group">

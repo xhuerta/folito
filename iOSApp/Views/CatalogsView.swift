@@ -169,12 +169,18 @@ struct ListActionLabel: View {
 
 /// One catalog page: sections that lead further, and books. Further pages are loaded on request (Load More), so
 /// the catalog is never asked for more than the user looks at.
+///
+/// A page whose feed offers search (`rel="search"`, docs/OPDS.md) has a search field; submitting it pushes the
+/// results, shown by this same view (rows, Load More, errors and Sign In alike). The catalog is asked only when
+/// the user submits a search.
 struct CatalogFeedView: View {
     let title: String
     @ObservedObject var catalogs: CatalogStore
     @StateObject private var model: CatalogFeedModel
     /// The added catalog being edited from this page (its root page's Edit button, or Sign In after a 401).
     @State private var editing: CatalogEdit?
+    @State private var query = ""
+    @State private var searching: CatalogSearchRequest?
 
     struct CatalogEdit: Identifiable {
         let catalog: OPDSCatalog
@@ -188,6 +194,22 @@ struct CatalogFeedView: View {
         _model = StateObject(wrappedValue: CatalogFeedModel(url: url, client: catalogs.client))
     }
 
+    /// The results of a search.
+    init(search request: CatalogSearchRequest, catalogs: CatalogStore) {
+        self.title = String(localized: "Search Results", comment: "Catalog search: title of the screen with the results")
+        self.catalogs = catalogs
+        _model = StateObject(wrappedValue: CatalogFeedModel(search: request, client: catalogs.client))
+    }
+
+    private func submitSearch() {
+        guard let link = model.search else { return }
+        let terms = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !terms.isEmpty else { return }
+        // Hide the keyboard: the results screen is pushed, and the keyboard would cover its rows.
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        searching = CatalogSearchRequest(link: link, terms: terms, pageURL: model.url)
+    }
+
     var body: some View {
         content
             // The name of the row that was tapped: the feed's own title can be long ("Standard Ebooks - Newest
@@ -199,7 +221,7 @@ struct CatalogFeedView: View {
             .refreshable { await model.load() }
             .toolbar {
                 // On an added catalog's own page: edit its name and sign-in.
-                if let catalog = catalogs.custom.first(where: { $0.url == model.url }) {
+                if !model.isSearch, let catalog = catalogs.custom.first(where: { $0.url == model.url }) {
                     ToolbarItem(placement: .primaryAction) {
                         Button { editing = CatalogEdit(catalog: catalog, signInOnly: false) } label: {
                             Label { Text("Edit Catalog", comment: "Catalog page: toolbar button that edits the catalog's name and sign-in") } icon: { Image(systemName: "pencil") }
@@ -224,6 +246,10 @@ struct CatalogFeedView: View {
                 Button("OK", role: .cancel) {}
             } message: { error in
                 Text(error.message)
+            }
+            .modifier(CatalogSearchField(isEnabled: model.search != nil, text: $query, submit: submitSearch))
+            .navigationDestination(item: $searching) { request in
+                CatalogFeedView(search: request, catalogs: catalogs)
             }
     }
 
@@ -251,7 +277,9 @@ struct CatalogFeedView: View {
                 Button { Task { await model.load() } } label: { Text("Try Again").frame(minHeight: 44) }
             }
         case .loaded:
-            if model.entries.isEmpty {
+            if model.entries.isEmpty, let request = model.searchRequest {
+                ContentUnavailableView.search(text: request.terms)
+            } else if model.entries.isEmpty {
                 ContentUnavailableView {
                     Label { Text("Nothing Here", comment: "Catalogs: an empty catalog page") } icon: { Image(systemName: "tray") }
                 } description: {
@@ -330,6 +358,26 @@ struct CatalogFeedView: View {
         }
         .readableScrollEdges()
         .background(Color(uiColor: .systemGroupedBackground))
+    }
+}
+
+/// The search field of a catalog page whose feed offers search (always shown under the title, so it is found
+/// without scrolling up). Submitting runs the search; typing alone contacts nothing.
+private struct CatalogSearchField: ViewModifier {
+    let isEnabled: Bool
+    @Binding var text: String
+    let submit: () -> Void
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content
+                .searchable(text: $text, placement: .navigationBarDrawer(displayMode: .always),
+                            prompt: Text("Search Catalog", comment: "Catalog page: placeholder of the search field"))
+                .onSubmit(of: .search, submit)
+        } else {
+            content
+        }
     }
 }
 
