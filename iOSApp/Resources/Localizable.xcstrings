@@ -1306,6 +1306,53 @@
         }
       }
     },
+    "Couldn’t Search Catalog" : {
+      "comment" : "Error title: searching an OPDS catalog failed",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Katalog konnte nicht durchsucht werden"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo buscar en el catálogo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de rechercher dans le catalogue"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile cercare nel catalogo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カタログを検索できませんでした"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível pesquisar no catálogo"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法搜索目录"
+          }
+        }
+      }
+    },
     "Couldn’t Update “%@” in Readest" : {
       "comment" : "Alert title when marking a Readest book as finished or unread failed; the placeholder is a book title",
       "localizations" : {
@@ -2145,6 +2192,53 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已读完，%@"
+          }
+        }
+      }
+    },
+    "Folito can’t use this catalog’s search. Browse its sections instead." : {
+      "comment" : "Catalog error: the catalog's OpenSearch description has no search Folito can use",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Folito kann die Suche dieses Katalogs nicht verwenden. Durchsuche stattdessen seine Bereiche."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Folito no puede usar la búsqueda de este catálogo. Explora sus secciones."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Folito ne peut pas utiliser la recherche de ce catalogue. Parcourez plutôt ses sections."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Folito non può usare la ricerca di questo catalogo. Sfoglia invece le sue sezioni."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Folitoはこのカタログの検索を利用できません。代わりにセクションをブラウズしてください。"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Folito não consegue usar a pesquisa deste catálogo. Navegue pelas seções dele."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Folito 无法使用此目录的搜索功能。请改为浏览其各个栏目。"
           }
         }
       }
@@ -4944,6 +5038,53 @@
         }
       }
     },
+    "Results for “%@”" : {
+      "comment" : "Catalog search: heading of the results; the placeholder is what the user searched for",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ergebnisse für „%@“"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resultados de «%@»"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Résultats pour « %@ »"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Risultati per «%@»"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「%@」の検索結果"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resultados para “%@”"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@”的搜索结果"
+          }
+        }
+      }
+    },
     "Rounded" : {
       "comment" : "Reader font: SF Rounded",
       "localizations" : {
@@ -5126,6 +5267,100 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "存储并打开同步"
+          }
+        }
+      }
+    },
+    "Search Catalog" : {
+      "comment" : "Catalog page: label of the search field",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Katalog durchsuchen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar en el catálogo"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rechercher dans le catalogue"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerca nel catalogo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カタログを検索"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pesquisar no catálogo"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索目录"
+          }
+        }
+      }
+    },
+    "Search Results" : {
+      "comment" : "Catalog search: title of the screen with the results",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suchergebnisse"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resultados de búsqueda"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Résultats de recherche"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Risultati della ricerca"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "検索結果"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resultados da pesquisa"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索结果"
           }
         }
       }

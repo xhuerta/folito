@@ -10,6 +10,7 @@ Usage: scripts/ci/split_ui_attachments.py <export-dir> <TestClass>=<directory> [
 """
 import json
 import pathlib
+import re
 import sys
 
 export = pathlib.Path(sys.argv[1])
@@ -30,4 +31,7 @@ for test in json.loads((export / "manifest.json").read_text()):
         stem = src.stem
         if name:
             stem = name.rsplit(".", 1)[0].split("_")[0] if name.count("_") >= 2 else name.rsplit(".", 1)[0]
+            # actions/upload-artifact refuses paths with " : < > | * ? or line breaks (failure attachments such as
+            # 'Debug description for `"catalogDownload" Button`' made the whole catalogs-screenshots upload fail).
+            stem = re.sub(r'[":<>|*?\r\n\\/]', "-", stem)
         src.rename(pathlib.Path(directory) / (stem + src.suffix))

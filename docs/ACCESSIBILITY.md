@@ -90,9 +90,12 @@ where they were fully on screen in the middle of the longer edit form (the mid-l
 b92d800). *Save* was first a row under the fields: on CI's iPhones it stayed under the keyboard after typing the
 password, and a swipe moved neither the `Form` nor the `ScrollView` nor closed the keyboard (runs on b92d800 and
 f5967fc), hence the bar button. The notes under the sign-in card are footnote text that wraps, and dragging the
-content closes the keyboard (`scrollDismissesKeyboard(.immediately)`). Audited by `testCatalogsListAudit`, `testAddCatalogAudit`, `testCatalogPageAudit`,
-`testCatalogBookAudit`, `testCatalogSignInNeededAudit`, `testCatalogSignInAudit` and `testEditCatalogAudit` (shard
-`catalogs`). The action rows in lists (*Add Catalog…*, *Load More*) are an icon and a text in a plain stack, not a `Label` (a list label's icon column changes at accessibility sizes; *Load More* was flagged "partially unsupported" and "Text clipped" at AX5), and the Catalogs list and catalog pages are cards in a `ScrollView`, not `List`s: as `List`s, the added catalog's row and *Load More* were flagged "partially unsupported" at AX5 wherever they were not on the first screen, even as the last rows (the mid-list artifact below); as cards nothing is flagged and nothing is accepted; screenshots at the default and AX5 sizes in the `catalogs-screenshots`
+content closes the keyboard (`scrollDismissesKeyboard(.immediately)`). Audited by `testCatalogsListAudit`, `testAddCatalogAudit` and `testAddCatalogLargestTextAudit` (the form's
+default and AX5 passes are two tests: together they went past the 300 s allowance), `testCatalogPageAudit`,
+`testCatalogBookAudit` (shard `catalogs`), and `testCatalogSignInNeededAudit`, `testCatalogSignInAudit`,
+`testEditCatalogAudit` and `testCatalogSearchAudit` (shard `signin`; search results of a catalog that offers
+OpenSearch, reached through its search field: a card at the top of the page with a visible label above the field,
+as in the catalog forms, since placeholder text is below 4.5:1). The action rows in lists (*Add Catalog…*, *Load More*) are an icon and a text in a plain stack, not a `Label` (a list label's icon column changes at accessibility sizes; *Load More* was flagged "partially unsupported" and "Text clipped" at AX5), and the Catalogs list and catalog pages are cards in a `ScrollView`, not `List`s: as `List`s, the added catalog's row and *Load More* were flagged "partially unsupported" at AX5 wherever they were not on the first screen, even as the last rows (the mid-list artifact below); as cards nothing is flagged and nothing is accepted; screenshots at the default and AX5 sizes in the `catalogs-screenshots`
 artifact (`CatalogsUITests`). See docs/OPDS.md. Catalog rows are reached and opened in both `CatalogsUITests` and the audits with
 `RowNavigation` (iOSApp/UITests/RowNavigation.swift): at AX5 a row is up to about 380 pt tall, and swiping until
 a row was "hittable" was flaky. A slow drag that started on a row became a tap and opened the wrong catalog (CI run

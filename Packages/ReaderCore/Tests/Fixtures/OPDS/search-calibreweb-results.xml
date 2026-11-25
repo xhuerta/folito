@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/terms/" xmlns:dcterms="http://purl.org/dc/terms/">
+  <icon>/static/favicon.ico</icon>
+  <id>urn:uuid:2853dacf-ed79-42f5-8e8a-a7bb3d1ae6a2</id>
+  <updated>2026-11-24T18:02:11+00:00</updated>
+  <link rel="self" href="/opds/search?query=wells" type="application/atom+xml;profile=opds-catalog;type=feed;kind=navigation"/>
+  <link rel="start" title="Start" href="/opds" type="application/atom+xml;profile=opds-catalog;type=feed;kind=navigation"/>
+  <link rel="up" href="/opds" type="application/atom+xml;profile=opds-catalog;type=feed;kind=navigation"/>
+  <link rel="first" href="/opds/search/wells" type="application/atom+xml;profile=opds-catalog;type=feed;kind=navigation"/>
+  <link rel="next" title="Next" href="/opds/search/wells?offset=30" type="application/atom+xml;profile=opds-catalog;type=feed;kind=navigation"/>
+  <link rel="search" href="/opds/osd" type="application/opensearchdescription+xml"/>
+  <link type="application/atom+xml" rel="search" title="Search" href="/opds/search/{searchTerms}" />
+  <title>Calibre-Web</title>
+  <author>
+    <name>Calibre-Web</name>
+    <uri>https://github.com/janeczku/calibre-web</uri>
+  </author>
+  <entry>
+    <title>The Time Machine</title>
+    <id>urn:uuid:6f5c9a1e-0b1d-4d8f-9a3b-6a0f2a7c1e11</id>
+    <updated>2026-10-02T18:40:11+00:00</updated>
+    <author>
+      <name>H. G. Wells</name>
+    </author>
+    <dcterms:language>en</dcterms:language>
+    <summary>&lt;p&gt;A Victorian inventor travels to the year 802,701.&lt;/p&gt;</summary>
+    <link type="image/jpeg" href="/opds/cover/12" rel="http://opds-spec.org/image"/>
+    <link type="image/jpeg" href="/opds/cover/12" rel="http://opds-spec.org/image/thumbnail"/>
+    <link rel="http://opds-spec.org/acquisition" href="/opds/download/12/epub/" length="204831" mtime="2026-10-02T18:40:11+00:00" type="application/epub+zip"/>
+  </entry>
+  <entry>
+    <title>The War of the Worlds</title>
+    <id>urn:uuid:9a1b7c3d-5e6f-4a8b-8c9d-0e1f2a3b4c5d</id>
+    <updated>2026-09-14T07:05:43+00:00</updated>
+    <author>
+      <name>H. G. Wells</name>
+    </author>
+    <summary>Martians invade Surrey.</summary>
+    <link rel="http://opds-spec.org/acquisition" href="/opds/download/11/epub/" length="298113" mtime="2026-09-14T07:05:43+00:00" type="application/epub+zip"/>
+  </entry>
+</feed>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/">
+  <ShortName>Project Gutenberg</ShortName>
+  <LongName>Project Gutenberg Catalog Search</LongName>
+  <Description>Search the Project Gutenberg catalog of free ebooks.</Description>
+  <Tags>ebooks books free</Tags>
+  <Image height="16" width="16" type="image/x-icon">https://www.gutenberg.org/gutenberg/favicon.ico</Image>
+  <Url type="application/x-suggestions+json" rel="suggestions" template="https://www.gutenberg.org/ebooks/suggest/?query={searchTerms}"/>
+  <Url type="text/html" template="https://www.gutenberg.org/ebooks/search/?query={searchTerms}"/>
+  <Url type="application/atom+xml;profile=opds-catalog" template="https://www.gutenberg.org/ebooks/search.opds/?query={searchTerms}&amp;start_index={startIndex?}"/>
+  <Query role="example" searchTerms="Jane Austen"/>
+  <InputEncoding>UTF-8</InputEncoding>
+  <OutputEncoding>UTF-8</OutputEncoding>
+</OpenSearchDescription>

@@ -251,6 +251,107 @@ final class CatalogTests: XCTestCase {
         XCTAssertNil(model.nextURL, "a page that points to itself ends the list")
     }
 
+    // MARK: Search
+
+    private static let searchablePage = Data("""
+        <feed xmlns="http://www.w3.org/2005/Atom"><title>Home Library</title>
+        <link rel="search" type="application/opensearchdescription+xml" href="/opds/osd"/>
+        <entry><title>New</title><link rel="subsection" type="application/atom+xml;profile=opds-catalog" href="/opds/new"/></entry>
+        </feed>
+        """.utf8)
+
+    private static let description = Data("""
+        <OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/">
+        <Url type="text/html" template="/search?q={searchTerms}"/>
+        <Url type="application/atom+xml" template="/opds/search?q={searchTerms}&amp;lang={language?}"/>
+        </OpenSearchDescription>
+        """.utf8)
+
+    func testSearchUsesTheSavedSignInAndPaginates() async throws {
+        let transport = StubTransport()
+        let page = URL(string: "https://books.example.net/opds")!
+        let osd = URL(string: "https://books.example.net/opds/osd")!
+        let results = URL(string: "https://books.example.net/opds/search?q=jane%20austen&lang=")!
+        let more = URL(string: "https://books.example.net/opds/search?q=jane%20austen&lang=&page=2")!
+        transport.answers[page] = (Self.searchablePage, 200)
+        transport.answers[osd] = (Self.description, 200)
+        transport.answers[results] = (Data("""
+            <feed xmlns="http://www.w3.org/2005/Atom"><title>Home Library</title>
+            <link rel="next" href="/opds/search?q=jane%20austen&amp;lang=&amp;page=2"/>
+            <entry><id>emma</id><title>Emma</title><link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="/e.epub"/></entry>
+            </feed>
+            """.utf8), 200)
+        transport.answers[more] = (Data("""
+            <feed xmlns="http://www.w3.org/2005/Atom"><title>Home Library</title>
+            <entry><id>emma</id><title>Emma</title></entry><entry><id>persuasion</id><title>Persuasion</title></entry>
+            </feed>
+            """.utf8), 200)
+        transport.locked["books.example.net"] = reader.authorizationHeader
+        let (store, _) = makeStore(transport)
+        let added = await store.add(address: page.absoluteString, name: "", username: "reader", password: "correct horse")
+        XCTAssertNil(added)
+
+        let model = CatalogFeedModel(url: page, client: store.client)
+        await model.loadIfNeeded()
+        let link = try XCTUnwrap(model.search, "the page offers search")
+        XCTAssertFalse(model.isSearch)
+        XCTAssertFalse(transport.asked.contains(osd), "nothing about search is asked before the user searches")
+
+        let request = CatalogSearchRequest(link: link, terms: "jane austen", pageURL: model.url)
+        let found = CatalogFeedModel(search: request, client: store.client)
+        XCTAssertTrue(found.isSearch)
+        await found.loadIfNeeded()
+        XCTAssertEqual(found.phase, .loaded)
+        XCTAssertEqual(found.entries.map(\.id), ["emma"])
+        XCTAssertEqual(found.title, "Results for “jane austen”")
+        XCTAssertNil(found.search, "results have no search field of their own")
+        XCTAssertEqual(found.nextURL, more)
+        await found.loadMore()
+        XCTAssertEqual(found.entries.map(\.id), ["emma", "persuasion"])
+        XCTAssertNil(found.nextURL)
+        XCTAssertEqual(Array(transport.asked.suffix(3)), [osd, results, more])
+        XCTAssertEqual(Array(transport.authorizations.suffix(3)), Array(repeating: reader.authorizationHeader, count: 3),
+                       "search goes to the catalog's own server with its sign-in")
+    }
+
+    func testSearchFailuresAndEmptyResults() async throws {
+        let transport = StubTransport()
+        let osd = URL(string: "https://family.example.net/opds/osd")!
+        let page = URL(string: "https://family.example.net/opds")!
+        transport.answers[osd] = (Self.description, 200)
+        transport.answers[URL(string: "https://family.example.net/opds/search?q=zzz&lang=")!] = (Data("""
+            <feed xmlns="http://www.w3.org/2005/Atom"><title>Family</title></feed>
+            """.utf8), 200)
+        let client = OPDSClient(transport: transport)
+
+        let empty = CatalogFeedModel(search: CatalogSearchRequest(link: .description(osd), terms: "zzz", pageURL: page),
+                                     client: client)
+        await empty.load()
+        XCTAssertEqual(empty.phase, .loaded)
+        XCTAssertTrue(empty.entries.isEmpty)
+
+        // A 401 to the search: the results screen offers Sign In like a page.
+        transport.locked["family.example.net"] = "Basic nobody"
+        let refused = CatalogFeedModel(search: CatalogSearchRequest(link: .description(URL(string: "https://family.example.net/opds/other-osd")!),
+                                                                    terms: "x", pageURL: page), client: client)
+        await refused.load()
+        guard case .failed(let error) = refused.phase else { return XCTFail("\(refused.phase)") }
+        XCTAssertEqual(error.title, "Couldn’t Search Catalog")
+        XCTAssertTrue(refused.failedForSignIn)
+
+        // A description without an Atom template.
+        transport.locked = [:]
+        let htmlOnly = URL(string: "https://family.example.net/opds/html-osd")!
+        transport.answers[htmlOnly] = (Data("""
+            <OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/"><Url type="text/html" template="/s?q={searchTerms}"/></OpenSearchDescription>
+            """.utf8), 200)
+        let unusable = CatalogFeedModel(search: CatalogSearchRequest(link: .description(htmlOnly), terms: "x", pageURL: page),
+                                        client: client)
+        await unusable.load()
+        guard case .failed(let unusableError) = unusable.phase else { return XCTFail("\(unusable.phase)") }
+        XCTAssertEqual(unusableError.message, UserFacingError.catalogMessage(for: OPDSError.searchNotSupported))
+    }
+
     func testErrorMessages() {
         XCTAssertEqual(UserFacingError.catalogFailed(OPDSError.notAFeed).title, "Couldn’t Open Catalog")
         XCTAssertTrue(UserFacingError.catalogFailed(OPDSError.authenticationRequired).message.contains("sign-in"))

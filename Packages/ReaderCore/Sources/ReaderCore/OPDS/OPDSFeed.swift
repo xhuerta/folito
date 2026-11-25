@@ -17,9 +17,11 @@ public struct OPDSFeed: Sendable, Hashable {
     public var nextURL: URL?
     /// The catalog's root (`rel="start"`).
     public var startURL: URL?
+    /// How this page can be searched (`rel="search"`), when it can.
+    public var search: OPDSSearchLink?
 
     public init(url: URL, id: String? = nil, title: String, subtitle: String? = nil, iconURL: URL? = nil,
-                entries: [OPDSEntry] = [], nextURL: URL? = nil, startURL: URL? = nil) {
+                entries: [OPDSEntry] = [], nextURL: URL? = nil, startURL: URL? = nil, search: OPDSSearchLink? = nil) {
         self.url = url
         self.id = id
         self.title = title
@@ -28,6 +30,7 @@ public struct OPDSFeed: Sendable, Hashable {
         self.entries = entries
         self.nextURL = nextURL
         self.startURL = startURL
+        self.search = search
     }
 
     public enum Kind: String, Sendable { case navigation, acquisition }

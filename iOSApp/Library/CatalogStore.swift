@@ -294,7 +294,17 @@ final class CatalogStore: ObservableObject {
     }
 }
 
-/// One catalog page being browsed, with its following pages appended as the user asks for them.
+/// What the user asked a catalog page's search for: pushed as a results screen (docs/OPDS.md, "Search").
+struct CatalogSearchRequest: Hashable {
+    let link: OPDSSearchLink
+    let terms: String
+    /// The page that offered the search (its sign-in, if it needs one, is the catalog's).
+    let pageURL: URL
+
+}
+
+/// One catalog page being browsed, or the results of a search, with their following pages appended as the user
+/// asks for them.
 @MainActor
 final class CatalogFeedModel: ObservableObject {
     enum Phase: Equatable {
@@ -303,13 +313,18 @@ final class CatalogFeedModel: ObservableObject {
         case failed(UserFacingError)
     }
 
+    /// The page, or for search results the page whose search was used.
     let url: URL
+    /// Set for search results.
+    let searchRequest: CatalogSearchRequest?
     private let client: OPDSClient
     @Published private(set) var phase: Phase = .loading
     @Published private(set) var title: String?
     @Published private(set) var entries: [OPDSEntry] = []
     @Published private(set) var nextURL: URL?
     @Published private(set) var isLoadingMore = false
+    /// How this page can be searched (`rel="search"`); nil for pages without search and for search results.
+    @Published private(set) var search: OPDSSearchLink?
     /// A failed "Load More"; the entries already shown stay.
     @Published var moreError: UserFacingError?
     /// The last failure was a missing or refused sign-in (401, or 403 without one).
@@ -318,8 +333,18 @@ final class CatalogFeedModel: ObservableObject {
 
     init(url: URL, client: OPDSClient) {
         self.url = url
+        self.searchRequest = nil
         self.client = client
     }
+
+    /// Search results: nothing is requested until `load()` (the screen calls it when it appears).
+    init(search request: CatalogSearchRequest, client: OPDSClient) {
+        self.url = request.pageURL
+        self.searchRequest = request
+        self.client = client
+    }
+
+    var isSearch: Bool { searchRequest != nil }
 
     func loadIfNeeded() async {
         guard !hasLoaded else { return }
@@ -329,11 +354,22 @@ final class CatalogFeedModel: ObservableObject {
     func load() async {
         if entries.isEmpty { phase = .loading }
         do {
-            let feed = try await client.feed(at: url)
+            let feed: OPDSFeed
+            if let searchRequest {
+                feed = try await client.search(searchRequest.link, terms: searchRequest.terms)
+            } else {
+                feed = try await client.feed(at: url)
+            }
             hasLoaded = true
-            title = feed.title
+            if let searchRequest {
+                title = String(localized: "Results for “\(searchRequest.terms)”",
+                               comment: "Catalog search: heading of the results; the placeholder is what the user searched for")
+            } else {
+                title = feed.title
+                search = feed.search
+            }
             entries = OPDSPages.append(feed.entries, to: [])
-            nextURL = feed.nextURL
+            nextURL = feed.nextURL == feed.url ? nil : feed.nextURL
             phase = .loaded
         } catch is CancellationError {
             return
@@ -363,7 +399,8 @@ final class CatalogFeedModel: ObservableObject {
     /// sign-in could fix the failure (the screen then offers Sign In for an https catalog the user added).
     private func userFacing(_ error: Error) -> UserFacingError {
         failedForSignIn = (error as? OPDSError)?.isAuthentication == true
-        return UserFacingError(title: UserFacingError.catalogFailed(error).title,
+        let title = isSearch ? UserFacingError.catalogSearchFailedTitle : UserFacingError.catalogFailed(error).title
+        return UserFacingError(title: title,
                                message: CatalogStore.message(for: error, at: url))
     }
 }

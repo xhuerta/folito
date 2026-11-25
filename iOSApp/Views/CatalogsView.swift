@@ -6,6 +6,8 @@ import ReaderCore
 enum CatalogRoute: Hashable {
     case feed(URL, title: String)
     case book(OPDSEntry)
+    /// The results of a catalog page's search.
+    case search(CatalogSearchRequest)
 }
 
 /// The Catalogs sheet (Library › + › Catalogs): the preset catalogs, the ones the user added, and browsing them.
@@ -16,9 +18,14 @@ struct CatalogsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showAdd = false
     @State private var editing: OPDSCatalog?
+    /// The pushed screens. Search results are pushed onto it as a `CatalogRoute` value, like every other screen:
+    /// pushed with `navigationDestination(item:)` from the catalog page instead, the results screen's own
+    /// value-based rows (`NavigationLink(value: CatalogRoute.book)`) did nothing when tapped (PR #193, CI job
+    /// 139005494662).
+    @State private var path = NavigationPath()
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             // Cards in a `ScrollView`, like the book details, not a `List`: at AX5 the audit flagged the rows of a
             // `List` that were fully on screen only in the middle or at the end of the list ("partially unsupported";
             // docs/ACCESSIBILITY.md). Cards have one layout at every size.
@@ -85,9 +92,13 @@ struct CatalogsView: View {
             .navigationDestination(for: CatalogRoute.self) { route in
                 switch route {
                 case .feed(let url, let title):
-                    CatalogFeedView(url: url, title: title, catalogs: catalogs)
+                    CatalogFeedView(url: url, title: title, catalogs: catalogs) { request in
+                        path.append(CatalogRoute.search(request))
+                    }
                 case .book(let entry):
                     CatalogBookView(entry: entry, catalogs: catalogs, library: library)
+                case .search(let request):
+                    CatalogFeedView(search: request, catalogs: catalogs)
                 }
             }
             .sheet(isPresented: $showAdd) {
@@ -169,12 +180,20 @@ struct ListActionLabel: View {
 
 /// One catalog page: sections that lead further, and books. Further pages are loaded on request (Load More), so
 /// the catalog is never asked for more than the user looks at.
+///
+/// A page whose feed offers search (`rel="search"`, docs/OPDS.md) has a search field at the top; submitting it
+/// pushes the results (a `CatalogRoute.search` on the Catalogs stack), shown by this same view (rows, Load More,
+/// errors and Sign In alike). The catalog is asked only when the user submits a search.
 struct CatalogFeedView: View {
     let title: String
     @ObservedObject var catalogs: CatalogStore
     @StateObject private var model: CatalogFeedModel
     /// The added catalog being edited from this page (its root page's Edit button, or Sign In after a 401).
     @State private var editing: CatalogEdit?
+    @State private var query = ""
+    @FocusState private var searchFocused: Bool
+    /// Pushes the results of a search (onto the Catalogs stack's path).
+    private let openSearch: (CatalogSearchRequest) -> Void
 
     struct CatalogEdit: Identifiable {
         let catalog: OPDSCatalog
@@ -182,10 +201,29 @@ struct CatalogFeedView: View {
         var id: String { catalog.id + (signInOnly ? ".signin" : "") }
     }
 
-    init(url: URL, title: String, catalogs: CatalogStore) {
+    init(url: URL, title: String, catalogs: CatalogStore,
+         openSearch: @escaping (CatalogSearchRequest) -> Void = { _ in }) {
         self.title = title
         self.catalogs = catalogs
+        self.openSearch = openSearch
         _model = StateObject(wrappedValue: CatalogFeedModel(url: url, client: catalogs.client))
+    }
+
+    /// The results of a search.
+    init(search request: CatalogSearchRequest, catalogs: CatalogStore) {
+        self.title = String(localized: "Search Results", comment: "Catalog search: title of the screen with the results")
+        self.catalogs = catalogs
+        self.openSearch = { _ in }
+        _model = StateObject(wrappedValue: CatalogFeedModel(search: request, client: catalogs.client))
+    }
+
+    private func submitSearch() {
+        guard let link = model.search else { return }
+        let terms = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !terms.isEmpty else { return }
+        // Hide the keyboard; the results are pushed like any other screen.
+        searchFocused = false
+        openSearch(CatalogSearchRequest(link: link, terms: terms, pageURL: model.url))
     }
 
     var body: some View {
@@ -199,7 +237,7 @@ struct CatalogFeedView: View {
             .refreshable { await model.load() }
             .toolbar {
                 // On an added catalog's own page: edit its name and sign-in.
-                if let catalog = catalogs.custom.first(where: { $0.url == model.url }) {
+                if !model.isSearch, let catalog = catalogs.custom.first(where: { $0.url == model.url }) {
                     ToolbarItem(placement: .primaryAction) {
                         Button { editing = CatalogEdit(catalog: catalog, signInOnly: false) } label: {
                             Label { Text("Edit Catalog", comment: "Catalog page: toolbar button that edits the catalog's name and sign-in") } icon: { Image(systemName: "pencil") }
@@ -251,7 +289,9 @@ struct CatalogFeedView: View {
                 Button { Task { await model.load() } } label: { Text("Try Again").frame(minHeight: 44) }
             }
         case .loaded:
-            if model.entries.isEmpty {
+            if model.entries.isEmpty, let request = model.searchRequest {
+                ContentUnavailableView.search(text: request.terms)
+            } else if model.entries.isEmpty {
                 ContentUnavailableView {
                     Label { Text("Nothing Here", comment: "Catalogs: an empty catalog page") } icon: { Image(systemName: "tray") }
                 } description: {
@@ -285,10 +325,45 @@ struct CatalogFeedView: View {
         }
     }
 
+    /// The search field of a page whose feed offers search: a card at the top of the page, with a visible label
+    /// above the field like the catalog forms (placeholder text is below 4.5:1). Submitting pushes the results;
+    /// typing alone contacts nothing.
+    ///
+    /// Not `.searchable`: on iOS 26 its field (moved to the bottom of the screen on iPhone) did not survive
+    /// pushing the results. Pushed with the search active, the page came back without its navigation bar;
+    /// with the search ended first, the bar came back but the field was gone for good (PR #193, CI jobs
+    /// 139027425473 and 139054160332, screen recordings of `testCatalogSearchAt…Size`). A field in the content has
+    /// no presentation state of its own to lose.
+    private var searchField: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            CatalogFieldLabel(text: Text("Search Catalog", comment: "Catalog page: label of the search field"))
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondaryText)
+                    .accessibilityHidden(true)
+                TextField(text: $query, prompt: Text(verbatim: "")) {
+                    Text("Search Catalog", comment: "Catalog page: label of the search field")
+                }
+                .autocorrectionDisabled()
+                .submitLabel(.search)
+                .focused($searchFocused)
+                .onSubmit(submitSearch)
+                // With a prompt, the label closure is not read by VoiceOver: name the field explicitly.
+                .accessibilityLabel(Text("Search Catalog", comment: "Catalog page: label of the search field"))
+                .accessibilityIdentifier("catalogSearchField")
+            }
+            .frame(minHeight: 44)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+    }
+
     /// Cards in a `ScrollView`, not a `List` (see `CatalogsView`).
     private var list: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
+                if model.search != nil { searchField }
                 VStack(alignment: .leading, spacing: 8) {
                     // No empty title: the feed's own title heads the card only when it differs from the screen's.
                     if let feedTitle = model.title, feedTitle != title {

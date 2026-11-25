@@ -54,15 +54,21 @@ final class AccessibilityAuditTests: XCTestCase {
 
     // MARK: Screen audit
 
+    /// Which passes `auditScreen` runs.
+    enum AuditSizes { case both, defaultOnly, largestOnly }
+
     /// Audits one screen at the default text size and at the largest accessibility size (see the type comment)
     /// and fails the test, after logging every finding, if any finding is not accepted.
     /// `open` navigates from the Library to the screen; `openAtLargestText`, if given, replaces it for the largest
     /// size. `formFooterFindingsAtLargestText` accepts, at the largest size only, the element-less findings that
     /// the screen's `Form` section footers cause (see `verdict`). `afterScrollAtLargestText`, if given, runs after
-    /// each scroll of the largest-size pass (to scroll past rows another test audits).
+    /// each scroll of the largest-size pass (to scroll past rows another test audits). `sizes` runs only one of
+    /// the two passes, for a screen whose two passes together do not fit in one test's 300 s (the audit of the
+    /// other size is then a test of its own).
     @MainActor
     private func auditScreen(_ name: String, seedSampleBook: Bool = false, showTour: Bool = false,
                              extraArguments: [String] = [],
+                             sizes: AuditSizes = .both,
                              formFooterFindingsAtLargestText: Bool = false,
                              file: StaticString = #filePath, line: UInt = #line,
                              afterScrollAtLargestText: (@MainActor (XCUIApplication) -> Void)? = nil,
@@ -74,32 +80,36 @@ final class AccessibilityAuditTests: XCTestCase {
         var underBars: [String: String] = [:]
         var seenClear: Set<String> = []
 
-        Self.output("Auditing \(name) at the default text size")
-        let app = launch(seedSampleBook: seedSampleBook, showTour: showTour, extraArguments: extraArguments)
-        open(app)
-        try forEachPage(of: app) {
-            for type in Self.defaultSizeTypes {
-                let result = try audit(app, type)
-                failures += result.failures
-                underBars.merge(result.underBars) { old, _ in old }
-                if type == .contrast {
-                    seenClear.formUnion(Self.textsClearOfBars(in: app).subtracting(result.flaggedKeys))
+        if sizes != .largestOnly {
+            Self.output("Auditing \(name) at the default text size")
+            let app = launch(seedSampleBook: seedSampleBook, showTour: showTour, extraArguments: extraArguments)
+            open(app)
+            try forEachPage(of: app) {
+                for type in Self.defaultSizeTypes {
+                    let result = try audit(app, type)
+                    failures += result.failures
+                    underBars.merge(result.underBars) { old, _ in old }
+                    if type == .contrast {
+                        seenClear.formUnion(Self.textsClearOfBars(in: app).subtracting(result.flaggedKeys))
+                    }
                 }
             }
+            // A contrast finding under a bar is only accepted if the same element passed the audit elsewhere.
+            for (key, line) in underBars where !seenClear.contains(key) {
+                failures.append("Never audited clear of the bars (contrast unverified): \(line)")
+            }
+            app.terminate()
         }
-        // A contrast finding under a bar is only accepted if the same element passed the audit elsewhere.
-        for (key, line) in underBars where !seenClear.contains(key) {
-            failures.append("Never audited clear of the bars (contrast unverified): \(line)")
-        }
-        app.terminate()
 
-        Self.output("Auditing \(name) at the largest accessibility text size")
-        let large = launch(seedSampleBook: seedSampleBook, largestText: true, showTour: showTour,
-                           extraArguments: extraArguments)
-        if let openAtLargestText { openAtLargestText(large) } else { open(large) }
-        try forEachPage(of: large, afterScroll: afterScrollAtLargestText) {
-            for type in Self.largestTextTypes {
-                failures += try audit(large, type, acceptFormFooterFindings: formFooterFindingsAtLargestText).failures
+        if sizes != .defaultOnly {
+            Self.output("Auditing \(name) at the largest accessibility text size")
+            let large = launch(seedSampleBook: seedSampleBook, largestText: true, showTour: showTour,
+                               extraArguments: extraArguments)
+            if let openAtLargestText { openAtLargestText(large) } else { open(large) }
+            try forEachPage(of: large, afterScroll: afterScrollAtLargestText) {
+                for type in Self.largestTextTypes {
+                    failures += try audit(large, type, acceptFormFooterFindings: formFooterFindingsAtLargestText).failures
+                }
             }
         }
 
@@ -623,15 +633,28 @@ final class AccessibilityAuditTests: XCTestCase {
         try auditScreen("Catalogs", extraArguments: ["-UITestingMockCatalogs"], open: Self.openCatalogs)
     }
 
-    /// The Add Catalog form (labels above the fields, footer, the Add Catalog action row).
+    /// Opens the Add Catalog form from the Catalogs list.
+    @MainActor
+    private static func openAddCatalog(_ app: XCUIApplication) {
+        openCatalogs(app)
+        scrollAndTap(app.buttons["catalogsAdd"], in: app, expecting: app.navigationBars["Add Catalog"])
+        XCTAssertTrue(app.navigationBars["Add Catalog"].waitForExistence(timeout: 5), "Add Catalog did not open")
+    }
+
+    /// The Add Catalog form (labels above the fields, footer, the Add Catalog action row), at the default text
+    /// size. Its two passes are two tests: together they took 232 to 360 s on CI, past the 300 s allowance (the
+    /// largest-size pass alone about 200 s; PR #193, job 139009834893).
     @MainActor
     func testAddCatalogAudit() throws {
-        try auditScreen("Add Catalog", extraArguments: ["-UITestingMockCatalogs"],
-                        formFooterFindingsAtLargestText: true) { app in
-            Self.openCatalogs(app)
-            Self.scrollAndTap(app.buttons["catalogsAdd"], in: app, expecting: app.navigationBars["Add Catalog"])
-            XCTAssertTrue(app.navigationBars["Add Catalog"].waitForExistence(timeout: 5), "Add Catalog did not open")
-        }
+        try auditScreen("Add Catalog", extraArguments: ["-UITestingMockCatalogs"], sizes: .defaultOnly,
+                        open: Self.openAddCatalog)
+    }
+
+    /// The Add Catalog form at the largest accessibility text size (see `testAddCatalogAudit`).
+    @MainActor
+    func testAddCatalogLargestTextAudit() throws {
+        try auditScreen("Add Catalog", extraArguments: ["-UITestingMockCatalogs"], sizes: .largestOnly,
+                        formFooterFindingsAtLargestText: true, open: Self.openAddCatalog)
     }
 
     /// A page of a catalog: books with covers, one offered only as PDF ("Not available as EPUB"), Load More.
@@ -696,6 +719,24 @@ final class AccessibilityAuditTests: XCTestCase {
             XCTAssertTrue(edit.waitForExistence(timeout: 10), "Edit not offered")
             edit.tap()
             XCTAssertTrue(app.navigationBars["Edit Catalog"].waitForExistence(timeout: 5), "Edit Catalog did not open")
+        }
+    }
+
+    /// Search results of the signed-in "Home Library" (its feed offers OpenSearch), reached through the page's
+    /// search field: the heading with the terms, book rows with covers and Load More.
+    @MainActor
+    func testCatalogSearchAudit() throws {
+        try auditScreen("Catalog search", extraArguments: ["-UITestingMockCatalogs"]) { app in
+            Self.openCatalogs(app)
+            let row = app.descendants(matching: .any)
+                .matching(NSPredicate(format: "identifier == 'catalogRow' AND label BEGINSWITH 'Home Library'")).firstMatch
+            let field = app.textFields["catalogSearchField"]
+            Self.scrollAndTap(row, in: app, expecting: field)
+            XCTAssertTrue(field.waitForExistence(timeout: 10), "Search field missing")
+            field.tap()
+            field.typeText("mars\n")
+            XCTAssertTrue(app.descendants(matching: .any)["catalogBookRow"].waitForExistence(timeout: 10), "No results")
+            Self.waitForScrollToSettle(app)
         }
     }
 

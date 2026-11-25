@@ -150,9 +150,10 @@ jobs:
       BOOK: >-
         testLibraryWithBookAudit testBookDetailAudit testOnlineMatchSheetAudit testSettingsBookDetailsAudit
       CATALOGS: >-
-        testCatalogsListAudit testAddCatalogAudit testCatalogPageAudit testCatalogBookAudit
+        testCatalogsListAudit testAddCatalogAudit testAddCatalogLargestTextAudit testCatalogPageAudit
+        testCatalogBookAudit
       SIGNIN: >-
-        testCatalogSignInNeededAudit testCatalogSignInAudit testEditCatalogAudit
+        testCatalogSignInNeededAudit testCatalogSignInAudit testEditCatalogAudit testCatalogSearchAudit
     steps:
       # Only the scripts are needed from the checkout: no project generation, no package resolution.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

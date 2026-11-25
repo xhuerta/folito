@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Hand-written: only HTML results, and an Atom template that needs a page size Folito does not send. -->
+<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/">
+  <ShortName>Example</ShortName>
+  <Url type="text/html" template="https://books.example.org/search?q={searchTerms}"/>
+  <Url type="application/atom+xml" template="https://books.example.org/opds/search?q={searchTerms}&amp;n={count}"/>
+  <Url type="application/atom+xml" rel="suggestions" template="https://books.example.org/opds/suggest?q={searchTerms}"/>
+  <Url type="application/atom+xml" template="javascript:alert({searchTerms})"/>
+</OpenSearchDescription>

@@ -42,6 +42,11 @@ public enum OPDSParser {
             case "subtitle": feed.subtitle = text(of: child)
             case "icon", "logo": if feed.iconURL == nil { feed.iconURL = resolve(child.trimmedText, base: url) }
             case "link":
+                if let search = searchLink(child, base: url) {
+                    // A direct template saves reading the description document; either is kept if alone.
+                    if case .template = search { feed.search = search } else if feed.search == nil { feed.search = search }
+                    continue
+                }
                 guard let link = link(child, base: url) else { continue }
                 switch link.rel {
                 case "next": if OPDSMediaType.isFeed(link.type) || link.type == nil { feed.nextURL = feed.nextURL ?? link.url }
@@ -55,6 +60,24 @@ public enum OPDSParser {
         }
         if feed.title.isEmpty { feed.title = url.host ?? url.absoluteString }
         return feed
+    }
+
+    // MARK: Search
+
+    /// A feed's `rel="search"` link: an OpenSearch description, or an Atom template with `{searchTerms}`. The
+    /// template's `href` is kept as written (resolving it now would percent-encode its braces).
+    private static func searchLink(_ node: XMLTree.Node, base: URL) -> OPDSSearchLink? {
+        guard node.attributes["rel"]?.trimmingCharacters(in: .whitespaces).lowercased() == "search",
+              let href = node.attributes["href"]?.trimmingCharacters(in: .whitespacesAndNewlines), !href.isEmpty
+        else { return nil }
+        let type = node.attributes["type"].map(OPDSMediaType.base)
+        if href.contains("{") {
+            guard type == nil || type == "application/atom+xml" else { return nil }
+            let template = OPDSSearchTemplate(template: href, base: base)
+            return template.url(for: "test") == nil ? nil : .template(template)
+        }
+        guard type == OPDSOpenSearch.descriptionType, let url = resolve(href, base: base) else { return nil }
+        return .description(url)
     }
 
     // MARK: Entry

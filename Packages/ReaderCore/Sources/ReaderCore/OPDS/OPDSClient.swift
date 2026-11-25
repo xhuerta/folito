@@ -25,6 +25,9 @@ public enum OPDSError: Error, Equatable, Sendable {
     case server(status: Int)
     /// The answer is not an OPDS/Atom feed (for example a web page).
     case notAFeed
+    /// The catalog's OpenSearch description has no template Folito can use (no Atom results, or a required
+    /// parameter Folito cannot fill).
+    case searchNotSupported
     /// The download is not an EPUB file (for example an HTML error page).
     case notAnEPUB
     /// Bigger than `OPDSClient.maxFeedBytes` / `maxBookBytes`.
@@ -106,11 +109,15 @@ public actor OPDSClient {
     static let epubAccept = "application/epub+zip, */*;q=0.5"
     public static let maxImageBytes = 5 * 1024 * 1024
     static let imageAccept = "image/*"
+    static let searchDescriptionAccept = "application/opensearchdescription+xml, application/xml;q=0.9, */*;q=0.5"
+    public static let maxSearchDescriptionBytes = 1024 * 1024
 
     private let transport: OPDSTransport
     private let userAgent: String
     /// The saved sign-ins, by server. Shared with the app, which fills it from the Keychain.
     public nonisolated let vault: OPDSCredentialVault
+    /// OpenSearch templates already read, by description address (read once per launch, when first searched).
+    private var searchTemplates: [URL: OPDSSearchTemplate] = [:]
     /// Requests sent so far (tests check that nothing is contacted unasked). Addresses only, never headers.
     public private(set) var requestLog: [URL] = []
 
@@ -145,6 +152,36 @@ public actor OPDSClient {
         let response = try await get(url, accept: Self.feedAccept, authorization: authorization)
         guard response.data.count <= Self.maxFeedBytes else { throw OPDSError.tooLarge }
         return try OPDSParser.parse(response.data, url: response.url)
+    }
+
+    /// The results of searching a catalog page's search link for `terms`: the first page, read like any other page
+    /// (same sign-in rules: a saved sign-in goes only to its own https server). A description document is read the
+    /// first time and remembered. Empty terms give an empty page, without any request.
+    public func search(_ link: OPDSSearchLink, terms: String) async throws -> OPDSFeed {
+        guard !terms.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            switch link {
+            case .description(let url): return OPDSFeed(url: url, title: "")
+            case .template(let template): return OPDSFeed(url: template.base, title: "")
+            }
+        }
+        let template = try await searchTemplate(for: link)
+        guard let url = template.url(for: terms) else { throw OPDSError.searchNotSupported }
+        return try await feed(at: url)
+    }
+
+    /// The template of a search link, reading (and remembering) its OpenSearch description if needed.
+    public func searchTemplate(for link: OPDSSearchLink) async throws -> OPDSSearchTemplate {
+        switch link {
+        case .template(let template):
+            return template
+        case .description(let url):
+            if let known = searchTemplates[url] { return known }
+            let response = try await get(url, accept: Self.searchDescriptionAccept)
+            guard response.data.count <= Self.maxSearchDescriptionBytes else { throw OPDSError.tooLarge }
+            let template = try OPDSOpenSearch.parseDescription(response.data, url: response.url)
+            searchTemplates[url] = template
+            return template
+        }
     }
 
     /// The EPUB behind `link`. Fails with `.notAnEPUB` unless the bytes are a ZIP archive.
