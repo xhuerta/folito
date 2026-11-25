@@ -489,6 +489,12 @@ public struct MergedLibraryItem<Local: Sendable>: Sendable, Identifiable {
     public var local: Local?
     public var cloud: ReadestCloudBook?
 
+    public init(hash: String, local: Local?, cloud: ReadestCloudBook?) {
+        self.hash = hash
+        self.local = local
+        self.cloud = cloud
+    }
+
     /// The local book was paired with its Readest row by metadata, not by hash (see `LibraryMerge`).
     public var isLinkedByMetadata: Bool { local != nil && cloud != nil && cloud?.hash != hash }
 

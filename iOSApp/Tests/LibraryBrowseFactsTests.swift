@@ -35,7 +35,7 @@ final class LibraryBrowseFactsTests: XCTestCase {
                                             "metadata": "{\"series\":\"Dune\",\"seriesIndex\":2}"])!
         let facts = LibraryBrowseFacts.facts(MergedLibraryItem(hash: "a", local: local, cloud: cloud), readStatus: nil)
         XCTAssertEqual(facts.series, BookSeries(name: "Dune", index: 2))
-        XCTAssertEqual(facts.authors, [], "no author, not an author called “Unknown author”")
+        XCTAssertEqual(facts.authors, [String](), "no author, not an author called “Unknown author”")
         XCTAssertFalse(facts.isFinished)
     }
 
@@ -54,7 +54,7 @@ final class LibraryBrowseFactsTests: XCTestCase {
 
         let anonymous = ReadestCloudBook(hash: "s", title: "Beowulf", author: " ", uploadedAt: Date(timeIntervalSince1970: 5))
         let other = LibraryBrowseFacts.facts(MergedLibraryItem(hash: "s", local: nil, cloud: anonymous), readStatus: nil)
-        XCTAssertEqual(other.authors, [])
+        XCTAssertEqual(other.authors, [String]())
         XCTAssertEqual(other.addedAt, Date(timeIntervalSince1970: 5), "no created_at: the upload time")
     }
 
