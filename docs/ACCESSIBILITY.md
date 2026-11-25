@@ -510,7 +510,8 @@ checks the audit does not make:
   left-edge swipe back does not work in the reader yet and is tracked in #118.
 - `WatchImageViewerUITests` (#71): the picture is in the text with its description as its label, one without a
   description reads "Image", a tap opens the viewer (screenshots `watch-image-viewer`, `-zoomed` after a double
-  tap), and *Close* returns to the reader at the same position. `WatchAccessibilityChecksTests` also opens the viewer
+  tap), and *Close* returns to the reader at the same position; a later picture is reached by scrolling (short
+  slow drags held at their end, so the short seed does not fling past it) and opened. `WatchAccessibilityChecksTests` also opens the viewer
   at AX5: *Close* is labelled and hittable and every control has a label.
 - `WatchAutoScrollUITests`: *Start Auto-Scroll* moves the text by itself, a tap pauses it (the text stays
   put, screenshot `watch-autoscroll-paused`) and *Stop Auto-Scroll* in the menu stops it.

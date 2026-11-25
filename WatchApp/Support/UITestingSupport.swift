@@ -442,28 +442,41 @@ enum UITesting {
                              totalCharacters: 20 + text.count)
     }()
 
-    /// The illustrated seed (#71): the sample's opening, then a generated picture (a JPEG drawn in code, 600 × 400
-    /// px) with a description, a picture without one that cannot be shown, and a closing paragraph.
+    /// The illustrated seed (#71): a one-line heading, then at once a generated picture (a JPEG drawn in code, 600 ×
+    /// 400 px) with a description, so it is on screen when the book opens on every watch size and a test only taps it;
+    /// then a paragraph, a picture without a file (it shows the "Image" fallback on purpose), another paragraph and,
+    /// a screen or more further on, the same picture with another description, for the test that scrolls to one.
     static let illustratedBook: ProcessedBook = {
+        let heading = "Chapter I" // i18n-ignore: UI-test fixture (Debug only)
         let first = "Alice was beginning to get very tired of sitting by her sister on the bank." // i18n-ignore: UI-test fixture (Debug only)
         let last = "So she was considering in her own mind whether the pleasure of making a daisy-chain would be worth the trouble." // i18n-ignore: UI-test fixture (Debug only)
-        let heading = "Down the Rabbit-Hole" // i18n-ignore: UI-test fixture (Debug only)
         let alt = "A white rabbit with a pocket watch" // i18n-ignore: UI-test fixture (Debug only)
+        let laterAlt = "The rabbit hole" // i18n-ignore: UI-test fixture (Debug only)
+        let end = "The End." // i18n-ignore: UI-test fixture (Debug only)
+        var offset = 0
+        func text(_ t: String, _ style: BlockStyle = .paragraph, _ xpointer: String) -> Block {
+            defer { offset += t.count }
+            return Block(text: t, style: style, xpointer: xpointer, globalOffset: offset)
+        }
+        func picture(_ image: BlockImage, _ xpointer: String) -> Block {
+            Block(text: "", xpointer: xpointer, globalOffset: offset, image: image)
+        }
         let blocks = [
-            Block(text: heading, style: .heading1, xpointer: "/body/DocFragment[1]/body/h1", globalOffset: 0),
-            Block(text: first, xpointer: "/body/DocFragment[1]/body/p", globalOffset: heading.count),
-            Block(text: "", xpointer: "/body/DocFragment[1]/body/div/img", globalOffset: heading.count + first.count,
-                  image: BlockImage(id: "i1", width: 600, height: 400, alt: alt)),
-            Block(text: "", xpointer: "/body/DocFragment[1]/body/div[2]/img", globalOffset: heading.count + first.count,
-                  image: BlockImage(id: nil)),
-            Block(text: last, xpointer: "/body/DocFragment[1]/body/p[2]", globalOffset: heading.count + first.count),
+            text(heading, .heading1, "/body/DocFragment[1]/body/h1"),
+            picture(BlockImage(id: "i1", width: 600, height: 400, alt: alt), "/body/DocFragment[1]/body/div/img"),
+            text(first, .paragraph, "/body/DocFragment[1]/body/p"),
+            picture(BlockImage(id: nil), "/body/DocFragment[1]/body/div[2]/img"),
+            text(last, .paragraph, "/body/DocFragment[1]/body/p[2]"),
+            text(first, .paragraph, "/body/DocFragment[1]/body/p[3]"),
+            picture(BlockImage(id: "i1", width: 600, height: 400, alt: laterAlt), "/body/DocFragment[1]/body/div[3]/img"),
+            text(end, .paragraph, "/body/DocFragment[1]/body/p[4]"),
         ]
-        let picture = generatedPicture().map { [BookImage(id: "i1", mediaType: "image/jpeg", width: 600, height: 400, data: $0)] }
+        let pictures = generatedPicture().map { [BookImage(id: "i1", mediaType: "image/jpeg", width: 600, height: 400, data: $0)] }
         return ProcessedBook(metadata: BookMetadata(title: "Alice’s Adventures in Wonderland", authors: ["Lewis Carroll"]),
                              documentHash: "00000000000000000000000000a11ce0",
                              metaHash: "00000000000000000000000000a11ce1",
                              chapters: [Chapter(spineIndex: 1, title: heading, blocks: blocks)],
-                             totalCharacters: heading.count + first.count + last.count, images: picture)
+                             totalCharacters: offset, images: pictures)
     }()
 
     /// A 600 × 400 px JPEG: a sky, a hill and a sun.
