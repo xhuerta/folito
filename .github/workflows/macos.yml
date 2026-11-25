@@ -206,7 +206,7 @@ jobs:
             -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
             -resultBundlePath ${{ matrix.platform }}-tests.xcresult 2>&1 | tee ${{ matrix.platform }}-tests.log
 
-      # UI tier, iPhone: the five screenshot suites of iOSApp/UITests in one xcodebuild call and one result bundle.
+      # UI tier, iPhone: the six screenshot suites of iOSApp/UITests in one xcodebuild call and one result bundle.
       #  * OnboardingUITests: the welcome tour, the sample book, Skip, reopening from Settings.
       #  * ReadestLibraryUITests (mocked Readest account): cloud-only rows, downloads, menus, filter, offline.
       #  * CoversUITests (`-UITestingSeedCovers`): Library with covers, placeholder, book detail, largest text.
@@ -214,8 +214,10 @@ jobs:
       #    Details Online, the confirmation sheet, Remove Online Details.
       #  * CatalogsUITests (`-UITestingMockCatalogs`, no network): Catalogs, a section, a page, a book, Add Catalog,
       #    sign-in, search.
+      #  * LibraryBrowseUITests (`-UITestingSeedLargeLibrary`): Library search, sort orders, By Author, By Series,
+      #    and a book opened from the search results and back.
       # The accessibility audits in the same bundle run in accessibility.yml.
-      - name: UI tests (welcome tour, Readest library, covers, online metadata, catalogs)
+      - name: UI tests (welcome tour, Readest library, covers, online metadata, catalogs, library browse)
         if: env.UI_TIER == 'true' && matrix.platform == 'ios'
         run: |
           set -o pipefail
@@ -228,6 +230,7 @@ jobs:
             -only-testing:FolitoUITests/CoversUITests \
             -only-testing:FolitoUITests/OnlineMetadataUITests \
             -only-testing:FolitoUITests/CatalogsUITests \
+            -only-testing:FolitoUITests/LibraryBrowseUITests \
             -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
             -resultBundlePath ios-ui-tests.xcresult 2>&1 | tee ios-ui-tests.log
 
@@ -244,8 +247,10 @@ jobs:
             ReadestLibraryUITests=readest-library-screenshots \
             CoversUITests=covers-iphone \
             OnlineMetadataUITests=online-metadata-screenshots \
-            CatalogsUITests=catalogs-screenshots || true
-          ls onboarding-screenshots readest-library-screenshots covers-iphone online-metadata-screenshots catalogs-screenshots || true
+            CatalogsUITests=catalogs-screenshots \
+            LibraryBrowseUITests=library-browse-screenshots || true
+          ls onboarding-screenshots readest-library-screenshots covers-iphone online-metadata-screenshots catalogs-screenshots \
+            library-browse-screenshots || true
 
       - name: Upload welcome tour screenshots
         if: always() && env.UI_TIER == 'true' && matrix.platform == 'ios'
@@ -294,6 +299,16 @@ jobs:
           name: catalogs-screenshots
           path: |
             catalogs-screenshots
+            ios-ui-tests.log
+          if-no-files-found: ignore
+
+      - name: Upload library browse screenshots
+        if: always() && env.UI_TIER == 'true' && matrix.platform == 'ios'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: library-browse-screenshots
+          path: |
+            library-browse-screenshots
             ios-ui-tests.log
           if-no-files-found: ignore
 

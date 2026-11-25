@@ -530,7 +530,10 @@ final class AccessibilityAuditTests: XCTestCase {
         let titles = ["No Apple Watch", "Folito Isn’t on Your Apple Watch", "Apple Watch connected",
                       "Books are sent to your Apple Watch in the background."]
         let status = app.staticTexts.matching(NSPredicate(format: "label IN %@", titles)).firstMatch
-        XCTAssertTrue(status.waitForExistence(timeout: 10), "Watch status not shown")
+        // 30 s: the first test of a shard launches the app on a freshly booted simulator, where the launch alone
+        // took 10 s and the session had not activated 10 s after the Library appeared (PR #211, job 139333803759,
+        // `testLibraryEmptyStateAudit`, which passed on another branch's run the same day).
+        XCTAssertTrue(status.waitForExistence(timeout: 30), "Watch status not shown")
         waitForScrollToSettle(app)
     }
 
@@ -565,6 +568,128 @@ final class AccessibilityAuditTests: XCTestCase {
         for _ in 0..<6 where local.exists && local.frame.maxY > clearArea(in: app).top { scrollDown(app) }
         XCTAssertFalse(local.exists && local.frame.maxY > clearArea(in: app).top, "Local row still on screen")
         XCTAssertTrue(app.descendants(matching: .any)["libraryCloudRow"].exists, "Readest-only books not shown")
+    }
+
+    // MARK: Library search and browse (#114, shard `browse`)
+
+    /// Types `text` (ending in a return, which closes the keyboard) into the Library's search field.
+    @MainActor
+    private static func searchLibrary(_ text: String, in app: XCUIApplication) {
+        waitForWatchStatus(app)
+        let field = app.textFields["librarySearchField"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "Library search field missing")
+        RowNavigation.reveal(field, in: app)
+        field.tap()
+        field.typeText(text)
+        waitForScrollToSettle(app)
+    }
+
+    /// Searches, then scrolls to the end of the list and checks that `expected` is there. At the largest size the
+    /// "No Apple Watch" notice under the field fills the screen, so the results start below it, and List rows
+    /// below the screen are not in the accessibility tree (CI job 139333803627: "mars" found nothing to look at
+    /// right after typing). The largest-size pass starts at the end, where the last row is the last row of the
+    /// list (see "Rows in the middle of a long list at AX5" in docs/ACCESSIBILITY.md); the field at the top is
+    /// audited at that size by `testLibraryNoResultsAudit`'s first page.
+    @MainActor
+    private static func searchAndScrollToEnd(_ text: String, expecting identifier: String, _ message: String,
+                                             in app: XCUIApplication) {
+        searchLibrary(text, in: app)
+        // First match: the No Results view's identifier is on each of its texts, and several rows are found.
+        // Revealing reads the element's frame, which needs a single match (CI job 139409204929: "Multiple
+        // matching elements found" for `libraryNoResults` at AX5).
+        let expected = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        RowNavigation.reveal(expected, in: app)
+        XCTAssertTrue(expected.waitForExistence(timeout: 5), message)
+        scrollToEnd(app)
+        XCTAssertTrue(expected.exists, message)
+    }
+
+    /// Eight books (`-UITestingSeedLargeLibrary`, so the search field shows) searched for "mars": the field with
+    /// its text and clear button, and the three Barsoom books. At the largest size the pass starts at the end of
+    /// the results (`searchAndScrollToEnd`).
+    @MainActor
+    func testLibrarySearchAudit() throws {
+        try auditScreen("Library (search)", extraArguments: ["-UITestingSeedLargeLibrary"],
+                        afterScrollAtLargestText: Self.scrollToLastRow,
+                        openAtLargestText: { app in
+                            Self.searchAndScrollToEnd("mars\n", expecting: "libraryRow", "No search results", in: app)
+                        }) { app in
+            Self.searchLibrary("mars\n", in: app)
+            XCTAssertTrue(app.descendants(matching: .any)["libraryRow"].waitForExistence(timeout: 5), "No search results")
+            XCTAssertTrue(app.buttons["librarySearchClear"].exists, "Clear Search button missing")
+        }
+    }
+
+    /// A search that finds nothing: the No Results view under the field. At the largest size the first page is
+    /// the top of the list (the field with its text and *Clear Search*), then the view, which is below the watch
+    /// notice there.
+    @MainActor
+    func testLibraryNoResultsAudit() throws {
+        try auditScreen("Library (no results)", extraArguments: ["-UITestingSeedLargeLibrary"],
+                        openAtLargestText: { app in
+                            Self.searchLibrary("zzzz\n", in: app)
+                            XCTAssertTrue(app.buttons["librarySearchClear"].exists, "Clear Search button missing")
+                        }) { app in
+            Self.searchLibrary("zzzz\n", in: app)
+            XCTAssertTrue(app.descendants(matching: .any)["libraryNoResults"].waitForExistence(timeout: 5),
+                          "No Results not shown")
+        }
+    }
+
+    /// The No Results view itself at the largest size, which the pass above reaches only by scrolling: revealed,
+    /// then audited from there to the end.
+    @MainActor
+    func testLibraryNoResultsLargestTextAudit() throws {
+        try auditScreen("Library (no results)", extraArguments: ["-UITestingSeedLargeLibrary"], sizes: .largestOnly) { app in
+            Self.searchAndScrollToEnd("zzzz\n", expecting: "libraryNoResults", "No Results not shown", in: app)
+        }
+    }
+
+    @MainActor
+    private static func openAuthors(_ app: XCUIApplication) {
+        waitForWatchStatus(app)
+        XCTAssertTrue(app.descendants(matching: .any)["librarySectionHeader"].waitForExistence(timeout: 10),
+                      "Author sections not shown")
+    }
+
+    @MainActor
+    private static func openSeries(_ app: XCUIApplication) {
+        waitForWatchStatus(app)
+        let barsoom = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == 'librarySectionHeader' AND label == 'Barsoom'")).firstMatch
+        XCTAssertTrue(barsoom.waitForExistence(timeout: 10), "Barsoom section not shown")
+    }
+
+    private static let authorsArguments = ["-UITestingSeedCovers", "-library.browse", "authors"]
+    private static let seriesArguments = ["-UITestingSeedCovers", "-library.browse", "series"]
+
+    /// *By Author* (`-library.browse authors`) with the three `-UITestingSeedCovers` books: a section per author,
+    /// its header a header. The two sizes are two tests: together they took 229 s on CI (job 139333803627),
+    /// over the 180 s per-test allowance.
+    @MainActor
+    func testLibraryAuthorsAudit() throws {
+        try auditScreen("Library (by author)", extraArguments: Self.authorsArguments, sizes: .defaultOnly,
+                        open: Self.openAuthors)
+    }
+
+    /// The same at the largest size: the top of the list, then its end (`scrollToLastRow`).
+    @MainActor
+    func testLibraryAuthorsLargestTextAudit() throws {
+        try auditScreen("Library (by author)", extraArguments: Self.authorsArguments, sizes: .largestOnly,
+                        afterScrollAtLargestText: Self.scrollToLastRow, open: Self.openAuthors)
+    }
+
+    /// *By Series* (`-library.browse series`): *Barsoom* (The Gods of Mars), then *Not in a Series*.
+    @MainActor
+    func testLibrarySeriesAudit() throws {
+        try auditScreen("Library (by series)", extraArguments: Self.seriesArguments, sizes: .defaultOnly,
+                        open: Self.openSeries)
+    }
+
+    @MainActor
+    func testLibrarySeriesLargestTextAudit() throws {
+        try auditScreen("Library (by series)", extraArguments: Self.seriesArguments, sizes: .largestOnly,
+                        afterScrollAtLargestText: Self.scrollToLastRow, open: Self.openSeries)
     }
 
     // MARK: Book detail
