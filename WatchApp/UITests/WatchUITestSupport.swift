@@ -218,15 +218,40 @@ enum WatchUI {
             .matching(NSPredicate(format: "label == %@", illustrationLabel)).element(boundBy: 0)
     }
 
+    /// Scrolls the reader until the middle of `element` is in the middle band of the screen (between a quarter
+    /// from the top, below the bar, and a fifth from the bottom), dragging in whichever direction it lies. Unlike
+    /// `scrollToHittable`, which only drags forward and so runs past an element that starts out partly hidden
+    /// (the illustrated seed is barely two screens long). Returns whether it got there.
+    static func scrollIntoMiddle(_ element: XCUIElement, in app: XCUIApplication, maxSteps: Int = 12) -> Bool {
+        for _ in 0..<maxSteps {
+            let window = app.windows.firstMatch.frame
+            guard element.exists else {
+                nudgeUp(app)
+                continue
+            }
+            let mid = element.frame.midY
+            if mid < window.minY + window.height * 0.25 {
+                nudgeDown(app)
+            } else if mid > window.maxY - window.height * 0.2 {
+                nudgeUp(app)
+            } else {
+                return true
+            }
+        }
+        return false
+    }
+
     /// Reader (illustrated seed) -> the picture full screen. Returns whether the viewer opened.
     @discardableResult
     static func openImageViewer(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) -> Bool {
         let picture = illustration(in: app)
-        guard scrollToHittable(picture, in: app) else {
+        guard picture.waitForExistence(timeout: 5), scrollIntoMiddle(picture, in: app) else {
             fail("The picture is not on screen", in: app, file: file, line: line)
             return false
         }
-        picture.tap()
+        // A tap on the middle of the picture, whether or not XCUITest counts the whole element as hittable (part of
+        // it may be under the bar or past the bottom edge).
+        picture.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         let close = element("imageViewerClose", in: app)
         guard close.waitForExistence(timeout: 5) else {
             fail("The image viewer did not open", in: app, file: file, line: line)

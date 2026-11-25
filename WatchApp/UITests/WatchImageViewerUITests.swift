@@ -16,9 +16,12 @@ final class WatchImageViewerUITests: XCTestCase {
         WatchUI.openReader(app)
         let picture = WatchUI.illustration(in: app)
         XCTAssertTrue(picture.waitForExistence(timeout: 5), "The picture is not in the text")
+        // The seed's second picture has no file on purpose (`BlockImage(id: nil)`): it shows the fallback.
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "readerBlock")
             .matching(NSPredicate(format: "label == %@", "Image")).element(boundBy: 0).exists,
                       "A picture without a description reads \u{201C}Image\u{201D}")
+        // Bring the picture into view first, so the position compared is the one the viewer opens over.
+        XCTAssertTrue(WatchUI.scrollIntoMiddle(picture, in: app), "The picture could not be scrolled into view")
         let before = WatchUI.settledPosition(in: app)
         XCTAssertNotNil(before, "The reader did not settle")
         guard WatchUI.openImageViewer(app) else { return }
