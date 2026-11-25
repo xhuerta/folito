@@ -226,8 +226,10 @@ final class ReaderViewModel: ObservableObject {
          times: ReadingTimeStore? = nil,
          now: @escaping () -> Date = { Date() },
          complications: ComplicationPublisher? = nil,
-         settings: UserDefaults = .standard) {
+         settings: UserDefaults = .standard,
+         imageFiles: BookImageFiles? = nil) {
         self.book = book
+        self.imageFiles = imageFiles
         self.complications = complications
         self.settings = settings
         // By default next to the positions (same UserDefaults), so Reset and deleting a book clear them too.
@@ -458,8 +460,16 @@ final class ReaderViewModel: ObservableObject {
 
     func beginLookup(at index: Int, characterOffset: Int? = nil) {
         guard !flat.isEmpty else { return }
+        // An image block has no words (#71): the next block with text, if any.
+        var target = flat.clamped(index)
+        var offset = characterOffset
+        if flat.blocks[target].isImage {
+            guard let next = flat.blocks.indices[target...].first(where: { !flat.blocks[$0].isImage }) else { return }
+            target = next
+            offset = nil
+        }
         pageTimer.reset(at: now())
-        lookupBlockIndex = LookupTarget(index: flat.clamped(index), characterOffset: characterOffset)
+        lookupBlockIndex = LookupTarget(index: target, characterOffset: offset)
     }
 
     /// Note shown in the note sheet (#66). The sheet covers the reader without scrolling it, so closing it
@@ -471,6 +481,42 @@ final class ReaderViewModel: ObservableObject {
         let blockIndex: Int
         let note: NoteReference
         var id: String { "\(blockIndex)|\(note.location)" }
+    }
+
+    // MARK: Images (#71)
+
+    /// Where the book's pictures are stored (nil: previews, tests, books without pictures).
+    let imageFiles: BookImageFiles?
+
+    /// Picture shown full screen. Like a note, the viewer covers the reader without scrolling it, so closing it
+    /// returns to the same line.
+    @Published var openImage: OpenImage?
+
+    struct OpenImage: Identifiable, Equatable {
+        /// Flat index of the image block.
+        let blockIndex: Int
+        let image: BlockImage
+        var id: Int { blockIndex }
+    }
+
+    /// The picture file of an image block, when it has one.
+    func imageURL(_ image: BlockImage) -> URL? {
+        guard let id = image.id else { return nil }
+        return imageFiles?.url(for: id)
+    }
+
+    /// Whether the picture of block `index` is decoded now (`ImageResidency`).
+    func loadsImage(at index: Int) -> Bool {
+        ImageResidency.isNear(index, current: currentIndex)
+    }
+
+    /// Opens the picture of an image block full screen. Returns false for a block that is not an image.
+    @discardableResult
+    func showImage(at index: Int) -> Bool {
+        guard index >= 0, index < flat.count, let image = flat.blocks[index].image else { return false }
+        pageTimer.reset(at: now())
+        openImage = OpenImage(blockIndex: index, image: image)
+        return true
     }
 
     func showNote(_ note: NoteReference, inBlock index: Int) {
@@ -1622,6 +1668,7 @@ final class ReaderViewModel: ObservableObject {
     }
 
     func leave() {
+        InlineImageCache.shared.removeAll()
         restoreTask?.cancel()
         prependTask?.cancel()
         prependTask = nil

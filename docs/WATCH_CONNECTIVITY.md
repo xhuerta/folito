@@ -20,6 +20,44 @@ Metadata keys:
 
 The watch should replace any existing book with the same `documentHash`.
 
+### Images in the text
+
+Issue #71. Image blocks (`Block.image`, `BlockImage`: picture id, pixel size, alt text) have empty text, so they add
+no characters (percentages match KOReader's, which counts text) and no in-block offset points into one; their
+XPointer names the element (`…/div/img`, no `text()` step). The pictures travel inside the same file, in
+`ProcessedBook.images` (`BookImage`: id `i1`, `i2`, …, media type, pixel size, bytes as base64 in the JSON).
+Both keys are optional: older books decode without them and older watch builds ignore them, so `formatVersion`
+stays 1. On receipt the watch writes each picture to `Books/<hash>.images/<id>.img` and stores the book without
+them, so opening a book never decodes its pictures; a book stored with its pictures by an older watch build is
+split the same way the first time it is opened. Deleting the book removes the folder.
+
+The iPhone prepares them at import (`EPUBParser`, `ImageIOImagePreparer`, `ImageLimits.watch` in ReaderCore):
+
+| | |
+|---|---|
+| Longer side | at most 1248 px (3x the widest watch screen, 416 px): about 3x zoom in the viewer; never enlarged |
+| Encoding | JPEG, quality 0.7, transparency flattened onto white |
+| One picture | at most 350 KB; heavier ones are tried at 832 px (2x), then 624 px (1.5x), then left out |
+| One book | at most 8 MB in all; past half of it the remaining pictures are sent at 832 px, past three quarters at 624 px; past the cap they are left out |
+
+A picture left out (over the cap, SVG, damaged) keeps its block, which shows the alt text (or "Image"). Pictures are
+kept in reading order, so a very heavily illustrated book keeps its first pictures. Measured on Project Gutenberg's
+illustrated editions (pictures re-encoded at these settings): *Alice's Adventures in Wonderland* (#28885, 38
+pictures) adds about 1.4 MB, #19033 (55 pictures) about 1.7 MB, against a few hundred KB for the text of a novel.
+The heaviest case measured, the illustrated *Pride and Prejudice* (#1342, 24 MB EPUB, 164 pictures), would add 19
+MB at 1248 px, 10 MB at 832 px and 6 MB at 624 px; with the cap it adds 8 MB and keeps 129 of its 164 pictures
+(the last 35 show their descriptions).
+
+Left out of the text altogether: images smaller than 48 px on their longer side (ornaments), rules (at most 24
+px thick and six times longer), images with `role="presentation"` or `aria-hidden="true"`, images with an empty
+`alt` outside a link up to 320 px (larger ones are kept: many converters write `alt=""` on every picture), files
+missing from the archive without an alt text, and the cover (the declared cover everywhere; a cover guessed from
+the first page only at the very start of the book). Images inside footnotes stay out (a note opens as text).
+
+On the watch a picture is decoded with ImageIO at the size it is drawn (a thumbnail, never the full bitmap), only
+for image blocks within 8 blocks of the reading position, with a cache of 6 decoded pictures that is emptied when
+the reader closes; the viewer decodes the one it shows at up to 3x the screen.
+
 **Transfer progress (iPhone only).** While a book or dictionary transfer is outstanding, `PhoneConnectivity`
 reads `WCSessionFileTransfer.progress.fractionCompleted` of each one four times a second on the main queue (a
 timer that runs only while something is in flight) and publishes a row state only when it changes

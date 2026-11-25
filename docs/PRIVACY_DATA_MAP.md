@@ -172,7 +172,8 @@ nothing; each catalog handles requests under its own policy.
   receipt; they are never put in the application context, which the system keeps on disk outside the Keychain.
   Until the watch has received that message, the system holds it in its WatchConnectivity transfer queue on the
   iPhone. Books carry a small JPEG of their cover (taken from the EPUB, or the Open Library cover the
-  user accepted for a book whose EPUB has none) when they have one.
+  user accepted for a book whose EPUB has none) when they have one, and the pictures of their text, resized on
+  the iPhone (#71; nothing about them leaves the two devices).
 - Apple Watch to iPhone (same channel, the `library` report): the hashes of the books and dictionaries on the
   watch, the watch's typography, the estimated reading time left per book (seconds, rounded to whole
   minutes) and the percentage read of each book opened on the watch, shown in the iPhone library and book details. The learned reading speed itself never leaves the watch.
@@ -188,6 +189,7 @@ nothing; each catalog handles requests under its own policy.
 | Readest email and session (access + refresh token) | Keychain (iPhone and watch; the watch updates its copy when the session is refreshed) | No password. Removed on Sign Out. |
 | Readest library session (access + refresh token) | iPhone Keychain only (`readest_library_session`) | Never sent to the watch. Removed and revoked on Sign Out. |
 | Library (processed books and, on the iPhone, the original EPUB) | `Application Support/Folito/Books` (iPhone), watch app's Application Support (processed books only) | Files the user imports or downloads from Readest. Uploaded only as described in 1a-bis. |
+| Pictures in the text of local books (#71), resized for the watch | iPhone: inside the converted book (`<hash>.wrbook`); watch: `Books/<hash>.images/` | Taken from the EPUB at import, resized on the iPhone, sent to the watch with the book (WatchConnectivity). Never sent anywhere else. Removed with the book. |
 | Covers and book details of local books (description, series, publisher, year, language, ISBN) | iPhone: `Application Support/Folito/Books/<hash>.cover.jpg` and `<hash>.watch.jpg`, details in `library.json`; watch: `Books/<hash>.cover.jpg` | Read from the EPUB at import. Removed with the book. |
 | Online book details (cover, description, year, publisher, subjects from Open Library; the Open Library record key; when the background lookup last tried the book) | iPhone: the same cover files, `online` / `onlineLookupAt` in `library.json`; the watch gets only the cover thumbnail | Only what the user accepted (or the opt-in background lookup applied), only for fields the EPUB lacks; the EPUB file is never changed. *Remove Online Details* deletes them. Removed with the book. |
 | "Find Missing Details Online" | UserDefaults (`onlineMetadata.autoLookup`) | Off by default. |

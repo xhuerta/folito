@@ -333,6 +333,57 @@ def build_covers(out):
     })
 
 
+def build_illustrated(out):
+    """Images in the text (#71): kept pictures, decoration, the repeated cover, SVG and damaged files."""
+    write_epub(os.path.join(out, "illustrated.epub"), {
+        "OEBPS/content.opf": (OPF_NS % "3.0") +
+        '<dc:identifier id="id0">illustrated-1</dc:identifier><dc:title>Illustrated</dc:title>'
+        '<dc:language>en</dc:language><meta property="dcterms:modified">2020-01-01T00:00:00Z</meta>'
+        '</metadata><manifest>'
+        '<item id="cov" href="images/cover.png" media-type="image/png" properties="cover-image"/>'
+        '<item id="cp" href="text/cover.xhtml" media-type="application/xhtml+xml"/>'
+        '<item id="c1" href="text/c1.xhtml" media-type="application/xhtml+xml"/>'
+        '<item id="c2" href="text/c2.xhtml" media-type="application/xhtml+xml"/>'
+        '<item id="amb" href="images/ambigram.png" media-type="image/png"/>'
+        '<item id="orn" href="images/fleuron.png" media-type="image/png"/>'
+        '<item id="rule" href="images/rule.png" media-type="image/png"/>'
+        '<item id="note" href="images/note.png" media-type="image/png"/>'
+        '<item id="ban" href="images/banner.png" media-type="image/png"/>'
+        '<item id="svg" href="images/diagram.svg" media-type="image/svg+xml"/>'
+        '<item id="bad" href="images/broken.jpg" media-type="image/jpeg"/>'
+        '<item id="plate" href="images/plate.png" media-type="image/png"/>'
+        '</manifest><spine><itemref idref="cp"/><itemref idref="c1"/><itemref idref="c2"/></spine></package>',
+        "OEBPS/text/cover.xhtml": xhtml('<div><img src="../images/cover.png" alt="Cover"/></div>'),
+        "OEBPS/text/c1.xhtml": xhtml(
+            '<h1>Chapter One</h1>'
+            '<p>Before the picture.</p>'
+            '<div id="fig1"><img src="../images/ambigram.png" alt="The word  Earth,\n drawn as an ambigram"/></div>'
+            '<p><img src="../images/fleuron.png" alt="*"/></p>'
+            '<div><img src="../images/rule.png" alt="rule"/></div>'
+            '<p>A note in his hand: <img src="../images/note.png"/> as written.</p>'
+            '<p><img src="../images/banner.png" alt=""/></p>'
+            '<p><a href="c2.xhtml"><img src="../images/banner.png" alt=""/></a></p>'
+            '<p><img src="../images/diagram.svg" alt="A diagram of the four elements"/></p>'
+            '<p><img src="../images/broken.jpg" alt="A damaged picture"/></p>'
+            '<p><img src="../images/cover.png" alt="Cover again"/></p>'
+            '<p><img src="../images/missing.png"/></p>'
+            '<p><img src="../images/ambigram.png" role="presentation"/></p>'
+            '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 300 400">'
+            '<image width="300" height="400" xlink:href="../images/plate.png"/></svg>'
+            '<p>After the pictures.</p>'),
+        "OEBPS/text/c2.xhtml": xhtml('<p>Second chapter.</p>'),
+        "OEBPS/images/cover.png": tiny_png(300, 450, (0x80, 0x20, 0x20)),
+        "OEBPS/images/ambigram.png": tiny_png(400, 300),
+        "OEBPS/images/fleuron.png": tiny_png(32, 32),
+        "OEBPS/images/rule.png": tiny_png(600, 8),
+        "OEBPS/images/note.png": tiny_png(500, 200, (0xF0, 0xE0, 0xC0)),
+        "OEBPS/images/banner.png": tiny_png(200, 150),
+        "OEBPS/images/diagram.svg": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle r="4" cx="5" cy="5"/></svg>',
+        "OEBPS/images/broken.jpg": FAKE_JPEG,
+        "OEBPS/images/plate.png": tiny_png(300, 400, (0x20, 0x40, 0x20)),
+    })
+
+
 if __name__ == "__main__":
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(root, "Packages/ReaderCore/Tests/Fixtures")
@@ -340,4 +391,5 @@ if __name__ == "__main__":
     build(out)
     build_covers(out)
     build_toc(out)
+    build_illustrated(out)
     print("fixtures written to", out)

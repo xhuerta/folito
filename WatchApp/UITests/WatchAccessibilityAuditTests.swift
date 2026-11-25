@@ -116,6 +116,31 @@ final class WatchAccessibilityAuditTests: XCTestCase {
         try audit(app)
     }
 
+    /// #71: a book with a picture in its text, and the picture full screen.
+    @MainActor
+    func testReaderWithImageAudit() throws {
+        let app = WatchUI.launch(seedSampleBook: true, extraArguments: WatchUI.illustratedBookArguments)
+        WatchUI.openReader(app)
+        try audit(app)
+    }
+
+    @MainActor
+    func testImageViewerAudit() throws {
+        let app = WatchUI.launch(seedSampleBook: true, extraArguments: WatchUI.illustratedBookArguments)
+        WatchUI.openReader(app)
+        guard WatchUI.openImageViewer(app) else { return }
+        try audit(app)
+    }
+
+    @MainActor
+    func testImageViewerAuditAtAccessibilityXXXL() throws {
+        let app = WatchUI.launch(seedSampleBook: true,
+                                 extraArguments: WatchUI.illustratedBookArguments + WatchUI.accessibilityXXXLArguments)
+        WatchUI.openReader(app)
+        guard WatchUI.openImageViewer(app) else { return }
+        try audit(app)
+    }
+
     // MARK: Settings
 
     @MainActor
