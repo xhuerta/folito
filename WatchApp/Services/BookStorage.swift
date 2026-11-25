@@ -71,13 +71,19 @@ final class BookStorage: @unchecked Sendable {
         directory.appendingPathComponent(Self.safeName(hash)).appendingPathExtension("book")
     }
 
-    /// Validates the received file, stores it and returns its library entry.
+    /// Validates the received file, stores it and returns its library entry. The book's pictures (#71) go to files
+    /// of their own (`imageDirectory`) and the book is stored without them, so opening it never decodes them.
     func importBook(from url: URL) throws -> LibraryEntry {
         let data = try Data(contentsOf: url, options: .mappedIfSafe)
         let book = try Self.decode(compressed: data)
         let dest = fileURL(book.documentHash)
         try? fm.removeItem(at: dest)
-        try data.write(to: dest, options: .atomic)
+        try? fm.removeItem(at: imageDirectory(book.documentHash))
+        if book.images?.isEmpty == false {
+            try storeSplittingImages(book, to: dest)
+        } else {
+            try data.write(to: dest, options: .atomic)
+        }
         return LibraryEntry(documentHash: book.documentHash,
                             title: book.metadata.title,
                             author: book.metadata.authors.joined(separator: ", "),
@@ -102,12 +108,47 @@ final class BookStorage: @unchecked Sendable {
     static let maxCoverBytes = 64 * 1024
 
     func load(documentHash: String) throws -> ProcessedBook {
-        try Self.decode(compressed: Data(contentsOf: fileURL(documentHash), options: .mappedIfSafe))
+        let book = try Self.decode(compressed: Data(contentsOf: fileURL(documentHash), options: .mappedIfSafe))
+        // Stored by a watch build from before images (#71), which kept them inside the book: split them out now.
+        guard book.images?.isEmpty == false else { return book }
+        try? storeSplittingImages(book, to: fileURL(documentHash))
+        var stripped = book
+        stripped.images = nil
+        return stripped
+    }
+
+    // MARK: Images (#71)
+
+    /// The folder that holds a book's pictures, one file per `BookImage.id`.
+    func imageDirectory(_ hash: String) -> URL {
+        directory.appendingPathComponent(Self.safeName(hash) + ".images", isDirectory: true)
+    }
+
+    /// The files of a book's pictures.
+    func imageFiles(_ hash: String) -> BookImageFiles {
+        BookImageFiles(directory: imageDirectory(hash))
+    }
+
+    /// Writes the pictures to `imageDirectory`, then the book without them to `dest`.
+    private func storeSplittingImages(_ book: ProcessedBook, to dest: URL) throws {
+        let folder = imageDirectory(book.documentHash)
+        try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+        let files = BookImageFiles(directory: folder)
+        for image in book.images ?? [] {
+            guard let url = files.url(for: image.id) else { continue }
+            try image.data.write(to: url, options: .atomic)
+        }
+        var stripped = book
+        stripped.images = nil
+        let json = try JSONEncoder().encode(stripped)
+        let compressed = try (json as NSData).compressed(using: .lzfse) as Data
+        try compressed.write(to: dest, options: .atomic)
     }
 
     func delete(documentHash: String) {
         try? fm.removeItem(at: fileURL(documentHash))
         try? fm.removeItem(at: coverURL(documentHash))
+        try? fm.removeItem(at: imageDirectory(documentHash))
     }
 
     func deleteAll() {

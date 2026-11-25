@@ -42,6 +42,10 @@ enum UITesting {
     /// so its Library row shows the "New" badge (#156) until the reader opens it. Other seeds count as opened,
     /// except the covers seed, whose newest book is new so the covers screenshots show the badge.
     static let newBookArgument = "-UITestingNewBook"
+    /// `-UITestingSeedIllustratedBook` (with `-UITestingSeedSampleBook`): the seeded book is `illustratedBook`, a
+    /// heading, a paragraph, a picture with a description, a picture that cannot be shown and more text, stored as a
+    /// transfer from the iPhone stores it (the picture in the book's image folder), for the image viewer's tests (#71).
+    static let seedIllustratedBookArgument = "-UITestingSeedIllustratedBook"
 
     /// `-UITestingBlockHeights`: each reader block (and each block auto-scroll draws) carries its laid-out
     /// height as its accessibility value ("h=267.5"), so a UI test can compare whole heights even for a block
@@ -112,7 +116,8 @@ enum UITesting {
         let storage = BookStorage(root: root)
         if ProcessInfo.processInfo.arguments.contains(seedSampleBookArgument) {
             let args = ProcessInfo.processInfo.arguments
-            let book = args.contains(seedVariedBookArgument) ? variedBook
+            let book = args.contains(seedIllustratedBookArgument) ? illustratedBook
+                : args.contains(seedVariedBookArgument) ? variedBook
                 : args.contains(seedLongBookArgument) ? longBook : sampleBook
             seed(book, into: storage, scratch: root, unopened: args.contains(newBookArgument))
         }
@@ -436,6 +441,59 @@ enum UITesting {
                              chapters: [Chapter(spineIndex: 0, title: "Down the Rabbit-Hole", blocks: blocks)],
                              totalCharacters: 20 + text.count)
     }()
+
+    /// The illustrated seed (#71): a one-line heading, then at once a generated picture (a JPEG drawn in code, 600 ×
+    /// 400 px) with a description, so it is on screen when the book opens on every watch size and a test only taps it;
+    /// then a paragraph, a picture without a file (it shows the "Image" fallback on purpose), another paragraph and,
+    /// a screen or more further on, the same picture with another description, for the test that scrolls to one.
+    static let illustratedBook: ProcessedBook = {
+        let heading = "Chapter I" // i18n-ignore: UI-test fixture (Debug only)
+        let first = "Alice was beginning to get very tired of sitting by her sister on the bank." // i18n-ignore: UI-test fixture (Debug only)
+        let last = "So she was considering in her own mind whether the pleasure of making a daisy-chain would be worth the trouble." // i18n-ignore: UI-test fixture (Debug only)
+        let alt = "A white rabbit with a pocket watch" // i18n-ignore: UI-test fixture (Debug only)
+        let laterAlt = "The rabbit hole" // i18n-ignore: UI-test fixture (Debug only)
+        let end = "The End." // i18n-ignore: UI-test fixture (Debug only)
+        var offset = 0
+        func text(_ t: String, _ style: BlockStyle = .paragraph, _ xpointer: String) -> Block {
+            defer { offset += t.count }
+            return Block(text: t, style: style, xpointer: xpointer, globalOffset: offset)
+        }
+        func picture(_ image: BlockImage, _ xpointer: String) -> Block {
+            Block(text: "", xpointer: xpointer, globalOffset: offset, image: image)
+        }
+        let blocks = [
+            text(heading, .heading1, "/body/DocFragment[1]/body/h1"),
+            picture(BlockImage(id: "i1", width: 600, height: 400, alt: alt), "/body/DocFragment[1]/body/div/img"),
+            text(first, .paragraph, "/body/DocFragment[1]/body/p"),
+            picture(BlockImage(id: nil), "/body/DocFragment[1]/body/div[2]/img"),
+            text(last, .paragraph, "/body/DocFragment[1]/body/p[2]"),
+            text(first, .paragraph, "/body/DocFragment[1]/body/p[3]"),
+            picture(BlockImage(id: "i1", width: 600, height: 400, alt: laterAlt), "/body/DocFragment[1]/body/div[3]/img"),
+            text(end, .paragraph, "/body/DocFragment[1]/body/p[4]"),
+        ]
+        let pictures = generatedPicture().map { [BookImage(id: "i1", mediaType: "image/jpeg", width: 600, height: 400, data: $0)] }
+        return ProcessedBook(metadata: BookMetadata(title: "Alice’s Adventures in Wonderland", authors: ["Lewis Carroll"]),
+                             documentHash: "00000000000000000000000000a11ce0",
+                             metaHash: "00000000000000000000000000a11ce1",
+                             chapters: [Chapter(spineIndex: 1, title: heading, blocks: blocks)],
+                             totalCharacters: offset, images: pictures)
+    }()
+
+    /// A 600 × 400 px JPEG: a sky, a hill and a sun.
+    static func generatedPicture() -> Data? {
+        let w = 600, h = 400
+        guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: CGColorSpaceCreateDeviceRGB(),
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        ctx.setFillColor(red: 0.55, green: 0.75, blue: 0.95, alpha: 1)
+        ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
+        ctx.setFillColor(red: 0.3, green: 0.6, blue: 0.3, alpha: 1)
+        ctx.fillEllipse(in: CGRect(x: -100, y: -260, width: 800, height: 420))
+        ctx.setFillColor(red: 1, green: 0.85, blue: 0.3, alpha: 1)
+        ctx.fillEllipse(in: CGRect(x: 440, y: 270, width: 90, height: 90))
+        guard let image = ctx.makeImage() else { return nil }
+        return UIImage(cgImage: image).jpegData(compressionQuality: 0.7)
+    }
 
     /// A long generated book (#174): `longBookChapters` chapters titled "Chapter 1" ... "Chapter N", each a
     /// heading and `longBookParagraphs` paragraphs, so the last chapters are thousands of points below the start.

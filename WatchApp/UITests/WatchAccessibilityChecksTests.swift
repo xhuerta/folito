@@ -244,6 +244,22 @@ final class WatchAccessibilityChecksTests: XCTestCase {
         XCTAssertTrue(chapter.isSelected, "The current chapter must carry the selected trait at AX5")
     }
 
+    /// #71: the picture opens at AX5, its viewer's close button is labelled and hittable, and closing returns to
+    /// the reader.
+    @MainActor
+    func testImageViewerAtAccessibilityXXXL() throws {
+        let app = WatchUI.launch(seedSampleBook: true,
+                                 extraArguments: WatchUI.illustratedBookArguments + WatchUI.accessibilityXXXLArguments)
+        WatchUI.openReader(app)
+        guard WatchUI.openImageViewer(app) else { return }
+        let close = WatchUI.element("imageViewerClose", in: app)
+        XCTAssertTrue(close.isHittable, "Image viewer close button not hittable at AX5")
+        XCTAssertEqual(close.label, "Close")
+        try assertInteractiveElementsAreLabelled(app, screen: "Image viewer (AX5)")
+        close.tap()
+        XCTAssertTrue(WatchUI.illustration(in: app).waitForExistence(timeout: 5), "Closing did not return to the reader")
+    }
+
     @MainActor
     func testPrimaryControlsAtAccessibilityXXXL_Settings() throws {
         let app = WatchUI.launch(extraArguments: WatchUI.accessibilityXXXLArguments)

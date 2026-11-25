@@ -304,6 +304,21 @@ short superscript or bracketed marker ("1", "[2]", "*") pointing to the start of
 begins with the same marker or links back. Referenced `<aside>` footnotes leave the text flow; endnote
 sections stay readable as chapters. Books imported before this need to be imported again to get their notes.
 
+## Pictures in the text
+
+Pictures that are part of the book (a diagram, a hand-drawn note, an ambigram) appear where they are in the
+text, fitted to the screen width, with a small badge that says they open. Tap one to see it full screen on black:
+turn the Digital Crown to zoom (up to 3x), drag to pan, double-tap to switch between fit and zoomed; closing
+returns to the same line. VoiceOver reads the picture's description (`alt` text), or "Image" when the book has
+none, and a picture that cannot be shown (SVG, a damaged file) is replaced by its description.
+
+Ornaments, separators and spacers (very small images, thin rules, images marked decorative or with an empty
+`alt` outside a link) and the cover repeated on the first page are left out. The iPhone resizes the pictures
+before sending the book (at most 1248 px on the longer side, about 3x zoom on the largest watch, JPEG) and caps
+them at 8 MB per book; the watch decodes each picture at the size it is drawn and keeps only those near the page
+in memory. Details: [docs/WATCH_CONNECTIVITY.md](docs/WATCH_CONNECTIVITY.md#images-in-the-text). Books imported
+before this need to be imported again to get their pictures.
+
 ## Importing EPUBs
 
 - From the iPhone: open an `.epub` with "Open in Folito" (share sheet in Files, Safari, etc.) or use the import button in the app. The app transfers them to the watch.

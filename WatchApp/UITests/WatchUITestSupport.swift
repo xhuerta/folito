@@ -205,6 +205,79 @@ enum WatchUI {
         start.press(forDuration: 0.05, thenDragTo: end)
     }
 
+    // MARK: Images (#71, `-UITestingSeedIllustratedBook`)
+
+    /// Launch arguments of the illustrated seed (with `seedSampleBook: true`).
+    static let illustratedBookArguments = ["-UITestingSeedIllustratedBook"]
+    /// The description of the seed's picture, which is its VoiceOver label.
+    static let illustrationLabel = "A white rabbit with a pocket watch"
+
+    /// The seed's first picture in the text, right below the heading.
+    static func illustration(in app: XCUIApplication) -> XCUIElement {
+        picture(illustrationLabel, in: app)
+    }
+
+    /// The later picture of the seed, a screen or more below the start.
+    static let laterIllustrationLabel = "The rabbit hole"
+
+    /// A picture of the seed in the text, by its description.
+    static func picture(_ label: String, in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: "readerBlock")
+            .matching(NSPredicate(format: "label == %@", label)).element(boundBy: 0)
+    }
+
+    /// The part of the screen below the reader's bar where a tap reaches the text: the window without its top
+    /// quarter (the bar, 47.5 pt of 197 on a 41 mm watch) and its bottom tenth.
+    static func readingArea(in app: XCUIApplication) -> ClosedRange<CGFloat> {
+        let window = app.windows.firstMatch.frame
+        return (window.minY + window.height * 0.25)...(window.maxY - window.height * 0.1)
+    }
+
+    /// Scrolls the reader, a short slow drag at a time held still at its end (so it does not fling past, which a quick
+    /// `nudgeUp` / `nudgeDown` does on this short book), until the middle of `element` is in `readingArea`.
+    /// Returns whether it got there.
+    static func scrollIntoReadingArea(_ element: XCUIElement, in app: XCUIApplication, maxSteps: Int = 16) -> Bool {
+        for _ in 0..<maxSteps {
+            guard element.exists else { return false }
+            let area = readingArea(in: app)
+            let mid = element.frame.midY
+            if area.contains(mid) { return true }
+            let window = app.windows.firstMatch
+            let lower = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
+            let upper = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            // Below the area: drag the text up; above it: down. About a fifth of the screen per step.
+            let (start, end) = mid > area.upperBound ? (lower, upper) : (upper, lower)
+            start.press(forDuration: 0.1, thenDragTo: end, withVelocity: XCUIGestureVelocity(rawValue: 80), thenHoldForDuration: 0.4)
+        }
+        return element.exists && readingArea(in: app).contains(element.frame.midY)
+    }
+
+    /// Reader (illustrated seed) -> a picture full screen: the first one (on screen when the book opens) unless
+    /// another description is given. Returns whether the viewer opened.
+    @discardableResult
+    static func openImageViewer(_ app: XCUIApplication, label: String = illustrationLabel,
+                                file: StaticString = #filePath, line: UInt = #line) -> Bool {
+        let picture = picture(label, in: app)
+        guard picture.waitForExistence(timeout: 5), scrollIntoReadingArea(picture, in: app) else {
+            fail("The picture \u{201C}\(label)\u{201D} is not on screen (frame \(picture.exists ? "\(picture.frame)" : "none"))",
+                 in: app, file: file, line: line)
+            return false
+        }
+        // The middle of the picture's visible part: XCUITest may not count a picture partly past an edge as hittable.
+        let area = readingArea(in: app)
+        let frame = picture.frame
+        let y = (max(frame.minY, area.lowerBound) + min(frame.maxY, area.upperBound)) / 2
+        let window = app.windows.firstMatch
+        window.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: frame.midX - window.frame.minX, dy: y - window.frame.minY)).tap()
+        let close = element("imageViewerClose", in: app)
+        guard close.waitForExistence(timeout: 5) else {
+            fail("The image viewer did not open", in: app, file: file, line: line)
+            return false
+        }
+        return true
+    }
+
     // MARK: Reading position (`-UITestingReaderPosition`)
 
     /// Launch argument that makes the reader expose its saved position (`readerPosition`).

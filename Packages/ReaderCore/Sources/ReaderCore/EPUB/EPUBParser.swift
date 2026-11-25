@@ -30,14 +30,32 @@ public protocol EPUBParsing: Sendable {
 ///   `Chapter.spineIndex` still carries the original position.
 /// - Malformed XHTML is parsed leniently rather than rejected.
 /// - The table of contents (`ProcessedBook.toc`) is built separately from the spine chapters, see `TOCBuilder`.
+/// - Images in the text (#71) become image blocks with empty text; decoration and the repeated cover are left
+///   out, and the pictures are resized with `imagePreparer` within `imageLimits` (`ProcessedBook.images`). Their
+///   XPointer names the element (no `text()` step). A document holding only images is a chapter now.
 public struct EPUBParser: EPUBParsing {
     private let identity: DocumentIdentifying
     private let xpointers: XPointerGenerating
+    private let imagePreparer: ImagePreparing
+    private let imageLimits: ImageLimits
+
+    /// ImageIO where it exists (the apps), otherwise pictures pass through only when already small enough.
+    public static var defaultImagePreparer: ImagePreparing {
+#if canImport(ImageIO) && canImport(CoreGraphics)
+        ImageIOImagePreparer()
+#else
+        PassthroughImagePreparer()
+#endif
+    }
 
     public init(identity: DocumentIdentifying = DocumentIdentity(),
-                xpointers: XPointerGenerating = XPointerGenerator()) {
+                xpointers: XPointerGenerating = XPointerGenerator(),
+                imagePreparer: ImagePreparing = EPUBParser.defaultImagePreparer,
+                imageLimits: ImageLimits = .watch) {
         self.identity = identity
         self.xpointers = xpointers
+        self.imagePreparer = imagePreparer
+        self.imageLimits = imageLimits
     }
 
     public func process(epubAt url: URL) throws -> ProcessedBook {
@@ -60,6 +78,22 @@ public struct EPUBParser: EPUBParsing {
         for (i, item) in package.spine.enumerated() where spineIndexByPath[item.path] == nil {
             spineIndexByPath[item.path] = i + 1
         }
+        // Images in the text (#71). The cover is left out where it is repeated (everywhere when the package names it,
+        // on the first page only when it was guessed from that page).
+        let cover = EPUBMetadataReader.findCover(root: opfRoot, package: package, opfPath: opfPath, zip: zip)
+        var mediaTypes: [String: String] = [:]
+        for item in package.manifest.values { mediaTypes[item.path] = item.mediaType }
+        var imageReadsStopped = false
+        var placer = ImagePlacer(embedder: ImageEmbedder(preparer: imagePreparer, limits: imageLimits),
+                                 coverPath: cover?.path, coverIsGuessed: cover?.source == .firstSpineItem,
+                                 mediaTypes: mediaTypes) { path in
+            // A picture that cannot be read leaves its alt text; past the archive's read budget no more are read.
+            guard !imageReadsStopped, zip.contains(path) else { return nil }
+            do { return try zip.data(at: path) }
+            catch EPUBError.archiveTooLarge { imageReadsStopped = true; return nil }
+            catch { return nil }
+        }
+
         // Every document is read first: a note reference may point at an endnote in a later document (#66).
         var documents: [ExtractedDocument] = []
         var documentSpineIndex: [Int] = []
@@ -69,7 +103,20 @@ public struct EPUBParser: EPUBParsing {
             do { data = try zip.data(at: item.path) }
             catch EPUBError.archiveTooLarge { throw EPUBError.archiveTooLarge }
             catch { continue }  // unreadable or oversized single chapter: skip it
-            let extracted = BlockExtractor.extractLocatingAllIDs(from: data)
+            var extracted = BlockExtractor.extractLocatingAllIDs(from: data)
+            var dropped: Set<Int> = []
+            var textSeen = !documents.isEmpty
+            for (bi, raw) in extracted.blocks.enumerated() {
+                guard let image = raw.image else { textSeen = true; continue }
+                if let placed = placer.place(image, documentPath: item.path, atBookStart: !textSeen) {
+                    extracted.blocks[bi].placedImage = placed
+                } else {
+                    dropped.insert(bi)
+                }
+            }
+            if !dropped.isEmpty {
+                extracted = Self.dropping(dropped, from: extracted.blocks, anchors: extracted.anchors)
+            }
             guard !extracted.blocks.isEmpty else { continue }
             documents.append(ExtractedDocument(path: item.path, blocks: extracted.blocks, anchors: extracted.anchors))
             documentSpineIndex.append(i + 1)
@@ -95,8 +142,9 @@ public struct EPUBParser: EPUBParsing {
                 keptIndex.append(blocks.count)
                 if hidden.contains(bi) { continue }
                 blocks.append(Block(text: r.text, style: r.style, spans: r.spans,
-                                    xpointer: xpointers.xpointer(spineIndex: spineIndex, path: r.path, textOffset: 0),
-                                    globalOffset: offset, notes: noteRefs[bi]))
+                                    xpointer: xpointers.xpointer(spineIndex: spineIndex, path: r.path,
+                                                                 textOffset: r.image == nil ? 0 : nil),
+                                    globalOffset: offset, notes: noteRefs[bi], image: r.placedImage))
                 offset += r.text.count
             }
             keptIndex.append(blocks.count)
@@ -118,7 +166,25 @@ public struct EPUBParser: EPUBParsing {
         let documentHash = try identity.partialMD5(fileAt: url)
         return ProcessedBook(metadata: package.metadata, documentHash: documentHash,
                              metaHash: identity.metaHash(for: package.metadata),
-                             chapters: chapters, totalCharacters: offset, toc: toc?.toc, tocSource: toc?.source)
+                             chapters: chapters, totalCharacters: offset, toc: toc?.toc, tocSource: toc?.source,
+                             images: placer.embedder.images.isEmpty ? nil : placer.embedder.images)
+    }
+
+    /// `blocks` without the blocks at `indices`; an anchor on a removed block moves to the start of the next one.
+    static func dropping(_ indices: Set<Int>, from blocks: [RawBlock], anchors: [String: AnchorTarget])
+        -> (blocks: [RawBlock], anchors: [String: AnchorTarget]) {
+        var kept: [RawBlock] = []
+        var newIndex: [Int] = []
+        for (i, block) in blocks.enumerated() {
+            newIndex.append(kept.count)
+            if !indices.contains(i) { kept.append(block) }
+        }
+        newIndex.append(kept.count)
+        let moved = anchors.mapValues { a -> AnchorTarget in
+            let i = min(max(a.blockIndex, 0), blocks.count)
+            return AnchorTarget(blockIndex: newIndex[i], characterOffset: indices.contains(i) ? 0 : a.characterOffset)
+        }
+        return (kept, moved)
     }
 
     // MARK: - Package document

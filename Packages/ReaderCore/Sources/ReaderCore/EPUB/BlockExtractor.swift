@@ -13,6 +13,10 @@ struct RawBlock: Equatable {
     var notesSection: NoteKind? = nil
     /// Internal links (`<a href>`) in this block, in text order.
     var links: [RawLink] = []
+    /// Set on an image block (#71), whose text is empty.
+    var image: RawImage? = nil
+    /// The image block's picture, decided by the parser (`ImagePlacer`).
+    var placedImage: BlockImage? = nil
 }
 
 /// An element marked as one note (`epub:type` / `role` footnote, endnote, rearnote, note). Every block emitted
@@ -133,6 +137,8 @@ final class BlockExtractor: XMLEventHandler {
         var generation = 0
         /// Set on an `<a href>` frame: where its text starts.
         var link: LinkStart?
+        /// An `<a>` with any `href` (an image inside it is not decoration).
+        var isHyperlink = false
 
         init(name: String, path: [PathStep], isBlock: Bool, style: BlockStyle) {
             self.name = name
@@ -162,6 +168,8 @@ final class BlockExtractor: XMLEventHandler {
     private var inBody = false
     private var bodyDone = false
     private var skipDepth = 0
+    /// The element that started the skipped subtree, and its path (an SVG's `<image>` becomes an image block).
+    private var skipRoot: (name: String, path: [PathStep])?
     /// Elements nested deeper than `maxDepth` are flattened into their ancestor (keeps paths and memory bounded).
     static let maxDepth = 256
     private var transparentDepth = 0
@@ -296,7 +304,13 @@ final class BlockExtractor: XMLEventHandler {
         }
         let ids = newIDs(name, attributes)
         // An id inside a skipped subtree (svg, script, ...) resolves to the next block.
-        if skipDepth > 0 { idsForNextBlock += ids; skipDepth += 1; return }
+        if skipDepth > 0 {
+            if name == "image", let root = skipRoot, root.name == "svg",
+               let href = attributes["xlink:href"] ?? attributes["href"], !href.isEmpty {
+                emitImage(Self.rawImage(source: href, attributes: attributes, inLink: inHyperlink), path: root.path, ids: [])
+            }
+            idsForNextBlock += ids; skipDepth += 1; return
+        }
         if transparentDepth > 0 || stack.count > Self.maxDepth {
             let block = nearestBlock()
             for id in ids { block.pendingIDs.append((id, block.buffer.nextCharacterOffset)) }
@@ -306,10 +320,24 @@ final class BlockExtractor: XMLEventHandler {
         let parent = stack[stack.count - 1]
         let index = (parent.childCounts[name] ?? 0) + 1
         parent.childCounts[name] = index  // counted over ALL element siblings, as crengine does
-        if Self.skippedElements.contains(name) { idsForNextBlock += ids; skipDepth = 1; return }
+        if Self.skippedElements.contains(name) {
+            idsForNextBlock += ids
+            skipDepth = 1
+            skipRoot = (name, parent.path + [PathStep(name: name, index: index)])
+            return
+        }
 
         let isBlock = !Self.inlineElements.contains(name)
-        if isBlock {
+        if name == "img" {
+            // A block of its own (#71): the text before it and after it become two blocks. Ids on the image
+            // resolve to it.
+            if let src = attributes["src"], !src.isEmpty {
+                emitImage(Self.rawImage(source: src, attributes: attributes, inLink: inHyperlink),
+                          path: parent.path + [PathStep(name: name, index: index)], ids: ids)
+            } else {
+                idsForNextBlock += ids
+            }
+        } else if isBlock {
             flush(nearestBlock())
             // An id on a block (heading, wrapper div/section) resolves to the first block emitted inside or after it.
             idsForNextBlock += ids
@@ -334,7 +362,10 @@ final class BlockExtractor: XMLEventHandler {
                 frame.notesSection = kind
             }
         }
-        if name == "a" { beginLink(on: frame, attributes: attributes) }
+        if name == "a" {
+            beginLink(on: frame, attributes: attributes)
+            frame.isHyperlink = !(attributes["href"] ?? "").isEmpty
+        }
         if name == "sup", let open = stack.last(where: { $0.link != nil })?.link { open.containsSuperscript = true }
         if name == "b" || name == "strong" { frame.bold = true; boldDepth += 1 }
         if name == "i" || name == "em" { frame.italic = true; italicDepth += 1 }
@@ -343,7 +374,11 @@ final class BlockExtractor: XMLEventHandler {
 
     func endElement(_ name: String) {
         guard inBody else { return }
-        if skipDepth > 0 { skipDepth -= 1; return }
+        if skipDepth > 0 {
+            skipDepth -= 1
+            if skipDepth == 0 { skipRoot = nil }
+            return
+        }
         if transparentDepth > 0 { transparentDepth -= 1; return }
         guard stack.count > 1 else {
             // closing </body>
@@ -372,6 +407,37 @@ final class BlockExtractor: XMLEventHandler {
         idsForNextBlock = []
         inBody = false
         bodyDone = true
+    }
+
+    // MARK: - Images (#71)
+
+    private var inHyperlink: Bool { stack.contains { $0.isHyperlink } }
+
+    static func rawImage(source: String, attributes: [String: String], inLink: Bool) -> RawImage {
+        let tokens = semanticTokens(attributes)
+        let presentational = tokens.contains("presentation") || tokens.contains("none")
+            || attributes["aria-hidden"]?.lowercased() == "true"
+        var declared: PixelSize?
+        if let w = ImageFilter.declaredPixels(attributes["width"]), let h = ImageFilter.declaredPixels(attributes["height"]) {
+            declared = PixelSize(width: w, height: h)
+        }
+        return RawImage(source: source, alt: attributes["alt"] ?? attributes["title"], inLink: inLink,
+                        presentational: presentational, declaredSize: declared)
+    }
+
+    /// Ends the text before the image and adds the image block. Images inside a note stay out: a note opens as text.
+    private func emitImage(_ image: RawImage, path: [PathStep], ids: [String]) {
+        let block = nearestBlock()
+        flush(block)
+        idsForNextBlock += ids
+        guard block.note == nil else { return }
+        let index = blocks.count
+        for id in idsForNextBlock where anchors[id] == nil {
+            anchors[id] = AnchorTarget(blockIndex: index, characterOffset: 0)
+        }
+        idsForNextBlock = []
+        blocks.append(RawBlock(text: "", style: .paragraph, spans: [], path: path, note: nil,
+                               notesSection: block.notesSection, image: image))
     }
 
     private func nearestBlock() -> Frame {
