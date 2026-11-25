@@ -143,7 +143,7 @@ and the Catalogs screens with fixed feeds and no network (`-UITestingMockCatalog
 a catalog page, a catalog book, a page that needs a sign-in, the Sign In form and Edit Catalog.
 
 **When it runs.** The audit drives the simulator screen by screen and its 20 tests take about 30 minutes on CI
-(run as four parallel shards of `AccessibilityAuditTests`: `library`, `book`, `catalogs` and `rest`), so it is not
+(run as five parallel shards of `AccessibilityAuditTests`: `library`, `book`, `catalogs`, `signin` and `rest`), so it is not
 part of the PR-blocking macOS workflow and not a required check. It has its own workflow,
 `.github/workflows/accessibility.yml` ("Accessibility audit"), which runs:
 - every night on `main` (not on every push);
