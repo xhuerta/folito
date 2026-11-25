@@ -21,6 +21,7 @@ Folito (iPhone app and Apple Watch app) is localized with Xcode String Catalogs.
 | `iOSApp/Resources/InfoPlist.xcstrings` | Localized Info.plist values (`NSLocalNetworkUsageDescription`). |
 | `WatchApp/Resources/Localizable.xcstrings` | Every UI string of the watch app, including `Shared/`. |
 | `WatchApp/Resources/InfoPlist.xcstrings` | Localized Info.plist values of the watch app. |
+| `WatchApp/Resources/AppShortcuts.xcstrings` | The Siri phrases of the watch app's App Shortcuts (`WatchApp/Intents/`). Keys use `${applicationName}` (the app name, required in every phrase) and `${parameter}` placeholders; each translation must keep the same placeholders. The intents' titles, descriptions, parameter names and dialogs are in `Localizable.xcstrings`. |
 | `WatchWidgets/Resources/Localizable.xcstrings` | The complications / Smart Stack widget extension. `WidgetShared/` is compiled into both the watch app and the extension, so its strings are in both watch catalogs. |
 
 `Shared/` has no catalog of its own: it is compiled into both app targets, so its strings are extracted into
@@ -59,7 +60,8 @@ The script fails when:
 
 - a key has no translation, or one not in state `translated`, in any of the languages above (each plural
   case is checked);
-- the format specifiers of a translation differ from the source's (positional `%1$@` forms are allowed);
+- the format specifiers of a translation differ from the source's (positional `%1$@` forms are allowed), or
+  the `${…}` placeholders of an App Shortcut phrase do;
 - a localizable literal in the Swift sources of a target is missing from that target's catalog;
 - an obvious user-facing literal bypasses localization (`Text(verbatim: "Some words")`, or a sentence
   assigned to an `…error` / `…message` / `…title` / `…text` property).

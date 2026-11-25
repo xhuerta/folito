@@ -77,7 +77,7 @@ Folito works **without an account and offline** with your own EPUB files. Readin
 - [Using it without an account](#using-it-without-an-account)
 - [Architecture](#architecture)
 - [Building](#building) · [Signing](#signing-with-a-free-personal-team) · [Installing](#installing-on-iphone-and-apple-watch)
-- [Complications and Smart Stack](#complications-and-smart-stack) · [Progress sync (optional)](#progress-sync-optional)
+- [Complications and Smart Stack](#complications-and-smart-stack) · [Siri and Shortcuts](#siri-and-shortcuts) · [Progress sync (optional)](#progress-sync-optional)
 - [Typography](#typography) · [Dictionary](#dictionary-word-lookup) · [Time remaining](#time-remaining) · [Importing EPUBs](#importing-epubs) ([covers and book details](#covers-and-book-details)) · [Languages](#languages)
 - [Releasing to TestFlight / App Store](#releasing-to-testflight--app-store-without-a-mac)
 - [Limitations](#limitations) · [Development](#development) · [Documentation](#documentation)
@@ -169,6 +169,19 @@ The watch app includes a WidgetKit extension (`WatchWidgets/`, shared code in `W
 - The minutes left are the same estimate as the reader's [time remaining](#time-remaining) line (at least 1 min); turning off *Settings › Show Time Remaining* hides them in the complications too, and they stay hidden until the book's words are counted. The timeline never polls (`.never`).
 - Tinted faces colour the gauge and symbol only; on a locked watch the title and chapter are hidden and only the percentage stays; Always On dims the accent. VoiceOver reads "Folito, 45% of <title>".
 - CI renders every family (default, tinted, redacted, Always On, placeholder) as the `complication-screenshots` artifact of the macOS workflow (watch job).
+
+## Siri and Shortcuts
+
+The watch app declares two App Intents (`WatchApp/Intents/ReadingIntents.swift`), available in Siri, the Shortcuts app and, on Apple Watch Ultra, the Action button, with no setup:
+
+| Intent | Siri phrases (App Shortcuts) | Opens |
+|---|---|---|
+| **Continue Reading** | "Continue reading in Folito", "Resume my book in Folito" | The book last read on the watch (the one the complications show), at its saved position. Without one, the newest started book that is not finished; with none, the library, and Siri says there is no book in progress (or that the watch has no books yet). |
+| **Open Book** (parameter: a book of the watch library) | "Open *title* in Folito", "Read *title* in Folito" | That book at its saved position. Books are found by title or author, ignoring case and accents. |
+
+- Both open the app through the same deep links as a complication tap (`folito://book/<id>`, `folito://library`), so the reader restores the position exactly as it does from the watch face.
+- The phrases are localized in all eight languages (`WatchApp/Resources/AppShortcuts.xcstrings`, see [docs/LOCALIZATION.md](docs/LOCALIZATION.md)).
+- Smart Stack and Siri suggestions: the app donates *Continue Reading* each time a book is opened in the reader, so the system can learn when it is useful; the reading-progress widget keeps its own relevance (a book read in the last few hours ranks higher). Donations and the book titles Siri matches stay on the watch.
 
 ## Progress sync (optional)
 

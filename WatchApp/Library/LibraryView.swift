@@ -263,6 +263,7 @@ struct ReaderLoaderView: View {
                                              dictionary: env.dictionary, complications: env.complications)
                 let hash = entry.documentHash
                 library.markOpened(hash)
+                env.bookOpened()
                 reader.isFinished = library.isFinished(hash)
                 reader.haptics = WatchHaptics()
                 let store = library
