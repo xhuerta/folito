@@ -49,12 +49,15 @@ public struct Bookmark: Codable, Sendable, Equatable, Identifiable {
                             createdAt: Date, id: UUID = UUID()) -> Bookmark? {
         guard book.chapters.indices.contains(position.chapterIndex),
               book.chapters[position.chapterIndex].blocks.indices.contains(position.blockIndex) else { return nil }
-        let text = book.chapters[position.chapterIndex].blocks[position.blockIndex].text
+        let block = book.chapters[position.chapterIndex].blocks[position.blockIndex]
+        let text = block.text
+        // A picture (#71) has no text: its description stands for it.
+        let shown = block.image.map { $0.alt ?? "" } ?? text
         var clamped = position
         clamped.characterOffset = min(max(position.characterOffset, 0), text.count)
         let located = XPointerResolver().locate(clamped, in: book)
         return Bookmark(id: id, position: clamped, xpointer: located?.xpointer, percentage: located?.percentage ?? 0,
-                        chapterTitle: chapterTitle, snippet: snippet(from: text, at: clamped.characterOffset),
+                        chapterTitle: chapterTitle, snippet: snippet(from: shown, at: clamped.characterOffset),
                         createdAt: createdAt)
     }
 

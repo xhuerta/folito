@@ -51,6 +51,52 @@ public struct NoteReference: Codable, Sendable, Equatable {
     }
 }
 
+/// An image in the text flow (#71): a block of its own between paragraphs. The block's `text` is empty, so images
+/// add no characters (percentages stay KOReader's, which counts text only) and no in-block offset ever points
+/// into one.
+public struct BlockImage: Codable, Sendable, Equatable {
+    /// Key of the picture in `ProcessedBook.images`. Nil when it could not be kept (SVG, a damaged file, over the
+    /// book's size cap, see `ImageLimits`): the reader then shows `alt` in its place.
+    public var id: String?
+    /// Pixel size of the picture in `ProcessedBook.images` (nil without one).
+    public var width: Int?
+    public var height: Int?
+    /// The `alt` text, whitespace collapsed; nil when absent or empty.
+    public var alt: String?
+
+    public init(id: String?, width: Int? = nil, height: Int? = nil, alt: String? = nil) {
+        self.id = id
+        self.width = width
+        self.height = height
+        self.alt = alt
+    }
+
+    /// Width over height of the picture, when it has a usable size.
+    public var aspectRatio: Double? {
+        guard let width, let height, width > 0, height > 0 else { return nil }
+        return Double(width) / Double(height)
+    }
+}
+
+/// The bytes of an image of the book, resized for the watch (#71). Shared by every block that shows it.
+public struct BookImage: Codable, Sendable, Equatable {
+    /// Unique within the book ("i1", "i2", ...): letters and digits only, so it is also a safe file name.
+    public var id: String
+    /// `image/jpeg` or `image/png` (or the original type when it was passed through unchanged).
+    public var mediaType: String
+    public var width: Int
+    public var height: Int
+    public var data: Data
+
+    public init(id: String, mediaType: String, width: Int, height: Int, data: Data) {
+        self.id = id
+        self.mediaType = mediaType
+        self.width = width
+        self.height = height
+        self.data = data
+    }
+}
+
 /// A paragraph-level unit of text. The watch renders these directly.
 public struct Block: Codable, Sendable, Equatable {
     public var text: String
@@ -64,16 +110,23 @@ public struct Block: Codable, Sendable, Equatable {
     /// notes were detected: the key is optional, so those still decode, and older watch builds (which ignore
     /// unknown keys) still read new books, so `ProcessedBook.formatVersion` stays 1.
     public var notes: [NoteReference]?
+    /// Set on an image block (#71), whose `text` is empty. Optional like `notes`: books processed before images
+    /// were kept decode with nil, and older watch builds ignore the key (they show an empty row).
+    public var image: BlockImage?
 
     public init(text: String, style: BlockStyle = .paragraph, spans: [StyleSpan] = [],
-                xpointer: String, globalOffset: Int, notes: [NoteReference]? = nil) {
+                xpointer: String, globalOffset: Int, notes: [NoteReference]? = nil, image: BlockImage? = nil) {
         self.text = text
         self.style = style
         self.spans = spans
         self.xpointer = xpointer
         self.globalOffset = globalOffset
         self.notes = notes
+        self.image = image
     }
+
+    /// True for an image block (#71).
+    public var isImage: Bool { image != nil }
 }
 
 public struct Chapter: Codable, Sendable, Equatable {
@@ -131,10 +184,15 @@ public struct ProcessedBook: Codable, Sendable, Equatable {
     /// read new books: `formatVersion` stays 1. Nil also when the book has neither a TOC nor headings.
     public var toc: [TOCEntry]?
     public var tocSource: TOCSource?
+    /// The pictures the image blocks show (#71), resized on the iPhone before transfer. Optional like `toc`: older
+    /// books decode with nil and older watch builds ignore the key, so `formatVersion` stays 1. The watch moves
+    /// them into files of their own when it stores the book (and stores the book without them), so opening a book
+    /// never decodes its pictures.
+    public var images: [BookImage]?
 
     public init(formatVersion: Int = ProcessedBook.currentFormatVersion, metadata: BookMetadata,
                 documentHash: String, metaHash: String, chapters: [Chapter], totalCharacters: Int,
-                toc: [TOCEntry]? = nil, tocSource: TOCSource? = nil) {
+                toc: [TOCEntry]? = nil, tocSource: TOCSource? = nil, images: [BookImage]? = nil) {
         self.formatVersion = formatVersion
         self.metadata = metadata
         self.documentHash = documentHash
@@ -143,6 +201,7 @@ public struct ProcessedBook: Codable, Sendable, Equatable {
         self.totalCharacters = totalCharacters
         self.toc = toc
         self.tocSource = tocSource
+        self.images = images
     }
 }
 

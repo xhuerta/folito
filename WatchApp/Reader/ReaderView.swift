@@ -52,6 +52,11 @@ import ReaderCore
 /// scroll view's space from those frames (`ReadingLine.inScrollSpace`). Only a block at the reading line moves the
 /// saved position (`VisibleBlockResolver.lineIndex`).
 ///
+/// Pictures (#71): an image block is a row of its own (`ReaderBlockView`), its height fixed by the picture's stored
+/// pixel size, so decoding (only near the reading position, `ImageResidency`) never moves the text. A tap opens it
+/// full screen (`ImageViewer`, a full-screen cover over the reader, which is not scrolled), so closing it returns to
+/// the same line.
+///
 /// Auto-scroll (#67): started from Reading Options, never by itself. While it runs, the reader shows the
 /// blocks around the reading line in a plain stack over the scroll view (an `AutoScroll.Window`, laid out at
 /// the same width so every line breaks the same) and moves it with an offset computed on every display frame
@@ -426,6 +431,10 @@ struct ReaderView: View {
             NoteSheet(note: target.note)
                 .environmentObject(typography)
         }
+        // A picture full screen (#71): over the reader, which does not move, so closing returns to the same line.
+        .fullScreenCover(item: $model.openImage) { target in
+            ImageViewer(image: target.image, url: model.imageURL(target.image))
+        }
         .sheet(item: $model.lookupBlockIndex) { target in
             WordLookupSheet(text: model.flat.blocks[target.index].text,
                             language: model.bookLanguage, provider: model.dictionary,
@@ -487,13 +496,16 @@ extension ReaderView {
         // Only the loaded chapters (the one before the one being read, that one, and chapters added above and below
         // while reading): see `ChapterWindow`.
         ForEach(model.window, id: \.self) { index in
-            BlockStyledText(block: model.flat.blocks[index], style: style)
+            // A text block, or an image block (#71) whose picture is decoded only near the reading position.
+            ReaderBlockView(block: model.flat.blocks[index], style: style, files: model.imageFiles,
+                            loadsImage: model.loadsImage(at: index))
                 .equatable()
                 .modifier(UITestBlockHeight())
                 .contentShape(Rectangle())
                 .onTapGesture { location in tapped(block: index, at: location, style: style) }
-                // Available from the VoiceOver actions rotor even with tap-to-look-up off.
-                .accessibilityAction(named: Text("Look Up a Word")) { model.beginLookup(at: index) }
+                .modifier(ReaderRowActions(isImage: model.flat.blocks[index].isImage,
+                                           lookUp: { model.beginLookup(at: index) },
+                                           openImage: { _ = model.showImage(at: index) }))
                 // One action per note reference in the block ("Footnote 3"), opening the note (#66).
                 .modifier(NoteAccessibilityActions(notes: model.flat.blocks[index].notes ?? []) { note in
                     model.showNote(note, inBlock: index)
@@ -535,6 +547,11 @@ extension ReaderView {
         // Paused auto-scroll: a tap anywhere on the text resumes it.
         if model.autoScroll == .paused {
             model.resumeAutoScroll()
+            return
+        }
+        // A picture opens full screen (#71), with the bar shown or hidden.
+        if index < model.flat.count, model.flat.blocks[index].image != nil {
+            model.showImage(at: index)
             return
         }
         if index < model.flat.count, model.flat.blocks[index].notes?.isEmpty == false,
@@ -610,7 +627,8 @@ extension ReaderView {
 
     /// A sheet or an alert covers the text (the menu, a note, the word lookup, a sync or finish offer).
     fileprivate var coversReader: Bool {
-        showMenu || model.openNote != nil || model.lookupBlockIndex != nil || model.showRemoteOffer || model.showFinishOffer
+        showMenu || model.openNote != nil || model.openImage != nil || model.lookupBlockIndex != nil || model.showRemoteOffer
+            || model.showFinishOffer
     }
 
     // MARK: Auto-scroll (#67)
@@ -643,6 +661,7 @@ extension ReaderView {
                 let dy = autoScrollOrigin.y - origin.y
                 TimelineView(.animation(minimumInterval: nil, paused: model.autoScroll != .running)) { context in
                     AutoScrollColumn(blocks: model.flat.blocks, first: window.first, last: window.last, style: style,
+                                     files: model.imageFiles,
                                      width: autoScrollTextWidth > 0 ? autoScrollTextWidth
                                                                     : max(geo.size.width - 2 * margin, 0))
                         .equatable()
@@ -1171,6 +1190,7 @@ private struct AutoScrollColumn: View, Equatable {
     let first: Int
     let last: Int
     let style: ReaderRenderStyle
+    let files: BookImageFiles?
     let width: CGFloat
 
     static func == (lhs: AutoScrollColumn, rhs: AutoScrollColumn) -> Bool {
@@ -1181,7 +1201,8 @@ private struct AutoScrollColumn: View, Equatable {
     var body: some View {
         VStack(alignment: .leading, spacing: style.typography.paragraphSpacing) {
             ForEach(first...max(first, min(last, blocks.count - 1)), id: \.self) { index in
-                BlockStyledText(block: blocks[index], style: style)
+                // The same row view as the scroll view's; the window is a screen or two, so its pictures are decoded.
+                ReaderBlockView(block: blocks[index], style: style, files: files, loadsImage: true)
                     .equatable()
                     // In a scroll view every block gets its full height. Here the stack is offered one screen,
                     // and without this the blocks shared it: each was cut to a line or two ending in "…".
@@ -1197,6 +1218,22 @@ private struct AutoScrollColumn: View, Equatable {
         // (no clipping: the screen's own edges cut it, as they cut the scroll view).
         .frame(width: width, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// VoiceOver actions of a reader row: "Look Up a Word" on text (in the actions rotor even with tap to look up off);
+/// on a picture (#71), the default action opens it full screen.
+private struct ReaderRowActions: ViewModifier {
+    let isImage: Bool
+    let lookUp: () -> Void
+    let openImage: () -> Void
+
+    func body(content: Content) -> some View {
+        if isImage {
+            content.accessibilityAction { openImage() }
+        } else {
+            content.accessibilityAction(named: Text("Look Up a Word")) { lookUp() }
+        }
     }
 }
 
