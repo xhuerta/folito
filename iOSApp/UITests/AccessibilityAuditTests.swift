@@ -594,7 +594,10 @@ final class AccessibilityAuditTests: XCTestCase {
     private static func searchAndScrollToEnd(_ text: String, expecting identifier: String, _ message: String,
                                              in app: XCUIApplication) {
         searchLibrary(text, in: app)
-        let expected = app.descendants(matching: .any)[identifier]
+        // First match: the No Results view's identifier is on each of its texts, and several rows are found.
+        // Revealing reads the element's frame, which needs a single match (CI job 139409204929: "Multiple
+        // matching elements found" for `libraryNoResults` at AX5).
+        let expected = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
         RowNavigation.reveal(expected, in: app)
         XCTAssertTrue(expected.waitForExistence(timeout: 5), message)
         scrollToEnd(app)
