@@ -6,11 +6,14 @@ name: macOS
 #    (scripts/ci/pick_platforms.py); the job `skipped` then reports the `ios` / `watch` check as passed.
 #  * targeted (workflow_dispatch with `only_testing`): one job running just those tests (docs/TESTING.md).
 #  * UI tier (pushes to main, manual runs, and PRs labelled `ui`): the same jobs go on, after the unit tests, to
-#    the screenshot UI suites (iPhone: welcome tour, Readest library, covers, online metadata; watch: covers),
-#    export the complication screenshots and capture the watch App Store screenshots. The iPhone App Store
-#    screenshots run in a job of their own, `app-store-iphone`, one runner per display size, in parallel with
-#    the `ios` job so that it does not grow; `app-store-screenshots` then checks and merges the sets.
-#    Adding the `ui` label starts a run; no new push is needed.
+#    the screenshot UI suites (iPhone: welcome tour, Readest library, covers, online metadata, catalogs; watch:
+#    covers) and export the complication screenshots. The iPhone suites are split in two shards by test class
+#    (scripts/ci/ui_test_shards.py): `ios` runs ui-1 after its unit tests on the app it built, and a third leg
+#    of the same job, `ios-ui-2`, builds the app and runs ui-2 in parallel.
+#  * App Store screenshots (pushes to main, manual runs, and PRs labelled `screenshots`; not on other PRs): the
+#    watch set in the `watch` job, the iPhone sets in `app-store-iphone`, one runner per display size, in
+#    parallel with the `ios` job; `app-store-screenshots` then checks and merges the sets.
+#    Adding the `ui` or `screenshots` label starts a run; no new push is needed.
 # ReaderCore's own `swift test` runs on Linux (linux.yml); the package has no Apple-only code paths and is
 # compiled here as part of both apps. The slow accessibility UI audits run in accessibility.yml.
 # See docs/TESTING.md ("CI: which workflow runs when").
@@ -33,7 +36,8 @@ on:
       - ".github/workflows/cla.yml"
   pull_request:
     # ready_for_review: draft PRs skip the macOS jobs; they run when the PR is marked ready.
-    # labeled: adding the `ui` label runs the UI tier at once (any other label is a no-op, see `scope`).
+    # labeled: adding the `ui` label runs the UI tier at once, `screenshots` the App Store screenshots (any other
+    # label is a no-op, see `scope`).
     # No paths-ignore here: the `scope` job reads the changed paths and the platforms a PR does not need are
     # reported as passed by `skipped` (same check names), so the `ios` / `watch` checks exist on every PR.
     types: [opened, synchronize, reopened, ready_for_review, labeled]
@@ -59,24 +63,26 @@ on:
         type: string
         required: false
 
-# Pull requests: one group per PR, and a new push or `ui` label cancels the run still going for that PR. A label
-# other than `ui` starts a run that does nothing; it gets a group of its own so that it does not cancel the real
-# run. Pushes to main and manual runs get a group of their own (the run id), so they are never cancelled.
+# Pull requests: one group per PR, and a new push or the `ui` / `screenshots` label cancels the run still going for
+# that PR (the new run reads the PR's labels again, so it does all the old one did). Any other label starts a run
+# that does nothing; it gets a group of its own so that it does not cancel the real run. Pushes to main and manual
+# runs get a group of their own (the run id), so they are never cancelled.
 concurrency:
-  group: macos-${{ github.event.pull_request.number || github.run_id }}${{ github.event.action == 'labeled' && github.event.label.name != 'ui' && '-other-label' || '' }}
+  group: macos-${{ github.event.pull_request.number || github.run_id }}${{ github.event.action == 'labeled' && github.event.label.name != 'ui' && github.event.label.name != 'screenshots' && '-other-label' || '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Which of the two macOS jobs this change needs (a few seconds on Linux).
+  # Which of the two macOS jobs this change needs, and the legs of `test` (a few seconds on Linux).
   scope:
     name: scope
     if: >-
       github.event.pull_request.draft != true && !inputs.only_testing &&
-      (github.event.action != 'labeled' || github.event.label.name == 'ui')
+      (github.event.action != 'labeled' || github.event.label.name == 'ui' || github.event.label.name == 'screenshots')
     runs-on: ubuntu-latest
     outputs:
       platforms: ${{ steps.pick.outputs.platforms }}
       skipped: ${{ steps.pick.outputs.skipped }}
+      matrix: ${{ steps.legs.outputs.matrix }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -86,6 +92,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
         run: |
+          set -o pipefail
           # Pushes to main and manual runs build both; so does a PR whose file list cannot be read.
           : > changed.txt
           if [ -n "$PR" ]; then
@@ -93,6 +100,16 @@ jobs:
               --jq '.[] | .filename, (.previous_filename // empty)' > changed.txt || : > changed.txt
           fi
           python3 scripts/ci/pick_platforms.py --workflow macos.yml < changed.txt | tee -a "$GITHUB_OUTPUT"
+
+      # One leg per platform, plus `ios-ui-2` in the UI tier. Fails if a class of iOSApp/UITests is in no shard.
+      - name: Legs of the test job (UI shards)
+        id: legs
+        env:
+          PLATFORMS: ${{ steps.pick.outputs.platforms }}
+          UI_TIER: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ui') }}
+        run: |
+          set -o pipefail
+          python3 scripts/ci/ui_test_shards.py --matrix "$PLATFORMS" --ui-tier "$UI_TIER" | tee -a "$GITHUB_OUTPUT"
 
   # The platforms the PR does not need (scripts/ci/pick_platforms.py): their `ios` / `watch` checks pass at once
   # on Linux instead of going missing, so a required check never waits for a job that will not run.
@@ -107,8 +124,11 @@ jobs:
     steps:
       - run: echo "No change for ${{ matrix.platform }} in this pull request (scripts/ci/pick_platforms.py); its macOS job is not needed."
 
+  # Legs (scope's `matrix`, scripts/ci/ui_test_shards.py): `ios` and `watch` build and run the unit tests, then
+  # their UI tier; `ios` runs the iPhone UI shard ui-1. In the UI tier `ios-ui-2` (ui_only) builds the iPhone app
+  # and runs shard ui-2 only, in parallel; it skips the unit tests and the steps that upload their results.
   test:
-    name: ${{ matrix.platform }}
+    name: ${{ matrix.name }}
     needs: scope
     if: needs.scope.outputs.platforms != '[]'
     # Default: arm64 `macos-15` (free for public repos and ~2x faster than Intel; see docs/TESTING.md for
@@ -118,8 +138,7 @@ jobs:
     timeout-minutes: 40
     strategy:
       fail-fast: false
-      matrix:
-        platform: ${{ fromJSON(needs.scope.outputs.platforms) }}
+      matrix: ${{ fromJSON(needs.scope.outputs.matrix) }}
     env:
       SCHEME: ${{ matrix.platform == 'ios' && 'Folito' || 'FolitoWatch' }}
       SDK: ${{ matrix.platform == 'ios' && 'iOS Simulator' || 'watchOS Simulator' }}
@@ -127,6 +146,8 @@ jobs:
       UI_BUNDLE: ${{ matrix.platform == 'ios' && 'FolitoUITests' || 'FolitoWatchUITests' }}
       # UI tier: everything except a pull request without the `ui` label.
       UI_TIER: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ui') }}
+      # App Store screenshots: everything except a pull request without the `screenshots` label.
+      APP_STORE: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'screenshots') }}
       # Shared build settings: no indexing, no dSYMs, no signing, only the runner's architecture.
       XCB_FLAGS: >-
         -project Folito.xcodeproj
@@ -196,6 +217,7 @@ jobs:
           echo "UDID=$(cat "$RUNNER_TEMP/udid")" >> "$GITHUB_ENV"
 
       - name: Run tests
+        if: ${{ !matrix.ui_only }}
         run: |
           set -o pipefail
           rm -rf ${{ matrix.platform }}-tests.xcresult
@@ -206,7 +228,9 @@ jobs:
             -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
             -resultBundlePath ${{ matrix.platform }}-tests.xcresult 2>&1 | tee ${{ matrix.platform }}-tests.log
 
-      # UI tier, iPhone: the six screenshot suites of iOSApp/UITests in one xcodebuild call and one result bundle.
+      # UI tier, iPhone: the screenshot suites of iOSApp/UITests, split in two shards by test class
+      # (scripts/ci/ui_test_shards.py; `ios` runs ui-1, `ios-ui-2` runs ui-2), one xcodebuild call and one result
+      # bundle per shard.
       #  * OnboardingUITests: the welcome tour, the sample book, Skip, reopening from Settings.
       #  * ReadestLibraryUITests (mocked Readest account): cloud-only rows, downloads, menus, filter, offline.
       #  * CoversUITests (`-UITestingSeedCovers`): Library with covers, placeholder, book detail, largest text.
@@ -216,44 +240,41 @@ jobs:
       #    sign-in, search.
       #  * LibraryBrowseUITests (`-UITestingSeedLargeLibrary`): Library search, sort orders, By Author, By Series,
       #    and a book opened from the search results and back.
-      # The accessibility audits in the same bundle run in accessibility.yml.
-      - name: UI tests (welcome tour, Readest library, covers, online metadata, catalogs, library browse)
-        if: env.UI_TIER == 'true' && matrix.platform == 'ios'
+      # The accessibility audits in the same bundle run in accessibility.yml, the App Store screenshots in
+      # app-store-iphone.
+      - name: UI tests (shard ${{ matrix.ui_shard }})
+        id: ui
+        if: env.UI_TIER == 'true' && matrix.ui_shard != ''
         run: |
           set -o pipefail
+          # Plain word splitting, no mapfile: the runner's bash may be macOS's bash 3.2.
+          SELECTION=($(python3 scripts/ci/ui_test_shards.py --only-testing "${{ matrix.ui_shard }}"))
+          [ ${#SELECTION[@]} -gt 0 ] || { echo "::error::shard ${{ matrix.ui_shard }} is empty"; exit 1; }
+          echo "shard ${{ matrix.ui_shard }}: ${SELECTION[*]}"
+          # The artifacts of this shard's classes (space-terminated), for the upload steps below.
+          echo "artifacts=$(python3 scripts/ci/ui_test_shards.py --artifacts "${{ matrix.ui_shard }}" | cut -d= -f2 | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
           rm -rf ios-ui-tests.xcresult
           xcodebuild test-without-building $XCB_FLAGS \
             -scheme "$SCHEME" \
             -destination "id=$UDID" \
-            -only-testing:FolitoUITests/OnboardingUITests \
-            -only-testing:FolitoUITests/ReadestLibraryUITests \
-            -only-testing:FolitoUITests/CoversUITests \
-            -only-testing:FolitoUITests/OnlineMetadataUITests \
-            -only-testing:FolitoUITests/CatalogsUITests \
-            -only-testing:FolitoUITests/LibraryBrowseUITests \
+            "${SELECTION[@]}" \
             -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
             -resultBundlePath ios-ui-tests.xcresult 2>&1 | tee ios-ui-tests.log
 
       # Every screen the suites visit is attached as a screenshot; one artifact per suite, PNGs named after the
-      # attachments (default-1-welcome.png, ...).
+      # attachments (default-1-welcome.png, ...). Each shard uploads the artifacts of its own classes.
       - name: Export UI test screenshots
-        if: always() && env.UI_TIER == 'true' && matrix.platform == 'ios'
+        if: always() && env.UI_TIER == 'true' && matrix.ui_shard != ''
         run: |
           [ -d ios-ui-tests.xcresult ] || exit 0
           grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:" ios-ui-tests.log || true
           xcrun xcresulttool export attachments --path ios-ui-tests.xcresult --output-path ui-attachments || true
-          python3 scripts/ci/split_ui_attachments.py ui-attachments \
-            OnboardingUITests=onboarding-screenshots \
-            ReadestLibraryUITests=readest-library-screenshots \
-            CoversUITests=covers-iphone \
-            OnlineMetadataUITests=online-metadata-screenshots \
-            CatalogsUITests=catalogs-screenshots \
-            LibraryBrowseUITests=library-browse-screenshots || true
-          ls onboarding-screenshots readest-library-screenshots covers-iphone online-metadata-screenshots catalogs-screenshots \
-            library-browse-screenshots || true
+          SUITES=($(python3 scripts/ci/ui_test_shards.py --artifacts "${{ matrix.ui_shard }}"))
+          python3 scripts/ci/split_ui_attachments.py ui-attachments "${SUITES[@]}" || true
+          ls "${SUITES[@]#*=}" || true
 
       - name: Upload welcome tour screenshots
-        if: always() && env.UI_TIER == 'true' && matrix.platform == 'ios'
+        if: always() && env.UI_TIER == 'true' && contains(steps.ui.outputs.artifacts, 'onboarding-screenshots ')
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: onboarding-screenshots
@@ -263,7 +284,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload Readest library screenshots
-        if: always() && env.UI_TIER == 'true' && matrix.platform == 'ios'
+        if: always() && env.UI_TIER == 'true' && contains(steps.ui.outputs.artifacts, 'readest-library-screenshots ')
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: readest-library-screenshots
@@ -273,7 +294,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload covers screenshots (iPhone)
-        if: always() && env.UI_TIER == 'true' && matrix.platform == 'ios'
+        if: always() && env.UI_TIER == 'true' && contains(steps.ui.outputs.artifacts, 'covers-iphone ')
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: covers-iphone
@@ -283,7 +304,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload online metadata screenshots
-        if: always() && env.UI_TIER == 'true' && matrix.platform == 'ios'
+        if: always() && env.UI_TIER == 'true' && contains(steps.ui.outputs.artifacts, 'online-metadata-screenshots ')
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: online-metadata-screenshots
@@ -293,7 +314,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload catalogs screenshots
-        if: always() && env.UI_TIER == 'true' && matrix.platform == 'ios'
+        if: always() && env.UI_TIER == 'true' && contains(steps.ui.outputs.artifacts, 'catalogs-screenshots ')
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: catalogs-screenshots
@@ -303,7 +324,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload library browse screenshots
-        if: always() && env.UI_TIER == 'true' && matrix.platform == 'ios'
+        if: always() && env.UI_TIER == 'true' && contains(steps.ui.outputs.artifacts, 'library-browse-screenshots ')
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: library-browse-screenshots
@@ -363,7 +384,7 @@ jobs:
       # (WatchAppStoreScreenshotTests), always on one watch simulator of an accepted size, whatever simulator the
       # unit tests ran on; the sizes of the captures are then checked against Apple's list.
       - name: App Store screenshots (watch)
-        if: (!cancelled()) && env.UI_TIER == 'true' && matrix.platform == 'watch' && env.UDID != ''
+        if: (!cancelled()) && env.APP_STORE == 'true' && matrix.platform == 'watch' && env.UDID != ''
         timeout-minutes: 28
         env:
           ATTEMPT_MINUTES: 12
@@ -374,7 +395,7 @@ jobs:
           exit $status
 
       - name: Upload App Store screenshots (watch)
-        if: always() && env.UI_TIER == 'true' && matrix.platform == 'watch'
+        if: always() && env.APP_STORE == 'true' && matrix.platform == 'watch'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: app-store-screenshots-watch
@@ -384,7 +405,7 @@ jobs:
       # The log, the result bundle (failure screenshots, accessibility tree, screen recording) and, after a hang,
       # the simulator screen, of a failed App Store screenshot run.
       - name: Upload App Store screenshot diagnostics (watch)
-        if: failure() && env.UI_TIER == 'true' && matrix.platform == 'watch'
+        if: failure() && env.APP_STORE == 'true' && matrix.platform == 'watch'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: appstore-diagnostics-watch
@@ -433,13 +454,13 @@ jobs:
           if-no-files-found: ignore
 
       - name: Test summary
-        if: always()
+        if: always() && !matrix.ui_only
         run: |
           grep -E "Test Case .*(passed|failed)|Executed [0-9]+ tests|error:" ${{ matrix.platform }}-tests.log || true
           xcrun xcresulttool get test-results summary --path ${{ matrix.platform }}-tests.xcresult || true
 
       - name: Upload xcresult
-        if: always()
+        if: always() && !matrix.ui_only
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ matrix.platform }}-tests-xcresult
@@ -454,7 +475,7 @@ jobs:
       # watch job compares the watch targets instead. If the build rewrote a catalog, the rewritten files are
       # uploaded so they can be committed as Xcode writes them.
       - name: Compare String Catalogs with Xcode's extraction
-        if: always() && (matrix.platform == 'ios' || !contains(needs.scope.outputs.platforms, 'ios'))
+        if: always() && !matrix.ui_only && (matrix.platform == 'ios' || !contains(needs.scope.outputs.platforms, 'ios'))
         run: |
           python3 scripts/compare_extracted_strings.py $STRING_TARGETS DerivedData
           if git status --porcelain -- '*.xcstrings' | grep -q .; then
@@ -466,7 +487,7 @@ jobs:
           STRING_TARGETS: ${{ matrix.platform == 'watch' && '--targets FolitoWatch,FolitoWatchWidgets' || '' }}
 
       - name: Upload String Catalogs as written by the build
-        if: always() && (matrix.platform == 'ios' || !contains(needs.scope.outputs.platforms, 'ios'))
+        if: always() && !matrix.ui_only && (matrix.platform == 'ios' || !contains(needs.scope.outputs.platforms, 'ios'))
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: xcstrings-after-build
@@ -474,18 +495,18 @@ jobs:
             iOSApp/Resources/*.xcstrings
             WatchApp/Resources/*.xcstrings
 
-  # UI tier: the iPhone App Store screenshots (docs/appstore/SCREENSHOTS.md), AppStoreScreenshotTests once per
+  # The iPhone App Store screenshots (docs/appstore/SCREENSHOTS.md), AppStoreScreenshotTests once per
   # iPhone display size App Store Connect needs, each on a simulator of an accepted size with the status bar
   # overridden. A job of its own, in parallel with `ios`, and one runner per size: the simulator boots while the
   # app compiles. Both sizes on one runner (two simulators booted on 3 vCPUs) took 16 to over 30 minutes and
-  # slowed the build; one size per runner takes the build plus a few minutes. Not in the fast tier: a PR without
-  # the `ui` label skips it.
+  # slowed the build; one size per runner takes the build plus a few minutes. Pushes to main and manual runs only:
+  # a PR runs it only with the `screenshots` label.
   app-store-iphone:
     name: app-store-${{ matrix.class }}
     needs: scope
     if: >-
       contains(needs.scope.outputs.platforms, 'ios') &&
-      (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ui'))
+      (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'screenshots'))
     runs-on: ${{ inputs.runner || vars.MACOS_RUNNER || 'macos-15' }}
     timeout-minutes: 45
     strategy:
@@ -574,7 +595,7 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
-  # UI tier: the iPhone and watch App Store screenshots of the jobs above as one artifact,
+  # The iPhone and watch App Store screenshots of the jobs above as one artifact (same runs as app-store-iphone),
   # app-store-screenshots/en/{iphone-medium,iphone-large,watch}/ (English; app-store-localized.yml takes every
   # language), after checking that every display class the run
   # covers is there in an accepted size. See docs/appstore/SCREENSHOTS.md.
@@ -585,7 +606,7 @@ jobs:
       always() && needs.scope.result == 'success' && needs.scope.outputs.platforms != '[]' &&
       needs.test.result != 'cancelled' &&
       needs.app-store-iphone.result != 'cancelled' &&
-      (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ui'))
+      (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'screenshots'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

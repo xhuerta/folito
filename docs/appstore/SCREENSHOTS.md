@@ -6,7 +6,7 @@ General: 1 to 10 screenshots per device size and localization; `.jpeg`, `.jpg` o
 
 ## Where the screenshots come from
 
-CI takes them: nobody needs a Mac or a device. The UI tier of `macos.yml` (every push to `main`, and pull requests labelled `ui`; see [TESTING.md](../TESTING.md)) runs two screenshot suites on simulators whose screens are accepted sizes: the iPhone sets in a job of their own, `app-store-iphone`, one runner per size (`app-store-iphone-medium`, `app-store-iphone-large`, in parallel with the `ios` job, which they would otherwise push past its time limit), the watch set at the end of the `watch` job. The job `app-store-screenshots` merges them into one artifact, **`app-store-screenshots`**, with the English set in `en/` (every language: see [Localized sets](#localized-sets)):
+CI takes them: nobody needs a Mac or a device. `macos.yml` (every push to `main`, manual runs, and pull requests labelled `screenshots`, not `ui`; see [TESTING.md](../TESTING.md)) runs two screenshot suites on simulators whose screens are accepted sizes: the iPhone sets in a job of their own, `app-store-iphone`, one runner per size (`app-store-iphone-medium`, `app-store-iphone-large`, in parallel with the `ios` job, which they would otherwise push past its time limit), the watch set at the end of the `watch` job. The job `app-store-screenshots` merges them into one artifact, **`app-store-screenshots`**, with the English set in `en/` (every language: see [Localized sets](#localized-sets)):
 
 | Directory | Display class | Simulator (first one the runner has) | Pixels | Suite |
 |---|---|---|---|---|
@@ -61,7 +61,7 @@ How it works:
 
 ### Regenerating
 
-1. Add the `ui` label to a pull request, or push to `main` (or run the *macOS* workflow by hand).
+1. Add the `screenshots` label to a pull request, or push to `main` (or run the *macOS* workflow by hand).
 2. When the run is done, download the `app-store-screenshots` artifact from the run's page (the English set, in `en/`).
 3. Upload each directory to its display size in App Store Connect.
 
@@ -87,7 +87,7 @@ It writes `<out>/<lang>/6.9/` (1320 × 2868) and `<out>/<lang>/6.3/` (1206 × 26
 
 The home page hero (`docs/site-src/templates/index.html`) shows `en/watch/watch-1-reader.png` from this artifact, so the site shows the reader as it is. Only the case around it is drawn in CSS (`.watch` in `docs/site/style.css`). It lives in `docs/site/assets/watch-reader.webp` (lossless WebP, 422 × 514; `scripts/site/build.py` leaves `docs/site/assets/` as it is). To refresh it after the reader changes:
 
-1. Download `app-store-screenshots` from the latest successful *macOS* run on `main` (or a run of a PR labelled `ui`) and look at `en/watch/watch-1-reader.png`: the text should be the opening of the chapter with the time above it and no top bar.
+1. Download `app-store-screenshots` from the latest successful *macOS* run on `main` (or a run of a PR labelled `screenshots`) and look at `en/watch/watch-1-reader.png`: the text should be the opening of the chapter with the time above it and no top bar.
 2. Convert it without loss and replace the file:
    `python3 -c "from PIL import Image; Image.open('watch-1-reader.png').convert('RGB').save('docs/site/assets/watch-reader.webp', lossless=True, method=6)"`
 3. If the size changed, update `width` and `height` on the `<img class="screen">` in the template, run `python3 scripts/site/build.py`, and commit `docs/site/`.
