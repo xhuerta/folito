@@ -46,13 +46,26 @@ final class CoversUITests: XCTestCase {
         return element.exists && element.isHittable
     }
 
+    /// Taps the row of `title` and waits for its detail screen. On a just-booted simulator (this suite can be the
+    /// first UI suite of its shard, right after the unit tests) a tap on a Library row can be lost while the
+    /// Library is still updating after launch (covers filled in, rows re-sorted): the row was hittable and the
+    /// tap landed on it, but nothing was pushed (PR #213, job 139578963094). So: wait until the row is hittable,
+    /// tap, and tap once more if the Library is still showing and no detail appeared.
     @MainActor
     private func openDetail(_ app: XCUIApplication, _ title: String) {
         let target = row(app, title)
         XCTAssertTrue(scrollTo(target, in: app), "\(title) row not reachable")
+        let hittable = expectation(for: NSPredicate(format: "isHittable == true"), evaluatedWith: target)
+        wait(for: [hittable], timeout: 10)
+        let detail = app.descendants(matching: .any)["bookDetail"]
+        func detailShown(_ timeout: TimeInterval) -> Bool {
+            detail.waitForExistence(timeout: timeout) || app.navigationBars[title].exists
+        }
         target.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["bookDetail"].waitForExistence(timeout: 5)
-                      || app.navigationBars[title].waitForExistence(timeout: 5), "Detail of \(title) did not open")
+        if !detailShown(10) && app.navigationBars["Library"].exists && target.exists && target.isHittable {
+            target.tap()
+        }
+        XCTAssertTrue(detailShown(10), "Detail of \(title) did not open")
         sleep(1)
     }
 
