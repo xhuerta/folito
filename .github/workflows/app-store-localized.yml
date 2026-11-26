@@ -12,6 +12,8 @@ name: App Store screenshots (localized)
 # <lang>/{iphone-medium,iphone-large,watch,complications}/ (the per-runner `capture-<lang>-<class>` artifacts are
 # kept 3 days); the `app-store-screenshots` job checks all of them
 # together (sizes, one watch size across languages) and uploads the merged set as `app-store-screenshots-all`.
+# With the watch, each language also captures the website's hero image (the reader just opened, top bar showing;
+# not an App Store frame), collected as `watch-reader-hero` with one <lang>.png per language (422 x 514).
 #
 # Start it from the Actions tab or through the API (all inputs are plain strings):
 #   gh workflow run app-store-localized.yml --ref <branch> -f languages="en,es,fr,de,it,pt-BR,ja,zh-Hans" -f devices="iphone,watch"
@@ -242,6 +244,46 @@ jobs:
           find "$OUT" -type f ! -name "complication-*.png" -delete
           ls -l "$OUT"
 
+      # The website's hero image in the language of the set (WatchAppStoreScreenshotTests/testReaderHero, skipped
+      # outside this step): the reader just opened at chapter 1 of the language's sample book, top bar showing, on
+      # the App Store watch simulator (422 x 514, as docs/site/assets/watch-reader.webp). Not part of the App Store
+      # set: saved as watch-reader-hero/<lang>.png. A failure here leaves the App Store frames as they are.
+      - name: Website hero (${{ matrix.lang }})
+        if: matrix.class == 'watch' && !cancelled()
+        continue-on-error: true
+        timeout-minutes: 10
+        run: |
+          U=$(python3 scripts/ci/appstore_simulator.py watch)
+          rm -rf hero.xcresult hero-export watch-reader-hero
+          TEST_RUNNER_SCREENSHOT_LANG=$SCREENSHOT_LANG TEST_RUNNER_SCREENSHOT_HERO=1 xcodebuild test-without-building $XCB_FLAGS \
+            -xctestrun "$XCTESTRUN" -destination "id=$U" \
+            -only-testing:FolitoWatchUITests/WatchAppStoreScreenshotTests/testReaderHero \
+            -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 300 \
+            -resultBundlePath hero.xcresult > hero.log 2>&1 || { grep -n -A40 "error:" hero.log | head -120 || true; tail -40 hero.log; exit 1; }
+          mkdir -p hero-export watch-reader-hero
+          xcrun xcresulttool export attachments --path hero.xcresult --output-path hero-export > /dev/null
+          python3 scripts/ci/name_attachments.py hero-export
+          mv hero-export/watch-reader-hero.png "watch-reader-hero/$SCREENSHOT_LANG.png"
+          python3 - "watch-reader-hero/$SCREENSHOT_LANG.png" <<'EOF'
+          import os, sys
+          sys.path.insert(0, "scripts/ci")
+          from check_screenshot_sizes import png_info
+          width, height, alpha = png_info(sys.argv[1])
+          print(f"{sys.argv[1]}: {width} x {height}" + (", alpha" if alpha else ""))
+          if (width, height) != (422, 514) or alpha:
+              os.remove(sys.argv[1])
+              sys.exit(f"::error::{sys.argv[1]}: expected 422 x 514 without alpha, as docs/site/assets/watch-reader.webp")
+          EOF
+
+      - name: Upload website hero
+        if: matrix.class == 'watch' && !cancelled()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: watch-reader-hero-${{ matrix.lang }}
+          path: watch-reader-hero
+          retention-days: 3
+          if-no-files-found: ignore
+
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -261,6 +303,7 @@ jobs:
             appstore-${{ matrix.class }}.xcresult
             appstore-${{ matrix.class }}-hang-*.png
             complications.log
+            hero.log
           retention-days: 14
           if-no-files-found: ignore
 
@@ -288,6 +331,33 @@ jobs:
           name: app-store-screenshots-${{ matrix.lang }}
           path: app-store-screenshots
           if-no-files-found: error
+
+  # The website's hero images of every language of the run, as `watch-reader-hero` (<lang>.png, 422 x 514):
+  # docs/appstore/SCREENSHOTS.md, "The website's watch image".
+  watch-reader-hero:
+    needs: [plan, capture]
+    if: always() && needs.plan.result == 'success' && needs.plan.outputs.watch == 'true' && needs.capture.result != 'cancelled'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: watch-reader-hero-*
+          path: watch-reader-hero
+          merge-multiple: true
+
+      - name: List
+        run: |
+          ls -l watch-reader-hero || true
+          for l in $(echo '${{ needs.plan.outputs.languages }}' | tr -d '[]" ' | tr , ' '); do
+            [ -f "watch-reader-hero/$l.png" ] || echo "::warning::no website hero for $l (see the step 'Website hero ($l)')"
+          done
+
+      - name: Upload the website hero images
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: watch-reader-hero
+          path: watch-reader-hero
+          if-no-files-found: warn
 
   check:
     needs: [plan, app-store-screenshots]
