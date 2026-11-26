@@ -700,12 +700,17 @@ final class AccessibilityAuditTests: XCTestCase {
     private static let collectionsArguments = ["-UITestingSeedCovers", "-UITestingSeedCollections",
                                                "-library.browse", "collections"]
 
+    /// Checks the browse mode, not a section: at the largest size the watch notice and the collection rows fill the
+    /// first screen and the sections start below it, out of the accessibility tree (CI job 139587257794: "To Read
+    /// section not shown"). The pages that follow scroll through every section.
     @MainActor
     private static func openCollections(_ app: XCUIApplication) {
         waitForWatchStatus(app)
-        let toRead = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "identifier == 'librarySectionHeader' AND label == 'To Read'")).firstMatch
-        XCTAssertTrue(toRead.waitForExistence(timeout: 10), "To Read section not shown")
+        let menu = app.buttons["librarySortMenu"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 10), "Sort and Browse menu not shown")
+        XCTAssertEqual(menu.value as? String, "Recently Read, By Collection", "By Collection not selected")
+        XCTAssertTrue(app.buttons["libraryManageCollections"].exists
+                      || app.descendants(matching: .any)["libraryWatchNotice"].exists, "By Collection not shown")
     }
 
     /// The Collections screen (a sheet): the two collections, New Collection, Edit and Done.

@@ -140,7 +140,9 @@ Collections screen's rows rename on a tap (hint "Renames the collection.") and h
 and *Delete* actions, so reordering does not need a drag; deleting asks first and says the books are kept. The name
 form's field has a visible label above it (*Collection Name*), not a placeholder, and a name already in use is
 explained under the field and announced. *Add Books to a Collection* is a list of its own in selection mode (the
-Library's grouped modes list a book in several sections). Audited by `testLibraryCollectionsAudit` /
+Library's grouped modes list a book in several sections). The Collections sheet closes with an icon bar button (✕, labelled *Done*), like the Catalogs sheet, and has a
+large title: its list is short and does not scroll, so under an inline bar its first header stayed within the bar's
+scroll edge margin on every page and was never audited clear of it. Audited by `testLibraryCollectionsAudit` /
 `testLibraryCollectionsLargestTextAudit` and `testManageCollectionsAudit` / `testManageCollectionsLargestTextAudit`
 (shard `browse`, `-UITestingSeedCollections`).
 

@@ -283,11 +283,19 @@ struct CollectionsManagerView: View {
                 }
             }
             .navigationTitle(Text("Collections", comment: "Title of the screen that manages the user's collections"))
-            .navigationBarTitleDisplayMode(.inline)
+            // A large title: the list is short and does not scroll, so with an inline bar its first header stayed
+            // within the bar's scroll edge margin on every page and its contrast was never audited clear of the bar
+            // (CI job 139587257794). Under the expanded large title nothing is scrolled under the bar.
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button { dismiss() } label: { Text("Done") }
-                        .accessibilityIdentifier("collectionsDone")
+                    // An icon bar button, like the Catalogs sheet: a text bar button keeps a fixed font size
+                    // ("Dynamic Type font sizes are partially unsupported" at AX5, CI job 139587257794).
+                    Button { dismiss() } label: {
+                        Label { Text("Done") } icon: { Image(systemName: "xmark") }
+                    }
+                    .labelStyle(.iconOnly)
+                    .accessibilityIdentifier("collectionsDone")
                 }
                 if !collections.isEmpty {
                     ToolbarItem(placement: .topBarLeading) {
