@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+import tempfile
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -128,6 +129,35 @@ class SiteBuildTests(unittest.TestCase):
                 data = self.outputs[(OUT / build.folder(lang) / attrs["src"]).resolve()]
                 self.assertEqual(build.webp_size(data), (600, 1304), (lang, attrs["src"]))
             self.assertEqual(len(alts), 5, f"{lang}: duplicate alt texts")
+
+    def test_watch_hero_per_language_with_english_fallback(self) -> None:
+        for lang in build.LANGUAGES:
+            text = self.outputs[OUT / build.folder(lang) / "index.html"]
+            tag = re.search(r'<img class="screen"[^>]*>', text)
+            self.assertIsNotNone(tag, lang)
+            attrs = dict(build.ATTR.findall(tag.group(0)))
+            self.assertEqual((attrs.get("width"), attrs.get("height")), ("422", "514"), lang)
+            own = OUT / "assets" / f"watch-reader-{lang.lower()}.webp"
+            uses_own = lang != build.LANGUAGES[0] and own.exists()
+            expected = own.name if uses_own else "watch-reader.webp"
+            label = "index.watch_label_own" if uses_own else "index.watch_label"
+            self.assertEqual(attrs.get("alt"), build.load_strings()[lang][label], lang)
+            root = "../" if build.folder(lang) else ""
+            self.assertEqual(attrs.get("src"), f"{root}assets/{expected}", lang)
+
+    def test_watch_image_uses_a_language_file_only_when_present(self) -> None:
+        english = (OUT / "assets" / "watch-reader.webp").read_bytes()
+        with tempfile.TemporaryDirectory() as tmp:
+            assets = Path(tmp)
+            self.assertEqual(build.watch_image("es", assets), "assets/watch-reader.webp")
+            (assets / "watch-reader-pt-br.webp").write_bytes(english)
+            self.assertEqual(build.watch_image("pt-BR", assets), "assets/watch-reader-pt-br.webp")
+            self.assertEqual(build.watch_image("ja", assets), "assets/watch-reader.webp")
+            self.assertEqual(build.watch_image("en", assets), "assets/watch-reader.webp")
+            (assets / "watch-reader-ja.webp").write_bytes(
+                (OUT / "assets" / "screenshots" / "ja" / "01-hero.webp").read_bytes())
+            with self.assertRaises(SystemExit):
+                build.watch_image("ja", assets)
 
     def test_validate_rejects_missing_screenshot(self) -> None:
         outputs = dict(self.outputs)
