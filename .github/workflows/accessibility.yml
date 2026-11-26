@@ -146,7 +146,7 @@ jobs:
         # Each shard runs a part of AccessibilityAuditTests (roughly 8 to 15 minutes of audits each). `rest`
         # runs every test the other shards do not name, so a new audit is never left out. The catalog audits are
         # two shards: all seven in one went past the step's 30 minutes (run 45535133405). The Library's search and
-        # browse audits (#114) are a shard of their own: `library` is close to its 30 minutes (#192).
+        # browse audits (#114, and the collections of #164) are a shard of their own: `library` is close to its 30 minutes (#192).
         # The shards to run come from `scope` (all six except on a PR whose changed files feed only some
         # screens; scripts/ci/pick_audit_shards.py, whose self-test checks its list against the `case` below).
         shard: ${{ fromJSON(needs.scope.outputs.ios_shards) }}
@@ -164,6 +164,8 @@ jobs:
       BROWSE: >-
         testLibrarySearchAudit testLibraryNoResultsAudit testLibraryNoResultsLargestTextAudit
         testLibraryAuthorsAudit testLibraryAuthorsLargestTextAudit testLibrarySeriesAudit testLibrarySeriesLargestTextAudit
+        testLibraryCollectionsAudit testLibraryCollectionsLargestTextAudit testManageCollectionsAudit
+        testManageCollectionsLargestTextAudit
     steps:
       # Only the scripts are needed from the checkout: no project generation, no package resolution.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

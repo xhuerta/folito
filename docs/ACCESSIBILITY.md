@@ -127,6 +127,25 @@ fills the first screen and the results start below it (rows below the screen are
 the search passes scroll to the results and audit from the end of the list, and the browse passes audit the top of
 the list and then its end, like the one-book audit (see "Rows in the middle of a long list at AX5"). The open menu itself is a system menu and is not audited.
 
+**Collections** (#164). *By Collection* is a section per collection, its header the collection's name (a header,
+like the author and series headers), then *Not in a Collection*. Above them, *Manage Collections* and *Add Books to
+a Collection* are rows of their own (an icon and a text, one layout at every size, not a `Label`); with no
+collection yet the section explains collections and offers *New Collection*. Every book row, local or only in
+Readest, has *Add to Collection…* in its context menu and as a VoiceOver action, and one *Remove from “name”*
+action per collection it is in (the context menu groups them under *Remove from Collection*). The book details have
+a *Collections* card: each collection with a 44 pt remove button labelled *Remove from “name”*, then *Add to
+Collection…*. In the collection picker each collection is a button with the selected trait when the book is in it
+(hint "Adds to this collection." / "Removes from this collection."), the check mark is not colour only. The
+Collections screen's rows rename on a tap (hint "Renames the collection.") and have *Rename*, *Move Up*, *Move Down*
+and *Delete* actions, so reordering does not need a drag; deleting asks first and says the books are kept. The name
+form's field has a visible label above it (*Collection Name*), not a placeholder, and a name already in use is
+explained under the field and announced. *Add Books to a Collection* is a list of its own in selection mode (the
+Library's grouped modes list a book in several sections). The Collections sheet closes with an icon bar button (✕, labelled *Done*), like the Catalogs sheet, and has a
+large title: its list is short and does not scroll, so under an inline bar its first header stayed within the bar's
+scroll edge margin on every page and was never audited clear of it. Audited by `testLibraryCollectionsAudit` /
+`testLibraryCollectionsLargestTextAudit` and `testManageCollectionsAudit` / `testManageCollectionsLargestTextAudit`
+(shard `browse`, `-UITestingSeedCollections`).
+
 **Dynamic Type.** No fixed point sizes in UI chrome; only text styles. Layouts that would truncate switch
 at accessibility sizes: the size/state line of library rows stacks vertically (`AnyLayout`), slider
 title/value rows use `ViewThatFits`, and the preset grid's minimum column width is a `@ScaledMetric`, so it

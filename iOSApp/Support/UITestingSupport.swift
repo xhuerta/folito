@@ -26,6 +26,9 @@ import UIKit
 ///   for a sign-in; throw-away defaults and an in-memory Keychain. docs/OPDS.md.
 /// - `-UITestingSeedLargeLibrary` (implies `-UITesting`): the `-UITestingSeedCovers` books plus five more with
 ///   authors and series (eight in all, so the Library shows its search field, #114).
+/// - `-UITestingSeedCollections` (with `-UITestingSeedCovers` or `-UITestingSeedLargeLibrary`): two collections
+///   (#164), "To Read" with *Emma* and *The Gods of Mars*, and "Book Club" with *The Gods of Mars*. Without it
+///   every UI-testing launch starts with no collections (they live next to the throw-away library).
 /// - Any UI-testing launch keeps the Library's sort order and browse mode in throw-away defaults
 ///   (`libraryViewDefaults`), so a test that changes them never leaks into the next launch; pass
 ///   `-library.sort` / `-library.browse` to start in another one.
@@ -41,6 +44,8 @@ enum UITesting {
     static let seedCoversArgument = "-UITestingSeedCovers"
     /// `-UITestingSeedLargeLibrary` (implies `-UITesting`): see the type comment.
     static let seedLargeLibraryArgument = "-UITestingSeedLargeLibrary"
+    /// `-UITestingSeedCollections`: see the type comment.
+    static let seedCollectionsArgument = "-UITestingSeedCollections"
     /// `-UITestingMockOnlineMetadata`: *Find Details Online* asks `MockOnlineMetadataProvider` instead of Open
     /// Library (no network). With `-UITestingOnlineMetadataSeveral` it offers three matches, with
     /// `-UITestingOnlineMetadataEmpty` none, with `-UITestingOnlineMetadataOffline` it fails as if offline.
@@ -60,7 +65,7 @@ enum UITesting {
         let args = ProcessInfo.processInfo.arguments
         return args.contains(isolateArgument) || args.contains(seedSampleBookArgument)
             || args.contains(OnboardingPolicy.showArgument) || args.contains(seedCoversArgument)
-            || args.contains(seedLargeLibraryArgument)
+            || args.contains(seedLargeLibraryArgument) || args.contains(seedCollectionsArgument)
     }
 
     /// Where the Library keeps its sort order and browse mode: a throw-away suite in UI-testing launches, the
@@ -87,6 +92,11 @@ enum UITesting {
         }
         if args.contains(seedLargeLibraryArgument) {
             seedLargeLibrary(into: store)
+        }
+        if args.contains(seedCollectionsArgument) {
+            let mars = "00000000000000000000000000e00a02"
+            store.createCollection(named: "To Read", books: [emmaHash, mars]) // i18n-ignore: UI-test fixture
+            store.createCollection(named: "Book Club", books: [mars]) // i18n-ignore: UI-test fixture
         }
         return store
     }

@@ -24,6 +24,8 @@ struct BookDetailView: View {
     @Environment(\.activeSyncConnectorID) private var activeSyncConnectorID
     @State private var deletion = BookDeletion()
     @State private var showFullDescription = false
+    /// The collection picker (#164).
+    @State private var showCollectionPicker = false
 
     /// Longer descriptions are shortened (at a word, with "…") behind a "More" button. The text is cut, not
     /// line-limited, so nothing on screen is clipped at any text size.
@@ -43,6 +45,9 @@ struct BookDetailView: View {
         .modifier(BookDeletionDialogs(library: library, readest: readest, deletion: $deletion))
         .sheet(isPresented: $showOnlineLookup) {
             OnlineMatchSheet(hash: hash, library: library, provider: onlineMetadata.provider)
+        }
+        .sheet(isPresented: $showCollectionPicker) {
+            CollectionPicker(target: CollectionTarget(hashes: [hash], title: entry?.title ?? ""), library: library)
         }
         .onChange(of: entry == nil) { _, removed in
             if removed { dismiss() }
@@ -66,6 +71,9 @@ struct BookDetailView: View {
                 }
                 section(Text("Information", comment: "Book detail section: publisher, year, language, progress")) {
                     information(entry)
+                }
+                section(Text("Collections", comment: "Book detail section: the user collections the book is in")) {
+                    collections(entry)
                 }
                 section(nil) { actions(entry) }
                 // Last, below the actions: the per-book sync switch (#167), only while a sync service is set up and
@@ -249,6 +257,49 @@ struct BookDetailView: View {
             .font(.footnote)
             .foregroundStyle(.secondaryText)
             .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: Collections (#164)
+
+    /// The collections the book is in, each with a button that takes it out (the book stays in the Library), then
+    /// *Add to Collection…* (the picker).
+    @ViewBuilder
+    private func collections(_ entry: LibraryEntry) -> some View {
+        let memberships = library.collections.collections(containing: entry.documentHash)
+        if memberships.isEmpty {
+            Text("This book isn’t in any collection.", comment: "Book details, Collections: the book is in no collection")
+                .font(.body)
+                .foregroundStyle(.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("bookDetailNoCollection")
+        }
+        ForEach(memberships) { collection in
+            HStack(alignment: .center, spacing: 8) {
+                Image(systemName: "folder")
+                    .foregroundStyle(.secondaryText)
+                    .accessibilityHidden(true)
+                Text(verbatim: collection.name)
+                    .font(.body)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityIdentifier("bookDetailCollection")
+                Button {
+                    library.removeBooks([entry.documentHash], fromCollection: collection.id)
+                } label: {
+                    Image(systemName: "minus.circle")
+                        .font(.body)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(Text(verbatim: CollectionText.removeTitle(collection.name)))
+                .accessibilityIdentifier("bookDetailRemoveFromCollection")
+            }
+        }
+        Button { showCollectionPicker = true } label: {
+            Label(CollectionText.addTitle, systemImage: "folder.badge.plus").modifier(ActionLabel())
+        }
+        .buttonStyle(.borderless)
+        .accessibilityIdentifier("bookDetailAddToCollection")
     }
 
     // MARK: Sync (#167)

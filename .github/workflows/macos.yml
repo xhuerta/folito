@@ -239,7 +239,7 @@ jobs:
       #  * CatalogsUITests (`-UITestingMockCatalogs`, no network): Catalogs, a section, a page, a book, Add Catalog,
       #    sign-in, search.
       #  * LibraryBrowseUITests (`-UITestingSeedLargeLibrary`): Library search, sort orders, By Author, By Series,
-      #    and a book opened from the search results and back.
+      #    a book opened from the search results and back, and collections (create, add, By Collection, delete).
       # The accessibility audits in the same bundle run in accessibility.yml, the App Store screenshots in
       # app-store-iphone.
       - name: UI tests (shard ${{ matrix.ui_shard }})

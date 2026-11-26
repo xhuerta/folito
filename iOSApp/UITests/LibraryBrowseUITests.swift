@@ -198,4 +198,163 @@ final class LibraryBrowseUITests: XCTestCase {
         XCTAssertEqual(app.buttons["librarySortMenu"].value as? String, "Recently Read, By Author")
         screenshot(app, "library-browse-3-authors-search")
     }
+
+    // MARK: Collections (#164)
+
+    /// Scrolls down until `element` is in the clear part of the screen, then checks it is there. List rows below the
+    /// screen are not in the accessibility tree, so the scrolling comes before the check (CI job 139584379002:
+    /// "Book Club section missing" while the section was below the screen).
+    @MainActor
+    private func reveal(_ element: XCUIElement, _ message: String, in app: XCUIApplication) {
+        _ = element.waitForExistence(timeout: 3)
+        RowNavigation.reveal(element, in: app)
+        XCTAssertTrue(element.waitForExistence(timeout: 5), message)
+    }
+
+    /// `reveal` from the top of the Library (its search field). For an element that may be above the screen: after
+    /// a sheet or a pushed screen the list keeps its offset, and a section that got shorter (the explanation of
+    /// collections replaced by two rows) leaves the rows after it above the screen (CI job 139584379002:
+    /// "collection was not created").
+    @MainActor
+    private func revealFromTop(_ element: XCUIElement, _ message: String, in app: XCUIApplication) {
+        scrollToTop(app, until: app.textFields["librarySearchField"])
+        reveal(element, message, in: app)
+    }
+
+    /// Waits until `element` is gone.
+    @MainActor
+    private func waitForGone(_ element: XCUIElement) -> Bool {
+        let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: element)
+        return XCTWaiter().wait(for: [expectation], timeout: 5) == .completed
+    }
+
+    /// Waits until `element` is selected (or not).
+    @MainActor
+    private func waitForSelection(_ element: XCUIElement, _ selected: Bool) -> Bool {
+        let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isSelected == %@", NSNumber(value: selected)),
+                                                    object: element)
+        return XCTWaiter().wait(for: [expectation], timeout: 5) == .completed
+    }
+
+    /// The whole life of a collection: created from the empty *By Collection*, a book added from its details,
+    /// browsed, the book opened from the collection and back, then the collection deleted (after a confirmation
+    /// that says the books are kept): the book is still in the Library.
+    @MainActor
+    func testCollectionLifecycle() throws {
+        let app = launch(["-library.browse", "collections"])
+        let new = app.buttons["collectionsNew"]
+        reveal(new, "By Collection should explain collections and offer New Collection", in: app)
+        screenshot(app, "library-collections-1-empty")
+        new.tap()
+
+        let field = app.textFields["collectionNameField"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5), "collection name field missing")
+        field.tap()
+        field.typeText("Holiday Reading")
+        screenshot(app, "library-collections-2-new")
+        app.buttons["collectionNameSave"].tap()
+        XCTAssertTrue(waitForGone(field), "the name form did not close")
+        revealFromTop(app.buttons["libraryManageCollections"], "collection was not created", in: app)
+
+        // Add Emma from its details.
+        let bookDetail = app.descendants(matching: .any)["bookDetail"]
+        let emma = row(app, "Emma")
+        reveal(emma, "Emma missing", in: app)
+        RowNavigation.open(emma, in: app, expecting: bookDetail)
+        XCTAssertTrue(bookDetail.waitForExistence(timeout: 5), "Book details did not open")
+        let add = app.buttons["bookDetailAddToCollection"]
+        reveal(add, "Add to Collection missing from the book details", in: app)
+        add.tap()
+        let choice = app.buttons.matching(NSPredicate(format: "identifier == 'collectionPickerRow' AND label == 'Holiday Reading'")).firstMatch
+        XCTAssertTrue(choice.waitForExistence(timeout: 5), "the new collection is not offered")
+        XCTAssertTrue(waitForSelection(choice, false), "Emma should not be in the collection yet")
+        choice.tap()
+        XCTAssertTrue(waitForSelection(choice, true), "the collection is not marked as holding the book")
+        screenshot(app, "library-collections-3-picker")
+        app.buttons["collectionPickerDone"].tap()
+        let listed = app.staticTexts.matching(NSPredicate(format: "identifier == 'bookDetailCollection' AND label == 'Holiday Reading'")).firstMatch
+        XCTAssertTrue(listed.waitForExistence(timeout: 5), "the book details do not list the collection")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+
+        // Browse by collection: the collection's section holds Emma.
+        XCTAssertTrue(app.navigationBars["Library"].waitForExistence(timeout: 5), "Library did not come back")
+        let section = header(app, "Holiday Reading")
+        revealFromTop(section, "the collection's section is missing", in: app)
+        XCTAssertEqual(app.buttons["librarySortMenu"].value as? String, "Recently Read, By Collection")
+        let inCollection = row(app, "Emma")
+        reveal(inCollection, "Emma is not in the collection's section", in: app)
+        XCTAssertLessThan(section.frame.minY, inCollection.frame.minY)
+        screenshot(app, "library-collections-4-browse")
+
+        // Open the book from the collection and come back.
+        RowNavigation.open(inCollection, in: app, expecting: bookDetail)
+        XCTAssertTrue(bookDetail.waitForExistence(timeout: 5), "Book details did not open from the collection")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(app.navigationBars["Library"].waitForExistence(timeout: 5), "Library came back without its navigation bar")
+        revealFromTop(header(app, "Holiday Reading"), "the collection's section was lost", in: app)
+
+        // Delete the collection: the confirmation says the books are kept, and Emma is still there.
+        let manage = app.buttons["libraryManageCollections"]
+        revealFromTop(manage, "Manage Collections missing", in: app)
+        manage.tap()
+        let collectionRow = app.buttons.matching(identifier: "collectionRow").firstMatch
+        XCTAssertTrue(collectionRow.waitForExistence(timeout: 5), "Collections screen does not list the collection")
+        screenshot(app, "library-collections-5-manage")
+        collectionRow.swipeLeft()
+        let swipeDelete = app.buttons["Delete"].firstMatch
+        XCTAssertTrue(swipeDelete.waitForExistence(timeout: 5), "swipe to delete missing")
+        swipeDelete.tap()
+        let confirm = app.buttons["Delete Collection"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5), "deleting a collection is not confirmed")
+        XCTAssertTrue(app.staticTexts["Only the collection is deleted. Its books stay in your Library and in any other collections."].exists,
+                      "the confirmation does not say that the books are kept")
+        screenshot(app, "library-collections-6-confirm-delete")
+        confirm.tap()
+        XCTAssertTrue(app.buttons["collectionsNew"].waitForExistence(timeout: 5), "the collection was not deleted")
+        XCTAssertFalse(collectionRow.exists, "the collection is still listed")
+        app.buttons["collectionsDone"].tap()
+
+        XCTAssertTrue(app.navigationBars["Library"].waitForExistence(timeout: 5))
+        XCTAssertFalse(header(app, "Holiday Reading").exists, "the deleted collection is still listed")
+        let kept = row(app, "Emma")
+        revealFromTop(kept, "deleting the collection deleted its book", in: app)
+        screenshot(app, "library-collections-7-deleted")
+    }
+
+    /// Two seeded collections (`-UITestingSeedCollections`): sections in the user's order, a book in both is in
+    /// both; then *Add Books to a Collection* adds two books at once.
+    @MainActor
+    func testBrowseByCollectionAndAddSeveralBooks() throws {
+        let app = launch(["-UITestingSeedCollections", "-library.browse", "collections"])
+        let toRead = header(app, "To Read")
+        reveal(toRead, "To Read section missing", in: app)
+        screenshot(app, "library-collections-8-seeded")
+        let select = app.buttons["librarySelectForCollection"]
+        revealFromTop(select, "Add Books to a Collection missing", in: app)
+        select.tap()
+
+        for title in ["Persuasion", "Les Misérables"] {
+            let book = app.descendants(matching: .any)
+                .matching(NSPredicate(format: "identifier == 'collectionSelectRow' AND label BEGINSWITH %@", title)).firstMatch
+            reveal(book, "\(title) is not offered", in: app)
+            book.tap()
+        }
+        screenshot(app, "library-collections-9-select")
+        let addButton = app.buttons["collectionSelectAdd"]
+        XCTAssertTrue(addButton.isEnabled, "Add to Collection stays disabled with two books chosen")
+        addButton.tap()
+        let club = app.buttons.matching(NSPredicate(format: "identifier == 'collectionPickerRow' AND label == 'Book Club'")).firstMatch
+        XCTAssertTrue(club.waitForExistence(timeout: 5), "Book Club is not offered")
+        club.tap()
+        XCTAssertTrue(waitForSelection(club, true), "the books were not added")
+        app.buttons["collectionPickerDone"].tap()
+
+        XCTAssertTrue(app.navigationBars["Library"].waitForExistence(timeout: 5), "the selection screen did not close")
+        let bookClub = header(app, "Book Club")
+        revealFromTop(bookClub, "Book Club section missing", in: app)
+        let persuasion = row(app, "Persuasion")
+        reveal(persuasion, "Persuasion is not listed", in: app)
+        XCTAssertLessThan(bookClub.frame.minY, persuasion.frame.minY, "Persuasion should be in Book Club")
+        screenshot(app, "library-collections-10-added")
+    }
 }

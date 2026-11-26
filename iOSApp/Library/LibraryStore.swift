@@ -10,11 +10,15 @@ final class LibraryStore: ObservableObject {
     @Published var importError: UserFacingError?
     /// The most recent successful import, so a screen that started one (the welcome tour) can show its result.
     @Published private(set) var lastImported: LibraryEntry?
+    /// The user's collections (#164), kept in collections.json next to library.json. Deleting a book does not take
+    /// it out of its collections: a copy may still be in Readest (same hash), or the book may be imported again.
+    @Published private(set) var collections = BookCollections()
 
     private let parser: EPUBParsing
     private let fm = FileManager.default
     let booksDirectory: URL
     private let indexURL: URL
+    private let collectionsURL: URL
 
     /// Called after a successful import so the app can auto-send to the watch.
     var onImported: ((LibraryEntry) -> Void)?
@@ -39,8 +43,10 @@ final class LibraryStore: ObservableObject {
             .appendingPathComponent("Folito", isDirectory: true))
         booksDirectory = root.appendingPathComponent("Books", isDirectory: true)
         indexURL = root.appendingPathComponent("library.json")
+        collectionsURL = root.appendingPathComponent("collections.json")
         try? fm.createDirectory(at: booksDirectory, withIntermediateDirectories: true)
         load()
+        collections = BookCollections.decode(try? Data(contentsOf: collectionsURL))
     }
 
     func fileURL(for entry: LibraryEntry) -> URL { booksDirectory.appendingPathComponent(entry.fileName) }
@@ -114,6 +120,11 @@ final class LibraryStore: ObservableObject {
         CoverImages.shared.invalidate(hash: relinked.documentHash)
         entries[old] = relinked
         save()
+        // The book keeps its collections under its new id.
+        if !collections.ids(containing: entry.documentHash).isEmpty {
+            collections.replaceBook(entry.documentHash, with: relinked.documentHash)
+            saveCollections()
+        }
         onDeleted?(entry)
         onRelinked?(relinked, entry.sentToWatch)
         return relinked
@@ -518,6 +529,60 @@ final class LibraryStore: ObservableObject {
     /// out until they are sent explicitly.
     var unsentBooks: [(entry: LibraryEntry, fileURL: URL)] {
         entries.filter { !$0.sentToWatch && !$0.isRemovedOnWatch }.map { ($0, fileURL(for: $0)) }
+    }
+
+    // MARK: Collections (#164)
+
+    /// Adds a collection at the end of the list, with `books` in it. Returns the problem with the name, if any.
+    @discardableResult
+    func createCollection(named name: String, books: [String] = []) -> Result<BookCollection, BookCollections.NameProblem> {
+        let result = collections.create(named: name, books: books)
+        if case .success = result { saveCollections() }
+        return result
+    }
+
+    /// Nil when renamed; else the problem with the name.
+    @discardableResult
+    func renameCollection(_ id: String, to name: String) -> BookCollections.NameProblem? {
+        let problem = collections.rename(id, to: name)
+        if problem == nil { saveCollections() }
+        return problem
+    }
+
+    /// Deletes the collection only: its books stay in the Library.
+    func deleteCollection(_ id: String) {
+        guard collections.delete(id) != nil else { return }
+        saveCollections()
+    }
+
+    func moveCollections(fromOffsets offsets: IndexSet, toOffset destination: Int) {
+        collections.move(fromOffsets: offsets, toOffset: destination)
+        saveCollections()
+    }
+
+    /// VoiceOver's *Move Up* (-1) / *Move Down* (1).
+    func moveCollection(_ id: String, by delta: Int) {
+        if collections.move(id, by: delta) { saveCollections() }
+    }
+
+    func addBooks(_ hashes: [String], toCollection id: String) {
+        if collections.add(hashes, to: id) > 0 { saveCollections() }
+    }
+
+    func removeBooks(_ hashes: [String], fromCollection id: String) {
+        if collections.remove(hashes, from: id) > 0 { saveCollections() }
+    }
+
+    /// The collection picker: adds the books unless every one is already in the collection, then takes them out.
+    func toggleBooks(_ hashes: [String], inCollection id: String) {
+        guard !hashes.isEmpty else { return }
+        collections.toggle(hashes, in: id)
+        saveCollections()
+    }
+
+    private func saveCollections() {
+        guard let data = try? collections.encoded() else { return }
+        try? data.write(to: collectionsURL, options: .atomic)
     }
 
     // MARK: Persistence

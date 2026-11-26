@@ -4,8 +4,11 @@ import ReaderCore
 /// What the Library's search, sort and browse (#114, `LibraryBrowsing` in ReaderCore) know about a row: a local
 /// book (with its Readest row, if any) or a book only in Readest.
 enum LibraryBrowseFacts {
-    /// `readStatus` is the status the row shows (the newer of the local mark and the Readest row's).
-    static func facts(_ item: MergedLibraryItem<LibraryEntry>, readStatus: ReadStatusMark?) -> LibraryBookFacts {
+    /// `readStatus` is the status the row shows (the newer of the local mark and the Readest row's); `collections`
+    /// are the user's collections (#164), which hold the row by its hash (the local book's, when there is one).
+    static func facts(_ item: MergedLibraryItem<LibraryEntry>, readStatus: ReadStatusMark?,
+                      collections: BookCollections = BookCollections()) -> LibraryBookFacts {
+        let inCollections = collections.ids(containing: item.hash)
         let statusDate = readStatus.flatMap(date(of:))
         if let entry = item.local {
             return LibraryBookFacts(
@@ -14,16 +17,16 @@ enum LibraryBrowseFacts {
                 series: entry.details?.series ?? item.cloud?.series,
                 addedAt: entry.importedAt,
                 lastReadAt: newest([entry.lastReadAt, statusDate, item.cloud?.updatedAt]),
-                isFinished: readStatus?.isFinished == true)
+                isFinished: readStatus?.isFinished == true, collectionIDs: inCollections)
         }
-        guard let book = item.cloud else { return LibraryBookFacts(title: "") }
+        guard let book = item.cloud else { return LibraryBookFacts(title: "", collectionIDs: inCollections) }
         let author = book.author.trimmingCharacters(in: .whitespacesAndNewlines)
         return LibraryBookFacts(
             title: book.title, authors: author.isEmpty ? [] : [author],
             series: book.series,
             addedAt: book.createdAt ?? book.uploadedAt,
             lastReadAt: newest([book.updatedAt, statusDate]),
-            isFinished: readStatus?.isFinished == true)
+            isFinished: readStatus?.isFinished == true, collectionIDs: inCollections)
     }
 
     /// The EPUB's authors; else the row's author line, unless it is the "Unknown author" placeholder.

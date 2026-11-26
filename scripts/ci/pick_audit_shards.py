@@ -22,7 +22,8 @@ Shards (accessibility.yml, job `ios`):
   book      Library with one book, Book detail, Find Details Online, Settings > Book Details
   catalogs  Catalogs list, Add Catalog (two sizes), a catalog page, a catalog book
   signin    Sign-in needed, Sign In, Edit Catalog, catalog search
-  browse    Library search, no results (two sizes), By Author and By Series (two sizes each)
+  browse    Library search, no results (two sizes), By Author, By Series, By Collection and the Collections
+            screen (two sizes each)
   rest      every other audit: welcome tour, Settings, Progress Sync, Acknowledgements, Reading
 
 Usage: scripts/ci/pick_audit_shards.py < changed-paths.txt
@@ -61,7 +62,10 @@ SHARDS_FOR_PATH = {
     "iOSApp/Views/TintedLabel.swift": ["rest"],
     "iOSApp/Views/TypographySettingsView.swift": ["rest"],
     "iOSApp/Onboarding/OnboardingView.swift": ["rest"],
-    # What search, sort and By Author / By Series know about each Library row: every Library list with books
+    # The collection screens (#164): By Collection's explanation and the Collections sheet (`browse`); their
+    # strings are also the VoiceOver actions of every Library row and the Collections card of the book details.
+    "iOSApp/Views/CollectionsViews.swift": ["library", "book", "browse"],
+    # What search, sort and By Author / By Series / By Collection know about each Library row: every Library list with books
     # (the Readest rows of `library`, the one book of `book`) and the browse audits.
     "iOSApp/Library/LibraryBrowseFacts.swift": ["library", "book", "browse"],
     # The sample book's badge on Library rows.
@@ -123,6 +127,7 @@ def self_test():
         (["iOSApp/Resources/Acknowledgements/License-X.txt"], ["ios"], ["rest"]),
         (["iOSApp/Views/CatalogsView.swift", "iOSApp/Views/SyncSettingsView.swift"], ["ios"], ["catalogs", "signin", "rest"]),
         (["iOSApp/Library/LibraryBrowseFacts.swift"], ["ios"], ["library", "book", "browse"]),
+        (["iOSApp/Views/CollectionsViews.swift"], ["ios"], ["library", "book", "browse"]),
         (["iOSApp/Library/LibraryBrowseFacts.swift", "iOSApp/Views/SettingsView.swift"], ["ios"], ["library", "book", "browse", "rest"]),
         # Shared or unknown: every shard.
         (["iOSApp/Views/LibraryView.swift"], ["ios"], a),
