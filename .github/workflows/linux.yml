@@ -49,9 +49,16 @@ jobs:
           python3 scripts/ci/check_screenshot_sizes.py --self-test
           python3 scripts/make_appstore_seeds.py --check
 
-      # Which macOS platforms a PR needs (macos.yml / accessibility.yml job `scope`).
-      - name: Test the platform picker
-        run: python3 scripts/ci/pick_platforms.py --self-test
+      # Which macOS platforms a PR needs (macos.yml / accessibility.yml job `scope`), and which iPhone audit
+      # shards (accessibility.yml).
+      - name: Test the platform and audit shard pickers
+        run: |
+          python3 scripts/ci/pick_platforms.py --self-test
+          python3 scripts/ci/pick_audit_shards.py --self-test
+
+      # The two shards of the iPhone UI suites (macos.yml): fails if a test class of iOSApp/UITests is in no shard.
+      - name: Check the UI test shards
+        run: python3 scripts/ci/ui_test_shards.py --self-test
 
       # The App Store listing text (docs/appstore/LISTING.md): every field of every language within App Store
       # Connect's limits, third-party names only in the description, no pricing.

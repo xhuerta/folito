@@ -6,7 +6,7 @@ General: 1 to 10 screenshots per device size and localization; `.jpeg`, `.jpg` o
 
 ## Where the screenshots come from
 
-CI takes them: nobody needs a Mac or a device. The UI tier of `macos.yml` (every push to `main`, and pull requests labelled `ui`; see [TESTING.md](../TESTING.md)) runs two screenshot suites on simulators whose screens are accepted sizes: the iPhone sets in a job of their own, `app-store-iphone`, one runner per size (`app-store-iphone-medium`, `app-store-iphone-large`, in parallel with the `ios` job, which they would otherwise push past its time limit), the watch set at the end of the `watch` job. The job `app-store-screenshots` merges them into one artifact, **`app-store-screenshots`**, with the English set in `en/` (every language: see [Localized sets](#localized-sets)):
+CI takes them: nobody needs a Mac or a device. `macos.yml` (every push to `main`, manual runs, and pull requests labelled `screenshots`, not `ui`; see [TESTING.md](../TESTING.md)) runs two screenshot suites on simulators whose screens are accepted sizes: the iPhone sets in a job of their own, `app-store-iphone`, one runner per size (`app-store-iphone-medium`, `app-store-iphone-large`, in parallel with the `ios` job, which they would otherwise push past its time limit), the watch set at the end of the `watch` job. The job `app-store-screenshots` merges them into one artifact, **`app-store-screenshots`**, with the English set in `en/` (every language: see [Localized sets](#localized-sets)):
 
 | Directory | Display class | Simulator (first one the runner has) | Pixels | Suite |
 |---|---|---|---|---|
@@ -61,7 +61,7 @@ How it works:
 
 ### Regenerating
 
-1. Add the `ui` label to a pull request, or push to `main` (or run the *macOS* workflow by hand).
+1. Add the `screenshots` label to a pull request, or push to `main` (or run the *macOS* workflow by hand).
 2. When the run is done, download the `app-store-screenshots` artifact from the run's page (the English set, in `en/`).
 3. Upload each directory to its display size in App Store Connect.
 

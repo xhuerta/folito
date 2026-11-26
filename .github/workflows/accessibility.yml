@@ -11,7 +11,9 @@ name: Accessibility audit
 #  * every night on main (not on every push to main);
 #  * manually: Actions tab > "Accessibility audit" > Run workflow (any branch);
 #  * a pull request labelled `accessibility` (when the label is added and on every later push while it is set),
-#    for the platforms its changed paths need (scripts/ci/pick_platforms.py, job `scope`);
+#    for what its changed paths need (scripts/ci/pick_audit_shards.py, job `scope`): the watch audit when the
+#    watch app can be affected, and only the iPhone shards whose screens the changed files feed (any shared or
+#    unknown path runs all six);
 #  * targeted: workflow_dispatch with `only_testing` runs just those tests in one job (`targeted`).
 #
 # The iPhone app is built once (`build-ios`, build-for-testing) and the six shards run test-without-building
@@ -68,29 +70,31 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       platforms: ${{ steps.pick.outputs.platforms }}
+      ios_shards: ${{ steps.pick.outputs.ios_shards }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Pick platforms from the changed paths
+      - name: Pick platforms and iPhone shards from the changed paths
         id: pick
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
         run: |
-          # Nightly and manual runs audit both; so does a PR whose file list cannot be read.
+          set -o pipefail
+          # Nightly and manual runs audit everything; so does a PR whose file list cannot be read.
           : > changed.txt
           if [ -n "$PR" ]; then
             gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" \
               --jq '.[] | .filename, (.previous_filename // empty)' > changed.txt || : > changed.txt
           fi
-          python3 scripts/ci/pick_platforms.py --workflow accessibility.yml < changed.txt | tee -a "$GITHUB_OUTPUT"
+          python3 scripts/ci/pick_audit_shards.py < changed.txt | tee -a "$GITHUB_OUTPUT"
 
   # Builds the iPhone app and its test bundles once for the six shards: build-for-testing for a generic
   # simulator and the runner's architecture, uploaded as a tarball (keeps symlinks and permissions) with the
   # .xctestrun file. Same flags as macos.yml.
   build-ios:
     needs: scope
-    if: contains(needs.scope.outputs.platforms, 'ios')
+    if: contains(needs.scope.outputs.platforms, 'ios') && needs.scope.outputs.ios_shards != '[]'
     # Same runner as macos.yml (arm64 macos-15); set the repository variable MACOS_RUNNER to override.
     runs-on: ${{ vars.MACOS_RUNNER || 'macos-15' }}
     timeout-minutes: 30
@@ -132,7 +136,7 @@ jobs:
 
   ios:
     needs: [scope, build-ios]
-    if: contains(needs.scope.outputs.platforms, 'ios')
+    if: contains(needs.scope.outputs.platforms, 'ios') && needs.scope.outputs.ios_shards != '[]'
     runs-on: ${{ vars.MACOS_RUNNER || 'macos-15' }}
     timeout-minutes: 40
     name: ios (${{ matrix.shard }})
@@ -143,7 +147,9 @@ jobs:
         # runs every test the other shards do not name, so a new audit is never left out. The catalog audits are
         # two shards: all seven in one went past the step's 30 minutes (run 45535133405). The Library's search and
         # browse audits (#114) are a shard of their own: `library` is close to its 30 minutes (#192).
-        shard: [library, book, catalogs, signin, browse, rest]
+        # The shards to run come from `scope` (all six except on a PR whose changed files feed only some
+        # screens; scripts/ci/pick_audit_shards.py, whose self-test checks its list against the `case` below).
+        shard: ${{ fromJSON(needs.scope.outputs.ios_shards) }}
     env:
       LIBRARY: >-
         testLibraryEmptyStateAudit testLibraryWithReadestAudit testLibraryReadestOfflineAudit

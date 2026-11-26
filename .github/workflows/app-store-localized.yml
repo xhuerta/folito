@@ -3,7 +3,7 @@ name: App Store screenshots (localized)
 # The App Store screenshots in every listing language (docs/appstore/SCREENSHOTS.md, "Localized sets"): the raw
 # iPhone captures (two display sizes) and the raw Apple Watch frames, plus the complication snapshots, for
 # en, es, fr, de, it, pt-BR, ja and zh-Hans. Eight languages times three device classes is too heavy for every
-# pull request: the UI tier of macos.yml keeps capturing the English set (pull requests labelled `ui`, pushes to
+# pull request: macos.yml keeps capturing the English set (pull requests labelled `screenshots`, pushes to
 # main), and this workflow runs only by hand.
 #
 # Each platform is built once (build-ios, build-watch: build-for-testing, uploaded with the .xctestrun file) and
