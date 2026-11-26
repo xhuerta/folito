@@ -305,8 +305,9 @@ final class WatchAppStoreScreenshotTests: XCTestCase {
         func onWord() -> Bool {
             ((cursor.value as? String) ?? "").range(of: word, options: [.caseInsensitive]) != nil
         }
+        // The Spanish word ("paraguas") is the 83rd word of its paragraph: allow some margin above that.
         var steps = 0
-        while steps < 80 && !onWord() && next.isEnabled {
+        while steps < 120 && !onWord() && next.isEnabled {
             next.tap()
             steps += 1
             usleep(300_000)

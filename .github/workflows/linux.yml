@@ -49,6 +49,15 @@ jobs:
           python3 scripts/ci/check_screenshot_sizes.py --self-test
           python3 scripts/make_appstore_seeds.py --check
 
+      # The 9:41 painted over the clock of the website's watch hero (app-store-localized.yml, job
+      # watch-reader-hero). Needs Pillow and a clock font (DejaVu Sans is the last fallback).
+      - name: Test the hero clock script
+        run: |
+          sudo apt-get update -q > /dev/null
+          sudo apt-get install -y -q --no-install-recommends python3-pil fonts-dejavu-core > /dev/null
+          python3 -c "import PIL" 2>/dev/null || python3 -m pip install --quiet --user --break-system-packages pillow
+          python3 scripts/ci/pin_hero_clock.py --self-test
+
       # Which macOS platforms a PR needs (macos.yml / accessibility.yml job `scope`), and which iPhone audit
       # shards (accessibility.yml).
       - name: Test the platform and audit shard pickers
