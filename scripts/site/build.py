@@ -9,6 +9,8 @@ sitemap.xml (every page in every language, with hreflang alternates). The home p
 are copied from docs/site-src/screenshots/<folder>/ to docs/site/assets/screenshots/<folder>/ (<folder> is the
 lower-cased language code, "en" included); their width and height attributes are read from the WebP files.
 Other static files (style.css, favicon.ico, the rest of assets/) live in docs/site/ directly and are not touched.
+The home page hero shows assets/watch-reader-<folder>.webp in a language whose file is there, else the English
+assets/watch-reader.webp (WATCH_SIZE; see watch_image()).
 
 Index pages are addressed by their folder (https://folito.app/, https://folito.app/es/), never by
 index.html: canonical and hreflang URLs, the sitemap and internal links all use that form, and GitHub Pages
@@ -60,6 +62,10 @@ PAGES = ["index", "privacy", "support"]
 
 # The home page's App Store screenshots, in order; the alt text of SCREENSHOTS[i] is index.shot<i+1>_alt.
 SCREENSHOTS = ["01-hero", "02-lookup", "03-send", "04-typography", "05-progress"]
+# The home page hero: the watch reader, 422 x 514 (docs/appstore/SCREENSHOTS.md, "The website's watch image").
+# English shows docs/site/assets/watch-reader.webp; another language shows watch-reader-<folder>.webp from the
+# same folder once that file exists, else the English one (see watch_image()).
+WATCH_SIZE = (422, 514)
 SITE_URL = "https://folito.app/"
 DEVELOPER = "Xabier Lahuerta"
 SHARE_IMAGE = SITE_URL + "assets/icon-512.png"
@@ -214,6 +220,23 @@ def webp_size(data: bytes) -> tuple[int, int]:
     if chunk == b"VP8X":
         return (int.from_bytes(data[24:27], "little") + 1, int.from_bytes(data[27:30], "little") + 1)
     raise ValueError(f"unknown WebP chunk {chunk!r}")
+
+
+def watch_image(lang: str, assets: Path | None = None) -> str:
+    """The home page hero's watch screen, relative to the site root: assets/watch-reader-<folder>.webp when that
+    language's capture is in docs/site/assets/ (English, and any language without one, use
+    assets/watch-reader.webp). The file must be WATCH_SIZE, the size the hero's <img> and CSS are made for."""
+    assets = OUT / "assets" if assets is None else assets
+    if lang != LANGUAGES[0]:
+        name = f"watch-reader-{shots_folder(lang)}.webp"
+        path = assets / name
+        if path.exists():
+            size = webp_size(path.read_bytes())
+            if size != WATCH_SIZE:
+                raise SystemExit(f"{path.relative_to(REPO) if path.is_relative_to(REPO) else path}: "
+                                 f"{size[0]} x {size[1]}, expected {WATCH_SIZE[0]} x {WATCH_SIZE[1]}")
+            return f"assets/{name}"
+    return "assets/watch-reader.webp"
 
 
 def screenshot_files() -> dict[Path, bytes]:
@@ -376,7 +399,11 @@ def build_page(lang: str, page: str, strings: dict[str, dict[str, str]], templat
         "scripts": "\n".join(scripts),
         "cta": call_to_action(s),
         "screenshots": screenshots(lang, s, root, files),
+        "watch_image": watch_image(lang),
     })
+    # The alt text names the book on screen: the language's own sample book once its capture is in.
+    if values["watch_image"] != "assets/watch-reader.webp":
+        values["index.watch_label"] = s["index.watch_label_own"]
     values["content"] = render(templates[page].rstrip("\n"), values, f"{page}.html ({lang})")
     return render(templates["_layout"], values, f"_layout.html ({lang}, {page})")
 
@@ -498,6 +525,8 @@ def validate(outputs: dict[Path, str | bytes]) -> list[str]:
             src = dict(ATTR.findall(tag)).get("src", "")
             if "assets/screenshots/" in src and (path.parent / src).resolve() not in outputs:
                 problems.append(f"{where}: image {src} is not generated")
+            if "assets/watch-reader" in src and not (path.parent / src).resolve().exists():
+                problems.append(f"{where}: image {src} is not in docs/site/assets/")
         hreflangs = []
         for tag in LINK_TAG.findall(page_text):
             attrs = dict(ATTR.findall(tag))

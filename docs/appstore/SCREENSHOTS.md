@@ -85,14 +85,17 @@ It writes `<out>/<lang>/6.9/` (1320 × 2868) and `<out>/<lang>/6.3/` (1206 × 26
 
 ### The website's watch image
 
-The home page hero (`docs/site-src/templates/index.html`) shows `en/watch/watch-1-reader.png` from this artifact, so the site shows the reader as it is. Only the case around it is drawn in CSS (`.watch` in `docs/site/style.css`). It lives in `docs/site/assets/watch-reader.webp` (lossless WebP, 422 × 514; `scripts/site/build.py` leaves `docs/site/assets/` as it is). To refresh it after the reader changes:
+The home page hero (`docs/site-src/templates/index.html`) shows the real watch reader just opened at the start of chapter 1 of the sample book: top bar showing (back button, time, book title, chapters button) above the chapter heading, 422 × 514 (the App Store watch simulator, Apple Watch Ultra 3 (49mm)). Only the case around it is drawn in CSS (`.watch` in `docs/site/style.css`). English shows `docs/site/assets/watch-reader.webp`; every other language shows `docs/site/assets/watch-reader-<folder>.webp` (`es`, `fr`, `de`, `it`, `pt-br`, `ja`, `zh-hans`: the site's folder names) once that file is there, and the English image until then. `scripts/site/build.py` makes that choice when it builds the pages (`watch_image()`), fails if a language file is not 422 × 514, and leaves `docs/site/assets/` itself as it is.
 
-1. Download `app-store-screenshots` from the latest successful *macOS* run on `main` (or a run of a PR labelled `screenshots`) and look at `en/watch/watch-1-reader.png`: the text should be the opening of the chapter with the time above it and no top bar.
-2. Convert it without loss and replace the file:
-   `python3 -c "from PIL import Image; Image.open('watch-1-reader.png').convert('RGB').save('docs/site/assets/watch-reader.webp', lossless=True, method=6)"`
-3. If the size changed, update `width` and `height` on the `<img class="screen">` in the template, run `python3 scripts/site/build.py`, and commit `docs/site/`.
+The images come from `WatchAppStoreScreenshotTests/testReaderHero` (attachment `watch-reader-hero`), which runs only in the localized workflow below: its step "Website hero (<lang>)" passes `TEST_RUNNER_SCREENSHOT_HERO=1`; everywhere else the test is skipped, so the App Store sets do not change. To refresh them:
 
-The clock in the image is the CI runner's time (see above); the alt text (`index.watch_label` in `docs/site-src/i18n/*.json`) describes the screen, so keep it in step if the capture shows something else.
+1. Run **`app-store-localized.yml`** with the watch: `gh workflow run app-store-localized.yml --ref main -f devices=watch` (optionally `-f languages=es,fr`).
+2. Download the run's **`watch-reader-hero`** artifact: one `<lang>.png` per language (`en.png`, `es.png`, …, `pt-BR.png`, `zh-Hans.png`), 422 × 514, checked by the workflow. They are also committed as `marketing/watch-reader/<lang>.png`.
+3. Convert each without loss into its site file (English: `watch-reader.webp`; others: the lower-cased code, `pt-BR.png` → `watch-reader-pt-br.webp`):
+   `python3 -c "from PIL import Image; Image.open('es.png').convert('RGB').save('docs/site/assets/watch-reader-es.webp', lossless=True, method=6)"`
+4. Run `python3 scripts/site/build.py` (the language's `index.html` now points at its file) and commit `docs/site/`.
+
+The clock in the image is the CI runner's time (see above); the alt text (`index.watch_label` in `docs/site-src/i18n/*.json`) describes the screen, so keep it in step if the capture shows something else. It names the book: `index.watch_label` (*Pride and Prejudice*) while a language shows the English image, `index.watch_label_own` (the language's own sample book) once its file is in.
 
 ### Localized sets
 

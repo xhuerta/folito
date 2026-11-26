@@ -223,6 +223,31 @@ final class WatchAppStoreScreenshotTests: XCTestCase {
         app.terminate()
     }
 
+    /// `watch-reader-hero`: the website's hero image (docs/appstore/SCREENSHOTS.md, "The website's watch image"),
+    /// not an App Store frame. The reader just opened at chapter 1 of the language's sample book, top bar showing
+    /// (back button, time, book title, chapters button) above the chapter heading. The title is longer than the
+    /// bar, so watchOS scrolls it as a marquee; it rests at its first letter, which `captureWhenStill` waits for.
+    /// Runs only with `SCREENSHOT_HERO=1` (app-store-localized.yml passes `TEST_RUNNER_SCREENSHOT_HERO`, in a step
+    /// of its own); everywhere else (macos.yml's App Store set, accessibility.yml) it is skipped, so the App Store
+    /// sets stay as they are.
+    @MainActor
+    func testReaderHero() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["SCREENSHOT_HERO"] == "1",
+                          "website hero capture: only with SCREENSHOT_HERO=1 (app-store-localized.yml)")
+        let app = launch()
+        WatchUI.openReader(app)
+        let options = WatchUI.element("readerOptionsButton", in: app)
+        guard waitFor(options, hittable: true, timeout: 20) else {
+            return WatchUI.fail("The reader's top bar should show when the book opens", in: app)
+        }
+        let heading = app.descendants(matching: .any).matching(identifier: "readerBlock").element(boundBy: 0)
+        guard heading.exists, heading.frame.minY < app.windows.firstMatch.frame.midY else {
+            return WatchUI.fail("The reader should open at the start of chapter 1 (the heading near the top)", in: app)
+        }
+        captureWhenStill("watch-reader-hero")
+        app.terminate()
+    }
+
     @MainActor
     func testSepiaReader() {
         let app = launch(["-UITestingAppStoreSepia"])
