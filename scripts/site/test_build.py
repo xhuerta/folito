@@ -145,6 +145,17 @@ class SiteBuildTests(unittest.TestCase):
             root = "../" if build.folder(lang) else ""
             self.assertEqual(attrs.get("src"), f"{root}assets/{expected}", lang)
 
+    def test_watch_hero_alt_text_names_the_seed_book(self) -> None:
+        # The language's own hero (WatchAppStoreScreenshotTests/testReaderHero) opens the book of its App Store
+        # seed (AppStoreSeeds/<lang>.json, scripts/make_appstore_seeds.py): its alt text must name that book.
+        seeds = build.REPO / "AppStoreSeeds"
+        for lang in build.LANGUAGES:
+            title = json.loads((seeds / f"{lang}.json").read_text(encoding="utf-8"))["sample"]["title"]
+            label = build.load_strings()[lang]["index.watch_label_own"].casefold()
+            # A leading article may be elided in the sentence ("I promessi sposi" -> "dei Promessi sposi").
+            names = {title.casefold(), title.split(" ", 1)[-1].casefold()}
+            self.assertTrue(any(n in label for n in names), f"{lang}: index.watch_label_own does not name {title!r}")
+
     def test_watch_image_uses_a_language_file_only_when_present(self) -> None:
         english = (OUT / "assets" / "watch-reader.webp").read_bytes()
         with tempfile.TemporaryDirectory() as tmp:

@@ -65,16 +65,16 @@ final class ComplicationSnapshotTests: XCTestCase {
     /// language: the current book of the App Store set, i.e. the seeded sample book (AppStoreSeeds/<lang>.json
     /// `sample`, `shortTitle`; WatchApp/Support/UITestingSupport.swift seeds it newest and 27 % read), so the
     /// complication matches the iPhone book-details frame. Short title (it must fit without being cut) and the
-    /// first chapter's title (`complication.chapterTitle`, abridged where it is a long sentence).
+    /// first chapter's title (`complication.chapterTitle`; every seed book has a short one).
     static let appStoreBooks: [String: (title: String, chapter: String)] = [
         "en": ("Pride and Prejudice", "Chapter I"), // i18n-ignore: App Store fixture
-        "es": ("Don Quijote", "Capítulo primero"), // i18n-ignore: App Store fixture
-        "fr": ("Les Misérables", "Chapitre I"), // i18n-ignore: App Store fixture
+        "es": ("Niebla", "I"), // i18n-ignore: App Store fixture
+        "fr": ("Germinal", "I"), // i18n-ignore: App Store fixture
         "de": ("Die Verwandlung", "I"), // i18n-ignore: App Store fixture
         "it": ("I promessi sposi", "Capitolo primo"), // i18n-ignore: App Store fixture
         "pt-BR": ("Dom Casmurro", "I. Do titulo."), // i18n-ignore: App Store fixture
-        "ja": ("吾輩は猫である", "一"), // i18n-ignore: App Store fixture
-        "zh-Hans": ("狂人日记", "一"), // i18n-ignore: App Store fixture
+        "ja": ("銀河鉄道の夜", "一、午后の授業"), // i18n-ignore: App Store fixture
+        "zh-Hans": ("阿Q正传", "第一章\u{3000}序"), // i18n-ignore: App Store fixture
     ]
 
     /// Reading progress of the seeded sample book (UITestingSupport.seedAppStore), as on the iPhone screenshots.

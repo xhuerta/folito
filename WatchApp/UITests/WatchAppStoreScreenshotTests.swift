@@ -289,13 +289,21 @@ final class WatchAppStoreScreenshotTests: XCTestCase {
         let paragraph = app.descendants(matching: .any).matching(identifier: "readerBlock").element(boundBy: seed.lookupBlock)
         XCTAssertTrue(paragraph.waitForExistence(timeout: 5), "paragraph \(seed.lookupBlock) missing")
         let next = WatchUI.element("nextWordButton", in: app)
-        // Tapping a paragraph opens the word picker on the tapped word: tap its first word (top leading corner).
-        // A paragraph below the screen is scrolled to first; that hides the bar, and the first tap then only
-        // shows it again, so tap up to three times.
+        // Tapping a paragraph opens the word picker on the tapped word. Tap the first line of the paragraph that
+        // is on screen, a fixed distance into it: a fraction of its height lands several lines down in a long
+        // paragraph, and a paragraph that starts above the screen must not be tapped under the clock band or
+        // the bar (both happened: fr tapped past "plaine", zh-Hans tapped the clock band). A paragraph below the
+        // screen is scrolled to first; that hides the bar, and the first tap then only shows it again. The
+        // bar hides again 3 s after such a tap (`BarAutoHide.tapRevealDuration`), so the next tap must come
+        // sooner, or it only shows the bar once more (zh-Hans failed so with 4 s between taps): wait 1.2 s.
         WatchUI.scrollToHittable(paragraph, in: app)
-        for _ in 0..<3 where !next.exists {
-            paragraph.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.04)).tap()
-            _ = next.waitForExistence(timeout: 4)
+        let window = app.windows.firstMatch
+        for attempt in 0..<4 where !next.exists {
+            let frame = paragraph.frame
+            let y = min(max(frame.minY + 8, window.frame.minY + 72), frame.maxY - 4)
+            window.coordinate(withNormalizedOffset: .zero)
+                .withOffset(CGVector(dx: frame.minX + 8 - window.frame.minX, dy: y - window.frame.minY)).tap()
+            _ = next.waitForExistence(timeout: attempt == 3 ? 4 : 1.2)
         }
         guard next.exists else { return WatchUI.fail("word picker did not open", in: app) }
 
@@ -305,8 +313,18 @@ final class WatchAppStoreScreenshotTests: XCTestCase {
         func onWord() -> Bool {
             ((cursor.value as? String) ?? "").range(of: word, options: [.caseInsensitive]) != nil
         }
+        // The picker opens on the tapped word, which can be past the one to look up (a paragraph that starts
+        // above the screen): search backwards to the paragraph's first word, then forwards. The Spanish word
+        // ("paraguas") is the 83rd word of its paragraph: allow some margin above that.
+        let previous = WatchUI.element("previousWordButton", in: app)
         var steps = 0
-        while steps < 80 && !onWord() && next.isEnabled {
+        while steps < 120 && !onWord() && previous.exists && previous.isEnabled {
+            previous.tap()
+            steps += 1
+            usleep(300_000)
+        }
+        steps = 0
+        while steps < 120 && !onWord() && next.isEnabled {
             next.tap()
             steps += 1
             usleep(300_000)

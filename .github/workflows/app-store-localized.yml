@@ -13,7 +13,8 @@ name: App Store screenshots (localized)
 # kept 3 days); the `app-store-screenshots` job checks all of them
 # together (sizes, one watch size across languages) and uploads the merged set as `app-store-screenshots-all`.
 # With the watch, each language also captures the website's hero image (the reader just opened, top bar showing;
-# not an App Store frame), collected as `watch-reader-hero` with one <lang>.png per language (422 x 514).
+# not an App Store frame), collected as `watch-reader-hero` with one <lang>.png per language (422 x 514), its
+# clock painted to 9:41 (scripts/ci/pin_hero_clock.py).
 #
 # Start it from the Actions tab or through the API (all inputs are plain strings):
 #   gh workflow run app-store-localized.yml --ref <branch> -f languages="en,es,fr,de,it,pt-BR,ja,zh-Hans" -f devices="iphone,watch"
@@ -351,6 +352,24 @@ jobs:
           for l in $(echo '${{ needs.plan.outputs.languages }}' | tr -d '[]" ' | tr , ' '); do
             [ -f "watch-reader-hero/$l.png" ] || echo "::warning::no website hero for $l (see the step 'Website hero ($l)')"
           done
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: repo
+
+      # The hero shows the time in its top bar. simctl cannot override the watchOS status bar (see
+      # docs/appstore/SCREENSHOTS.md), so the captures carry the runner's time: paint 9:41 over it, as the
+      # composed App Store slides paint 10:09 (scripts/compose_appstore_screenshots.py). Inter is the font
+      # that script prefers for the clock (else Noto Sans / DejaVu Sans, preinstalled).
+      - name: Set the clock to 9:41
+        run: |
+          shopt -s nullglob
+          files=(watch-reader-hero/*.png)
+          [ ${#files[@]} -gt 0 ] || { echo "no hero images"; exit 0; }
+          sudo apt-get update -q > /dev/null && sudo apt-get install -y -q --no-install-recommends python3-pil fonts-inter > /dev/null \
+            || echo "::warning::apt-get failed: the clock uses another installed font"
+          python3 -c "import PIL" 2>/dev/null || python3 -m pip install --quiet --user --break-system-packages pillow
+          python3 repo/scripts/ci/pin_hero_clock.py "${files[@]}"
 
       - name: Upload the website hero images
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

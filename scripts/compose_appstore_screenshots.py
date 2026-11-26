@@ -111,6 +111,8 @@ CLOCK_ALIGN = {
     "watch-2-word-lookup": "right",
     "watch-2a-word-picker": "right",
     "watch-5-menu": "right",
+    # The website hero (scripts/ci/pin_hero_clock.py): the reader's top bar, time centred above the title.
+    "watch-reader-hero": "center",
 }
 
 NO_LINE_START = set("、。，．・：；！？）」』》〉”’ー々ぁぃぅぇぉっゃゅょァィゥェォッャュョ,.:;!?)")
@@ -275,8 +277,8 @@ def draw_watch(canvas, shot, cx, y, screen_w, strap_to=None, strap_top=0):
 
 # ---------------------------------------------------------------- raw capture fixes
 
-def fix_watch_clock(img, name):
-    """Cover the CI runner's time in the watch status area with CLOCK_TEXT."""
+def fix_watch_clock(img, name, text=CLOCK_TEXT):
+    """Cover the CI runner's time in the watch status area with `text` (CLOCK_TEXT for the App Store slides)."""
     img = img.convert("RGB")
     align = CLOCK_ALIGN[name]
     w = img.width
@@ -311,10 +313,10 @@ def fix_watch_clock(img, name):
         bb = f.getbbox("0123456789")
         size = max(8, round(size * target / (bb[3] - bb[1])))
     f, _faux = font("clock", size)
-    bb = f.getbbox(CLOCK_TEXT)
+    bb = f.getbbox(text)
     tw = bb[2] - bb[0]
     tx = (bx0 + bx1 + 1) / 2 - tw / 2 if align == "center" else bx1 + 1 - tw
-    d.text((tx - bb[0], by0 - f.getbbox("0")[1]), CLOCK_TEXT, font=f, fill=color)
+    d.text((tx - bb[0], by0 - f.getbbox("0")[1]), text, font=f, fill=color)
     if name in ("watch-1-reader", "watch-4-sepia"):
         hide_cut_line(img, by1 + 4, bg, sepia)
     return img

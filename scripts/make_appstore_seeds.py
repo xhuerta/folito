@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
-"""Build the per-language App Store screenshot seeds (AppStoreSeeds/<lang>.json) from docs/samples-src/.
+"""Build the per-language App Store screenshot seeds (AppStoreSeeds/<lang>.json).
 
 The localized screenshot suites (docs/appstore/SCREENSHOTS.md) seed the iPhone and watch apps from these files,
 in Debug builds only: the UI test bundles carry the folder and pass one file to the app in UITESTING_APPSTORE_SEED.
 Each file holds:
 
-* the sample book of that language (the text the iPhone app bundles as sample-<lang>.epub, read from
-  docs/samples-src/<lang>.txt, without the closing "about this sample" chapter and without a chapter that has
-  no heading before the first one, so the reader opens at chapter 1);
+* the book the screenshots open, the "sample" of the seed: a public-domain classic of that language with a
+  short title and a short first chapter heading, like Pride and Prejudice ("Chapter I"), because the watch
+  reader and the website hero show both. Where the app's bundled sample (docs/samples-src/<lang>.txt, the text
+  of sample-<lang>.epub) has a long title or heading (Don Quijote: "Capítulo primero. Que trata de la
+  condición y ejercicio..."), the text comes from docs/appstore/seed-texts/<lang>.txt instead, in the same
+  format (no closing "about this sample" chapter there). A chapter that has no heading before the first one
+  is dropped, so the reader opens at chapter 1;
 * three more public-domain titles for the Library (metadata only: their text is the sample text repeated, so
   the iPhone Library shows plausible sizes; the English set uses the full texts of iOSApp/UITests/AppStoreBooks);
 * the word the word-lookup screenshot looks up, where it is, and a four-word sample dictionary written for the
@@ -29,6 +33,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SOURCE_DIR = ROOT / "docs" / "samples-src"
+# Screenshot-only texts, used instead of the bundled sample where that has a long title or chapter heading.
+SEED_TEXT_DIR = ROOT / "docs" / "appstore" / "seed-texts"
 OUTPUT_DIR = ROOT / "AppStoreSeeds"
 
 # Same order and set as scripts/samples/build_samples.py.
@@ -47,7 +53,8 @@ def entry(word, pronunciation, pos, senses, forms=()):
 # whether the sepia capture opens mid chapter 2 (else a later page of chapter 1), and the dictionary.
 # `tocFormat` (optional) words the table-of-contents label of a chapter whose heading is a bare numeral: a lone
 # "一" in the watch's chapter list or complication reads as a dash, so the TOC says "第一章" while the page
-# keeps the book's own heading.
+# keeps the book's own heading. No language needs it at present: the seed books' headings are numbered words
+# ("一、午后の授業", "第一章　序").
 LOCALES = {
     "en": {
         "appleLanguage": "en", "appleLocale": "en_US", "shortTitle": "Pride and Prejudice",
@@ -71,37 +78,37 @@ LOCALES = {
         ],
     },
     "es": {
-        "appleLanguage": "es", "appleLocale": "es_ES", "shortTitle": "Don Quijote",
+        "appleLanguage": "es", "appleLocale": "es_ES", "shortTitle": "Niebla",
         "library": [("La Regenta", "Leopoldo Alas «Clarín»", 0x8E3B46, None),
                     ("Marianela", "Benito Pérez Galdós", 0x2E7D6B, None),
-                    ("Lazarillo de Tormes", "Anónimo", 0xC9822B, None)],
-        "word": "hidalgo", "probe": "noble de linaje", "sepiaChapter2": True,
+                    ("Don Quijote de la Mancha", "Miguel de Cervantes", 0xC9822B, None)],
+        "word": "paraguas", "probe": "resguardarse de la lluvia", "sepiaChapter2": True,
         "dictionary": [
-            entry("hidalgo", "/iˈðal.ɣo/", "Sustantivo", [
-                ("Persona que por su sangre es de una clase noble de linaje, sin título.", "Vivía un hidalgo de los de lanza en astillero."),
-                "Persona de ánimo generoso y noble."], ["hidalgos", "hidalga", "hidalgas"]),
-            entry("lugar", "/luˈɣaɾ/", "Sustantivo", [
-                "Porción de espacio que ocupa o puede ocupar algo.",
-                "Población pequeña, menor que una villa."], ["lugares"]),
-            entry("lanza", "/ˈlan.θa/", "Sustantivo", ["Arma de asta larga con una punta de hierro aguda y cortante."], ["lanzas"]),
-            entry("rocín", "/roˈθin/", "Sustantivo", ["Caballo de mala traza, flaco y de poca alzada."], ["rocines"]),
+            entry("paraguas", "/paˈɾa.ɣwas/", "Sustantivo", [
+                ("Utensilio portátil para resguardarse de la lluvia, formado por un bastón y una tela que se extiende sobre varillas.",
+                 "Abrió el paraguas por fin."),
+                "Persona o cosa que protege o encubre a otra."]),
+            entry("llover", "/ʎoˈβeɾ/", "Verbo", ["Caer agua de las nubes."], ["llovía", "llueve", "lloviendo"]),
+            entry("orvallo", "/oɾˈβa.ʎo/", "Sustantivo", ["Llovizna menuda y continua."], ["orvallos"]),
+            entry("niebla", "/ˈnje.βla/", "Sustantivo", [
+                "Nube muy baja, en contacto con la tierra, que dificulta la visión.",
+                "Confusión u oscuridad que no deja ver con claridad un asunto."], ["nieblas"]),
         ],
     },
     "fr": {
-        "appleLanguage": "fr", "appleLocale": "fr_FR", "shortTitle": "Les Misérables",
+        "appleLanguage": "fr", "appleLocale": "fr_FR", "shortTitle": "Germinal",
         "library": [("Madame Bovary", "Gustave Flaubert", 0x6A4C93, None),
                     ("Le Comte de Monte-Cristo", "Alexandre Dumas", 0x1F5F8B, None),
-                    ("Germinal", "Émile Zola", 0x7A5C2E, None)],
-        "word": "évêque", "probe": "diocèse", "sepiaChapter2": True,
+                    ("Les Misérables", "Victor Hugo", 0x7A5C2E, None)],
+        "word": "plaine", "probe": "pays plat", "sepiaChapter2": True,
         "dictionary": [
-            entry("évêque", "/e.vɛk/", "Nom", [
-                ("Membre du clergé qui a la charge d’un diocèse.", "Il était évêque de Digne."),
-                "Dignitaire placé à la tête d’une Église chrétienne locale."], ["évêques"]),
-            entry("vieillard", "/vjɛ.jaʁ/", "Nom", ["Homme très âgé."], ["vieillards"]),
-            entry("siège", "/sjɛʒ/", "Nom", [
-                "Meuble fait pour s’asseoir.",
-                "Lieu où réside une autorité, une administration ; diocèse d’un évêque."], ["sièges"]),
-            entry("détail", "/de.taj/", "Nom", ["Élément secondaire d’un ensemble ; petite circonstance."], ["détails"]),
+            entry("plaine", "/plɛn/", "Nom", [
+                ("Grande étendue de pays plat ou faiblement ondulé.", "Dans la plaine rase, sous la nuit sans étoiles."),
+                "Étendue sans relief au fond de la mer."], ["plaines"]),
+            entry("nuit", "/nɥi/", "Nom", ["Temps pendant lequel le soleil reste sous l’horizon."], ["nuits"]),
+            entry("encre", "/ɑ̃kʁ/", "Nom", ["Liquide coloré dont on se sert pour écrire, dessiner ou imprimer."], ["encres"]),
+            entry("betterave", "/bɛ.tʁav/", "Nom", [
+                "Plante cultivée pour sa racine charnue, dont on tire du sucre ou qui nourrit le bétail."], ["betteraves"]),
         ],
     },
     "de": {
@@ -154,31 +161,31 @@ LOCALES = {
         ],
     },
     "ja": {
-        "appleLanguage": "ja", "appleLocale": "ja_JP", "shortTitle": "吾輩は猫である",
+        "appleLanguage": "ja", "appleLocale": "ja_JP", "shortTitle": "銀河鉄道の夜",
         "library": [("坊っちゃん", "夏目漱石", 0x2F6F9F, None),
-                    ("こころ", "夏目漱石", 0x8B3A3A, None),
+                    ("吾輩は猫である", "夏目漱石", 0x8B3A3A, None),
                     ("羅生門", "芥川龍之介", 0x4B5D3A, None)],
-        "word": "猫", "probe": "ペット", "sepiaChapter2": False, "tocFormat": "第{}章",
+        "word": "川", "probe": "流れる", "sepiaChapter2": True,
         "dictionary": [
-            entry("猫", "ねこ", "名詞", [
-                ("ネコ科の哺乳類。古くからペットとして飼われる。", "吾輩は猫である。"),
-                "三味線の別称。"]),
-            entry("名前", "なまえ", "名詞", ["人や物を他と区別して呼ぶための語。"]),
-            entry("吾輩", "わがはい", "代名詞", ["一人称の代名詞。尊大な言い方。"]),
-            entry("記憶", "きおく", "名詞", ["過去の物事を忘れずに覚えていること。また、その内容。"]),
+            entry("川", "かわ", "名詞", [
+                ("地表に降った雨や湧き水が集まって、低い方へ流れる水の道。", "そういうふうに川だと云われたり"),
+                "（「天の川」の形で）銀河。"]),
+            entry("星", "ほし", "名詞", ["夜空に小さく光って見える天体。太陽と月を除いていう。"]),
+            entry("銀河", "ぎんが", "名詞", ["晴れた夜空に帯のように見える、無数の星の集まり。天の川。"]),
+            entry("先生", "せんせい", "名詞", ["学校などで、学問や技芸を教える人。教師。"]),
         ],
     },
     "zh-Hans": {
-        "appleLanguage": "zh-Hans", "appleLocale": "zh_CN", "shortTitle": "狂人日记",
-        "library": [("阿Q正传", "鲁迅", 0x8C2D2D, None),
+        "appleLanguage": "zh-Hans", "appleLocale": "zh_CN", "shortTitle": "阿Q正传",
+        "library": [("狂人日记", "鲁迅", 0x8C2D2D, None),
                     ("红楼梦", "曹雪芹", 0xA0522D, None),
                     ("西游记", "吴承恩", 0x2D6A8C, None)],
-        "word": "月光", "probe": "月亮", "sepiaChapter2": True, "tocFormat": "第{}节",
+        "word": "文章", "probe": "单篇作品", "sepiaChapter2": True,
         "dictionary": [
-            entry("月光", "yuèguāng", "名词", [("月亮的光。", "今天晚上，很好的月光。")]),
-            entry("晚上", "wǎnshang", "名词", ["太阳落山以后到深夜以前的时间；泛指夜里。"]),
-            entry("精神", "jīngshen", "名词", ["表现出来的活力。", "人的意识、思维和一般心理状态。"]),
-            entry("今天", "jīntiān", "名词", ["说话时的这一天。"]),
+            entry("文章", "wénzhāng", "名词", [("篇幅不很长的单篇作品。", "然而要做这一篇速朽的文章"), "泛指著作。"]),
+            entry("名目", "míngmù", "名词", ["事物的名称。"]),
+            entry("困难", "kùnnan", "名词", ["工作、生活中遇到的不易解决的问题或障碍。"]),
+            entry("正传", "zhèngzhuàn", "名词", ["为人物立的正式传记。"]),
         ],
     },
 }
@@ -188,8 +195,16 @@ READ = [0.43, 0.78, 0.12]
 REPEAT = [3, 6, 2]
 
 
+def source(lang: str) -> tuple[Path, bool]:
+    """The text a language's seed is built from, and whether it is the bundled sample (which ends with an
+    "about this sample" chapter)."""
+    own = SEED_TEXT_DIR / f"{lang}.txt"
+    return (own, False) if own.exists() else (SOURCE_DIR / f"{lang}.txt", True)
+
+
 def parse(lang: str) -> dict:
-    text = (SOURCE_DIR / f"{lang}.txt").read_text(encoding="utf-8")
+    path, bundled = source(lang)
+    text = path.read_text(encoding="utf-8")
     head, body = text.split("\n---\n", 1)
     meta = dict(line.split(": ", 1) for line in head.splitlines() if ": " in line)
     chapters: list[dict] = []
@@ -205,7 +220,8 @@ def parse(lang: str) -> dict:
         if not chapters:
             chapters.append({"title": None, "paragraphs": []})
         chapters[-1]["paragraphs"].append(line.replace("_", ""))
-    chapters = chapters[:-1]  # the closing "about this sample" chapter
+    if bundled:
+        chapters = chapters[:-1]  # the closing "about this sample" chapter
     while chapters and chapters[0]["title"] is None:
         chapters = chapters[1:]  # a preface before chapter 1
     return {"meta": meta, "chapters": chapters}
